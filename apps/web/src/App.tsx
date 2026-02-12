@@ -187,6 +187,10 @@ function App() {
           <p className="canvas-hint secondary-hint">
             Double-click em container com drilldown para abrir Component View.
           </p>
+        ) : currentView.kind === 'component' ? (
+          <p className="canvas-hint secondary-hint">
+            Double-click em componente com drilldown para abrir Hex View.
+          </p>
         ) : null}
         <DiagramCanvas />
       </main>

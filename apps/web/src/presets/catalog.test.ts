@@ -11,6 +11,7 @@ describe('preset catalog', () => {
     expect(nodePresets.length).toBeGreaterThan(0)
     expect(nodePresetsByCategory.C4.length).toBeGreaterThan(0)
     expect(nodePresetsByCategory.Infra.length).toBeGreaterThan(0)
+    expect(nodePresetsByCategory.Hex.length).toBeGreaterThan(0)
   })
 
   it('resolves node and tech preset for container', () => {

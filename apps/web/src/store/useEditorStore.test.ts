@@ -79,6 +79,15 @@ describe('useEditorStore', () => {
     expect(updated.currentViewId).toBe('v_components_api')
     expect(updated.viewHistory).toEqual(['v_container'])
 
+    updated.openDrilldown('n_comp_app')
+    updated = useEditorStore.getState()
+    expect(updated.currentViewId).toBe('v_hex_api')
+    expect(updated.viewHistory).toEqual(['v_container', 'v_components_api'])
+
+    updated.navigateBack()
+    updated = useEditorStore.getState()
+    expect(updated.currentViewId).toBe('v_components_api')
+
     updated.navigateBack()
     updated = useEditorStore.getState()
     expect(updated.currentViewId).toBe('v_container')

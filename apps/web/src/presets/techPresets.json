@@ -7,6 +7,12 @@
   { "id": "kafka", "label": "Kafka", "iconKey": "kafka" },
   { "id": "nginx", "label": "NGINX", "iconKey": "gateway" },
   { "id": "oauth2", "label": "OAuth2", "iconKey": "security" },
+  { "id": "domain", "label": "Domain", "iconKey": "component" },
+  { "id": "application-service", "label": "Application Service", "iconKey": "component" },
+  { "id": "port-in", "label": "Port In", "iconKey": "gateway" },
+  { "id": "port-out", "label": "Port Out", "iconKey": "queue" },
+  { "id": "adapter-in", "label": "Adapter In", "iconKey": "gateway" },
+  { "id": "adapter-out", "label": "Adapter Out", "iconKey": "queue" },
   { "id": "redis", "label": "Redis", "iconKey": "cache" },
   { "id": "elasticsearch", "label": "Elasticsearch", "iconKey": "search" }
 ]

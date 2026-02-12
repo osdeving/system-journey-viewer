@@ -1,5 +1,6 @@
 [
   { "id": "http", "label": "HTTP" },
+  { "id": "internal-call", "label": "Internal Call" },
   { "id": "grpc", "label": "gRPC" },
   { "id": "kafka-event", "label": "Kafka Event" },
   { "id": "sql", "label": "SQL" },

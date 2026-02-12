@@ -78,5 +78,65 @@
     "iconKey": "security",
     "defaultWidth": 210,
     "defaultHeight": 100
+  },
+  {
+    "id": "domain",
+    "kind": "domain",
+    "label": "Domain",
+    "category": "Hex",
+    "defaultTechId": "domain",
+    "iconKey": "component",
+    "defaultWidth": 240,
+    "defaultHeight": 130
+  },
+  {
+    "id": "application-service",
+    "kind": "application-service",
+    "label": "Application Service",
+    "category": "Hex",
+    "defaultTechId": "application-service",
+    "iconKey": "component",
+    "defaultWidth": 230,
+    "defaultHeight": 120
+  },
+  {
+    "id": "port-in",
+    "kind": "port-in",
+    "label": "Port In",
+    "category": "Hex",
+    "defaultTechId": "port-in",
+    "iconKey": "gateway",
+    "defaultWidth": 200,
+    "defaultHeight": 90
+  },
+  {
+    "id": "port-out",
+    "kind": "port-out",
+    "label": "Port Out",
+    "category": "Hex",
+    "defaultTechId": "port-out",
+    "iconKey": "queue",
+    "defaultWidth": 200,
+    "defaultHeight": 90
+  },
+  {
+    "id": "adapter-in",
+    "kind": "adapter-in",
+    "label": "Adapter In",
+    "category": "Hex",
+    "defaultTechId": "adapter-in",
+    "iconKey": "gateway",
+    "defaultWidth": 210,
+    "defaultHeight": 100
+  },
+  {
+    "id": "adapter-out",
+    "kind": "adapter-out",
+    "label": "Adapter Out",
+    "category": "Hex",
+    "defaultTechId": "adapter-out",
+    "iconKey": "queue",
+    "defaultWidth": 210,
+    "defaultHeight": 100
   }
 ]

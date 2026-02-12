@@ -19,4 +19,20 @@ describe('workspaceSchema', () => {
 
     expect(parsed.success).toBe(false)
   })
+
+  it('defaults theme to light when missing', () => {
+    const workspace = createDefaultWorkspace()
+    const parsed = workspaceSchema.safeParse({
+      ...workspace,
+      settings: {
+        grid: workspace.settings.grid,
+        snap: workspace.settings.snap,
+      },
+    })
+
+    expect(parsed.success).toBe(true)
+    if (parsed.success) {
+      expect(parsed.data.settings.theme).toBe('light')
+    }
+  })
 })

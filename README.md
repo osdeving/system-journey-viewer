@@ -7,6 +7,8 @@ Editor visual C4 + Journeys com Player, Drill-down, HexView, DSL LITE e export.
 - O app inicia com um workspace de showcase completo (Container, Component e Hex com jornadas).
 - Use `Showcase` na topbar para recarregar o cenário de demonstração.
 - Use o toggle `Dark` na topbar para alternar tema claro/escuro.
+- O player exibe rastro iluminado com fade temporal nas comunicações.
+- A numeração da jornada aparece à esquerda do nome da comunicação.
 
 ## Stack
 

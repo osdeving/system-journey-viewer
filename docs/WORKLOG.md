@@ -22,6 +22,11 @@
     - drill-down encadeado Container → Component → Hex.
   - Ação rápida `Showcase` na topbar para recarregar o cenário de demonstração.
   - Ajustes de testes para lidar com workspace inicial já populado.
+- Pós-roadmap (`tmp/ai/20260212-0805-dark-theme-showcase`, continuação):
+  - Rastro iluminado no player implementado com canvas overlay e fade temporal por `requestAnimationFrame`.
+  - Trail decai com alpha e é removido ao zerar para evitar acúmulo.
+  - Numeração da jornada incluída no texto da comunicação (prefixo à esquerda do label: `N. label`).
+  - Compatibilidade retro com snapshots antigos: `theme` default em schema quando ausente.
 
 ### Validação executada
 

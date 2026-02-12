@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import type { PointerEvent as ReactPointerEvent } from 'react'
 import confetti from 'canvas-confetti'
 import './App.css'
 import { DiagramCanvas } from './components/DiagramCanvas'
@@ -9,6 +10,20 @@ import { nodePresetsByCategory, protocolPresets, resolveNodePreset } from './pre
 import { useEditorStore } from './store/useEditorStore'
 
 const DEBOUNCE_SAVE_MS = 900
+const DEFAULT_LEFT_SIDEBAR_WIDTH = 240
+const DEFAULT_JOURNEY_HEIGHT = 220
+const MIN_LEFT_SIDEBAR_WIDTH = 180
+const MAX_LEFT_SIDEBAR_WIDTH = 440
+const MIN_JOURNEY_HEIGHT = 160
+const TOPBAR_HEIGHT = 80
+const MIN_CANVAS_HEIGHT = 220
+
+const viewKindLabel: Record<string, string> = {
+  'system-context': 'System Context',
+  container: 'Container',
+  component: 'Component',
+  hex: 'Hex',
+}
 
 const isTextInputTarget = (target: EventTarget | null): boolean => {
   if (!(target instanceof HTMLElement)) {
@@ -22,6 +37,15 @@ const isTextInputTarget = (target: EventTarget | null): boolean => {
 }
 
 function App() {
+  const layoutRef = useRef<HTMLDivElement | null>(null)
+  const previousViewIdRef = useRef<string | null>(null)
+  const leftResizeRef = useRef<{ pointerId: number; startX: number; startWidth: number } | null>(null)
+  const journeyResizeRef = useRef<{
+    pointerId: number
+    startY: number
+    startHeight: number
+    maxHeight: number
+  } | null>(null)
   const workspace = useEditorStore((state) => state.workspace)
   const currentViewId = useEditorStore((state) => state.currentViewId)
   const viewHistory = useEditorStore((state) => state.viewHistory)
@@ -75,6 +99,8 @@ function App() {
   const [dslText, setDslText] = useState('')
   const [dslError, setDslError] = useState<string | null>(null)
   const [exportError, setExportError] = useState<string | null>(null)
+  const [leftSidebarWidth, setLeftSidebarWidth] = useState(DEFAULT_LEFT_SIDEBAR_WIDTH)
+  const [journeyHeight, setJourneyHeight] = useState(DEFAULT_JOURNEY_HEIGHT)
 
   const selectedNode = selectedNodeId ? workspace.nodes[selectedNodeId] : undefined
   const selectedEdge = selectedEdgeId ? workspace.edges[selectedEdgeId] : undefined
@@ -89,6 +115,92 @@ function App() {
   ) as Array<(typeof workspace.journeys)[string]>
   const activeJourney = activeJourneyId ? workspace.journeys[activeJourneyId] : undefined
   const playerJourney = playerJourneyId ? workspace.journeys[playerJourneyId] : undefined
+  const currentViewModeLabel = viewKindLabel[currentView.kind] ?? currentView.kind
+  const playerModeLabel = playerIsRunning ? 'Animação' : 'Render'
+
+  const layoutStyle = useMemo(
+    () => ({
+      gridTemplateColumns: `${leftSidebarWidth}px 1fr 280px`,
+      gridTemplateRows: `${TOPBAR_HEIGHT}px 1fr ${journeyHeight}px`,
+    }),
+    [journeyHeight, leftSidebarWidth],
+  )
+
+  const activateJourneyPlayback = (journeyId: string | null) => {
+    setPlayerJourney(journeyId)
+    setPlayerRunning(Boolean(journeyId))
+  }
+
+  const onLeftSplitterPointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (event.button !== 0) {
+      return
+    }
+    leftResizeRef.current = {
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startWidth: leftSidebarWidth,
+    }
+    event.currentTarget.setPointerCapture(event.pointerId)
+  }
+
+  const onLeftSplitterPointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
+    const resize = leftResizeRef.current
+    if (!resize || resize.pointerId !== event.pointerId) {
+      return
+    }
+    const delta = event.clientX - resize.startX
+    const nextWidth = Math.max(
+      MIN_LEFT_SIDEBAR_WIDTH,
+      Math.min(MAX_LEFT_SIDEBAR_WIDTH, resize.startWidth + delta),
+    )
+    setLeftSidebarWidth(nextWidth)
+  }
+
+  const stopLeftResize = (event: ReactPointerEvent<HTMLDivElement>) => {
+    const resize = leftResizeRef.current
+    if (!resize || resize.pointerId !== event.pointerId) {
+      return
+    }
+    leftResizeRef.current = null
+    event.currentTarget.releasePointerCapture(event.pointerId)
+  }
+
+  const onJourneySplitterPointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (event.button !== 0) {
+      return
+    }
+    const layoutHeight = layoutRef.current?.getBoundingClientRect().height ?? 0
+    const maxHeight = Math.max(MIN_JOURNEY_HEIGHT, layoutHeight - TOPBAR_HEIGHT - MIN_CANVAS_HEIGHT)
+    journeyResizeRef.current = {
+      pointerId: event.pointerId,
+      startY: event.clientY,
+      startHeight: journeyHeight,
+      maxHeight,
+    }
+    event.currentTarget.setPointerCapture(event.pointerId)
+  }
+
+  const onJourneySplitterPointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
+    const resize = journeyResizeRef.current
+    if (!resize || resize.pointerId !== event.pointerId) {
+      return
+    }
+    const delta = resize.startY - event.clientY
+    const nextHeight = Math.max(
+      MIN_JOURNEY_HEIGHT,
+      Math.min(resize.maxHeight, resize.startHeight + delta),
+    )
+    setJourneyHeight(nextHeight)
+  }
+
+  const stopJourneyResize = (event: ReactPointerEvent<HTMLDivElement>) => {
+    const resize = journeyResizeRef.current
+    if (!resize || resize.pointerId !== event.pointerId) {
+      return
+    }
+    journeyResizeRef.current = null
+    event.currentTarget.releasePointerCapture(event.pointerId)
+  }
 
   useEffect(() => {
     const timeout = window.setTimeout(() => persist(), DEBOUNCE_SAVE_MS)
@@ -119,6 +231,24 @@ function App() {
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme)
   }, [theme])
+
+  useEffect(() => {
+    if (previousViewIdRef.current === null) {
+      previousViewIdRef.current = currentViewId
+      return
+    }
+    if (previousViewIdRef.current === currentViewId) {
+      return
+    }
+    previousViewIdRef.current = currentViewId
+    const fallbackJourneyId = currentView.journeyIds[0] ?? null
+    const journeyInCurrentView =
+      playerJourneyId && currentView.journeyIds.includes(playerJourneyId)
+        ? playerJourneyId
+        : fallbackJourneyId
+    setPlayerJourney(journeyInCurrentView)
+    setPlayerRunning(false)
+  }, [currentViewId, currentView.journeyIds, playerJourneyId, setPlayerJourney, setPlayerRunning])
 
   useEffect(() => {
     const onDeleteKey = (event: KeyboardEvent) => {
@@ -196,11 +326,24 @@ function App() {
   }
 
   return (
-    <div className={`app-layout ${theme === 'dark' ? 'theme-dark' : 'theme-light'}`}>
+    <div
+      ref={layoutRef}
+      className={`app-layout ${theme === 'dark' ? 'theme-dark' : 'theme-light'}`}
+      style={layoutStyle}
+    >
       <header className="topbar">
         <div>
           <h1>{workspace.workspace.name}</h1>
           <p>{breadcrumb.map((viewId) => workspace.views[viewId]?.name ?? viewId).join(' / ')}</p>
+          <div className="mode-indicators">
+            <span className={activeTool === 'connector' ? 'mode-pill mode-pill-active' : 'mode-pill'}>
+              {activeTool === 'connector' ? 'Modo: Connector' : 'Modo: Select'}
+            </span>
+            <span className="mode-pill">Camada: {currentViewModeLabel}</span>
+            <span className={playerIsRunning ? 'mode-pill mode-pill-playing' : 'mode-pill'}>
+              Player: {playerModeLabel}
+            </span>
+          </div>
         </div>
         <div className="topbar-actions">
           <button type="button" onClick={() => navigateBack()} disabled={!viewHistory.length}>
@@ -277,6 +420,22 @@ function App() {
         </div>
         {exportError ? <p className="topbar-error">{exportError}</p> : null}
       </header>
+      <div
+        className="layout-splitter layout-splitter-left"
+        style={{ left: leftSidebarWidth - 3, top: TOPBAR_HEIGHT, bottom: journeyHeight }}
+        onPointerDown={onLeftSplitterPointerDown}
+        onPointerMove={onLeftSplitterPointerMove}
+        onPointerUp={stopLeftResize}
+        onPointerCancel={stopLeftResize}
+      />
+      <div
+        className="layout-splitter layout-splitter-journey"
+        style={{ bottom: journeyHeight - 3 }}
+        onPointerDown={onJourneySplitterPointerDown}
+        onPointerMove={onJourneySplitterPointerMove}
+        onPointerUp={stopJourneyResize}
+        onPointerCancel={stopJourneyResize}
+      />
       <aside className="left-sidebar">
         <h2>Palette</h2>
         <p>Arraste para o canvas:</p>
@@ -304,7 +463,7 @@ function App() {
           <p className="canvas-hint">
             {pendingConnectionFrom
               ? `Selecione destino para conectar a partir de ${pendingConnectionFrom}${pendingConnectionPortId ? `:${pendingConnectionPortId}` : ''}`
-              : 'Arraste de uma alça para outra alça (ou clique origem/destino) para criar edge'}
+              : 'Arraste de uma alça para outra alça para criar edge'}
           </p>
         ) : null}
         {currentView.kind === 'container' ? (
@@ -406,7 +565,7 @@ function App() {
           </button>
           <select
             value={playerJourneyId ?? ''}
-            onChange={(event) => setPlayerJourney(event.target.value || null)}
+            onChange={(event) => activateJourneyPlayback(event.target.value || null)}
           >
             <option value="">Player: selecione jornada</option>
             {viewJourneys.map((journey) => (
@@ -464,7 +623,10 @@ function App() {
             <div
               key={journey.id}
               className={activeJourneyId === journey.id ? 'journey-item journey-active' : 'journey-item'}
-              onClick={() => setActiveJourney(journey.id)}
+              onClick={() => {
+                setActiveJourney(journey.id)
+                activateJourneyPlayback(journey.id)
+              }}
             >
               <span className="journey-color-dot" style={{ background: journey.colorKey }} />
               <span>{journey.name}</span>
@@ -473,6 +635,8 @@ function App() {
                 onClick={(event) => {
                   event.stopPropagation()
                   setJourneyFilter(journeyFilterId === journey.id ? null : journey.id)
+                  setActiveJourney(journey.id)
+                  activateJourneyPlayback(journey.id)
                 }}
               >
                 {journeyFilterId === journey.id ? 'Filtrando' : 'Filtrar'}

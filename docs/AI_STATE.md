@@ -25,6 +25,11 @@
 - Boundary com hit-area restrita à borda (`pointer-events: stroke`) para permitir clique em componentes atrás da área interna.
 - Rastro do player com amostragem interpolada entre frames para aparência contínua (sem “gaps” entre bolinhas em velocidades maiores).
 - Modo Connector com suporte a conexão por alça→alça (port-to-port) via arraste, incluindo preview visual da seta durante o gesto.
+- Conexão por clique em node removida no modo Connector (somente alça→alça).
+- Seleção/filtro de jornada na lista aciona automaticamente o player (autoplay) para a jornada clicada.
+- Troca de view (drilldown/back/goToView) interrompe player ativo e reposiciona jornada do player para a camada atual.
+- Layout com splitters para redimensionar painel de jornadas (vertical) e toolbox (largura).
+- Indicadores visuais de modo exibindo ferramenta ativa, camada atual e estado do player (Animação/Render).
 
 ## Próximos incrementos sugeridos
 

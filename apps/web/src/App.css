@@ -13,6 +13,7 @@
     'topbar topbar topbar'
     'left main right'
     'journey journey journey';
+  position: relative;
 }
 
 .topbar {
@@ -36,6 +37,34 @@
   margin: 4px 0 0;
   font-size: 13px;
   color: #475569;
+}
+
+.mode-indicators {
+  margin-top: 8px;
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.mode-pill {
+  padding: 3px 8px;
+  border-radius: 999px;
+  border: 1px solid #cbd5e1;
+  background: #fff;
+  font-size: 11px;
+  color: #334155;
+}
+
+.mode-pill-active {
+  border-color: #0ea5e9;
+  background: #e0f2fe;
+  color: #075985;
+}
+
+.mode-pill-playing {
+  border-color: #f59e0b;
+  background: #fef3c7;
+  color: #92400e;
 }
 
 .topbar-error {
@@ -120,6 +149,27 @@
 
 .toolbox-list li:active {
   cursor: grabbing;
+}
+
+.layout-splitter {
+  position: absolute;
+  z-index: 9;
+}
+
+.layout-splitter-left {
+  width: 6px;
+  cursor: col-resize;
+}
+
+.layout-splitter-journey {
+  left: 0;
+  right: 0;
+  height: 6px;
+  cursor: row-resize;
+}
+
+.layout-splitter:hover {
+  background: rgba(14, 165, 233, 0.25);
 }
 
 .canvas-panel {
@@ -485,6 +535,24 @@
   color: #cbd5e1;
 }
 
+.theme-dark .mode-pill {
+  background: #1e293b;
+  border-color: #475569;
+  color: #dbeafe;
+}
+
+.theme-dark .mode-pill-active {
+  background: #0c4a6e;
+  border-color: #38bdf8;
+  color: #e0f2fe;
+}
+
+.theme-dark .mode-pill-playing {
+  background: #78350f;
+  border-color: #f59e0b;
+  color: #fef3c7;
+}
+
 .theme-dark .left-sidebar,
 .theme-dark .right-sidebar {
   background: #0f172a;
@@ -493,6 +561,10 @@
 
 .theme-dark .canvas-panel {
   background: #0b1220;
+}
+
+.theme-dark .layout-splitter:hover {
+  background: rgba(56, 189, 248, 0.3);
 }
 
 .theme-dark .journey-drawer {

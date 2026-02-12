@@ -10,4 +10,12 @@ describe('App boundary styles', () => {
     expect(appCss).toMatch(/\.node-boundary\s*\{[^}]*fill:\s*none;[^}]*pointer-events:\s*stroke;[^}]*\}/s)
     expect(appCss).toMatch(/\.theme-dark\s+\.node-boundary\s*\{[^}]*fill:\s*none;[^}]*\}/s)
   })
+
+  it('styles mode pills and splitters for visual mode indication and resizing', () => {
+    expect(appCss).toContain('.mode-pill')
+    expect(appCss).toContain('.mode-pill-active')
+    expect(appCss).toContain('.mode-pill-playing')
+    expect(appCss).toContain('.layout-splitter-left')
+    expect(appCss).toContain('.layout-splitter-journey')
+  })
 })

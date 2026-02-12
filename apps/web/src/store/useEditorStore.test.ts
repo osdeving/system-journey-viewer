@@ -154,24 +154,47 @@ describe('useEditorStore', () => {
 
   it('supports drilldown navigation with breadcrumb history', () => {
     const state = useEditorStore.getState()
+    state.setPlayerJourney('j_c_1')
+    state.setPlayerRunning(true)
 
     state.openDrilldown('n_api')
     let updated = useEditorStore.getState()
     expect(updated.currentViewId).toBe('v_components_api')
     expect(updated.viewHistory).toEqual(['v_container'])
+    expect(updated.playerIsRunning).toBe(false)
+    expect(updated.playerJourneyId).toBe('j_comp_1')
+    expect(updated.playerStepIndex).toBe(0)
 
     updated.openDrilldown('n_comp_app')
     updated = useEditorStore.getState()
     expect(updated.currentViewId).toBe('v_hex_api')
     expect(updated.viewHistory).toEqual(['v_container', 'v_components_api'])
+    expect(updated.playerJourneyId).toBe('j_hex_1')
+    expect(updated.playerIsRunning).toBe(false)
 
     updated.navigateBack()
     updated = useEditorStore.getState()
     expect(updated.currentViewId).toBe('v_components_api')
+    expect(updated.playerJourneyId).toBe('j_comp_1')
 
     updated.navigateBack()
     updated = useEditorStore.getState()
     expect(updated.currentViewId).toBe('v_container')
     expect(updated.viewHistory).toHaveLength(0)
+    expect(updated.playerJourneyId).toBe('j_c_1')
+    expect(updated.playerIsRunning).toBe(false)
+  })
+
+  it('stops running player when switching views directly', () => {
+    const state = useEditorStore.getState()
+    state.setPlayerJourney('j_c_2')
+    state.setPlayerRunning(true)
+
+    state.goToView('v_components_api')
+    const updated = useEditorStore.getState()
+
+    expect(updated.currentViewId).toBe('v_components_api')
+    expect(updated.playerIsRunning).toBe(false)
+    expect(updated.playerJourneyId).toBe('j_comp_1')
   })
 })

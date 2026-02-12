@@ -47,6 +47,13 @@
   - Compatibilidade mantida com fluxo antigo de clique em node origem/destino no modo Connector.
   - Estado de conexão pendente evoluído para guardar também `portId` quando a origem vem de uma alça.
   - Testes unitários adicionados para conexão explícita por portas e cancelamento de conexão pendente.
+- Ajuste incremental (`tmp/ai/20260212-1000-ui-modes-splitters`):
+  - Removida criação de edge por clique em node no modo Connector (agora apenas alça→alça).
+  - Lista de jornadas passa a acionar autoplay ao clicar na jornada (seleção) ou botão de filtro.
+  - Troca de view (drilldown/back/goToView) agora para o player em execução e realinha a jornada do player para a camada atual.
+  - Adicionados indicadores visuais de modo: ferramenta ativa, camada (`Container/Component/Hex`) e estado do player (`Animação/Render`).
+  - Adicionados splitters para redimensionar toolbox (largura) e painel de jornadas (altura), diminuindo/aumentando o canvas conforme ajuste.
+  - Testes unitários atualizados para validar novo comportamento de troca de view e estado do player.
 
 ### Validação executada
 

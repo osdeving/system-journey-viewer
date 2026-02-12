@@ -214,6 +214,9 @@ const nextJourneyStepNumber = (used: number[]): number => {
   return candidate
 }
 
+const firstJourneyForView = (workspace: WorkspaceModel, viewId: string): string | null =>
+  workspace.views[viewId]?.journeyIds[0] ?? null
+
 export const useEditorStore = create<EditorState>()(
   immer((set, get) => ({
     ...getDefaultState(),
@@ -269,6 +272,7 @@ export const useEditorStore = create<EditorState>()(
     },
     replaceWorkspace: (workspace, viewId) => {
       const firstViewId = viewId ?? Object.keys(workspace.views)[0] ?? DEFAULT_VIEW_ID
+      const firstJourneyId = firstJourneyForView(workspace, firstViewId)
       set((state) => {
         state.workspace = workspace
         state.currentViewId = firstViewId
@@ -277,9 +281,9 @@ export const useEditorStore = create<EditorState>()(
         state.selectedEdgeId = null
         state.pendingConnectionFrom = null
         state.pendingConnectionPortId = null
-        state.activeJourneyId = null
+        state.activeJourneyId = firstJourneyId
         state.journeyFilterId = null
-        state.playerJourneyId = null
+        state.playerJourneyId = firstJourneyId
         state.playerIsRunning = false
         state.playerStepIndex = 0
       })
@@ -303,13 +307,18 @@ export const useEditorStore = create<EditorState>()(
         if (!targetViewId || !state.workspace.views[targetViewId]) {
           return
         }
+        const firstJourneyId = firstJourneyForView(state.workspace, targetViewId)
         state.viewHistory.push(state.currentViewId)
         state.currentViewId = targetViewId
         state.selectedNodeId = null
         state.selectedEdgeId = null
         state.pendingConnectionFrom = null
         state.pendingConnectionPortId = null
+        state.activeJourneyId = firstJourneyId
         state.journeyFilterId = null
+        state.playerJourneyId = firstJourneyId
+        state.playerIsRunning = false
+        state.playerStepIndex = 0
       })
     },
     navigateBack: () => {
@@ -318,23 +327,36 @@ export const useEditorStore = create<EditorState>()(
         if (!previousViewId || !state.workspace.views[previousViewId]) {
           return
         }
+        const firstJourneyId = firstJourneyForView(state.workspace, previousViewId)
         state.currentViewId = previousViewId
         state.selectedNodeId = null
         state.selectedEdgeId = null
         state.pendingConnectionFrom = null
         state.pendingConnectionPortId = null
+        state.activeJourneyId = firstJourneyId
         state.journeyFilterId = null
+        state.playerJourneyId = firstJourneyId
+        state.playerIsRunning = false
+        state.playerStepIndex = 0
       })
     },
     goToView: (viewId) => {
       set((state) => {
-        if (!state.workspace.views[viewId]) {
+        const view = state.workspace.views[viewId]
+        if (!view) {
           return
         }
+        const firstJourneyId = view.journeyIds[0] ?? null
         state.currentViewId = viewId
         state.selectedNodeId = null
         state.selectedEdgeId = null
+        state.pendingConnectionFrom = null
+        state.pendingConnectionPortId = null
+        state.activeJourneyId = firstJourneyId
         state.journeyFilterId = null
+        state.playerJourneyId = firstJourneyId
+        state.playerIsRunning = false
+        state.playerStepIndex = 0
       })
     },
     setActiveTool: (tool) => {
@@ -561,6 +583,7 @@ export const useEditorStore = create<EditorState>()(
         selectedEdgeId: null,
         activeTool: 'select',
         pendingConnectionFrom: null,
+        pendingConnectionPortId: null,
         activeJourneyId: DEFAULT_PLAYER_JOURNEY_ID,
         journeyFilterId: null,
         playerJourneyId: DEFAULT_PLAYER_JOURNEY_ID,

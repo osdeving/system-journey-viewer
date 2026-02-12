@@ -570,6 +570,7 @@ export const DiagramCanvas = () => {
     if (connectionDragRef.current?.pointerId === event.pointerId) {
       connectionDragRef.current = null
       setConnectionPreview(null)
+      cancelPendingConnection()
     }
     if (panStateRef.current?.pointerId === event.pointerId) {
       panStateRef.current = null
@@ -587,11 +588,7 @@ export const DiagramCanvas = () => {
     }
     event.stopPropagation()
     if (activeTool === 'connector') {
-      if (!pendingConnectionFrom) {
-        beginConnection(node.id)
-      } else {
-        connectPendingTo(node.id)
-      }
+      selectNode(node.id)
       return
     }
     selectNode(node.id)
@@ -713,6 +710,7 @@ export const DiagramCanvas = () => {
     if (drag.sourceNodeId === node.id) {
       connectionDragRef.current = null
       setConnectionPreview(null)
+      cancelPendingConnection()
       return
     }
     event.stopPropagation()

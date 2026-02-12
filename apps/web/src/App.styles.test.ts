@@ -33,4 +33,10 @@ describe('App boundary styles', () => {
     expect(appCss).toContain('.node-group-impact')
     expect(appCss).toContain('@keyframes node-impact-shake')
   })
+
+  it('contains visual styles for node shapes and color palette', () => {
+    expect(appCss).toContain('.node-shape-detail')
+    expect(appCss).toContain('.node-color-presets')
+    expect(appCss).toContain('.node-color-chip')
+  })
 })

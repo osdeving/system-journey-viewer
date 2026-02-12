@@ -23,6 +23,9 @@
 - Confete do player associado ao nó final da jornada (centro do componente + raio proporcional ao tamanho), incluindo disparo em ciclos de loop.
 - Player refinado com chegada visual ao final da seta antes do highlight do destino, impacto com “tremida” no componente alvo e fluxo tracejado animado na aresta ativa.
 - Inspector permite definir cor de preenchimento para componentes/containers (persistido no modelo).
+- Nós `db` e `queue` renderizados com formas específicas (cilindro e tubo), mantendo conectores/ports compatíveis.
+- Inspector mostra paleta com últimas 10 cores para seleção rápida de componentes/containers.
+- Showcase inicial colorizado com paleta visual para facilitar demonstração.
 - Remoção de componente por teclado (`Delete`/`Backspace`) com confirmação e aviso de impacto em jornadas conectadas.
 - Remoção de node limpa edges conectadas e passos de jornada associados.
 - Preset `boundary` com borda pontilhada e fundo transparente (incluindo tema escuro).

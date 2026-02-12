@@ -294,6 +294,13 @@
   stroke-width: 1.5;
 }
 
+.node-shape-detail {
+  fill: none;
+  stroke: rgba(15, 23, 42, 0.28);
+  stroke-width: 1.1;
+  pointer-events: none;
+}
+
 .edge {
   stroke: #64748b;
   stroke-width: 2;
@@ -375,6 +382,25 @@
 .inspector-form input[type='color'] {
   padding: 2px;
   height: 34px;
+}
+
+.node-color-presets {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.node-color-chip {
+  width: 100%;
+  height: 26px;
+  border-radius: 999px;
+  border: 1px solid rgba(15, 23, 42, 0.22);
+  cursor: pointer;
+}
+
+.node-color-chip-active {
+  border-width: 2px;
+  border-color: #0ea5e9;
 }
 
 .inspector-form select {
@@ -720,6 +746,10 @@
 .theme-dark .node-port {
   fill: #0f172a;
   stroke: #94a3b8;
+}
+
+.theme-dark .node-shape-detail {
+  stroke: rgba(148, 163, 184, 0.62);
 }
 
 .theme-dark .edge {

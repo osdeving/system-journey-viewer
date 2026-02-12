@@ -90,6 +90,12 @@
   - Inspector agora permite editar a cor de preenchimento do node via `input[type=color]`, persistindo em `node.style.fillColor`.
   - Modelo/schemas atualizados para suportar estilo de cor no node e manter compatibilidade de persistência.
   - Testes adicionados/atualizados para cobertura de estilo de node no schema/store e classes de animação CSS.
+- Ajuste incremental (`tmp/ai/20260212-1718-node-shapes-color-palette`):
+  - Nodes de banco (`kind: db`) agora usam shape de cilindro e nodes de broker/fila (`kind: queue`) usam shape de tubo/cápsula, sem quebrar portas e conectores.
+  - Detalhes visuais de shape adicionados com classe dedicada (`node-shape-detail`) e suporte para tema dark.
+  - Inspector de node ganhou paleta de “últimas 10 cores” para seleção rápida, além do color picker.
+  - Modelo/showcase atualizado com cores default em vários nodes para entregar demo visual já colorida.
+  - Testes de estilo atualizados para cobrir classes da nova paleta e detalhes de shape.
 
 ### Validação executada
 

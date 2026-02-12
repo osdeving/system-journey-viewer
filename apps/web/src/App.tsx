@@ -21,6 +21,18 @@ const MAX_LEFT_SIDEBAR_WIDTH = 440
 const MIN_JOURNEY_HEIGHT = 160
 const TOPBAR_HEIGHT = 80
 const MIN_CANVAS_HEIGHT = 220
+const DEFAULT_NODE_COLOR_PRESETS = [
+  '#ffffff',
+  '#dbeafe',
+  '#dcfce7',
+  '#fde68a',
+  '#fecaca',
+  '#fae8ff',
+  '#cffafe',
+  '#fee2e2',
+  '#e0e7ff',
+  '#fef3c7',
+]
 
 const viewKindLabel: Record<string, string> = {
   'system-context': 'System Context',
@@ -41,6 +53,9 @@ const isTextInputTarget = (target: EventTarget | null): boolean => {
   const tagName = target.tagName
   return tagName === 'INPUT' || tagName === 'TEXTAREA' || tagName === 'SELECT'
 }
+
+const isHexColor = (value?: string): boolean =>
+  /^#[\da-fA-F]{6}$/.test(value ?? '')
 
 function App() {
   const layoutRef = useRef<HTMLDivElement | null>(null)
@@ -115,6 +130,17 @@ function App() {
 
   const selectedNode = selectedNodeId ? workspace.nodes[selectedNodeId] : undefined
   const selectedEdge = selectedEdgeId ? workspace.edges[selectedEdgeId] : undefined
+  const nodeColorPresets = useMemo(() => {
+    const usedColors = Object.values(workspace.nodes)
+      .map((node) => node.style?.fillColor?.trim())
+      .filter((value): value is string => isHexColor(value))
+      .reverse()
+    const recentUnique = Array.from(new Set(usedColors))
+    return [
+      ...recentUnique,
+      ...DEFAULT_NODE_COLOR_PRESETS.filter((color) => !recentUnique.includes(color)),
+    ].slice(0, 10)
+  }, [workspace.nodes])
   const currentView = workspace.views[currentViewId]
   const breadcrumb = [...viewHistory, currentViewId]
   const viewJourneys = useMemo(
@@ -580,12 +606,29 @@ function App() {
                   id="node-color"
                   type="color"
                   value={
-                    /^#[\da-fA-F]{6}$/.test(selectedNode.style?.fillColor ?? '')
+                    isHexColor(selectedNode.style?.fillColor)
                       ? selectedNode.style?.fillColor ?? '#ffffff'
                       : '#ffffff'
                   }
                   onChange={(event) => setNodeColor(selectedNode.id, event.target.value)}
                 />
+                <label>Últimas 10 cores</label>
+                <div className="node-color-presets">
+                  {nodeColorPresets.map((color) => (
+                    <button
+                      key={color}
+                      type="button"
+                      className={
+                        selectedNode.style?.fillColor === color
+                          ? 'node-color-chip node-color-chip-active'
+                          : 'node-color-chip'
+                      }
+                      style={{ background: color }}
+                      title={color}
+                      onClick={() => setNodeColor(selectedNode.id, color)}
+                    />
+                  ))}
+                </div>
               </>
             ) : null}
           </div>

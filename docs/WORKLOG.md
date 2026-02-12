@@ -41,6 +41,12 @@
   - Rastro do player refinado para ficar mais contínuo: geração de partículas interpoladas ao longo do deslocamento da bolinha em cada frame.
   - Redução do espaçamento base do trail para suavizar o visual em qualquer zoom/velocidade.
   - Teste unitário adicionado para a função de interpolação de pontos do trail.
+- Ajuste incremental (`tmp/ai/20260212-0930-trail-continuity`, continuação):
+  - Conector agora suporta criação de edge por arraste de alça para alça (porta de origem → porta de destino).
+  - Preview visual da conexão enquanto arrasta no canvas.
+  - Compatibilidade mantida com fluxo antigo de clique em node origem/destino no modo Connector.
+  - Estado de conexão pendente evoluído para guardar também `portId` quando a origem vem de uma alça.
+  - Testes unitários adicionados para conexão explícita por portas e cancelamento de conexão pendente.
 
 ### Validação executada
 

@@ -33,6 +33,12 @@ type NodeDragState = {
   originBounds: NodeModel['bounds']
 }
 
+type ConnectionDragState = {
+  pointerId: number
+  sourceNodeId: string
+  sourcePortId: string
+}
+
 type CurvePath = {
   start: { x: number; y: number }
   control1: { x: number; y: number }
@@ -134,6 +140,7 @@ const hexToRgba = (color: string, alpha: number): string => {
 export const DiagramCanvas = () => {
   const panStateRef = useRef<PanState | null>(null)
   const nodeDragStateRef = useRef<NodeDragState | null>(null)
+  const connectionDragRef = useRef<ConnectionDragState | null>(null)
   const canvasRef = useRef<HTMLDivElement | null>(null)
   const trailCanvasRef = useRef<HTMLCanvasElement | null>(null)
   const trailsRef = useRef<TrailParticle[]>([])
@@ -144,6 +151,10 @@ export const DiagramCanvas = () => {
   const orbPositionRef = useRef<{ x: number; y: number } | null>(null)
   const lastTrailPositionRef = useRef<{ x: number; y: number } | null>(null)
   const travelProgressRef = useRef(0)
+  const [connectionPreview, setConnectionPreview] = useState<{
+    start: { x: number; y: number }
+    current: { x: number; y: number }
+  } | null>(null)
   const [travelProgressForUi, setTravelProgressForUi] = useState(0)
 
   const workspace = useEditorStore((state) => state.workspace)
@@ -168,6 +179,7 @@ export const DiagramCanvas = () => {
   const addNode = useEditorStore((state) => state.addNode)
   const beginConnection = useEditorStore((state) => state.beginConnection)
   const connectPendingTo = useEditorStore((state) => state.connectPendingTo)
+  const cancelPendingConnection = useEditorStore((state) => state.cancelPendingConnection)
 
   const currentView = workspace.views[viewId]
   const gridEnabled = workspace.settings.grid
@@ -295,12 +307,30 @@ export const DiagramCanvas = () => {
   ])
 
   useEffect(() => {
+    connectionDragRef.current = null
+    let resetPreviewFrame = window.requestAnimationFrame(() => {
+      setConnectionPreview(null)
+    })
+    if (activeTool !== 'connector') {
+      cancelPendingConnection()
+    }
+    return () => {
+      window.cancelAnimationFrame(resetPreviewFrame)
+      resetPreviewFrame = 0
+    }
+  }, [activeTool, cancelPendingConnection])
+
+  useEffect(() => {
     trailsRef.current = []
     orbPositionRef.current = null
     lastTrailPositionRef.current = null
     stepKeyRef.current = null
     stepStartTsRef.current = null
     travelProgressRef.current = 0
+    connectionDragRef.current = null
+    let resetPreviewFrame = window.requestAnimationFrame(() => {
+      setConnectionPreview(null)
+    })
     let resetFrame = window.requestAnimationFrame(() => {
       setTravelProgressForUi(0)
     })
@@ -310,6 +340,8 @@ export const DiagramCanvas = () => {
       context.clearRect(0, 0, trailCanvas.width, trailCanvas.height)
     }
     return () => {
+      window.cancelAnimationFrame(resetPreviewFrame)
+      resetPreviewFrame = 0
       window.cancelAnimationFrame(resetFrame)
       resetFrame = 0
     }
@@ -478,6 +510,20 @@ export const DiagramCanvas = () => {
     viewport.zoom,
   ])
 
+  const clientToWorld = (clientX: number, clientY: number): { x: number; y: number } | null => {
+    const container = canvasRef.current
+    if (!container) {
+      return null
+    }
+    const rect = container.getBoundingClientRect()
+    const px = clientX - rect.left
+    const py = clientY - rect.top
+    return {
+      x: (px - viewport.x) / viewport.zoom,
+      y: (py - viewport.y) / viewport.zoom,
+    }
+  }
+
   const onBackgroundPointerDown = (event: ReactPointerEvent<SVGSVGElement>): void => {
     if (event.button !== 0) {
       return
@@ -495,6 +541,22 @@ export const DiagramCanvas = () => {
   }
 
   const onBackgroundPointerMove = (event: ReactPointerEvent<SVGSVGElement>): void => {
+    const connectionDrag = connectionDragRef.current
+    if (connectionDrag && connectionDrag.pointerId === event.pointerId) {
+      const currentWorld = clientToWorld(event.clientX, event.clientY)
+      if (currentWorld) {
+        setConnectionPreview((previous) =>
+          previous
+            ? {
+                ...previous,
+                current: currentWorld,
+              }
+            : previous,
+        )
+      }
+      return
+    }
+
     const current = panStateRef.current
     if (!current || current.pointerId !== event.pointerId) {
       return
@@ -505,6 +567,10 @@ export const DiagramCanvas = () => {
   }
 
   const onBackgroundPointerUp = (event: ReactPointerEvent<SVGSVGElement>): void => {
+    if (connectionDragRef.current?.pointerId === event.pointerId) {
+      connectionDragRef.current = null
+      setConnectionPreview(null)
+    }
     if (panStateRef.current?.pointerId === event.pointerId) {
       panStateRef.current = null
       event.currentTarget.releasePointerCapture(event.pointerId)
@@ -587,6 +653,72 @@ export const DiagramCanvas = () => {
     }
     nodeDragStateRef.current = null
     event.currentTarget.releasePointerCapture(event.pointerId)
+  }
+
+  const onPortPointerDown = (
+    event: ReactPointerEvent<SVGCircleElement>,
+    node: NodeModel,
+    portId: string,
+  ): void => {
+    if (activeTool !== 'connector' || event.button !== 0) {
+      return
+    }
+    event.stopPropagation()
+    const start = portWorldPosition(node, portId)
+    beginConnection(node.id, portId)
+    connectionDragRef.current = {
+      pointerId: event.pointerId,
+      sourceNodeId: node.id,
+      sourcePortId: portId,
+    }
+    setConnectionPreview({
+      start,
+      current: start,
+    })
+  }
+
+  const onPortPointerEnter = (
+    event: ReactPointerEvent<SVGCircleElement>,
+    node: NodeModel,
+    portId: string,
+  ): void => {
+    if (activeTool !== 'connector') {
+      return
+    }
+    const drag = connectionDragRef.current
+    if (!drag || drag.pointerId !== event.pointerId || (event.buttons & 1) === 0) {
+      return
+    }
+    if (drag.sourceNodeId === node.id) {
+      return
+    }
+    event.stopPropagation()
+    connectPendingTo(node.id, portId)
+    connectionDragRef.current = null
+    setConnectionPreview(null)
+  }
+
+  const onPortPointerUp = (
+    event: ReactPointerEvent<SVGCircleElement>,
+    node: NodeModel,
+    portId: string,
+  ): void => {
+    if (activeTool !== 'connector') {
+      return
+    }
+    const drag = connectionDragRef.current
+    if (!drag || drag.pointerId !== event.pointerId) {
+      return
+    }
+    if (drag.sourceNodeId === node.id) {
+      connectionDragRef.current = null
+      setConnectionPreview(null)
+      return
+    }
+    event.stopPropagation()
+    connectPendingTo(node.id, portId)
+    connectionDragRef.current = null
+    setConnectionPreview(null)
   }
 
   const onWheel = (event: WheelEvent<HTMLDivElement>): void => {
@@ -713,6 +845,18 @@ export const DiagramCanvas = () => {
               </g>
             )
           })}
+          {connectionPreview ? (
+            <path
+              d={`M ${connectionPreview.start.x} ${connectionPreview.start.y} C ${
+                (connectionPreview.start.x + connectionPreview.current.x) / 2
+              } ${connectionPreview.start.y}, ${
+                (connectionPreview.start.x + connectionPreview.current.x) / 2
+              } ${connectionPreview.current.y}, ${connectionPreview.current.x} ${connectionPreview.current.y}`}
+              fill="none"
+              markerEnd="url(#edge-arrow)"
+              className="edge edge-preview"
+            />
+          ) : null}
 
           {nodes.map((node) => {
             const isSelected = node.id === selectedNodeId
@@ -764,6 +908,9 @@ export const DiagramCanvas = () => {
                     cx={node.bounds.w * port.x}
                     cy={node.bounds.h * port.y}
                     r={4}
+                    onPointerDown={(event) => onPortPointerDown(event, node, port.id)}
+                    onPointerEnter={(event) => onPortPointerEnter(event, node, port.id)}
+                    onPointerUp={(event) => onPortPointerUp(event, node, port.id)}
                   />
                 ))}
                 {isSelected && activeTool === 'select' ? (

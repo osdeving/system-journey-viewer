@@ -29,6 +29,7 @@ function App() {
   const selectedEdgeId = useEditorStore((state) => state.selectedEdgeId)
   const activeTool = useEditorStore((state) => state.activeTool)
   const pendingConnectionFrom = useEditorStore((state) => state.pendingConnectionFrom)
+  const pendingConnectionPortId = useEditorStore((state) => state.pendingConnectionPortId)
   const gridEnabled = useEditorStore((state) => state.workspace.settings.grid)
   const snapEnabled = useEditorStore((state) => state.workspace.settings.snap)
   const theme = useEditorStore((state) => state.workspace.settings.theme)
@@ -302,8 +303,8 @@ function App() {
         {activeTool === 'connector' ? (
           <p className="canvas-hint">
             {pendingConnectionFrom
-              ? `Selecione destino para conectar a partir de ${pendingConnectionFrom}`
-              : 'Clique no node de origem e depois no destino para criar edge'}
+              ? `Selecione destino para conectar a partir de ${pendingConnectionFrom}${pendingConnectionPortId ? `:${pendingConnectionPortId}` : ''}`
+              : 'Arraste de uma alça para outra alça (ou clique origem/destino) para criar edge'}
           </p>
         ) : null}
         {currentView.kind === 'container' ? (

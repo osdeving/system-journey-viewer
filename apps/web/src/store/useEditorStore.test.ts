@@ -37,6 +37,33 @@ describe('useEditorStore', () => {
     expect(edgeId ? updated.workspace.edges[edgeId].to.portId : '').toBeTruthy()
   })
 
+  it('connects explicit ports when source and target handles are informed', () => {
+    const state = useEditorStore.getState()
+    const beforeEdges = new Set(state.workspace.views[state.currentViewId].edgeIds)
+
+    state.beginConnection('n_api', 'south')
+    state.connectPendingTo('n_kafka', 'north')
+    const updated = useEditorStore.getState()
+    const edgeId = updated.workspace.views[updated.currentViewId].edgeIds.find(
+      (candidate) => !beforeEdges.has(candidate),
+    )
+
+    expect(edgeId).toBeDefined()
+    expect(edgeId ? updated.workspace.edges[edgeId].from.portId : '').toBe('south')
+    expect(edgeId ? updated.workspace.edges[edgeId].to.portId : '').toBe('north')
+  })
+
+  it('cancels pending connector state', () => {
+    const state = useEditorStore.getState()
+
+    state.beginConnection('n_api', 'east')
+    state.cancelPendingConnection()
+    const updated = useEditorStore.getState()
+
+    expect(updated.pendingConnectionFrom).toBeNull()
+    expect(updated.pendingConnectionPortId).toBeNull()
+  })
+
   it('removes selected node and disconnects linked journey steps', () => {
     const state = useEditorStore.getState()
     const view = state.workspace.views[state.currentViewId]

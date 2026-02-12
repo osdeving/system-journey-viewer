@@ -249,6 +249,14 @@
   stroke-width: 2.5;
 }
 
+.edge-preview {
+  stroke: #0ea5e9;
+  stroke-width: 2;
+  stroke-dasharray: 6 4;
+  opacity: 0.9;
+  pointer-events: none;
+}
+
 .edge-label {
   fill: #334155;
   font-size: 11px;
@@ -551,6 +559,10 @@
 
 .theme-dark .edge {
   stroke: #94a3b8;
+}
+
+.theme-dark .edge-preview {
+  stroke: #38bdf8;
 }
 
 .theme-dark .edge-label {

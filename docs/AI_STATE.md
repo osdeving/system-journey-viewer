@@ -24,6 +24,7 @@
 - Preset `boundary` com borda pontilhada e fundo transparente (incluindo tema escuro).
 - Boundary com hit-area restrita à borda (`pointer-events: stroke`) para permitir clique em componentes atrás da área interna.
 - Rastro do player com amostragem interpolada entre frames para aparência contínua (sem “gaps” entre bolinhas em velocidades maiores).
+- Modo Connector com suporte a conexão por alça→alça (port-to-port) via arraste, incluindo preview visual da seta durante o gesto.
 
 ## Próximos incrementos sugeridos
 

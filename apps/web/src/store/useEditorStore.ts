@@ -30,6 +30,7 @@ interface EditorState {
   selectedEdgeId: string | null
   activeTool: ActiveTool
   pendingConnectionFrom: string | null
+  pendingConnectionPortId: string | null
   activeJourneyId: string | null
   journeyFilterId: string | null
   playerJourneyId: string | null
@@ -57,8 +58,9 @@ interface EditorState {
   moveNode: (nodeId: string, dx: number, dy: number) => void
   setNodeName: (nodeId: string, name: string) => void
   setNodeTech: (nodeId: string, techLabel: string) => void
-  beginConnection: (nodeId: string) => void
-  connectPendingTo: (targetNodeId: string) => void
+  beginConnection: (nodeId: string, portId?: string) => void
+  connectPendingTo: (targetNodeId: string, portId?: string) => void
+  cancelPendingConnection: () => void
   setEdgeProtocol: (edgeId: string, protocolPresetId: string) => void
   setEdgeLabel: (edgeId: string, label: string) => void
   setGridEnabled: (enabled: boolean) => void
@@ -89,6 +91,7 @@ const getDefaultState = (): Pick<
   | 'selectedEdgeId'
   | 'activeTool'
   | 'pendingConnectionFrom'
+  | 'pendingConnectionPortId'
   | 'activeJourneyId'
   | 'journeyFilterId'
   | 'playerJourneyId'
@@ -111,6 +114,7 @@ const getDefaultState = (): Pick<
       selectedEdgeId: null,
       activeTool: 'select',
       pendingConnectionFrom: null,
+      pendingConnectionPortId: null,
       activeJourneyId: null,
       journeyFilterId: null,
       playerJourneyId: DEFAULT_PLAYER_JOURNEY_ID,
@@ -134,6 +138,7 @@ const getDefaultState = (): Pick<
     selectedEdgeId: null,
     activeTool: 'select',
     pendingConnectionFrom: null,
+    pendingConnectionPortId: null,
     activeJourneyId: null,
     journeyFilterId: null,
     playerJourneyId:
@@ -223,6 +228,7 @@ export const useEditorStore = create<EditorState>()(
         selectedEdgeId: null,
         activeTool: 'select',
         pendingConnectionFrom: null,
+        pendingConnectionPortId: null,
         activeJourneyId: DEFAULT_PLAYER_JOURNEY_ID,
         journeyFilterId: null,
         playerJourneyId:
@@ -248,6 +254,7 @@ export const useEditorStore = create<EditorState>()(
         selectedEdgeId: null,
         activeTool: 'select',
         pendingConnectionFrom: null,
+        pendingConnectionPortId: null,
         activeJourneyId: DEFAULT_PLAYER_JOURNEY_ID,
         journeyFilterId: null,
         playerJourneyId: DEFAULT_PLAYER_JOURNEY_ID,
@@ -268,6 +275,8 @@ export const useEditorStore = create<EditorState>()(
         state.viewHistory = []
         state.selectedNodeId = null
         state.selectedEdgeId = null
+        state.pendingConnectionFrom = null
+        state.pendingConnectionPortId = null
         state.activeJourneyId = null
         state.journeyFilterId = null
         state.playerJourneyId = null
@@ -298,6 +307,8 @@ export const useEditorStore = create<EditorState>()(
         state.currentViewId = targetViewId
         state.selectedNodeId = null
         state.selectedEdgeId = null
+        state.pendingConnectionFrom = null
+        state.pendingConnectionPortId = null
         state.journeyFilterId = null
       })
     },
@@ -310,6 +321,8 @@ export const useEditorStore = create<EditorState>()(
         state.currentViewId = previousViewId
         state.selectedNodeId = null
         state.selectedEdgeId = null
+        state.pendingConnectionFrom = null
+        state.pendingConnectionPortId = null
         state.journeyFilterId = null
       })
     },
@@ -329,6 +342,7 @@ export const useEditorStore = create<EditorState>()(
         state.activeTool = tool
         if (tool !== 'connector') {
           state.pendingConnectionFrom = null
+          state.pendingConnectionPortId = null
         }
       })
     },
@@ -455,32 +469,36 @@ export const useEditorStore = create<EditorState>()(
         }
       })
     },
-    beginConnection: (nodeId) => {
+    beginConnection: (nodeId, portId) => {
       set((state) => {
         state.pendingConnectionFrom = nodeId
+        state.pendingConnectionPortId = portId ?? null
         state.activeTool = 'connector'
       })
     },
-    connectPendingTo: (targetNodeId) => {
+    connectPendingTo: (targetNodeId, targetPortId) => {
       set((state) => {
         const fromNodeId = state.pendingConnectionFrom
+        const fromPortId = state.pendingConnectionPortId
         const view = state.workspace.views[state.currentViewId]
         if (!fromNodeId || !view || fromNodeId === targetNodeId) {
           state.pendingConnectionFrom = null
+          state.pendingConnectionPortId = null
           return
         }
         const fromNode = state.workspace.nodes[fromNodeId]
         const targetNode = state.workspace.nodes[targetNodeId]
         if (!fromNode || !targetNode) {
           state.pendingConnectionFrom = null
+          state.pendingConnectionPortId = null
           return
         }
-        const fromPortId = nearestPortId(fromNode, nodeCenter(targetNode))
-        const toPortId = nearestPortId(targetNode, nodeCenter(fromNode))
+        const resolvedFromPortId = fromPortId ?? nearestPortId(fromNode, nodeCenter(targetNode))
+        const toPortId = targetPortId ?? nearestPortId(targetNode, nodeCenter(fromNode))
         const edgeId = nextNumericId(state.workspace.edges, 'e')
         state.workspace.edges[edgeId] = {
           id: edgeId,
-          from: { nodeId: fromNodeId, portId: fromPortId },
+          from: { nodeId: fromNodeId, portId: resolvedFromPortId },
           to: { nodeId: targetNodeId, portId: toPortId },
           protocolPresetId: 'http',
           label: 'request',
@@ -491,6 +509,13 @@ export const useEditorStore = create<EditorState>()(
         state.selectedEdgeId = edgeId
         state.selectedNodeId = null
         state.pendingConnectionFrom = null
+        state.pendingConnectionPortId = null
+      })
+    },
+    cancelPendingConnection: () => {
+      set((state) => {
+        state.pendingConnectionFrom = null
+        state.pendingConnectionPortId = null
       })
     },
     setEdgeProtocol: (edgeId, protocolPresetId) => {

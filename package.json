@@ -1,0 +1,16 @@
+{
+  "name": "system-journey-viewer",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "npm --workspace @sjv/web run dev",
+    "build": "npm --workspace @sjv/web run build",
+    "test": "npm --workspace @sjv/web run test",
+    "test:run": "npm --workspace @sjv/web run test:run",
+    "lint": "npm --workspace @sjv/web run lint"
+  }
+}

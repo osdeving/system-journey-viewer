@@ -1,0 +1,129 @@
+export type ViewKind = 'system-context' | 'container' | 'component' | 'hex'
+
+export type NodeKind =
+  | 'system'
+  | 'container'
+  | 'component'
+  | 'boundary'
+  | 'domain'
+  | 'application-service'
+  | 'port-in'
+  | 'port-out'
+  | 'adapter-in'
+  | 'adapter-out'
+  | 'db'
+  | 'queue'
+  | 'gateway'
+  | 'security'
+
+export interface NodeBounds {
+  x: number
+  y: number
+  w: number
+  h: number
+}
+
+export interface NodeTech {
+  id: string
+  label: string
+  iconKey?: string
+}
+
+export interface PortModel {
+  id: string
+  x: number
+  y: number
+}
+
+export interface NodeModel {
+  id: string
+  kind: NodeKind
+  name: string
+  description?: string
+  tags: string[]
+  tech?: NodeTech
+  bounds: NodeBounds
+  ports: PortModel[]
+  children: string[]
+  drilldownRef?: string
+}
+
+export interface EdgeEndpoint {
+  nodeId: string
+  portId?: string
+}
+
+export interface EdgeRoute {
+  kind: 'auto' | 'manual'
+  points: Array<{ x: number; y: number }>
+}
+
+export interface EdgeModel {
+  id: string
+  from: EdgeEndpoint
+  to: EdgeEndpoint
+  protocolPresetId: string
+  label: string
+  description?: string
+  route: EdgeRoute
+  style: {
+    dashed: boolean
+    thickness: number
+    arrow: boolean
+  }
+}
+
+export interface JourneyStep {
+  n: number
+  edgeId: string
+  highlightNodes?: string[]
+}
+
+export interface JourneyModel {
+  id: string
+  name: string
+  colorKey: string
+  steps: JourneyStep[]
+  player: {
+    loop: boolean
+    speedMs: number
+    pauseOnStep: boolean
+  }
+}
+
+export interface ViewModel {
+  id: string
+  kind: ViewKind
+  name: string
+  nodeIds: string[]
+  edgeIds: string[]
+  journeyIds: string[]
+}
+
+export interface WorkspaceModel {
+  schemaVersion: string
+  workspace: {
+    id: string
+    name: string
+  }
+  views: Record<string, ViewModel>
+  nodes: Record<string, NodeModel>
+  edges: Record<string, EdgeModel>
+  journeys: Record<string, JourneyModel>
+  settings: {
+    grid: boolean
+    snap: boolean
+  }
+}
+
+export interface ViewportState {
+  x: number
+  y: number
+  zoom: number
+}
+
+export interface EditorSnapshot {
+  workspace: WorkspaceModel
+  currentViewId: string
+  viewport: ViewportState
+}

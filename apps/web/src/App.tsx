@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from 'react'
 import confetti from 'canvas-confetti'
 import './App.css'
 import { DiagramCanvas } from './components/DiagramCanvas'
+import { fullViewToLiteDsl, liteToFullWorkspace } from './dsl-lite/convert'
+import { parseLiteDsl } from './dsl-lite/parser'
 import { nodePresetsByCategory, protocolPresets, resolveNodePreset } from './presets/catalog'
 import { useEditorStore } from './store/useEditorStore'
 
@@ -30,6 +32,7 @@ function App() {
   const hydrate = useEditorStore((state) => state.hydrate)
   const persist = useEditorStore((state) => state.persist)
   const resetWorkspace = useEditorStore((state) => state.resetWorkspace)
+  const replaceWorkspace = useEditorStore((state) => state.replaceWorkspace)
   const zoomByFactor = useEditorStore((state) => state.zoomByFactor)
   const setActiveTool = useEditorStore((state) => state.setActiveTool)
   const setNodeName = useEditorStore((state) => state.setNodeName)
@@ -52,6 +55,8 @@ function App() {
   const stepPlayer = useEditorStore((state) => state.stepPlayer)
   const resetPlayer = useEditorStore((state) => state.resetPlayer)
   const [journeyDraftName, setJourneyDraftName] = useState('')
+  const [dslText, setDslText] = useState('')
+  const [dslError, setDslError] = useState<string | null>(null)
 
   const selectedNode = selectedNodeId ? workspace.nodes[selectedNodeId] : undefined
   const selectedEdge = selectedEdgeId ? workspace.edges[selectedEdgeId] : undefined
@@ -375,6 +380,42 @@ function App() {
         ) : (
           <p>Crie uma jornada e associe edges pelo Inspector.</p>
         )}
+        <div className="dsl-panel">
+          <div className="dsl-toolbar">
+            <strong>DSL LITE</strong>
+            <button
+              type="button"
+              onClick={() => {
+                setDslText(fullViewToLiteDsl(workspace, currentViewId))
+                setDslError(null)
+              }}
+            >
+              Exportar view atual
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                try {
+                  const ast = parseLiteDsl(dslText)
+                  const imported = liteToFullWorkspace(ast)
+                  const nextViewId = Object.keys(imported.views)[0]
+                  replaceWorkspace(imported, nextViewId)
+                  setDslError(null)
+                } catch (error) {
+                  setDslError(error instanceof Error ? error.message : 'Falha ao importar DSL.')
+                }
+              }}
+            >
+              Importar DSL
+            </button>
+          </div>
+          <textarea
+            value={dslText}
+            onChange={(event) => setDslText(event.target.value)}
+            placeholder='workspace "Pedidos" { ... }'
+          />
+          {dslError ? <p className="dsl-error">{dslError}</p> : null}
+        </div>
       </section>
     </div>
   )

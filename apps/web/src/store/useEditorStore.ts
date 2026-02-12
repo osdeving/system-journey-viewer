@@ -41,6 +41,7 @@ interface EditorState {
   hydrate: () => void
   persist: () => void
   resetWorkspace: () => void
+  replaceWorkspace: (workspace: WorkspaceModel, viewId?: string) => void
   selectNode: (nodeId: string | null) => void
   selectEdge: (edgeId: string | null) => void
   openDrilldown: (nodeId: string) => void
@@ -249,6 +250,21 @@ export const useEditorStore = create<EditorState>()(
         playerConfettiNonce: 0,
       })
       saveSnapshot(toSnapshot(get()))
+    },
+    replaceWorkspace: (workspace, viewId) => {
+      const firstViewId = viewId ?? Object.keys(workspace.views)[0] ?? DEFAULT_VIEW_ID
+      set((state) => {
+        state.workspace = workspace
+        state.currentViewId = firstViewId
+        state.viewHistory = []
+        state.selectedNodeId = null
+        state.selectedEdgeId = null
+        state.activeJourneyId = null
+        state.journeyFilterId = null
+        state.playerJourneyId = null
+        state.playerIsRunning = false
+        state.playerStepIndex = 0
+      })
     },
     selectNode: (nodeId) => {
       set((state) => {

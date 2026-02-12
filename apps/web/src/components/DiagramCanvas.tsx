@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type {
   DragEvent,
   PointerEvent as ReactPointerEvent,
@@ -6,6 +6,8 @@ import type {
 } from 'react'
 import {
   DEFAULT_GRID_SIZE,
+  nearestPortId,
+  nodeCenter,
   portWorldPosition,
   snapBounds,
 } from '../engine/geometry'
@@ -37,21 +39,26 @@ type CurvePath = {
   end: { x: number; y: number }
 }
 
-type Trail = {
+type TrailParticle = {
   id: number
   color: string
   alpha: number
-  path: CurvePath
+  radius: number
+  position: { x: number; y: number }
 }
 
 const ZOOM_SENSITIVITY = 0.0012
+const STEP_NODE_GLOW_DELAY_RATIO = 0.18
 const TRAIL_INITIAL_ALPHA = 0.6
 const TRAIL_FADE_FACTOR = 0.0004
-const TRAIL_LINE_WIDTH = 5
-const TRAIL_SHADOW_BLUR = 16
-const MAX_TRAILS = 120
+const TRAIL_PARTICLE_RADIUS = 3.6
+const TRAIL_PARTICLE_SHADOW_BLUR = 15
+const ORB_RADIUS = 5.4
+const ORB_SHADOW_BLUR = 20
+const TRAIL_MIN_SPACING = 3
+const MAX_TRAILS = 500
 
-const curveFromEdge = (
+const resolveCurveFromEdge = (
   edge: EdgeModel,
   nodes: Record<string, NodeModel>,
 ): CurvePath | null => {
@@ -60,9 +67,13 @@ const curveFromEdge = (
   if (!from || !to) {
     return null
   }
-  const start = portWorldPosition(from, edge.from.portId)
-  const end = portWorldPosition(to, edge.to.portId)
+
+  const fromPortId = edge.from.portId ?? nearestPortId(from, nodeCenter(to))
+  const toPortId = edge.to.portId ?? nearestPortId(to, nodeCenter(from))
+  const start = portWorldPosition(from, fromPortId)
+  const end = portWorldPosition(to, toPortId)
   const middleX = (start.x + end.x) / 2
+
   return {
     start,
     control1: { x: middleX, y: start.y },
@@ -78,16 +89,27 @@ const edgePath = (
   edge: EdgeModel,
   nodes: Record<string, NodeModel>,
 ): string | null => {
-  const curve = curveFromEdge(edge, nodes)
+  const curve = resolveCurveFromEdge(edge, nodes)
   return curve ? curveToSvgPath(curve) : null
 }
 
-const edgeMidpoint = (edge: EdgeModel, nodes: Record<string, NodeModel>) => {
-  const curve = curveFromEdge(edge, nodes)
-  if (!curve) {
-    return null
-  }
-  return { x: (curve.start.x + curve.end.x) / 2, y: (curve.start.y + curve.end.y) / 2 }
+const cubicPointAt = (
+  curve: CurvePath,
+  progress: number,
+): { x: number; y: number } => {
+  const p = Math.max(0, Math.min(1, progress))
+  const inverse = 1 - p
+  const x =
+    inverse ** 3 * curve.start.x +
+    3 * inverse ** 2 * p * curve.control1.x +
+    3 * inverse * p ** 2 * curve.control2.x +
+    p ** 3 * curve.end.x
+  const y =
+    inverse ** 3 * curve.start.y +
+    3 * inverse ** 2 * p * curve.control1.y +
+    3 * inverse * p ** 2 * curve.control2.y +
+    p ** 3 * curve.end.y
+  return { x, y }
 }
 
 const hexToRgba = (color: string, alpha: number): string => {
@@ -95,12 +117,13 @@ const hexToRgba = (color: string, alpha: number): string => {
     return `rgba(96, 165, 250, ${alpha})`
   }
   const hex = color.replace('#', '')
-  const normalized = hex.length === 3
-    ? hex
-        .split('')
-        .map((character) => `${character}${character}`)
-        .join('')
-    : hex
+  const normalized =
+    hex.length === 3
+      ? hex
+          .split('')
+          .map((character) => `${character}${character}`)
+          .join('')
+      : hex
   const red = Number.parseInt(normalized.slice(0, 2), 16)
   const green = Number.parseInt(normalized.slice(2, 4), 16)
   const blue = Number.parseInt(normalized.slice(4, 6), 16)
@@ -112,11 +135,15 @@ export const DiagramCanvas = () => {
   const nodeDragStateRef = useRef<NodeDragState | null>(null)
   const canvasRef = useRef<HTMLDivElement | null>(null)
   const trailCanvasRef = useRef<HTMLCanvasElement | null>(null)
-  const trailsRef = useRef<Trail[]>([])
+  const trailsRef = useRef<TrailParticle[]>([])
   const lastFrameTsRef = useRef<number | null>(null)
-  const previousPlayerEdgeRef = useRef<string | null>(null)
-  const previousPlayerRunningRef = useRef(false)
   const nextTrailIdRef = useRef(1)
+  const stepKeyRef = useRef<string | null>(null)
+  const stepStartTsRef = useRef<number | null>(null)
+  const orbPositionRef = useRef<{ x: number; y: number } | null>(null)
+  const lastTrailPositionRef = useRef<{ x: number; y: number } | null>(null)
+  const travelProgressRef = useRef(0)
+  const [travelProgressForUi, setTravelProgressForUi] = useState(0)
 
   const workspace = useEditorStore((state) => state.workspace)
   const viewId = useEditorStore((state) => state.currentViewId)
@@ -129,6 +156,7 @@ export const DiagramCanvas = () => {
   const journeyFilterId = useEditorStore((state) => state.journeyFilterId)
   const playerJourneyId = useEditorStore((state) => state.playerJourneyId)
   const playerStepIndex = useEditorStore((state) => state.playerStepIndex)
+  const playerSpeedMs = useEditorStore((state) => state.playerSpeedMs)
   const playerHighlightNodes = useEditorStore((state) => state.playerHighlightNodes)
   const playerIsRunning = useEditorStore((state) => state.playerIsRunning)
   const setViewport = useEditorStore((state) => state.setViewport)
@@ -198,8 +226,10 @@ export const DiagramCanvas = () => {
         byJourney(playerJourneyId) ??
         (markers.length === 1
           ? markers[0].stepNumber
-          : markers.slice().sort((left, right) => left.stepNumber - right.stepNumber)[0]
-            ?.stepNumber ?? null)
+          : markers
+              .slice()
+              .sort((left, right) => left.stepNumber - right.stepNumber)[0]
+              ?.stepNumber ?? null)
       labels[edge.id] = stepNumber ? `${stepNumber}. ${edge.label}` : edge.label
     }
     return labels
@@ -217,18 +247,26 @@ export const DiagramCanvas = () => {
     return edges.filter((edge) => edgeSet.has(edge.id))
   }, [edges, journeyFilterId, workspace.journeys])
 
-  const currentPlayerEdgeId = useMemo(() => {
-    if (!playerJourneyId) {
+  const playerJourney = playerJourneyId
+    ? workspace.journeys[playerJourneyId]
+    : undefined
+  const sortedPlayerSteps = useMemo(
+    () =>
+      playerJourney
+        ? playerJourney.steps.slice().sort((left, right) => left.n - right.n)
+        : [],
+    [playerJourney],
+  )
+  const currentPlayerStep = sortedPlayerSteps[playerStepIndex]
+  const currentPlayerEdgeId = currentPlayerStep?.edgeId ?? null
+  const currentPlayerCurve = useMemo(() => {
+    if (!currentPlayerEdgeId) {
       return null
     }
-    const journey = workspace.journeys[playerJourneyId]
-    if (!journey) {
-      return null
-    }
-    const sortedSteps = journey.steps.slice().sort((left, right) => left.n - right.n)
-    const currentStep = sortedSteps[playerStepIndex]
-    return currentStep?.edgeId ?? null
-  }, [playerJourneyId, playerStepIndex, workspace.journeys])
+    const edge = workspace.edges[currentPlayerEdgeId]
+    return edge ? resolveCurveFromEdge(edge, workspace.nodes) : null
+  }, [currentPlayerEdgeId, workspace.edges, workspace.nodes])
+  const currentPlayerColor = playerJourney?.colorKey ?? '#f59e0b'
 
   const highlightedNodeIds = useMemo(() => {
     if (!playerHighlightNodes || !currentPlayerEdgeId) {
@@ -238,61 +276,43 @@ export const DiagramCanvas = () => {
     if (!edge) {
       return new Set<string>()
     }
-    const set = new Set<string>([edge.from.nodeId, edge.to.nodeId])
-    const journey = playerJourneyId ? workspace.journeys[playerJourneyId] : undefined
-    const sortedSteps = journey?.steps.slice().sort((left, right) => left.n - right.n) ?? []
-    const currentStep = sortedSteps[playerStepIndex]
-    for (const nodeId of currentStep?.highlightNodes ?? []) {
+    const set = new Set<string>([edge.from.nodeId])
+    if (!playerIsRunning || travelProgressForUi >= 0.86) {
+      set.add(edge.to.nodeId)
+    }
+    for (const nodeId of currentPlayerStep?.highlightNodes ?? []) {
       set.add(nodeId)
     }
     return set
   }, [
     currentPlayerEdgeId,
+    currentPlayerStep?.highlightNodes,
     playerHighlightNodes,
-    playerJourneyId,
-    playerStepIndex,
+    playerIsRunning,
+    travelProgressForUi,
     workspace.edges,
-    workspace.journeys,
   ])
 
   useEffect(() => {
     trailsRef.current = []
-    previousPlayerEdgeRef.current = null
-    previousPlayerRunningRef.current = false
+    orbPositionRef.current = null
+    lastTrailPositionRef.current = null
+    stepKeyRef.current = null
+    stepStartTsRef.current = null
+    travelProgressRef.current = 0
+    let resetFrame = window.requestAnimationFrame(() => {
+      setTravelProgressForUi(0)
+    })
     const trailCanvas = trailCanvasRef.current
     const context = trailCanvas?.getContext('2d')
     if (trailCanvas && context) {
       context.clearRect(0, 0, trailCanvas.width, trailCanvas.height)
     }
-  }, [viewId])
-
-  useEffect(() => {
-    const previousEdgeId = previousPlayerEdgeRef.current
-    const wasRunning = previousPlayerRunningRef.current
-    const colorKey = playerJourneyId
-      ? workspace.journeys[playerJourneyId]?.colorKey ?? '#f59e0b'
-      : '#f59e0b'
-
-    if (previousEdgeId && wasRunning && (previousEdgeId !== currentPlayerEdgeId || !playerIsRunning)) {
-      const previousEdge = workspace.edges[previousEdgeId]
-      const curve = previousEdge ? curveFromEdge(previousEdge, workspace.nodes) : null
-      if (curve) {
-        trailsRef.current.push({
-          id: nextTrailIdRef.current,
-          color: colorKey,
-          alpha: TRAIL_INITIAL_ALPHA,
-          path: curve,
-        })
-        nextTrailIdRef.current += 1
-        if (trailsRef.current.length > MAX_TRAILS) {
-          trailsRef.current = trailsRef.current.slice(-MAX_TRAILS)
-        }
-      }
+    return () => {
+      window.cancelAnimationFrame(resetFrame)
+      resetFrame = 0
     }
-
-    previousPlayerEdgeRef.current = currentPlayerEdgeId
-    previousPlayerRunningRef.current = playerIsRunning
-  }, [currentPlayerEdgeId, playerIsRunning, playerJourneyId, workspace.edges, workspace.journeys, workspace.nodes])
+  }, [viewId])
 
   useEffect(() => {
     const trailCanvas = trailCanvasRef.current
@@ -302,6 +322,13 @@ export const DiagramCanvas = () => {
     const context = trailCanvas.getContext('2d')
     if (!context) {
       return
+    }
+
+    const updateUiProgress = (nextProgress: number) => {
+      if (Math.abs(nextProgress - travelProgressRef.current) >= 0.02 || nextProgress === 0 || nextProgress === 1) {
+        travelProgressRef.current = nextProgress
+        setTravelProgressForUi(nextProgress)
+      }
     }
 
     let rafId: number | null = null
@@ -317,41 +344,113 @@ export const DiagramCanvas = () => {
       const dt = Math.max(0, timestamp - previousTs)
       lastFrameTsRef.current = timestamp
 
+      const stepKey = currentPlayerEdgeId
+        ? `${viewId}:${playerJourneyId ?? ''}:${playerStepIndex}:${currentPlayerEdgeId}`
+        : null
+
+      if (stepKey !== stepKeyRef.current) {
+        stepKeyRef.current = stepKey
+        stepStartTsRef.current = timestamp
+        orbPositionRef.current = null
+        lastTrailPositionRef.current = null
+        updateUiProgress(0)
+      }
+
+      let travelProgress = 0
+      if (playerIsRunning && stepKey && currentPlayerCurve) {
+        const elapsed = Math.max(0, timestamp - (stepStartTsRef.current ?? timestamp))
+        const baseProgress = Math.max(0, Math.min(1, elapsed / Math.max(120, playerSpeedMs)))
+        travelProgress = Math.max(
+          0,
+          Math.min(
+            1,
+            (baseProgress - STEP_NODE_GLOW_DELAY_RATIO) / (1 - STEP_NODE_GLOW_DELAY_RATIO),
+          ),
+        )
+
+        if (travelProgress > 0) {
+          const orbPoint = cubicPointAt(currentPlayerCurve, travelProgress)
+          orbPositionRef.current = orbPoint
+          const lastTrail = lastTrailPositionRef.current
+          const minSpacing = TRAIL_MIN_SPACING / Math.max(viewport.zoom, 0.25)
+          const distance = lastTrail
+            ? Math.hypot(orbPoint.x - lastTrail.x, orbPoint.y - lastTrail.y)
+            : Number.POSITIVE_INFINITY
+          if (distance >= minSpacing) {
+            trailsRef.current.push({
+              id: nextTrailIdRef.current,
+              color: currentPlayerColor,
+              alpha: TRAIL_INITIAL_ALPHA,
+              radius: TRAIL_PARTICLE_RADIUS / Math.max(viewport.zoom, 0.25),
+              position: orbPoint,
+            })
+            nextTrailIdRef.current += 1
+            lastTrailPositionRef.current = orbPoint
+            if (trailsRef.current.length > MAX_TRAILS) {
+              trailsRef.current = trailsRef.current.slice(-MAX_TRAILS)
+            }
+          }
+        } else {
+          orbPositionRef.current = null
+          lastTrailPositionRef.current = null
+        }
+      } else {
+        orbPositionRef.current = null
+        lastTrailPositionRef.current = null
+      }
+
+      updateUiProgress(travelProgress)
+
       context.setTransform(1, 0, 0, 1, 0, 0)
       context.clearRect(0, 0, width, height)
 
-      if (trailsRef.current.length > 0) {
-        context.save()
-        context.globalCompositeOperation = 'screen'
-        context.setTransform(viewport.zoom, 0, 0, viewport.zoom, viewport.x, viewport.y)
-        for (const trail of trailsRef.current) {
-          context.beginPath()
-          context.moveTo(trail.path.start.x, trail.path.start.y)
-          context.bezierCurveTo(
-            trail.path.control1.x,
-            trail.path.control1.y,
-            trail.path.control2.x,
-            trail.path.control2.y,
-            trail.path.end.x,
-            trail.path.end.y,
-          )
-          context.lineCap = 'round'
-          context.lineJoin = 'round'
-          context.lineWidth = TRAIL_LINE_WIDTH / Math.max(viewport.zoom, 0.25)
-          context.strokeStyle = hexToRgba(trail.color, trail.alpha)
-          context.shadowColor = hexToRgba(trail.color, Math.min(1, trail.alpha + 0.2))
-          context.shadowBlur = TRAIL_SHADOW_BLUR / Math.max(viewport.zoom, 0.25)
-          context.stroke()
-          trail.alpha -= dt * TRAIL_FADE_FACTOR
-        }
-        trailsRef.current = trailsRef.current.filter((trail) => trail.alpha > 0)
-        context.restore()
+      context.save()
+      context.globalCompositeOperation = 'screen'
+      context.setTransform(viewport.zoom, 0, 0, viewport.zoom, viewport.x, viewport.y)
+
+      for (const trail of trailsRef.current) {
+        context.beginPath()
+        context.arc(trail.position.x, trail.position.y, trail.radius, 0, Math.PI * 2)
+        context.fillStyle = hexToRgba(trail.color, trail.alpha)
+        context.shadowColor = hexToRgba(trail.color, Math.min(1, trail.alpha + 0.2))
+        context.shadowBlur = TRAIL_PARTICLE_SHADOW_BLUR / Math.max(viewport.zoom, 0.25)
+        context.fill()
+        trail.alpha -= dt * TRAIL_FADE_FACTOR
       }
+      trailsRef.current = trailsRef.current.filter((trail) => trail.alpha > 0)
+
+      if (playerIsRunning && orbPositionRef.current) {
+        const orbRadius = ORB_RADIUS / Math.max(viewport.zoom, 0.25)
+        context.beginPath()
+        context.arc(orbPositionRef.current.x, orbPositionRef.current.y, orbRadius, 0, Math.PI * 2)
+        context.fillStyle = hexToRgba(currentPlayerColor, 0.95)
+        context.shadowColor = hexToRgba(currentPlayerColor, 0.95)
+        context.shadowBlur = ORB_SHADOW_BLUR / Math.max(viewport.zoom, 0.25)
+        context.fill()
+
+        context.beginPath()
+        context.arc(
+          orbPositionRef.current.x,
+          orbPositionRef.current.y,
+          orbRadius * 0.4,
+          0,
+          Math.PI * 2,
+        )
+        context.fillStyle = 'rgba(255,255,255,0.95)'
+        context.shadowBlur = 0
+        context.fill()
+      }
+
+      context.restore()
 
       if (playerIsRunning || trailsRef.current.length > 0) {
         rafId = window.requestAnimationFrame(drawFrame)
       } else {
         lastFrameTsRef.current = null
+        if (travelProgressRef.current !== 0) {
+          travelProgressRef.current = 0
+          setTravelProgressForUi(0)
+        }
       }
     }
 
@@ -364,7 +463,19 @@ export const DiagramCanvas = () => {
         window.cancelAnimationFrame(rafId)
       }
     }
-  }, [currentPlayerEdgeId, playerIsRunning, playerStepIndex, viewId, viewport.x, viewport.y, viewport.zoom])
+  }, [
+    currentPlayerColor,
+    currentPlayerCurve,
+    currentPlayerEdgeId,
+    playerIsRunning,
+    playerJourneyId,
+    playerSpeedMs,
+    playerStepIndex,
+    viewId,
+    viewport.x,
+    viewport.y,
+    viewport.zoom,
+  ])
 
   const onBackgroundPointerDown = (event: ReactPointerEvent<SVGSVGElement>): void => {
     if (event.button !== 0) {
@@ -572,8 +683,6 @@ export const DiagramCanvas = () => {
             }
             const isSelected = edge.id === selectedEdgeId
             const isPlayerEdge = edge.id === currentPlayerEdgeId
-            const midpoint = edgeMidpoint(edge, workspace.nodes)
-            const badges = edgeJourneyMarkers[edge.id] ?? []
             return (
               <g
                 key={edge.id}
@@ -588,13 +697,11 @@ export const DiagramCanvas = () => {
                   fill="none"
                   markerEnd="url(#edge-arrow)"
                   className={
-                    isPlayerEdge && playerIsRunning
-                      ? 'edge edge-playing'
-                      : isSelected
-                        ? 'edge edge-selected'
-                        : isPlayerEdge
-                          ? 'edge edge-selected'
-                          : 'edge'
+                    isSelected
+                      ? 'edge edge-selected'
+                      : isPlayerEdge
+                        ? 'edge edge-player-active'
+                        : 'edge'
                   }
                 />
                 <text className="edge-label">
@@ -602,19 +709,6 @@ export const DiagramCanvas = () => {
                     {edgeLabelById[edge.id] ?? edge.label}
                   </textPath>
                 </text>
-                {midpoint
-                  ? badges.map((badge, index) => (
-                      <g
-                        key={`${badge.journeyId}-${badge.stepNumber}`}
-                        transform={`translate(${midpoint.x + index * 18}, ${midpoint.y - 12})`}
-                      >
-                        <circle className="edge-step-badge" r={8} fill={badge.colorKey} />
-                        <text className="edge-step-number" textAnchor="middle" dominantBaseline="middle">
-                          {badge.stepNumber}
-                        </text>
-                      </g>
-                    ))
-                  : null}
               </g>
             )
           })}

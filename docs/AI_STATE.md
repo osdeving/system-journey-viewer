@@ -17,7 +17,7 @@
 - DSL LITE ↔ FULL com auto-layout.
 - Export SVG/PNG/PDF.
 - Showcase pronto para demo completa via ação `Showcase` (topbar).
-- Player com rastro iluminado temporal via canvas overlay (trail com fade/remoção).
+- Player com bolinha em movimento no path e rastro temporal via canvas overlay (trail com fade/remoção).
 - Labels de comunicação com numeração de jornada à esquerda quando há contexto de passo.
 
 ## Próximos incrementos sugeridos

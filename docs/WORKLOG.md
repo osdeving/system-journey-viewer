@@ -23,8 +23,9 @@
   - Ação rápida `Showcase` na topbar para recarregar o cenário de demonstração.
   - Ajustes de testes para lidar com workspace inicial já populado.
 - Pós-roadmap (`tmp/ai/20260212-0805-dark-theme-showcase`, continuação):
-  - Rastro iluminado no player implementado com canvas overlay e fade temporal por `requestAnimationFrame`.
-  - Trail decai com alpha e é removido ao zerar para evitar acúmulo.
+  - Rastro iluminado no player implementado com **bolinha** percorrendo o path em canvas overlay.
+  - Trail agora é particulado e temporal (não ilumina a seta inteira), com fade por frame e remoção ao zerar alpha.
+  - Curvas de edge resolvidas por porta de saída/entrada mesmo quando `portId` está ausente no edge seedado (evita animação partir do centro do componente).
   - Numeração da jornada incluída no texto da comunicação (prefixo à esquerda do label: `N. label`).
   - Compatibilidade retro com snapshots antigos: `theme` default em schema quando ausente.
 

@@ -236,20 +236,9 @@
   stroke-width: 3;
 }
 
-.edge-playing {
+.edge-player-active {
   stroke: #f59e0b;
-  stroke-width: 3;
-  stroke-dasharray: 8 6;
-  animation: edge-energy 900ms linear infinite;
-}
-
-@keyframes edge-energy {
-  from {
-    stroke-dashoffset: 28;
-  }
-  to {
-    stroke-dashoffset: 0;
-  }
+  stroke-width: 2.5;
 }
 
 .edge-label {

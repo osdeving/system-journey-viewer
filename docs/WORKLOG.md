@@ -34,6 +34,9 @@
   - Remoção de node agora também remove edges conectadas e passos de jornada associados (desconecta fluxos impactados).
   - Preset `boundary` atualizado para borda pontilhada com fundo transparente, mantendo legibilidade no tema escuro.
   - Teste unitário adicionado para garantir limpeza de edges/journeys ao remover node.
+- Ajuste incremental (`tmp/ai/20260212-0922-boundary-border-hitarea`):
+  - Boundary agora responde a interação apenas na borda (`pointer-events: stroke`), deixando a área interna transparente para clique em componentes ao fundo.
+  - Teste de estilo adicionado para garantir `fill: none` e hit-area na borda para boundary.
 
 ### Validação executada
 

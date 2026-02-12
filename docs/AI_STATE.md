@@ -22,6 +22,7 @@
 - Remoção de componente por teclado (`Delete`/`Backspace`) com confirmação e aviso de impacto em jornadas conectadas.
 - Remoção de node limpa edges conectadas e passos de jornada associados.
 - Preset `boundary` com borda pontilhada e fundo transparente (incluindo tema escuro).
+- Boundary com hit-area restrita à borda (`pointer-events: stroke`) para permitir clique em componentes atrás da área interna.
 
 ## Próximos incrementos sugeridos
 

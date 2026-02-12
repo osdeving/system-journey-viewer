@@ -186,10 +186,11 @@
 }
 
 .node-boundary {
-  fill: transparent;
+  fill: none;
   stroke-dasharray: 3 7;
   stroke-linecap: round;
   stroke-width: 2;
+  pointer-events: stroke;
 }
 
 .node-selected {
@@ -531,7 +532,7 @@
 }
 
 .theme-dark .node-boundary {
-  fill: transparent;
+  fill: none;
   stroke: #60a5fa;
 }
 

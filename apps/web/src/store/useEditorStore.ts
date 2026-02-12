@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { immer } from 'zustand/middleware/immer'
+import { nearestPortId, nodeCenter } from '../engine/geometry'
 import { createDefaultWorkspace } from '../model/defaultWorkspace'
 import type {
   EditorSnapshot,
@@ -43,6 +44,8 @@ interface EditorState {
   connectPendingTo: (targetNodeId: string) => void
   setEdgeProtocol: (edgeId: string, protocolPresetId: string) => void
   setEdgeLabel: (edgeId: string, label: string) => void
+  setGridEnabled: (enabled: boolean) => void
+  setSnapEnabled: (enabled: boolean) => void
 }
 
 const getDefaultState = (): Pick<
@@ -267,11 +270,19 @@ export const useEditorStore = create<EditorState>()(
           state.pendingConnectionFrom = null
           return
         }
+        const fromNode = state.workspace.nodes[fromNodeId]
+        const targetNode = state.workspace.nodes[targetNodeId]
+        if (!fromNode || !targetNode) {
+          state.pendingConnectionFrom = null
+          return
+        }
+        const fromPortId = nearestPortId(fromNode, nodeCenter(targetNode))
+        const toPortId = nearestPortId(targetNode, nodeCenter(fromNode))
         const edgeId = nextNumericId(state.workspace.edges, 'e')
         state.workspace.edges[edgeId] = {
           id: edgeId,
-          from: { nodeId: fromNodeId },
-          to: { nodeId: targetNodeId },
+          from: { nodeId: fromNodeId, portId: fromPortId },
+          to: { nodeId: targetNodeId, portId: toPortId },
           protocolPresetId: 'http',
           label: 'request',
           route: { kind: 'auto', points: [] },
@@ -299,6 +310,16 @@ export const useEditorStore = create<EditorState>()(
           return
         }
         edge.label = label
+      })
+    },
+    setGridEnabled: (enabled) => {
+      set((state) => {
+        state.workspace.settings.grid = enabled
+      })
+    },
+    setSnapEnabled: (enabled) => {
+      set((state) => {
+        state.workspace.settings.snap = enabled
       })
     },
   })),

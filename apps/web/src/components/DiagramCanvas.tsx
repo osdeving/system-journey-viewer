@@ -4,6 +4,11 @@ import type {
   PointerEvent as ReactPointerEvent,
   WheelEvent,
 } from 'react'
+import {
+  DEFAULT_GRID_SIZE,
+  portWorldPosition,
+  snapBounds,
+} from '../engine/geometry'
 import type { EdgeModel, NodeModel } from '../model/types'
 import { useEditorStore } from '../store/useEditorStore'
 
@@ -26,19 +31,14 @@ type NodeDragState = {
 
 const ZOOM_SENSITIVITY = 0.0012
 
-const centerPoint = (node: NodeModel) => ({
-  x: node.bounds.x + node.bounds.w / 2,
-  y: node.bounds.y + node.bounds.h / 2,
-})
-
 const edgePath = (edge: EdgeModel, nodes: Record<string, NodeModel>): string | null => {
   const from = nodes[edge.from.nodeId]
   const to = nodes[edge.to.nodeId]
   if (!from || !to) {
     return null
   }
-  const p1 = centerPoint(from)
-  const p2 = centerPoint(to)
+  const p1 = portWorldPosition(from, edge.from.portId)
+  const p2 = portWorldPosition(to, edge.to.portId)
   const mx = (p1.x + p2.x) / 2
   return `M ${p1.x} ${p1.y} C ${mx} ${p1.y}, ${mx} ${p2.y}, ${p2.x} ${p2.y}`
 }
@@ -64,6 +64,8 @@ export const DiagramCanvas = () => {
   const connectPendingTo = useEditorStore((state) => state.connectPendingTo)
 
   const currentView = workspace.views[viewId]
+  const gridEnabled = workspace.settings.grid
+  const snapEnabled = workspace.settings.snap
   const nodes = useMemo(
     () =>
       currentView.nodeIds
@@ -150,19 +152,35 @@ export const DiagramCanvas = () => {
     const dx = (event.clientX - drag.startClientX) / viewport.zoom
     const dy = (event.clientY - drag.startClientY) / viewport.zoom
     if (drag.mode === 'move') {
-      setNodeBounds(drag.nodeId, {
+      const candidateBounds = {
         ...drag.originBounds,
         x: drag.originBounds.x + dx,
         y: drag.originBounds.y + dy,
-      })
+      }
+      const bounds = snapEnabled
+        ? snapBounds(candidateBounds, drag.nodeId, workspace.nodes, {
+            gridSize: DEFAULT_GRID_SIZE,
+            snapGrid: true,
+            snapShapes: true,
+          })
+        : candidateBounds
+      setNodeBounds(drag.nodeId, bounds)
       return
     }
     const minSize = 80
-    setNodeBounds(drag.nodeId, {
+    const candidateBounds = {
       ...drag.originBounds,
       w: Math.max(minSize, drag.originBounds.w + dx),
       h: Math.max(minSize, drag.originBounds.h + dy),
-    })
+    }
+    const bounds = snapEnabled
+      ? snapBounds(candidateBounds, drag.nodeId, workspace.nodes, {
+          gridSize: DEFAULT_GRID_SIZE,
+          snapGrid: true,
+          snapShapes: false,
+        })
+      : candidateBounds
+    setNodeBounds(drag.nodeId, bounds)
   }
 
   const onNodePointerUp = (event: ReactPointerEvent<SVGGElement>): void => {
@@ -205,9 +223,11 @@ export const DiagramCanvas = () => {
     const rect = container.getBoundingClientRect()
     const px = event.clientX - rect.left
     const py = event.clientY - rect.top
-    const x = (px - viewport.x) / viewport.zoom
-    const y = (py - viewport.y) / viewport.zoom
-    addNode(kind as NodeModel['kind'], x - 110, y - 60)
+    const rawX = (px - viewport.x) / viewport.zoom - 110
+    const rawY = (py - viewport.y) / viewport.zoom - 60
+    const x = snapEnabled ? Math.round(rawX / DEFAULT_GRID_SIZE) * DEFAULT_GRID_SIZE : rawX
+    const y = snapEnabled ? Math.round(rawY / DEFAULT_GRID_SIZE) * DEFAULT_GRID_SIZE : rawY
+    addNode(kind as NodeModel['kind'], x, y)
   }
 
   const onDragOver = (event: DragEvent<HTMLDivElement>): void => {
@@ -223,6 +243,21 @@ export const DiagramCanvas = () => {
         onPointerUp={onBackgroundPointerUp}
       >
         <defs>
+          {gridEnabled ? (
+            <pattern
+              id="grid-pattern"
+              width={DEFAULT_GRID_SIZE}
+              height={DEFAULT_GRID_SIZE}
+              patternUnits="userSpaceOnUse"
+            >
+              <path
+                d={`M ${DEFAULT_GRID_SIZE} 0 L 0 0 0 ${DEFAULT_GRID_SIZE}`}
+                fill="none"
+                stroke="#dbe4ff"
+                strokeWidth={1}
+              />
+            </pattern>
+          ) : null}
           <marker
             id="edge-arrow"
             markerWidth="8"
@@ -236,6 +271,15 @@ export const DiagramCanvas = () => {
           </marker>
         </defs>
         <g transform={`translate(${viewport.x}, ${viewport.y}) scale(${viewport.zoom})`}>
+          {gridEnabled ? (
+            <rect
+              x={-10000}
+              y={-10000}
+              width={20000}
+              height={20000}
+              fill="url(#grid-pattern)"
+            />
+          ) : null}
           {edges.map((edge) => {
             const path = edgePath(edge, workspace.nodes)
             if (!path) {
@@ -251,6 +295,7 @@ export const DiagramCanvas = () => {
                 }}
               >
                 <path
+                  id={`${edge.id}_path`}
                   d={path}
                   fill="none"
                   markerEnd="url(#edge-arrow)"
@@ -261,7 +306,6 @@ export const DiagramCanvas = () => {
                     {edge.label}
                   </textPath>
                 </text>
-                <path id={`${edge.id}_path`} d={path} fill="none" stroke="none" />
               </g>
             )
           })}
@@ -297,6 +341,15 @@ export const DiagramCanvas = () => {
                 <text x={16} y={56} className="node-subtitle">
                   {node.tech?.label ?? node.kind}
                 </text>
+                {node.ports.map((port) => (
+                  <circle
+                    key={port.id}
+                    className="node-port"
+                    cx={node.bounds.w * port.x}
+                    cy={node.bounds.h * port.y}
+                    r={4}
+                  />
+                ))}
                 {isSelected && activeTool === 'select' ? (
                   <g
                     transform={`translate(${node.bounds.w - 14}, ${node.bounds.h - 14})`}

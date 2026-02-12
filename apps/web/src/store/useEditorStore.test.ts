@@ -30,5 +30,7 @@ describe('useEditorStore', () => {
     expect(edgeId).toBeDefined()
     expect(edgeId ? updated.workspace.edges[edgeId].from.nodeId : '').toBe('n_api')
     expect(edgeId ? updated.workspace.edges[edgeId].to.nodeId : '').toBe('n_kafka')
+    expect(edgeId ? updated.workspace.edges[edgeId].from.portId : '').toBeTruthy()
+    expect(edgeId ? updated.workspace.edges[edgeId].to.portId : '').toBeTruthy()
   })
 })

@@ -54,6 +54,14 @@
   border-color: #6366f1;
 }
 
+.toggle-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+  color: #334155;
+}
+
 .left-sidebar,
 .right-sidebar {
   padding: 16px;
@@ -160,6 +168,12 @@
   fill: #475569;
   font-size: 12px;
   pointer-events: none;
+}
+
+.node-port {
+  fill: #fff;
+  stroke: #475569;
+  stroke-width: 1.5;
 }
 
 .edge {

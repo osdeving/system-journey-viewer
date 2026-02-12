@@ -13,6 +13,8 @@ function App() {
   const selectedEdgeId = useEditorStore((state) => state.selectedEdgeId)
   const activeTool = useEditorStore((state) => state.activeTool)
   const pendingConnectionFrom = useEditorStore((state) => state.pendingConnectionFrom)
+  const gridEnabled = useEditorStore((state) => state.workspace.settings.grid)
+  const snapEnabled = useEditorStore((state) => state.workspace.settings.snap)
   const viewport = useEditorStore((state) => state.viewport)
   const hydrate = useEditorStore((state) => state.hydrate)
   const persist = useEditorStore((state) => state.persist)
@@ -23,6 +25,8 @@ function App() {
   const setNodeTech = useEditorStore((state) => state.setNodeTech)
   const setEdgeProtocol = useEditorStore((state) => state.setEdgeProtocol)
   const setEdgeLabel = useEditorStore((state) => state.setEdgeLabel)
+  const setGridEnabled = useEditorStore((state) => state.setGridEnabled)
+  const setSnapEnabled = useEditorStore((state) => state.setSnapEnabled)
 
   const selectedNode = selectedNodeId ? workspace.nodes[selectedNodeId] : undefined
   const selectedEdge = selectedEdgeId ? workspace.edges[selectedEdgeId] : undefined
@@ -66,6 +70,24 @@ function App() {
           <button type="button" onClick={() => zoomByFactor(0.9)}>
             Zoom -
           </button>
+          <label className="toggle-inline" htmlFor="toggle-grid">
+            <input
+              id="toggle-grid"
+              type="checkbox"
+              checked={gridEnabled}
+              onChange={(event) => setGridEnabled(event.target.checked)}
+            />
+            Grid
+          </label>
+          <label className="toggle-inline" htmlFor="toggle-snap">
+            <input
+              id="toggle-snap"
+              type="checkbox"
+              checked={snapEnabled}
+              onChange={(event) => setSnapEnabled(event.target.checked)}
+            />
+            Snap
+          </label>
           <button type="button" onClick={() => resetWorkspace()}>
             Reset
           </button>

@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { immer } from 'zustand/middleware/immer'
 import { nearestPortId, nodeCenter } from '../engine/geometry'
+import { journeyColorByIndex } from '../journeys/colors'
 import { createDefaultWorkspace } from '../model/defaultWorkspace'
 import { resolveNodePreset, resolveTechPreset } from '../presets/catalog'
 import type {
@@ -27,6 +28,8 @@ interface EditorState {
   selectedEdgeId: string | null
   activeTool: ActiveTool
   pendingConnectionFrom: string | null
+  activeJourneyId: string | null
+  journeyFilterId: string | null
   hydrate: () => void
   persist: () => void
   resetWorkspace: () => void
@@ -46,6 +49,11 @@ interface EditorState {
   setEdgeLabel: (edgeId: string, label: string) => void
   setGridEnabled: (enabled: boolean) => void
   setSnapEnabled: (enabled: boolean) => void
+  createJourney: (name?: string) => string
+  setActiveJourney: (journeyId: string | null) => void
+  setJourneyFilter: (journeyId: string | null) => void
+  addEdgeToJourney: (journeyId: string, edgeId: string) => void
+  removeEdgeFromJourney: (journeyId: string, edgeId: string) => void
 }
 
 const getDefaultState = (): Pick<
@@ -57,6 +65,8 @@ const getDefaultState = (): Pick<
   | 'selectedEdgeId'
   | 'activeTool'
   | 'pendingConnectionFrom'
+  | 'activeJourneyId'
+  | 'journeyFilterId'
 > => {
   const fallbackWorkspace = createDefaultWorkspace()
   const snapshot = loadSnapshot(fallbackWorkspace.workspace.id, DEFAULT_VIEW_ID)
@@ -69,6 +79,8 @@ const getDefaultState = (): Pick<
       selectedEdgeId: null,
       activeTool: 'select',
       pendingConnectionFrom: null,
+      activeJourneyId: null,
+      journeyFilterId: null,
     }
   }
   return {
@@ -79,6 +91,8 @@ const getDefaultState = (): Pick<
     selectedEdgeId: null,
     activeTool: 'select',
     pendingConnectionFrom: null,
+    activeJourneyId: null,
+    journeyFilterId: null,
   }
 }
 
@@ -135,6 +149,15 @@ const createNode = (id: string, presetId: string, x: number, y: number): NodeMod
   }
 }
 
+const nextJourneyStepNumber = (used: number[]): number => {
+  let candidate = 1
+  const usedSet = new Set(used)
+  while (usedSet.has(candidate)) {
+    candidate += 1
+  }
+  return candidate
+}
+
 export const useEditorStore = create<EditorState>()(
   immer((set, get) => ({
     ...getDefaultState(),
@@ -148,6 +171,8 @@ export const useEditorStore = create<EditorState>()(
         selectedEdgeId: null,
         activeTool: 'select',
         pendingConnectionFrom: null,
+        activeJourneyId: null,
+        journeyFilterId: null,
       })
     },
     persist: () => {
@@ -162,6 +187,8 @@ export const useEditorStore = create<EditorState>()(
         selectedEdgeId: null,
         activeTool: 'select',
         pendingConnectionFrom: null,
+        activeJourneyId: null,
+        journeyFilterId: null,
       })
       saveSnapshot(toSnapshot(get()))
     },
@@ -312,6 +339,63 @@ export const useEditorStore = create<EditorState>()(
     setSnapEnabled: (enabled) => {
       set((state) => {
         state.workspace.settings.snap = enabled
+      })
+    },
+    createJourney: (name) => {
+      const journeyId = nextNumericId(get().workspace.journeys, 'j')
+      set((state) => {
+        const view = state.workspace.views[state.currentViewId]
+        if (!view) {
+          return
+        }
+        const colorIndex = Object.keys(state.workspace.journeys).length
+        state.workspace.journeys[journeyId] = {
+          id: journeyId,
+          name: name?.trim() || `Journey ${colorIndex + 1}`,
+          colorKey: journeyColorByIndex(colorIndex),
+          steps: [],
+          player: {
+            loop: false,
+            speedMs: 900,
+            pauseOnStep: false,
+          },
+        }
+        view.journeyIds.push(journeyId)
+        state.activeJourneyId = journeyId
+      })
+      return journeyId
+    },
+    setActiveJourney: (journeyId) => {
+      set((state) => {
+        state.activeJourneyId = journeyId
+      })
+    },
+    setJourneyFilter: (journeyId) => {
+      set((state) => {
+        state.journeyFilterId = journeyId
+      })
+    },
+    addEdgeToJourney: (journeyId, edgeId) => {
+      set((state) => {
+        const journey = state.workspace.journeys[journeyId]
+        if (!journey) {
+          return
+        }
+        const exists = journey.steps.some((step) => step.edgeId === edgeId)
+        if (exists) {
+          return
+        }
+        const n = nextJourneyStepNumber(journey.steps.map((step) => step.n))
+        journey.steps.push({ n, edgeId })
+      })
+    },
+    removeEdgeFromJourney: (journeyId, edgeId) => {
+      set((state) => {
+        const journey = state.workspace.journeys[journeyId]
+        if (!journey) {
+          return
+        }
+        journey.steps = journey.steps.filter((step) => step.edgeId !== edgeId)
       })
     },
   })),

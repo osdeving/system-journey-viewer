@@ -8,10 +8,11 @@
   display: grid;
   height: 100%;
   grid-template-columns: 240px 1fr 280px;
-  grid-template-rows: 80px 1fr;
+  grid-template-rows: 80px 1fr 220px;
   grid-template-areas:
     'topbar topbar topbar'
-    'left main right';
+    'left main right'
+    'journey journey journey';
 }
 
 .topbar {
@@ -204,6 +205,18 @@
   dominant-baseline: text-after-edge;
 }
 
+.edge-step-number {
+  fill: #fff;
+  font-size: 9px;
+  font-weight: 700;
+  pointer-events: none;
+}
+
+.edge-step-badge {
+  stroke: rgba(15, 23, 42, 0.2);
+  stroke-width: 1;
+}
+
 .resize-handle {
   fill: #2563eb;
 }
@@ -239,4 +252,103 @@
 .inspector-form input:disabled {
   background: #f1f5f9;
   margin: 0;
+}
+
+.inspector-form button {
+  border: 1px solid #cbd5e1;
+  background: #fff;
+  border-radius: 8px;
+  padding: 7px 10px;
+  cursor: pointer;
+}
+
+.inspector-form button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.journey-drawer {
+  grid-area: journey;
+  border-top: 1px solid #e2e8f0;
+  background: #ffffff;
+  padding: 14px 18px;
+  display: grid;
+  gap: 10px;
+}
+
+.journey-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.journey-toolbar input {
+  width: 220px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  padding: 7px 8px;
+}
+
+.journey-toolbar button {
+  border: 1px solid #cbd5e1;
+  background: #fff;
+  border-radius: 8px;
+  padding: 7px 10px;
+  cursor: pointer;
+}
+
+.journey-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.journey-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid #cbd5e1;
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.journey-item.journey-active {
+  border-color: #2563eb;
+  background: #eff6ff;
+}
+
+.journey-item button {
+  border: 1px solid #cbd5e1;
+  background: #fff;
+  border-radius: 999px;
+  padding: 2px 8px;
+  font-size: 11px;
+}
+
+.journey-color-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+}
+
+.journey-steps {
+  margin: 0;
+  padding-left: 16px;
+  display: grid;
+  gap: 4px;
+}
+
+.journey-step-actions {
+  display: inline-flex;
+  gap: 6px;
+}
+
+.journey-step-actions button {
+  border: 1px solid #cbd5e1;
+  background: #fff;
+  border-radius: 6px;
+  padding: 2px 6px;
+  font-size: 11px;
 }

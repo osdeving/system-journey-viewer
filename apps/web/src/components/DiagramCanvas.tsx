@@ -44,6 +44,17 @@ const edgePath = (edge: EdgeModel, nodes: Record<string, NodeModel>): string | n
   return `M ${p1.x} ${p1.y} C ${mx} ${p1.y}, ${mx} ${p2.y}, ${p2.x} ${p2.y}`
 }
 
+const edgeMidpoint = (edge: EdgeModel, nodes: Record<string, NodeModel>) => {
+  const from = nodes[edge.from.nodeId]
+  const to = nodes[edge.to.nodeId]
+  if (!from || !to) {
+    return null
+  }
+  const p1 = portWorldPosition(from, edge.from.portId)
+  const p2 = portWorldPosition(to, edge.to.portId)
+  return { x: (p1.x + p2.x) / 2, y: (p1.y + p2.y) / 2 }
+}
+
 export const DiagramCanvas = () => {
   const panStateRef = useRef<PanState | null>(null)
   const nodeDragStateRef = useRef<NodeDragState | null>(null)
@@ -56,6 +67,7 @@ export const DiagramCanvas = () => {
   const selectedEdgeId = useEditorStore((state) => state.selectedEdgeId)
   const activeTool = useEditorStore((state) => state.activeTool)
   const pendingConnectionFrom = useEditorStore((state) => state.pendingConnectionFrom)
+  const journeyFilterId = useEditorStore((state) => state.journeyFilterId)
   const setViewport = useEditorStore((state) => state.setViewport)
   const selectNode = useEditorStore((state) => state.selectNode)
   const selectEdge = useEditorStore((state) => state.selectEdge)
@@ -81,6 +93,42 @@ export const DiagramCanvas = () => {
         .filter((edge): edge is EdgeModel => !!edge),
     [currentView.edgeIds, workspace.edges],
   )
+
+  const edgeJourneyMarkers = useMemo(() => {
+    const markers: Record<
+      string,
+      Array<{ journeyId: string; colorKey: string; stepNumber: number }>
+    > = {}
+    for (const journeyId of currentView.journeyIds) {
+      const journey = workspace.journeys[journeyId]
+      if (!journey) {
+        continue
+      }
+      for (const step of journey.steps) {
+        if (!markers[step.edgeId]) {
+          markers[step.edgeId] = []
+        }
+        markers[step.edgeId].push({
+          journeyId,
+          colorKey: journey.colorKey,
+          stepNumber: step.n,
+        })
+      }
+    }
+    return markers
+  }, [currentView.journeyIds, workspace.journeys])
+
+  const visibleEdges = useMemo(() => {
+    if (!journeyFilterId) {
+      return edges
+    }
+    const journey = workspace.journeys[journeyFilterId]
+    if (!journey) {
+      return edges
+    }
+    const edgeSet = new Set(journey.steps.map((step) => step.edgeId))
+    return edges.filter((edge) => edgeSet.has(edge.id))
+  }, [edges, journeyFilterId, workspace.journeys])
 
   const onBackgroundPointerDown = (event: ReactPointerEvent<SVGSVGElement>): void => {
     if (event.button !== 0) {
@@ -281,12 +329,14 @@ export const DiagramCanvas = () => {
               fill="url(#grid-pattern)"
             />
           ) : null}
-          {edges.map((edge) => {
+          {visibleEdges.map((edge) => {
             const path = edgePath(edge, workspace.nodes)
             if (!path) {
               return null
             }
             const isSelected = edge.id === selectedEdgeId
+            const midpoint = edgeMidpoint(edge, workspace.nodes)
+            const badges = edgeJourneyMarkers[edge.id] ?? []
             return (
               <g
                 key={edge.id}
@@ -307,6 +357,19 @@ export const DiagramCanvas = () => {
                     {edge.label}
                   </textPath>
                 </text>
+                {midpoint
+                  ? badges.map((badge, index) => (
+                      <g
+                        key={`${badge.journeyId}-${badge.stepNumber}`}
+                        transform={`translate(${midpoint.x + index * 18}, ${midpoint.y - 12})`}
+                      >
+                        <circle className="edge-step-badge" r={8} fill={badge.colorKey} />
+                        <text className="edge-step-number" textAnchor="middle" dominantBaseline="middle">
+                          {badge.stepNumber}
+                        </text>
+                      </g>
+                    ))
+                  : null}
               </g>
             )
           })}

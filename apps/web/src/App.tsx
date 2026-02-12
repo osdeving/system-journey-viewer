@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import './App.css'
 import { DiagramCanvas } from './components/DiagramCanvas'
 import { nodePresetsByCategory, protocolPresets, resolveNodePreset } from './presets/catalog'
@@ -16,6 +16,8 @@ function App() {
   const gridEnabled = useEditorStore((state) => state.workspace.settings.grid)
   const snapEnabled = useEditorStore((state) => state.workspace.settings.snap)
   const viewport = useEditorStore((state) => state.viewport)
+  const activeJourneyId = useEditorStore((state) => state.activeJourneyId)
+  const journeyFilterId = useEditorStore((state) => state.journeyFilterId)
   const hydrate = useEditorStore((state) => state.hydrate)
   const persist = useEditorStore((state) => state.persist)
   const resetWorkspace = useEditorStore((state) => state.resetWorkspace)
@@ -27,9 +29,24 @@ function App() {
   const setEdgeLabel = useEditorStore((state) => state.setEdgeLabel)
   const setGridEnabled = useEditorStore((state) => state.setGridEnabled)
   const setSnapEnabled = useEditorStore((state) => state.setSnapEnabled)
+  const createJourney = useEditorStore((state) => state.createJourney)
+  const setActiveJourney = useEditorStore((state) => state.setActiveJourney)
+  const setJourneyFilter = useEditorStore((state) => state.setJourneyFilter)
+  const addEdgeToJourney = useEditorStore((state) => state.addEdgeToJourney)
+  const removeEdgeFromJourney = useEditorStore((state) => state.removeEdgeFromJourney)
+  const [journeyDraftName, setJourneyDraftName] = useState('')
 
   const selectedNode = selectedNodeId ? workspace.nodes[selectedNodeId] : undefined
   const selectedEdge = selectedEdgeId ? workspace.edges[selectedEdgeId] : undefined
+  const currentView = workspace.views[currentViewId]
+  const viewJourneys = useMemo(
+    () =>
+      currentView.journeyIds
+        .map((journeyId) => workspace.journeys[journeyId])
+        .filter((journey) => !!journey),
+    [currentView.journeyIds, workspace.journeys],
+  ) as Array<(typeof workspace.journeys)[string]>
+  const activeJourney = activeJourneyId ? workspace.journeys[activeJourneyId] : undefined
 
   useEffect(() => {
     const timeout = window.setTimeout(() => persist(), DEBOUNCE_SAVE_MS)
@@ -176,9 +193,83 @@ function App() {
                 </option>
               ))}
             </select>
+            <button
+              type="button"
+              onClick={() => {
+                if (activeJourneyId) {
+                  addEdgeToJourney(activeJourneyId, selectedEdge.id)
+                }
+              }}
+              disabled={!activeJourneyId}
+            >
+              Add to Active Journey
+            </button>
           </div>
         ) : null}
       </aside>
+      <section className="journey-drawer">
+        <div className="journey-toolbar">
+          <strong>Journeys</strong>
+          <input
+            placeholder="Nova jornada"
+            value={journeyDraftName}
+            onChange={(event) => setJourneyDraftName(event.target.value)}
+          />
+          <button
+            type="button"
+            onClick={() => {
+              const journeyId = createJourney(journeyDraftName)
+              setJourneyDraftName('')
+              setActiveJourney(journeyId)
+            }}
+          >
+            Criar jornada
+          </button>
+          <button type="button" onClick={() => setJourneyFilter(null)}>
+            Limpar filtro
+          </button>
+        </div>
+        <div className="journey-list">
+          {viewJourneys.map((journey) => (
+            <div
+              key={journey.id}
+              className={activeJourneyId === journey.id ? 'journey-item journey-active' : 'journey-item'}
+              onClick={() => setActiveJourney(journey.id)}
+            >
+              <span className="journey-color-dot" style={{ background: journey.colorKey }} />
+              <span>{journey.name}</span>
+              <button
+                type="button"
+                onClick={(event) => {
+                  event.stopPropagation()
+                  setJourneyFilter(journeyFilterId === journey.id ? null : journey.id)
+                }}
+              >
+                {journeyFilterId === journey.id ? 'Filtrando' : 'Filtrar'}
+              </button>
+            </div>
+          ))}
+        </div>
+        {activeJourney ? (
+          <ol className="journey-steps">
+            {activeJourney.steps
+              .slice()
+              .sort((a, b) => a.n - b.n)
+              .map((step) => (
+                <li key={`${activeJourney.id}:${step.edgeId}`}>
+                  {step.n}. {workspace.edges[step.edgeId]?.label ?? step.edgeId}
+                  <span className="journey-step-actions">
+                    <button type="button" onClick={() => removeEdgeFromJourney(activeJourney.id, step.edgeId)}>
+                      Remover
+                    </button>
+                  </span>
+                </li>
+              ))}
+          </ol>
+        ) : (
+          <p>Crie uma jornada e associe edges pelo Inspector.</p>
+        )}
+      </section>
     </div>
   )
 }

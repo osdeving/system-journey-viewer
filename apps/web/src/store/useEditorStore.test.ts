@@ -33,4 +33,23 @@ describe('useEditorStore', () => {
     expect(edgeId ? updated.workspace.edges[edgeId].from.portId : '').toBeTruthy()
     expect(edgeId ? updated.workspace.edges[edgeId].to.portId : '').toBeTruthy()
   })
+
+  it('allows one edge in multiple journeys with independent numbering', () => {
+    const state = useEditorStore.getState()
+    state.beginConnection('n_api')
+    state.connectPendingTo('n_kafka')
+    const edgeId = useEditorStore.getState().workspace.views.v_container.edgeIds[0]
+
+    const firstJourneyId = state.createJourney('Fluxo A')
+    const secondJourneyId = state.createJourney('Fluxo B')
+    state.addEdgeToJourney(firstJourneyId, edgeId)
+    state.addEdgeToJourney(secondJourneyId, edgeId)
+    state.addEdgeToJourney(firstJourneyId, edgeId)
+    const updated = useEditorStore.getState()
+
+    expect(updated.workspace.journeys[firstJourneyId].steps).toHaveLength(1)
+    expect(updated.workspace.journeys[secondJourneyId].steps).toHaveLength(1)
+    expect(updated.workspace.journeys[firstJourneyId].steps[0].n).toBe(1)
+    expect(updated.workspace.journeys[secondJourneyId].steps[0].n).toBe(1)
+  })
 })

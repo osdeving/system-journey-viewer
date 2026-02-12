@@ -37,6 +37,10 @@
 - Ajuste incremental (`tmp/ai/20260212-0922-boundary-border-hitarea`):
   - Boundary agora responde a interação apenas na borda (`pointer-events: stroke`), deixando a área interna transparente para clique em componentes ao fundo.
   - Teste de estilo adicionado para garantir `fill: none` e hit-area na borda para boundary.
+- Ajuste incremental (`tmp/ai/20260212-0930-trail-continuity`):
+  - Rastro do player refinado para ficar mais contínuo: geração de partículas interpoladas ao longo do deslocamento da bolinha em cada frame.
+  - Redução do espaçamento base do trail para suavizar o visual em qualquer zoom/velocidade.
+  - Teste unitário adicionado para a função de interpolação de pontos do trail.
 
 ### Validação executada
 

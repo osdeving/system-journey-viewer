@@ -14,6 +14,7 @@ import {
 import type { EdgeModel, NodeModel } from '../model/types'
 import { iconForKey } from '../presets/iconPipeline'
 import { useEditorStore } from '../store/useEditorStore'
+import { buildTrailPoints } from './trailMath'
 
 type PanState = {
   pointerId: number
@@ -55,7 +56,7 @@ const TRAIL_PARTICLE_RADIUS = 3.6
 const TRAIL_PARTICLE_SHADOW_BLUR = 15
 const ORB_RADIUS = 5.4
 const ORB_SHADOW_BLUR = 20
-const TRAIL_MIN_SPACING = 3
+const TRAIL_MIN_SPACING = 1.4
 const MAX_TRAILS = 500
 
 const resolveCurveFromEdge = (
@@ -373,19 +374,19 @@ export const DiagramCanvas = () => {
           orbPositionRef.current = orbPoint
           const lastTrail = lastTrailPositionRef.current
           const minSpacing = TRAIL_MIN_SPACING / Math.max(viewport.zoom, 0.25)
-          const distance = lastTrail
-            ? Math.hypot(orbPoint.x - lastTrail.x, orbPoint.y - lastTrail.y)
-            : Number.POSITIVE_INFINITY
-          if (distance >= minSpacing) {
-            trailsRef.current.push({
-              id: nextTrailIdRef.current,
-              color: currentPlayerColor,
-              alpha: TRAIL_INITIAL_ALPHA,
-              radius: TRAIL_PARTICLE_RADIUS / Math.max(viewport.zoom, 0.25),
-              position: orbPoint,
-            })
-            nextTrailIdRef.current += 1
-            lastTrailPositionRef.current = orbPoint
+          const trailPoints = buildTrailPoints(lastTrail, orbPoint, minSpacing)
+          if (trailPoints.length > 0) {
+            for (const point of trailPoints) {
+              trailsRef.current.push({
+                id: nextTrailIdRef.current,
+                color: currentPlayerColor,
+                alpha: TRAIL_INITIAL_ALPHA,
+                radius: TRAIL_PARTICLE_RADIUS / Math.max(viewport.zoom, 0.25),
+                position: point,
+              })
+              nextTrailIdRef.current += 1
+            }
+            lastTrailPositionRef.current = trailPoints[trailPoints.length - 1]
             if (trailsRef.current.length > MAX_TRAILS) {
               trailsRef.current = trailsRef.current.slice(-MAX_TRAILS)
             }

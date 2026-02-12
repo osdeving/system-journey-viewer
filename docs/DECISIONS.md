@@ -1,0 +1,19 @@
+# DECISIONS
+
+## 2026-02-12 — Engine SVG Adapter (Opção A)
+
+- **Contexto**: roadmap exige editor estilo draw.io com controle total de render/animação e sem lock-in pago.
+- **Decisão**: implementar engine próprio em SVG com `DiagramCanvas` + store de domínio (adapter interno).
+- **Consequência**: maior controle para player/journey/drill-down e export, com custo maior de manutenção de interação.
+
+## 2026-02-12 — FULL como fonte da verdade + DSL LITE derivada
+
+- **Contexto**: necessidade de persistência de geometria e também edição humana textual.
+- **Decisão**: manter `WorkspaceModel` FULL como estado canônico e converter DSL LITE em runtime.
+- **Consequência**: migração/versionamento mais simples e import/export textual sem acoplamento do engine.
+
+## 2026-02-12 — Player integrado ao estado global
+
+- **Contexto**: highlight de edge/node e sincronização com filtros de jornada e drill-down.
+- **Decisão**: player state no `useEditorStore` (journey, step, loop, speed).
+- **Consequência**: render reativo único em canvas e controles desacoplados da camada visual.

@@ -1,0 +1,23 @@
+# AI_STATE
+
+## Estado atual
+
+- Roadmap M0→M9 implementado.
+- Branch por etapa criada (`roadmap/m0-*` até `roadmap/m9-*`), com promoção por cherry-pick sem merge commit.
+- Arquitetura adotada: editor SVG custom com adapter interno (sem lock-in), modelo FULL versionado (`schemaVersion: 1.0`) e DSL LITE para import/export textual.
+
+## Fluxos implementados
+
+- Canvas com pan/zoom, grid/snap, nodes/edges, ports/docking.
+- Presets C4/Infra/Hex e catálogo de protocolos.
+- Journeys com passos e filtros.
+- Player com controles e animação de fluxo.
+- Drill-down Container → Component → Hex com breadcrumb.
+- DSL LITE ↔ FULL com auto-layout.
+- Export SVG/PNG/PDF.
+
+## Próximos incrementos sugeridos
+
+- Refinar roteamento ortogonal avançado.
+- Introduzir Monaco para DSL (atualmente textarea).
+- Otimizar bundle do export PDF (chunk grande por `jspdf`).

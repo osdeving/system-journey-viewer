@@ -8,6 +8,7 @@ export const portSchema = z.object({
 
 export const nodeSchema = z.object({
   id: z.string().min(1),
+  presetId: z.string().min(1).optional(),
   kind: z.string().min(1),
   name: z.string().min(1),
   description: z.string().optional(),

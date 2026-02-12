@@ -1,0 +1,82 @@
+[
+  {
+    "id": "system",
+    "kind": "system",
+    "label": "System",
+    "category": "C4",
+    "defaultTechId": "system",
+    "iconKey": "system",
+    "defaultWidth": 260,
+    "defaultHeight": 140
+  },
+  {
+    "id": "container",
+    "kind": "container",
+    "label": "Container",
+    "category": "C4",
+    "defaultTechId": "spring-boot",
+    "iconKey": "container",
+    "defaultWidth": 220,
+    "defaultHeight": 120
+  },
+  {
+    "id": "component",
+    "kind": "component",
+    "label": "Component",
+    "category": "C4",
+    "defaultTechId": "component",
+    "iconKey": "component",
+    "defaultWidth": 200,
+    "defaultHeight": 110
+  },
+  {
+    "id": "boundary",
+    "kind": "boundary",
+    "label": "Boundary",
+    "category": "C4",
+    "defaultTechId": "boundary",
+    "iconKey": "boundary",
+    "defaultWidth": 300,
+    "defaultHeight": 180
+  },
+  {
+    "id": "db",
+    "kind": "db",
+    "label": "Database",
+    "category": "Infra",
+    "defaultTechId": "postgres",
+    "iconKey": "database",
+    "defaultWidth": 180,
+    "defaultHeight": 90
+  },
+  {
+    "id": "queue",
+    "kind": "queue",
+    "label": "Queue / Stream",
+    "category": "Infra",
+    "defaultTechId": "kafka",
+    "iconKey": "queue",
+    "defaultWidth": 180,
+    "defaultHeight": 90
+  },
+  {
+    "id": "gateway",
+    "kind": "gateway",
+    "label": "API Gateway",
+    "category": "Infra",
+    "defaultTechId": "nginx",
+    "iconKey": "gateway",
+    "defaultWidth": 210,
+    "defaultHeight": 100
+  },
+  {
+    "id": "security",
+    "kind": "security",
+    "label": "Security",
+    "category": "Infra",
+    "defaultTechId": "oauth2",
+    "iconKey": "security",
+    "defaultWidth": 210,
+    "defaultHeight": 100
+  }
+]

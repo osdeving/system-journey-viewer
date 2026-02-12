@@ -10,6 +10,7 @@ import {
   snapBounds,
 } from '../engine/geometry'
 import type { EdgeModel, NodeModel } from '../model/types'
+import { iconForKey } from '../presets/iconPipeline'
 import { useEditorStore } from '../store/useEditorStore'
 
 type PanState = {
@@ -212,8 +213,8 @@ export const DiagramCanvas = () => {
 
   const onDrop = (event: DragEvent<HTMLDivElement>): void => {
     event.preventDefault()
-    const kind = event.dataTransfer.getData('application/x-node-kind')
-    if (!kind) {
+    const presetId = event.dataTransfer.getData('application/x-node-preset-id')
+    if (!presetId) {
       return
     }
     const container = canvasRef.current
@@ -227,7 +228,7 @@ export const DiagramCanvas = () => {
     const rawY = (py - viewport.y) / viewport.zoom - 60
     const x = snapEnabled ? Math.round(rawX / DEFAULT_GRID_SIZE) * DEFAULT_GRID_SIZE : rawX
     const y = snapEnabled ? Math.round(rawY / DEFAULT_GRID_SIZE) * DEFAULT_GRID_SIZE : rawY
-    addNode(kind as NodeModel['kind'], x, y)
+    addNode(presetId, x, y)
   }
 
   const onDragOver = (event: DragEvent<HTMLDivElement>): void => {
@@ -336,7 +337,7 @@ export const DiagramCanvas = () => {
                   }
                 />
                 <text x={16} y={34} className="node-title">
-                  {node.name}
+                  {iconForKey(node.tech?.iconKey)} {node.name}
                 </text>
                 <text x={16} y={56} className="node-subtitle">
                   {node.tech?.label ?? node.kind}

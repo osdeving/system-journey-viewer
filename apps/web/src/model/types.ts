@@ -37,6 +37,7 @@ export interface PortModel {
 
 export interface NodeModel {
   id: string
+  presetId?: string
   kind: NodeKind
   name: string
   description?: string

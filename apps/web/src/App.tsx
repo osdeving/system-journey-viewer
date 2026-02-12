@@ -1,10 +1,10 @@
 import { useEffect } from 'react'
 import './App.css'
 import { DiagramCanvas } from './components/DiagramCanvas'
+import { nodePresetsByCategory, protocolPresets, resolveNodePreset } from './presets/catalog'
 import { useEditorStore } from './store/useEditorStore'
 
 const DEBOUNCE_SAVE_MS = 900
-const toolboxKinds = ['system', 'container', 'component', 'boundary', 'db', 'queue', 'gateway']
 
 function App() {
   const workspace = useEditorStore((state) => state.workspace)
@@ -96,19 +96,24 @@ function App() {
       <aside className="left-sidebar">
         <h2>Palette</h2>
         <p>Arraste para o canvas:</p>
-        <ul className="toolbox-list">
-          {toolboxKinds.map((kind) => (
-            <li
-              key={kind}
-              draggable
-              onDragStart={(event) => {
-                event.dataTransfer.setData('application/x-node-kind', kind)
-              }}
-            >
-              {kind}
-            </li>
-          ))}
-        </ul>
+        {Object.entries(nodePresetsByCategory).map(([category, presets]) => (
+          <div key={category} className="toolbox-group">
+            <h3>{category}</h3>
+            <ul className="toolbox-list">
+              {presets.map((preset) => (
+                <li
+                  key={preset.id}
+                  draggable
+                  onDragStart={(event) => {
+                    event.dataTransfer.setData('application/x-node-preset-id', preset.id)
+                  }}
+                >
+                  {preset.label}
+                </li>
+              ))}
+            </ul>
+          </div>
+        ))}
       </aside>
       <main className="canvas-panel">
         {activeTool === 'connector' ? (
@@ -135,6 +140,12 @@ function App() {
               value={selectedNode.name}
               onChange={(event) => setNodeName(selectedNode.id, event.target.value)}
             />
+            <label htmlFor="node-preset">Preset</label>
+            <input
+              id="node-preset"
+              value={resolveNodePreset(selectedNode.presetId ?? '')?.label ?? 'Custom'}
+              disabled
+            />
             <label htmlFor="node-tech">Tecnologia</label>
             <input
               id="node-tech"
@@ -154,11 +165,17 @@ function App() {
               onChange={(event) => setEdgeLabel(selectedEdge.id, event.target.value)}
             />
             <label htmlFor="edge-protocol">Protocolo</label>
-            <input
+            <select
               id="edge-protocol"
               value={selectedEdge.protocolPresetId}
               onChange={(event) => setEdgeProtocol(selectedEdge.id, event.target.value)}
-            />
+            >
+              {protocolPresets.map((protocol) => (
+                <option key={protocol.id} value={protocol.id}>
+                  {protocol.label}
+                </option>
+              ))}
+            </select>
           </div>
         ) : null}
       </aside>

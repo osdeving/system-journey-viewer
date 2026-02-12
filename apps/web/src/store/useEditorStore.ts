@@ -2,10 +2,10 @@ import { create } from 'zustand'
 import { immer } from 'zustand/middleware/immer'
 import { nearestPortId, nodeCenter } from '../engine/geometry'
 import { createDefaultWorkspace } from '../model/defaultWorkspace'
+import { resolveNodePreset, resolveTechPreset } from '../presets/catalog'
 import type {
   EditorSnapshot,
   NodeBounds,
-  NodeKind,
   NodeModel,
   ViewportState,
   WorkspaceModel,
@@ -35,7 +35,7 @@ interface EditorState {
   setActiveTool: (tool: ActiveTool) => void
   setViewport: (viewport: ViewportState) => void
   zoomByFactor: (factor: number) => void
-  addNode: (kind: NodeKind, x: number, y: number) => string
+  addNode: (presetId: string, x: number, y: number) => string
   setNodeBounds: (nodeId: string, bounds: NodeBounds) => void
   moveNode: (nodeId: string, dx: number, dy: number) => void
   setNodeName: (nodeId: string, name: string) => void
@@ -105,23 +105,6 @@ const nextNumericId = (
   return `${prefix}_${max + 1}`
 }
 
-const techLabelByKind: Record<NodeKind, string> = {
-  system: 'System',
-  container: 'Service',
-  component: 'Component',
-  boundary: 'Boundary',
-  domain: 'Domain',
-  'application-service': 'Application Service',
-  'port-in': 'Port In',
-  'port-out': 'Port Out',
-  'adapter-in': 'Adapter In',
-  'adapter-out': 'Adapter Out',
-  db: 'Database',
-  queue: 'Queue',
-  gateway: 'API Gateway',
-  security: 'Security',
-}
-
 const defaultPorts = [
   { id: 'north', x: 0.5, y: 0 },
   { id: 'east', x: 1, y: 0.5 },
@@ -129,19 +112,28 @@ const defaultPorts = [
   { id: 'west', x: 0, y: 0.5 },
 ]
 
-const createNode = (id: string, kind: NodeKind, x: number, y: number): NodeModel => ({
-  id,
-  kind,
-  name: `${kind}-${id.replace('n_', '')}`,
-  tags: [],
-  tech: {
-    id: kind,
-    label: techLabelByKind[kind],
-  },
-  bounds: { x, y, w: 220, h: 120 },
-  ports: defaultPorts,
-  children: [],
-})
+const createNode = (id: string, presetId: string, x: number, y: number): NodeModel => {
+  const preset = resolveNodePreset(presetId) ?? resolveNodePreset('container')
+  const techPreset = preset ? resolveTechPreset(preset.defaultTechId) : undefined
+  return {
+    id,
+    presetId: preset?.id,
+    kind: (preset?.kind ?? 'container') as NodeModel['kind'],
+    name: `${preset?.label ?? 'Container'} ${id.replace('n_', '')}`,
+    tags: [],
+    tech: techPreset
+      ? { id: techPreset.id, label: techPreset.label, iconKey: techPreset.iconKey }
+      : undefined,
+    bounds: {
+      x,
+      y,
+      w: preset?.defaultWidth ?? 220,
+      h: preset?.defaultHeight ?? 120,
+    },
+    ports: defaultPorts,
+    children: [],
+  }
+}
 
 export const useEditorStore = create<EditorState>()(
   immer((set, get) => ({
@@ -203,14 +195,14 @@ export const useEditorStore = create<EditorState>()(
         state.viewport.zoom = clampZoom(state.viewport.zoom * factor)
       })
     },
-    addNode: (kind, x, y) => {
+    addNode: (presetId, x, y) => {
       const nodeId = nextNumericId(get().workspace.nodes, 'n')
       set((state) => {
         const view = state.workspace.views[state.currentViewId]
         if (!view) {
           return
         }
-        state.workspace.nodes[nodeId] = createNode(nodeId, kind, x, y)
+        state.workspace.nodes[nodeId] = createNode(nodeId, presetId, x, y)
         view.nodeIds.push(nodeId)
         state.selectedNodeId = nodeId
         state.selectedEdgeId = null

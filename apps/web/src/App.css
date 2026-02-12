@@ -92,6 +92,16 @@
   gap: 8px;
 }
 
+.toolbox-group + .toolbox-group {
+  margin-top: 18px;
+}
+
+.toolbox-group h3 {
+  margin: 8px 0;
+  font-size: 13px;
+  color: #475569;
+}
+
 .toolbox-list li {
   cursor: grab;
   user-select: none;
@@ -215,6 +225,15 @@
   border-radius: 6px;
   padding: 7px 8px;
   font-size: 13px;
+}
+
+.inspector-form select {
+  width: 100%;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  padding: 7px 8px;
+  font-size: 13px;
+  background: #fff;
 }
 
 .inspector-form input:disabled {

@@ -26,6 +26,7 @@ export const createDefaultWorkspace = (): WorkspaceModel => ({
   nodes: {
     n_api: {
       id: 'n_api',
+      presetId: 'container',
       kind: 'container',
       name: 'ms-orders',
       tags: ['core'],
@@ -36,6 +37,7 @@ export const createDefaultWorkspace = (): WorkspaceModel => ({
     },
     n_kafka: {
       id: 'n_kafka',
+      presetId: 'queue',
       kind: 'queue',
       name: 'Kafka',
       tags: ['infra'],
@@ -46,6 +48,7 @@ export const createDefaultWorkspace = (): WorkspaceModel => ({
     },
     n_db: {
       id: 'n_db',
+      presetId: 'db',
       kind: 'db',
       name: 'orders-db',
       tags: ['infra'],

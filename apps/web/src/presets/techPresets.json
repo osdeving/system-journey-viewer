@@ -1,0 +1,12 @@
+[
+  { "id": "system", "label": "System", "iconKey": "system" },
+  { "id": "spring-boot", "label": "Spring Boot", "iconKey": "spring" },
+  { "id": "component", "label": "Component", "iconKey": "component" },
+  { "id": "boundary", "label": "Boundary", "iconKey": "boundary" },
+  { "id": "postgres", "label": "PostgreSQL", "iconKey": "postgres" },
+  { "id": "kafka", "label": "Kafka", "iconKey": "kafka" },
+  { "id": "nginx", "label": "NGINX", "iconKey": "gateway" },
+  { "id": "oauth2", "label": "OAuth2", "iconKey": "security" },
+  { "id": "redis", "label": "Redis", "iconKey": "cache" },
+  { "id": "elasticsearch", "label": "Elasticsearch", "iconKey": "search" }
+]

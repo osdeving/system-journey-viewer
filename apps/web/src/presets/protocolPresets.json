@@ -1,0 +1,7 @@
+[
+  { "id": "http", "label": "HTTP" },
+  { "id": "grpc", "label": "gRPC" },
+  { "id": "kafka-event", "label": "Kafka Event" },
+  { "id": "sql", "label": "SQL" },
+  { "id": "oauth2-token", "label": "OAuth2 Token" }
+]

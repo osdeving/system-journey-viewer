@@ -10,6 +10,7 @@ const DEBOUNCE_SAVE_MS = 900
 function App() {
   const workspace = useEditorStore((state) => state.workspace)
   const currentViewId = useEditorStore((state) => state.currentViewId)
+  const viewHistory = useEditorStore((state) => state.viewHistory)
   const selectedNodeId = useEditorStore((state) => state.selectedNodeId)
   const selectedEdgeId = useEditorStore((state) => state.selectedEdgeId)
   const activeTool = useEditorStore((state) => state.activeTool)
@@ -42,6 +43,7 @@ function App() {
   const setJourneyFilter = useEditorStore((state) => state.setJourneyFilter)
   const addEdgeToJourney = useEditorStore((state) => state.addEdgeToJourney)
   const removeEdgeFromJourney = useEditorStore((state) => state.removeEdgeFromJourney)
+  const navigateBack = useEditorStore((state) => state.navigateBack)
   const setPlayerJourney = useEditorStore((state) => state.setPlayerJourney)
   const setPlayerRunning = useEditorStore((state) => state.setPlayerRunning)
   const setPlayerLoop = useEditorStore((state) => state.setPlayerLoop)
@@ -54,6 +56,7 @@ function App() {
   const selectedNode = selectedNodeId ? workspace.nodes[selectedNodeId] : undefined
   const selectedEdge = selectedEdgeId ? workspace.edges[selectedEdgeId] : undefined
   const currentView = workspace.views[currentViewId]
+  const breadcrumb = [...viewHistory, currentViewId]
   const viewJourneys = useMemo(
     () =>
       currentView.journeyIds
@@ -95,9 +98,12 @@ function App() {
       <header className="topbar">
         <div>
           <h1>{workspace.workspace.name}</h1>
-          <p>{workspace.views[currentViewId]?.name ?? currentViewId}</p>
+          <p>{breadcrumb.map((viewId) => workspace.views[viewId]?.name ?? viewId).join(' / ')}</p>
         </div>
         <div className="topbar-actions">
+          <button type="button" onClick={() => navigateBack()} disabled={!viewHistory.length}>
+            Back
+          </button>
           <button
             type="button"
             className={activeTool === 'select' ? 'tool-button tool-active' : 'tool-button'}
@@ -175,6 +181,11 @@ function App() {
             {pendingConnectionFrom
               ? `Selecione destino para conectar a partir de ${pendingConnectionFrom}`
               : 'Clique no node de origem e depois no destino para criar edge'}
+          </p>
+        ) : null}
+        {currentView.kind === 'container' ? (
+          <p className="canvas-hint secondary-hint">
+            Double-click em container com drilldown para abrir Component View.
           </p>
         ) : null}
         <DiagramCanvas />

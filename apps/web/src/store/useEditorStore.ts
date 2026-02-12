@@ -23,6 +23,7 @@ export type ActiveTool = 'select' | 'connector'
 interface EditorState {
   workspace: WorkspaceModel
   currentViewId: string
+  viewHistory: string[]
   viewport: ViewportState
   selectedNodeId: string | null
   selectedEdgeId: string | null
@@ -42,6 +43,9 @@ interface EditorState {
   resetWorkspace: () => void
   selectNode: (nodeId: string | null) => void
   selectEdge: (edgeId: string | null) => void
+  openDrilldown: (nodeId: string) => void
+  navigateBack: () => void
+  goToView: (viewId: string) => void
   setActiveTool: (tool: ActiveTool) => void
   setViewport: (viewport: ViewportState) => void
   zoomByFactor: (factor: number) => void
@@ -74,6 +78,7 @@ const getDefaultState = (): Pick<
   EditorState,
   | 'workspace'
   | 'currentViewId'
+  | 'viewHistory'
   | 'viewport'
   | 'selectedNodeId'
   | 'selectedEdgeId'
@@ -95,6 +100,7 @@ const getDefaultState = (): Pick<
     return {
       workspace: fallbackWorkspace,
       currentViewId: DEFAULT_VIEW_ID,
+      viewHistory: [],
       viewport: DEFAULT_VIEWPORT,
       selectedNodeId: null,
       selectedEdgeId: null,
@@ -114,6 +120,7 @@ const getDefaultState = (): Pick<
   return {
     workspace: snapshot.workspace,
     currentViewId: snapshot.currentViewId,
+    viewHistory: [],
     viewport: snapshot.viewport,
     selectedNodeId: null,
     selectedEdgeId: null,
@@ -201,6 +208,7 @@ export const useEditorStore = create<EditorState>()(
       set({
         workspace: defaults.workspace,
         currentViewId: defaults.currentViewId,
+        viewHistory: [],
         viewport: defaults.viewport,
         selectedNodeId: null,
         selectedEdgeId: null,
@@ -224,6 +232,7 @@ export const useEditorStore = create<EditorState>()(
       set({
         workspace: createDefaultWorkspace(),
         currentViewId: DEFAULT_VIEW_ID,
+        viewHistory: [],
         viewport: DEFAULT_VIEWPORT,
         selectedNodeId: null,
         selectedEdgeId: null,
@@ -251,6 +260,43 @@ export const useEditorStore = create<EditorState>()(
       set((state) => {
         state.selectedEdgeId = edgeId
         state.selectedNodeId = null
+      })
+    },
+    openDrilldown: (nodeId) => {
+      set((state) => {
+        const node = state.workspace.nodes[nodeId]
+        const targetViewId = node?.drilldownRef
+        if (!targetViewId || !state.workspace.views[targetViewId]) {
+          return
+        }
+        state.viewHistory.push(state.currentViewId)
+        state.currentViewId = targetViewId
+        state.selectedNodeId = null
+        state.selectedEdgeId = null
+        state.journeyFilterId = null
+      })
+    },
+    navigateBack: () => {
+      set((state) => {
+        const previousViewId = state.viewHistory.pop()
+        if (!previousViewId || !state.workspace.views[previousViewId]) {
+          return
+        }
+        state.currentViewId = previousViewId
+        state.selectedNodeId = null
+        state.selectedEdgeId = null
+        state.journeyFilterId = null
+      })
+    },
+    goToView: (viewId) => {
+      set((state) => {
+        if (!state.workspace.views[viewId]) {
+          return
+        }
+        state.currentViewId = viewId
+        state.selectedNodeId = null
+        state.selectedEdgeId = null
+        state.journeyFilterId = null
       })
     },
     setActiveTool: (tool) => {

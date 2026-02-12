@@ -70,4 +70,18 @@ describe('useEditorStore', () => {
     expect(updated.playerIsRunning).toBe(false)
     expect(updated.playerConfettiNonce).toBe(before + 1)
   })
+
+  it('supports drilldown navigation with breadcrumb history', () => {
+    const state = useEditorStore.getState()
+
+    state.openDrilldown('n_api')
+    let updated = useEditorStore.getState()
+    expect(updated.currentViewId).toBe('v_components_api')
+    expect(updated.viewHistory).toEqual(['v_container'])
+
+    updated.navigateBack()
+    updated = useEditorStore.getState()
+    expect(updated.currentViewId).toBe('v_container')
+    expect(updated.viewHistory).toHaveLength(0)
+  })
 })

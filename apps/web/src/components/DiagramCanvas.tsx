@@ -75,6 +75,7 @@ export const DiagramCanvas = () => {
   const setViewport = useEditorStore((state) => state.setViewport)
   const selectNode = useEditorStore((state) => state.selectNode)
   const selectEdge = useEditorStore((state) => state.selectEdge)
+  const openDrilldown = useEditorStore((state) => state.openDrilldown)
   const setNodeBounds = useEditorStore((state) => state.setNodeBounds)
   const addNode = useEditorStore((state) => state.addNode)
   const beginConnection = useEditorStore((state) => state.beginConnection)
@@ -429,6 +430,11 @@ export const DiagramCanvas = () => {
                 onPointerDown={(event) => onNodePointerDown(event, node, 'move')}
                 onPointerMove={onNodePointerMove}
                 onPointerUp={onNodePointerUp}
+                onDoubleClick={() => {
+                  if (node.drilldownRef) {
+                    openDrilldown(node.id)
+                  }
+                }}
               >
                 <rect
                   x={0}
@@ -443,7 +449,9 @@ export const DiagramCanvas = () => {
                         ? 'node node-player-highlight'
                       : isSelected
                         ? 'node node-selected'
-                        : 'node'
+                        : node.drilldownRef
+                          ? 'node node-drilldown'
+                          : 'node'
                   }
                 />
                 <text x={16} y={34} className="node-title">

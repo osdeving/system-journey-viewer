@@ -4,6 +4,7 @@ import './App.css'
 import { DiagramCanvas } from './components/DiagramCanvas'
 import { fullViewToLiteDsl, liteToFullWorkspace } from './dsl-lite/convert'
 import { parseLiteDsl } from './dsl-lite/parser'
+import { exportPdf, exportPng, exportSvg } from './export/exporters'
 import { nodePresetsByCategory, protocolPresets, resolveNodePreset } from './presets/catalog'
 import { useEditorStore } from './store/useEditorStore'
 
@@ -57,6 +58,7 @@ function App() {
   const [journeyDraftName, setJourneyDraftName] = useState('')
   const [dslText, setDslText] = useState('')
   const [dslError, setDslError] = useState<string | null>(null)
+  const [exportError, setExportError] = useState<string | null>(null)
 
   const selectedNode = selectedNodeId ? workspace.nodes[selectedNodeId] : undefined
   const selectedEdge = selectedEdgeId ? workspace.edges[selectedEdgeId] : undefined
@@ -98,6 +100,26 @@ function App() {
     })
   }, [playerConfettiNonce])
 
+  const exportFromCanvas = async (format: 'svg' | 'png' | 'pdf') => {
+    const svg = document.querySelector('.diagram-canvas')
+    if (!(svg instanceof SVGSVGElement)) {
+      setExportError('Canvas não encontrado para exportação.')
+      return
+    }
+    try {
+      if (format === 'svg') {
+        exportSvg(svg)
+      } else if (format === 'png') {
+        await exportPng(svg)
+      } else {
+        await exportPdf(svg)
+      }
+      setExportError(null)
+    } catch (error) {
+      setExportError(error instanceof Error ? error.message : 'Falha ao exportar arquivo.')
+    }
+  }
+
   return (
     <div className="app-layout">
       <header className="topbar">
@@ -129,6 +151,15 @@ function App() {
           <button type="button" onClick={() => persist()}>
             Save
           </button>
+          <button type="button" onClick={() => void exportFromCanvas('svg')}>
+            Export SVG
+          </button>
+          <button type="button" onClick={() => void exportFromCanvas('png')}>
+            Export PNG
+          </button>
+          <button type="button" onClick={() => void exportFromCanvas('pdf')}>
+            Export PDF
+          </button>
           <button type="button" onClick={() => zoomByFactor(1.1)}>
             Zoom +
           </button>
@@ -157,6 +188,7 @@ function App() {
             Reset
           </button>
         </div>
+        {exportError ? <p className="topbar-error">{exportError}</p> : null}
       </header>
       <aside className="left-sidebar">
         <h2>Palette</h2>

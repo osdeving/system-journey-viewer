@@ -59,6 +59,7 @@ interface EditorState {
   moveNode: (nodeId: string, dx: number, dy: number) => void
   setNodeName: (nodeId: string, name: string) => void
   setNodeTech: (nodeId: string, techLabel: string) => void
+  setNodeColor: (nodeId: string, fillColor: string) => void
   beginConnection: (nodeId: string, portId?: string) => void
   connectPendingTo: (targetNodeId: string, portId?: string) => void
   cancelPendingConnection: () => void
@@ -497,6 +498,22 @@ export const useEditorStore = create<EditorState>()(
         node.tech = {
           id: techLabel.toLowerCase().replace(/\s+/g, '-'),
           label: techLabel,
+        }
+      })
+    },
+    setNodeColor: (nodeId, fillColor) => {
+      set((state) => {
+        const node = state.workspace.nodes[nodeId]
+        if (!node) {
+          return
+        }
+        const normalizedColor = fillColor.trim()
+        if (!normalizedColor) {
+          return
+        }
+        node.style = {
+          ...node.style,
+          fillColor: normalizedColor,
         }
       })
     },

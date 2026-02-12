@@ -29,6 +29,10 @@ export interface NodeTech {
   iconKey?: string
 }
 
+export interface NodeStyle {
+  fillColor?: string
+}
+
 export interface PortModel {
   id: string
   x: number
@@ -43,6 +47,7 @@ export interface NodeModel {
   description?: string
   tags: string[]
   tech?: NodeTech
+  style?: NodeStyle
   bounds: NodeBounds
   ports: PortModel[]
   children: string[]

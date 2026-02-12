@@ -20,6 +20,15 @@ describe('useEditorStore', () => {
     expect(after.selectedNodeId).toBe(nodeId)
   })
 
+  it('updates node fill color from inspector action', () => {
+    const state = useEditorStore.getState()
+
+    state.setNodeColor('n_api', '#22c55e')
+    const updated = useEditorStore.getState()
+
+    expect(updated.workspace.nodes.n_api.style?.fillColor).toBe('#22c55e')
+  })
+
   it('connects nodes when connector tool is active', () => {
     const state = useEditorStore.getState()
     const beforeEdges = new Set(state.workspace.views[state.currentViewId].edgeIds)

@@ -264,6 +264,17 @@
   filter: drop-shadow(0 0 8px rgba(245, 158, 11, 0.45));
 }
 
+.node-player-impact {
+  stroke: #f59e0b;
+  stroke-width: 2.6;
+}
+
+.node-group-impact {
+  animation: node-impact-shake 0.28s ease-out;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
 .node-title {
   fill: #0f172a;
   font-size: 14px;
@@ -297,6 +308,11 @@
 .edge-player-active {
   stroke: #f59e0b;
   stroke-width: 2.5;
+}
+
+.edge-flowing {
+  stroke-dasharray: 9 6;
+  animation: edge-flow-dash 0.8s linear infinite;
 }
 
 .edge-preview {
@@ -354,6 +370,11 @@
   border-radius: 6px;
   padding: 7px 8px;
   font-size: 13px;
+}
+
+.inspector-form input[type='color'] {
+  padding: 2px;
+  height: 34px;
 }
 
 .inspector-form select {
@@ -716,4 +737,31 @@
 .theme-dark .edge-step-badge {
   stroke: rgba(15, 23, 42, 0.5);
   filter: drop-shadow(0 0 6px rgba(15, 23, 42, 0.4));
+}
+
+@keyframes edge-flow-dash {
+  from {
+    stroke-dashoffset: 0;
+  }
+  to {
+    stroke-dashoffset: -30;
+  }
+}
+
+@keyframes node-impact-shake {
+  0% {
+    transform: translate3d(0, 0, 0);
+  }
+  25% {
+    transform: translate3d(2.4px, 0, 0);
+  }
+  50% {
+    transform: translate3d(-2.4px, 0, 0);
+  }
+  75% {
+    transform: translate3d(1.4px, 0, 0);
+  }
+  100% {
+    transform: translate3d(0, 0, 0);
+  }
 }

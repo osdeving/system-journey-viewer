@@ -35,4 +35,25 @@ describe('workspaceSchema', () => {
       expect(parsed.data.settings.theme).toBe('light')
     }
   })
+
+  it('accepts optional node fill color style', () => {
+    const workspace = createDefaultWorkspace()
+    const parsed = workspaceSchema.safeParse({
+      ...workspace,
+      nodes: {
+        ...workspace.nodes,
+        n_api: {
+          ...workspace.nodes.n_api,
+          style: {
+            fillColor: '#22c55e',
+          },
+        },
+      },
+    })
+
+    expect(parsed.success).toBe(true)
+    if (parsed.success) {
+      expect(parsed.data.nodes.n_api.style?.fillColor).toBe('#22c55e')
+    }
+  })
 })

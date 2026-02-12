@@ -26,4 +26,11 @@ describe('App boundary styles', () => {
     expect(appCss).toContain('.journey-drawer-dsl .dsl-panel')
     expect(appCss).toContain('.dsl-panel-maximized textarea')
   })
+
+  it('includes flow and impact animations for player feedback', () => {
+    expect(appCss).toContain('.edge-flowing')
+    expect(appCss).toContain('@keyframes edge-flow-dash')
+    expect(appCss).toContain('.node-group-impact')
+    expect(appCss).toContain('@keyframes node-impact-shake')
+  })
 })

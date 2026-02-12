@@ -82,6 +82,14 @@
   - Disparo de confete no App agora calcula centro do componente final com base no viewport/canvas e gera bursts em raio proporcional ao tamanho do node.
   - Novo helper `playerConfetti` centraliza cálculo de âncora e composição dos bursts.
   - Testes unitários adicionados para: confete em loop no store e geometria/bursts do helper de confete.
+- Ajuste incremental (`tmp/ai/20260212-1652-confetti-loop-anchor`, continuação):
+  - Timeline da bolinha do player ajustada para concluir o trajeto antes do tick seguinte (`STEP_TRAVEL_COMPLETE_RATIO`), reduzindo o efeito de “parar antes do fim do path”.
+  - Highlight do nó destino sincronizado para acontecer no fim do trajeto (`NODE_HIT_PROGRESS_THRESHOLD`), evitando acender cedo demais.
+  - Adicionado impacto visual no destino com tremida curta (`node-impact-shake`) quando o fluxo “bate” no componente/container.
+  - Aresta ativa do player ganhou tracejado animado (`edge-flow-dash`) para reforçar percepção de direção/fluxo.
+  - Inspector agora permite editar a cor de preenchimento do node via `input[type=color]`, persistindo em `node.style.fillColor`.
+  - Modelo/schemas atualizados para suportar estilo de cor no node e manter compatibilidade de persistência.
+  - Testes adicionados/atualizados para cobertura de estilo de node no schema/store e classes de animação CSS.
 
 ### Validação executada
 

@@ -84,6 +84,7 @@ function App() {
   const removeNode = useEditorStore((state) => state.removeNode)
   const setNodeName = useEditorStore((state) => state.setNodeName)
   const setNodeTech = useEditorStore((state) => state.setNodeTech)
+  const setNodeColor = useEditorStore((state) => state.setNodeColor)
   const setEdgeProtocol = useEditorStore((state) => state.setEdgeProtocol)
   const setEdgeLabel = useEditorStore((state) => state.setEdgeLabel)
   const setGridEnabled = useEditorStore((state) => state.setGridEnabled)
@@ -572,6 +573,21 @@ function App() {
               value={selectedNode.tech?.label ?? ''}
               onChange={(event) => setNodeTech(selectedNode.id, event.target.value)}
             />
+            {selectedNode.kind !== 'boundary' ? (
+              <>
+                <label htmlFor="node-color">Cor</label>
+                <input
+                  id="node-color"
+                  type="color"
+                  value={
+                    /^#[\da-fA-F]{6}$/.test(selectedNode.style?.fillColor ?? '')
+                      ? selectedNode.style?.fillColor ?? '#ffffff'
+                      : '#ffffff'
+                  }
+                  onChange={(event) => setNodeColor(selectedNode.id, event.target.value)}
+                />
+              </>
+            ) : null}
           </div>
         ) : null}
         {selectedEdge ? (

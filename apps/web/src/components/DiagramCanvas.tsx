@@ -56,7 +56,9 @@ type TrailParticle = {
 }
 
 const ZOOM_SENSITIVITY = 0.0012
-const STEP_NODE_GLOW_DELAY_RATIO = 0.18
+const STEP_NODE_GLOW_DELAY_RATIO = 0.12
+const STEP_TRAVEL_COMPLETE_RATIO = 0.94
+const NODE_HIT_PROGRESS_THRESHOLD = 0.98
 const TRAIL_INITIAL_ALPHA = 0.6
 const TRAIL_FADE_FACTOR = 0.0004
 const TRAIL_PARTICLE_RADIUS = 3.6
@@ -256,7 +258,7 @@ export const DiagramCanvas = () => {
       return new Set<string>()
     }
     const set = new Set<string>([edge.from.nodeId])
-    if (!playerIsRunning || travelProgressForUi >= 0.86) {
+    if (!playerIsRunning || travelProgressForUi >= NODE_HIT_PROGRESS_THRESHOLD) {
       set.add(edge.to.nodeId)
     }
     for (const nodeId of currentPlayerStep?.highlightNodes ?? []) {
@@ -271,6 +273,16 @@ export const DiagramCanvas = () => {
     travelProgressForUi,
     workspace.edges,
   ])
+  const impactedNodeId = useMemo(() => {
+    if (!playerIsRunning || travelProgressForUi < NODE_HIT_PROGRESS_THRESHOLD) {
+      return null
+    }
+    if (!currentPlayerEdgeId) {
+      return null
+    }
+    const edge = workspace.edges[currentPlayerEdgeId]
+    return edge?.to.nodeId ?? null
+  }, [currentPlayerEdgeId, playerIsRunning, travelProgressForUi, workspace.edges])
 
   useEffect(() => {
     connectionDragRef.current = null
@@ -358,7 +370,11 @@ export const DiagramCanvas = () => {
       let travelProgress = 0
       if (playerIsRunning && stepKey && currentPlayerCurve) {
         const elapsed = Math.max(0, timestamp - (stepStartTsRef.current ?? timestamp))
-        const baseProgress = Math.max(0, Math.min(1, elapsed / Math.max(120, playerSpeedMs)))
+        const effectiveDuration = Math.max(
+          120,
+          playerSpeedMs * STEP_TRAVEL_COMPLETE_RATIO,
+        )
+        const baseProgress = Math.max(0, Math.min(1, elapsed / effectiveDuration))
         travelProgress = Math.max(
           0,
           Math.min(
@@ -789,6 +805,7 @@ export const DiagramCanvas = () => {
                 badge={edgeBadgeById[edge.id]}
                 isSelected={edge.id === selectedEdgeId}
                 isPlayerEdge={edge.id === currentPlayerEdgeId}
+                isFlowing={playerIsRunning && edge.id === currentPlayerEdgeId}
                 onSelect={() => selectEdge(edge.id)}
               />
             )
@@ -810,22 +827,25 @@ export const DiagramCanvas = () => {
             const isSelected = node.id === selectedNodeId
             const isPendingConnection = node.id === pendingConnectionFrom
             const isPlayerHighlighted = highlightedNodeIds.has(node.id)
-            const nodeVariantClass = isPendingConnection
-              ? 'node-pending'
-              : isPlayerHighlighted
-                ? 'node-player-highlight'
-                : isSelected
-                  ? 'node-selected'
-                  : node.drilldownRef
-                    ? 'node-drilldown'
-                    : ''
-            const nodeClassName = ['node', node.kind === 'boundary' ? 'node-boundary' : '', nodeVariantClass]
+            const isPlayerImpacted = node.id === impactedNodeId
+            const nodeClassName = [
+              'node',
+              node.kind === 'boundary' ? 'node-boundary' : '',
+              isPendingConnection ? 'node-pending' : '',
+              isSelected ? 'node-selected' : '',
+              node.drilldownRef ? 'node-drilldown' : '',
+              isPlayerHighlighted ? 'node-player-highlight' : '',
+              isPlayerImpacted ? 'node-player-impact' : '',
+            ]
               .filter(Boolean)
               .join(' ')
+            const nodeFillColor =
+              node.kind === 'boundary' ? undefined : node.style?.fillColor
             return (
               <g
                 key={node.id}
                 transform={`translate(${node.bounds.x}, ${node.bounds.y})`}
+                className={isPlayerImpacted ? 'node-group-impact' : ''}
                 onPointerDown={(event) => onNodePointerDown(event, node, 'move')}
                 onPointerMove={onNodePointerMove}
                 onPointerUp={onNodePointerUp}
@@ -842,6 +862,7 @@ export const DiagramCanvas = () => {
                   height={node.bounds.h}
                   rx={12}
                   className={nodeClassName}
+                  style={nodeFillColor ? { fill: nodeFillColor } : undefined}
                 />
                 <text x={16} y={34} className="node-title">
                   {iconForKey(node.tech?.iconKey)} {node.name}

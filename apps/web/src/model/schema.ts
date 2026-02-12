@@ -20,6 +20,11 @@ export const nodeSchema = z.object({
       iconKey: z.string().min(1).optional(),
     })
     .optional(),
+  style: z
+    .object({
+      fillColor: z.string().min(1).optional(),
+    })
+    .optional(),
   bounds: z.object({
     x: z.number(),
     y: z.number(),

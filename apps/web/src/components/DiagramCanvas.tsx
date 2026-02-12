@@ -20,6 +20,7 @@ import {
   type EdgeJourneyBadge,
   type EdgeJourneyMarker,
 } from './edgeJourneyBadge'
+import { resolveHexConnectorRole } from './hexConnectorRole'
 import { JourneyEdge } from './JourneyEdge'
 import { curveToSvgPath, cubicPointAt, type EdgeCurvePath } from './edgePresentation'
 import { buildTrailPoints } from './trailMath'
@@ -850,6 +851,12 @@ export const DiagramCanvas = () => {
               14,
               Math.min(node.bounds.h / 2, 34),
             )
+            const connectorRole =
+              currentView.kind === 'hex'
+                ? resolveHexConnectorRole(node.kind)
+                : null
+            const connectorIconX = node.bounds.w - 34
+            const connectorIconY = 12
             return (
               <g
                 key={node.id}
@@ -906,16 +913,19 @@ export const DiagramCanvas = () => {
                       className={nodeClassName}
                       style={nodeFillColor ? { fill: nodeFillColor } : undefined}
                     />
-                    <path
-                      d={`M ${queueRadius * 0.9} ${node.bounds.h * 0.34} H ${
-                        node.bounds.w - queueRadius * 0.9
-                      }`}
+                    <ellipse
+                      cx={node.bounds.w - queueRadius * 0.42}
+                      cy={node.bounds.h / 2}
+                      rx={queueRadius * 0.78}
+                      ry={node.bounds.h / 2}
                       className="node-shape-detail"
                     />
                     <path
-                      d={`M ${queueRadius * 0.9} ${node.bounds.h * 0.66} H ${
-                        node.bounds.w - queueRadius * 0.9
-                      }`}
+                      d={`M ${queueRadius * 0.45} ${
+                        node.bounds.h * 0.18
+                      } A ${queueRadius * 0.75} ${node.bounds.h * 0.32} 0 0 1 ${
+                        queueRadius * 0.45
+                      } ${node.bounds.h * 0.82}`}
                       className="node-shape-detail"
                     />
                   </g>
@@ -930,6 +940,58 @@ export const DiagramCanvas = () => {
                     style={nodeFillColor ? { fill: nodeFillColor } : undefined}
                   />
                 )}
+                {connectorRole === 'female' ? (
+                  <g className="node-connector-icon node-connector-female">
+                    <rect
+                      x={connectorIconX + 2}
+                      y={connectorIconY + 3}
+                      width={16}
+                      height={10}
+                      rx={3}
+                      className="node-connector-shell"
+                    />
+                    <circle
+                      cx={connectorIconX + 8}
+                      cy={connectorIconY + 8}
+                      r={1.2}
+                      className="node-connector-dot"
+                    />
+                    <circle
+                      cx={connectorIconX + 12}
+                      cy={connectorIconY + 8}
+                      r={1.2}
+                      className="node-connector-dot"
+                    />
+                    <path
+                      d={`M ${connectorIconX + 10} ${connectorIconY + 13} V ${
+                        connectorIconY + 16
+                      }`}
+                      className="node-connector-line"
+                    />
+                  </g>
+                ) : null}
+                {connectorRole === 'male' ? (
+                  <g className="node-connector-icon node-connector-male">
+                    <rect
+                      x={connectorIconX + 4}
+                      y={connectorIconY + 5}
+                      width={12}
+                      height={8}
+                      rx={2}
+                      className="node-connector-shell"
+                    />
+                    <path
+                      d={`M ${connectorIconX + 7} ${connectorIconY + 5} V ${
+                        connectorIconY + 2
+                      } M ${connectorIconX + 13} ${connectorIconY + 5} V ${
+                        connectorIconY + 2
+                      } M ${connectorIconX + 10} ${connectorIconY + 13} V ${
+                        connectorIconY + 16
+                      }`}
+                      className="node-connector-line"
+                    />
+                  </g>
+                ) : null}
                 <text x={16} y={34} className="node-title">
                   {iconForKey(node.tech?.iconKey)} {node.name}
                 </text>

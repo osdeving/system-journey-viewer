@@ -301,6 +301,35 @@
   pointer-events: none;
 }
 
+.node-connector-icon {
+  pointer-events: none;
+}
+
+.node-connector-shell {
+  fill: rgba(255, 255, 255, 0.9);
+  stroke: rgba(15, 23, 42, 0.35);
+  stroke-width: 1;
+}
+
+.node-connector-dot {
+  fill: rgba(15, 23, 42, 0.6);
+}
+
+.node-connector-line {
+  fill: none;
+  stroke: rgba(15, 23, 42, 0.7);
+  stroke-width: 1.2;
+  stroke-linecap: round;
+}
+
+.node-connector-female .node-connector-shell {
+  stroke: rgba(37, 99, 235, 0.7);
+}
+
+.node-connector-male .node-connector-shell {
+  stroke: rgba(234, 88, 12, 0.8);
+}
+
 .edge {
   stroke: #64748b;
   stroke-width: 2;
@@ -750,6 +779,19 @@
 
 .theme-dark .node-shape-detail {
   stroke: rgba(148, 163, 184, 0.62);
+}
+
+.theme-dark .node-connector-shell {
+  fill: rgba(15, 23, 42, 0.9);
+  stroke: rgba(148, 163, 184, 0.62);
+}
+
+.theme-dark .node-connector-dot {
+  fill: rgba(148, 163, 184, 0.8);
+}
+
+.theme-dark .node-connector-line {
+  stroke: rgba(203, 213, 225, 0.88);
 }
 
 .theme-dark .edge {

@@ -96,6 +96,11 @@
   - Inspector de node ganhou paleta de “últimas 10 cores” para seleção rápida, além do color picker.
   - Modelo/showcase atualizado com cores default em vários nodes para entregar demo visual já colorida.
   - Testes de estilo atualizados para cobrir classes da nova paleta e detalhes de shape.
+- Ajuste incremental (`tmp/ai/20260212-1727-hex-plug-icons-shapes`):
+  - Fluxo Hex ganhou ícones semânticos de conector no canto do node: tomada fêmea para `port-in/port-out` e plug macho para `adapter-in/adapter-out`.
+  - Refino visual do shape de broker/fila para aparência mais tubular (cápsula com detalhe de cap), alinhado ao estilo de diagrama de referência.
+  - Lógica de mapeamento de papel de conector isolada em helper (`resolveHexConnectorRole`) com teste unitário dedicado.
+  - Testes de estilo ampliados para cobrir classes dos novos ícones de conector.
 
 ### Validação executada
 

@@ -26,6 +26,7 @@
 - Nós `db` e `queue` renderizados com formas específicas (cilindro e tubo), mantendo conectores/ports compatíveis.
 - Inspector mostra paleta com últimas 10 cores para seleção rápida de componentes/containers.
 - Showcase inicial colorizado com paleta visual para facilitar demonstração.
+- Nodes Hex exibem ícones de conector: porta fêmea para `port-in/port-out` e plug macho para `adapter-in/adapter-out`.
 - Remoção de componente por teclado (`Delete`/`Backspace`) com confirmação e aviso de impacto em jornadas conectadas.
 - Remoção de node limpa edges conectadas e passos de jornada associados.
 - Preset `boundary` com borda pontilhada e fundo transparente (incluindo tema escuro).

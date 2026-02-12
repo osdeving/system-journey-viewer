@@ -36,6 +36,9 @@ describe('App boundary styles', () => {
 
   it('contains visual styles for node shapes and color palette', () => {
     expect(appCss).toContain('.node-shape-detail')
+    expect(appCss).toContain('.node-connector-icon')
+    expect(appCss).toContain('.node-connector-female')
+    expect(appCss).toContain('.node-connector-male')
     expect(appCss).toContain('.node-color-presets')
     expect(appCss).toContain('.node-color-chip')
   })

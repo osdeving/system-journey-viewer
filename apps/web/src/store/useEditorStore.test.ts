@@ -37,6 +37,34 @@ describe('useEditorStore', () => {
     expect(edgeId ? updated.workspace.edges[edgeId].to.portId : '').toBeTruthy()
   })
 
+  it('removes selected node and disconnects linked journey steps', () => {
+    const state = useEditorStore.getState()
+    const view = state.workspace.views[state.currentViewId]
+    const nodeId = 'n_api'
+    const connectedEdgeIds = view.edgeIds.filter((edgeId) => {
+      const edge = state.workspace.edges[edgeId]
+      return edge ? edge.from.nodeId === nodeId || edge.to.nodeId === nodeId : false
+    })
+
+    expect(connectedEdgeIds.length).toBeGreaterThan(0)
+    state.selectNode(nodeId)
+    state.removeNode(nodeId)
+    const updated = useEditorStore.getState()
+    const updatedView = updated.workspace.views[updated.currentViewId]
+
+    expect(updated.selectedNodeId).toBeNull()
+    expect(updated.workspace.nodes[nodeId]).toBeUndefined()
+    expect(updatedView.nodeIds.includes(nodeId)).toBe(false)
+    connectedEdgeIds.forEach((edgeId) => {
+      expect(updated.workspace.edges[edgeId]).toBeUndefined()
+      expect(updatedView.edgeIds.includes(edgeId)).toBe(false)
+      updatedView.journeyIds.forEach((journeyId) => {
+        const journey = updated.workspace.journeys[journeyId]
+        expect(journey.steps.some((step) => step.edgeId === edgeId)).toBe(false)
+      })
+    })
+  })
+
   it('allows one edge in multiple journeys with independent numbering', () => {
     const state = useEditorStore.getState()
     const beforeEdges = new Set(state.workspace.views.v_container.edgeIds)

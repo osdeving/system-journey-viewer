@@ -28,6 +28,12 @@
   - Curvas de edge resolvidas por porta de saída/entrada mesmo quando `portId` está ausente no edge seedado (evita animação partir do centro do componente).
   - Numeração da jornada incluída no texto da comunicação (prefixo à esquerda do label: `N. label`).
   - Compatibilidade retro com snapshots antigos: `theme` default em schema quando ausente.
+- Pós-roadmap (`tmp/ai/20260212-0848-delete-boundary-style`):
+  - Atalho `Delete`/`Backspace` para remover node selecionado no stage.
+  - Confirmação de remoção com aviso explícito quando há jornadas afetadas por edges conectadas ao node.
+  - Remoção de node agora também remove edges conectadas e passos de jornada associados (desconecta fluxos impactados).
+  - Preset `boundary` atualizado para borda pontilhada com fundo transparente, mantendo legibilidade no tema escuro.
+  - Teste unitário adicionado para garantir limpeza de edges/journeys ao remover node.
 
 ### Validação executada
 

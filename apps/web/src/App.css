@@ -185,6 +185,13 @@
   stroke-width: 1.2;
 }
 
+.node-boundary {
+  fill: transparent;
+  stroke-dasharray: 3 7;
+  stroke-linecap: round;
+  stroke-width: 2;
+}
+
 .node-selected {
   stroke: #2563eb;
   stroke-width: 2.4;
@@ -521,6 +528,11 @@
 .theme-dark .node {
   fill: #1e293b;
   stroke: #94a3b8;
+}
+
+.theme-dark .node-boundary {
+  fill: transparent;
+  stroke: #60a5fa;
 }
 
 .theme-dark .node-title {

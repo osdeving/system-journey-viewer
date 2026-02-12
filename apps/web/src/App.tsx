@@ -10,6 +10,17 @@ import { useEditorStore } from './store/useEditorStore'
 
 const DEBOUNCE_SAVE_MS = 900
 
+const isTextInputTarget = (target: EventTarget | null): boolean => {
+  if (!(target instanceof HTMLElement)) {
+    return false
+  }
+  if (target.isContentEditable) {
+    return true
+  }
+  const tagName = target.tagName
+  return tagName === 'INPUT' || tagName === 'TEXTAREA' || tagName === 'SELECT'
+}
+
 function App() {
   const workspace = useEditorStore((state) => state.workspace)
   const currentViewId = useEditorStore((state) => state.currentViewId)
@@ -37,6 +48,7 @@ function App() {
   const replaceWorkspace = useEditorStore((state) => state.replaceWorkspace)
   const zoomByFactor = useEditorStore((state) => state.zoomByFactor)
   const setActiveTool = useEditorStore((state) => state.setActiveTool)
+  const removeNode = useEditorStore((state) => state.removeNode)
   const setNodeName = useEditorStore((state) => state.setNodeName)
   const setNodeTech = useEditorStore((state) => state.setNodeTech)
   const setEdgeProtocol = useEditorStore((state) => state.setEdgeProtocol)
@@ -106,6 +118,61 @@ function App() {
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme)
   }, [theme])
+
+  useEffect(() => {
+    const onDeleteKey = (event: KeyboardEvent) => {
+      if (event.key !== 'Delete' && event.key !== 'Backspace') {
+        return
+      }
+      if (isTextInputTarget(event.target)) {
+        return
+      }
+      if (!selectedNode) {
+        return
+      }
+      event.preventDefault()
+
+      const connectedEdgeIds = currentView.edgeIds.filter((edgeId) => {
+        const edge = workspace.edges[edgeId]
+        if (!edge) {
+          return false
+        }
+        return edge.from.nodeId === selectedNode.id || edge.to.nodeId === selectedNode.id
+      })
+      const connectedEdgeSet = new Set(connectedEdgeIds)
+      const affectedJourneyNames: string[] = []
+      for (const journeyId of currentView.journeyIds) {
+        const journey = workspace.journeys[journeyId]
+        if (!journey) {
+          continue
+        }
+        if (journey.steps.some((step) => connectedEdgeSet.has(step.edgeId))) {
+          affectedJourneyNames.push(journey.name)
+        }
+      }
+
+      const messageParts = [`Remover "${selectedNode.name}" do stage?`]
+      if (connectedEdgeIds.length > 0) {
+        messageParts.push(
+          `Isso também removerá ${connectedEdgeIds.length} comunicação(ões) conectada(s) ao componente.`,
+        )
+      }
+      if (affectedJourneyNames.length > 0) {
+        messageParts.push(
+          `As jornadas abaixo serão desconectadas desse componente:\n- ${affectedJourneyNames.join('\n- ')}`,
+        )
+      }
+      messageParts.push('Deseja continuar?')
+
+      if (!window.confirm(messageParts.join('\n\n'))) {
+        return
+      }
+      removeNode(selectedNode.id)
+    }
+
+    window.addEventListener('keydown', onDeleteKey)
+    return () => window.removeEventListener('keydown', onDeleteKey)
+  }, [currentView.edgeIds, currentView.journeyIds, removeNode, selectedNode, workspace.edges, workspace.journeys])
 
   const exportFromCanvas = async (format: 'svg' | 'png' | 'pdf') => {
     const svg = document.querySelector('.diagram-canvas')

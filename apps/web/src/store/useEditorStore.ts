@@ -52,6 +52,7 @@ interface EditorState {
   setViewport: (viewport: ViewportState) => void
   zoomByFactor: (factor: number) => void
   addNode: (presetId: string, x: number, y: number) => string
+  removeNode: (nodeId: string) => void
   setNodeBounds: (nodeId: string, bounds: NodeBounds) => void
   moveNode: (nodeId: string, dx: number, dy: number) => void
   setNodeName: (nodeId: string, name: string) => void
@@ -354,6 +355,66 @@ export const useEditorStore = create<EditorState>()(
         state.selectedEdgeId = null
       })
       return nodeId
+    },
+    removeNode: (nodeId) => {
+      set((state) => {
+        if (!state.workspace.nodes[nodeId]) {
+          return
+        }
+
+        const removedEdgeIds = new Set<string>()
+        for (const [edgeId, edge] of Object.entries(state.workspace.edges)) {
+          if (edge.from.nodeId === nodeId || edge.to.nodeId === nodeId) {
+            removedEdgeIds.add(edgeId)
+          }
+        }
+
+        for (const view of Object.values(state.workspace.views)) {
+          view.nodeIds = view.nodeIds.filter((candidate) => candidate !== nodeId)
+          if (removedEdgeIds.size > 0) {
+            view.edgeIds = view.edgeIds.filter((edgeId) => !removedEdgeIds.has(edgeId))
+          }
+        }
+
+        for (const edgeId of removedEdgeIds) {
+          delete state.workspace.edges[edgeId]
+        }
+
+        for (const journey of Object.values(state.workspace.journeys)) {
+          journey.steps = journey.steps.filter((step) => !removedEdgeIds.has(step.edgeId))
+        }
+
+        delete state.workspace.nodes[nodeId]
+
+        if (state.pendingConnectionFrom === nodeId) {
+          state.pendingConnectionFrom = null
+        }
+        if (state.selectedNodeId === nodeId) {
+          state.selectedNodeId = null
+        }
+        if (state.selectedEdgeId && removedEdgeIds.has(state.selectedEdgeId)) {
+          state.selectedEdgeId = null
+        }
+
+        if (!state.playerJourneyId) {
+          state.playerIsRunning = false
+          state.playerStepIndex = 0
+          return
+        }
+
+        const activePlayerJourney = state.workspace.journeys[state.playerJourneyId]
+        const sortedSteps =
+          activePlayerJourney?.steps.slice().sort((left, right) => left.n - right.n) ?? []
+        if (!sortedSteps.length) {
+          state.playerIsRunning = false
+          state.playerStepIndex = 0
+          return
+        }
+        if (state.playerStepIndex >= sortedSteps.length) {
+          state.playerStepIndex = sortedSteps.length - 1
+          state.playerIsRunning = false
+        }
+      })
     },
     setNodeBounds: (nodeId, bounds) => {
       set((state) => {

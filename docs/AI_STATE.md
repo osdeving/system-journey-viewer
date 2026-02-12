@@ -19,6 +19,9 @@
 - Showcase pronto para demo completa via ação `Showcase` (topbar).
 - Player com bolinha em movimento no path e rastro temporal via canvas overlay (trail com fade/remoção).
 - Labels de comunicação com numeração de jornada à esquerda quando há contexto de passo.
+- Remoção de componente por teclado (`Delete`/`Backspace`) com confirmação e aviso de impacto em jornadas conectadas.
+- Remoção de node limpa edges conectadas e passos de jornada associados.
+- Preset `boundary` com borda pontilhada e fundo transparente (incluindo tema escuro).
 
 ## Próximos incrementos sugeridos
 

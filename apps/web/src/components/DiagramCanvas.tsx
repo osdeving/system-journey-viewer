@@ -717,6 +717,18 @@ export const DiagramCanvas = () => {
             const isSelected = node.id === selectedNodeId
             const isPendingConnection = node.id === pendingConnectionFrom
             const isPlayerHighlighted = highlightedNodeIds.has(node.id)
+            const nodeVariantClass = isPendingConnection
+              ? 'node-pending'
+              : isPlayerHighlighted
+                ? 'node-player-highlight'
+                : isSelected
+                  ? 'node-selected'
+                  : node.drilldownRef
+                    ? 'node-drilldown'
+                    : ''
+            const nodeClassName = ['node', node.kind === 'boundary' ? 'node-boundary' : '', nodeVariantClass]
+              .filter(Boolean)
+              .join(' ')
             return (
               <g
                 key={node.id}
@@ -736,17 +748,7 @@ export const DiagramCanvas = () => {
                   width={node.bounds.w}
                   height={node.bounds.h}
                   rx={12}
-                  className={
-                    isPendingConnection
-                      ? 'node node-pending'
-                      : isPlayerHighlighted
-                        ? 'node node-player-highlight'
-                        : isSelected
-                          ? 'node node-selected'
-                          : node.drilldownRef
-                            ? 'node node-drilldown'
-                            : 'node'
-                  }
+                  className={nodeClassName}
                 />
                 <text x={16} y={34} className="node-title">
                   {iconForKey(node.tech?.iconKey)} {node.name}

@@ -17,6 +17,7 @@ const DEFAULT_VIEW_ID = 'v_container'
 const DEFAULT_VIEWPORT: ViewportState = { x: 100, y: 80, zoom: 1 }
 const MIN_ZOOM = 0.3
 const MAX_ZOOM = 2.8
+const DEFAULT_PLAYER_JOURNEY_ID = 'j_c_1'
 
 export type ActiveTool = 'select' | 'connector'
 
@@ -61,6 +62,8 @@ interface EditorState {
   setEdgeLabel: (edgeId: string, label: string) => void
   setGridEnabled: (enabled: boolean) => void
   setSnapEnabled: (enabled: boolean) => void
+  setTheme: (theme: WorkspaceModel['settings']['theme']) => void
+  loadShowcaseWorkspace: () => void
   createJourney: (name?: string) => string
   setActiveJourney: (journeyId: string | null) => void
   setJourneyFilter: (journeyId: string | null) => void
@@ -109,7 +112,7 @@ const getDefaultState = (): Pick<
       pendingConnectionFrom: null,
       activeJourneyId: null,
       journeyFilterId: null,
-      playerJourneyId: null,
+      playerJourneyId: DEFAULT_PLAYER_JOURNEY_ID,
       playerIsRunning: false,
       playerStepIndex: 0,
       playerLoop: false,
@@ -118,9 +121,12 @@ const getDefaultState = (): Pick<
       playerConfettiNonce: 0,
     }
   }
+  const resolvedViewId = snapshot.workspace.views[snapshot.currentViewId]
+    ? snapshot.currentViewId
+    : DEFAULT_VIEW_ID
   return {
     workspace: snapshot.workspace,
-    currentViewId: snapshot.currentViewId,
+    currentViewId: resolvedViewId,
     viewHistory: [],
     viewport: snapshot.viewport,
     selectedNodeId: null,
@@ -129,7 +135,8 @@ const getDefaultState = (): Pick<
     pendingConnectionFrom: null,
     activeJourneyId: null,
     journeyFilterId: null,
-    playerJourneyId: null,
+    playerJourneyId:
+      snapshot.workspace.views[resolvedViewId]?.journeyIds[0] ?? DEFAULT_PLAYER_JOURNEY_ID,
     playerIsRunning: false,
     playerStepIndex: 0,
     playerLoop: false,
@@ -215,9 +222,10 @@ export const useEditorStore = create<EditorState>()(
         selectedEdgeId: null,
         activeTool: 'select',
         pendingConnectionFrom: null,
-        activeJourneyId: null,
+        activeJourneyId: DEFAULT_PLAYER_JOURNEY_ID,
         journeyFilterId: null,
-        playerJourneyId: null,
+        playerJourneyId:
+          defaults.workspace.views[defaults.currentViewId]?.journeyIds[0] ?? DEFAULT_PLAYER_JOURNEY_ID,
         playerIsRunning: false,
         playerStepIndex: 0,
         playerLoop: false,
@@ -239,9 +247,9 @@ export const useEditorStore = create<EditorState>()(
         selectedEdgeId: null,
         activeTool: 'select',
         pendingConnectionFrom: null,
-        activeJourneyId: null,
+        activeJourneyId: DEFAULT_PLAYER_JOURNEY_ID,
         journeyFilterId: null,
-        playerJourneyId: null,
+        playerJourneyId: DEFAULT_PLAYER_JOURNEY_ID,
         playerIsRunning: false,
         playerStepIndex: 0,
         playerLoop: false,
@@ -451,6 +459,33 @@ export const useEditorStore = create<EditorState>()(
       set((state) => {
         state.workspace.settings.snap = enabled
       })
+    },
+    setTheme: (theme) => {
+      set((state) => {
+        state.workspace.settings.theme = theme
+      })
+    },
+    loadShowcaseWorkspace: () => {
+      set({
+        workspace: createDefaultWorkspace(),
+        currentViewId: DEFAULT_VIEW_ID,
+        viewHistory: [],
+        viewport: DEFAULT_VIEWPORT,
+        selectedNodeId: null,
+        selectedEdgeId: null,
+        activeTool: 'select',
+        pendingConnectionFrom: null,
+        activeJourneyId: DEFAULT_PLAYER_JOURNEY_ID,
+        journeyFilterId: null,
+        playerJourneyId: DEFAULT_PLAYER_JOURNEY_ID,
+        playerIsRunning: false,
+        playerStepIndex: 0,
+        playerLoop: false,
+        playerSpeedMs: 900,
+        playerHighlightNodes: true,
+        playerConfettiNonce: 0,
+      })
+      saveSnapshot(toSnapshot(get()))
     },
     createJourney: (name) => {
       const journeyId = nextNumericId(get().workspace.journeys, 'j')

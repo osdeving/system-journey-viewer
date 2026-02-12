@@ -22,10 +22,13 @@ describe('useEditorStore', () => {
 
   it('connects nodes when connector tool is active', () => {
     const state = useEditorStore.getState()
+    const beforeEdges = new Set(state.workspace.views[state.currentViewId].edgeIds)
     state.beginConnection('n_api')
     state.connectPendingTo('n_kafka')
     const updated = useEditorStore.getState()
-    const edgeId = updated.workspace.views[updated.currentViewId].edgeIds.at(-1)
+    const edgeId = updated.workspace.views[updated.currentViewId].edgeIds.find(
+      (candidate) => !beforeEdges.has(candidate),
+    )
 
     expect(edgeId).toBeDefined()
     expect(edgeId ? updated.workspace.edges[edgeId].from.nodeId : '').toBe('n_api')
@@ -36,9 +39,14 @@ describe('useEditorStore', () => {
 
   it('allows one edge in multiple journeys with independent numbering', () => {
     const state = useEditorStore.getState()
+    const beforeEdges = new Set(state.workspace.views.v_container.edgeIds)
     state.beginConnection('n_api')
     state.connectPendingTo('n_kafka')
-    const edgeId = useEditorStore.getState().workspace.views.v_container.edgeIds[0]
+    const edgeId =
+      useEditorStore
+        .getState()
+        .workspace.views.v_container.edgeIds.find((candidate) => !beforeEdges.has(candidate)) ??
+      'e_c_5'
 
     const firstJourneyId = state.createJourney('Fluxo A')
     const secondJourneyId = state.createJourney('Fluxo B')
@@ -55,9 +63,14 @@ describe('useEditorStore', () => {
 
   it('stops player and emits confetti when journey reaches end', () => {
     const state = useEditorStore.getState()
+    const beforeEdges = new Set(state.workspace.views.v_container.edgeIds)
     state.beginConnection('n_api')
     state.connectPendingTo('n_kafka')
-    const edgeId = useEditorStore.getState().workspace.views.v_container.edgeIds[0]
+    const edgeId =
+      useEditorStore
+        .getState()
+        .workspace.views.v_container.edgeIds.find((candidate) => !beforeEdges.has(candidate)) ??
+      'e_c_5'
     const journeyId = state.createJourney('Fluxo Player')
     state.addEdgeToJourney(journeyId, edgeId)
     state.setPlayerJourney(journeyId)
@@ -69,6 +82,19 @@ describe('useEditorStore', () => {
 
     expect(updated.playerIsRunning).toBe(false)
     expect(updated.playerConfettiNonce).toBe(before + 1)
+  })
+
+  it('supports theme toggle and showcase reload', () => {
+    const state = useEditorStore.getState()
+    state.setTheme('dark')
+    let updated = useEditorStore.getState()
+    expect(updated.workspace.settings.theme).toBe('dark')
+
+    state.loadShowcaseWorkspace()
+    updated = useEditorStore.getState()
+    expect(updated.workspace.workspace.name).toBe('Orders Platform Showcase')
+    expect(updated.workspace.views.v_container.journeyIds.length).toBeGreaterThanOrEqual(3)
+    expect(updated.activeJourneyId).toBe('j_c_1')
   })
 
   it('supports drilldown navigation with breadcrumb history', () => {

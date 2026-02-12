@@ -114,6 +114,7 @@ export interface WorkspaceModel {
   settings: {
     grid: boolean
     snap: boolean
+    theme: 'light' | 'dark'
   }
 }
 

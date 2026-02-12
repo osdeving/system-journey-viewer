@@ -95,6 +95,7 @@ export const workspaceSchema = z.object({
   settings: z.object({
     grid: z.boolean(),
     snap: z.boolean(),
+    theme: z.enum(['light', 'dark']).default('light'),
   }),
 })
 

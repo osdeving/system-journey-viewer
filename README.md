@@ -2,6 +2,12 @@
 
 Editor visual C4 + Journeys com Player, Drill-down, HexView, DSL LITE e export.
 
+## Showcase
+
+- O app inicia com um workspace de showcase completo (Container, Component e Hex com jornadas).
+- Use `Showcase` na topbar para recarregar o cenário de demonstração.
+- Use o toggle `Dark` na topbar para alternar tema claro/escuro.
+
 ## Stack
 
 - `React + TypeScript + Vite`

@@ -13,6 +13,15 @@
 - M7 (`roadmap/m7-hexview`): HexView com presets hexagonais e fluxo interno seedado.
 - M8 (`roadmap/m8-dsl-lite`): parser DSL LITE, conversão LITE→FULL (auto-layout), export/import de DSL no editor.
 - M9 (`roadmap/m9-export`): export SVG/PNG/PDF a partir do canvas.
+- Pós-roadmap (`tmp/ai/20260212-0805-dark-theme-showcase`):
+  - Tema escuro com toggle persistente no workspace (`settings.theme`).
+  - Showcase completo no `createDefaultWorkspace` com:
+    - visão Container com múltiplas jornadas (sync, async e query),
+    - visão Component com jornada interna,
+    - visão Hex com fluxo ponta-a-ponta,
+    - drill-down encadeado Container → Component → Hex.
+  - Ação rápida `Showcase` na topbar para recarregar o cenário de demonstração.
+  - Ajustes de testes para lidar com workspace inicial já populado.
 
 ### Validação executada
 

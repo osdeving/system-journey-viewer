@@ -448,3 +448,96 @@
   color: #dc2626;
   font-size: 12px;
 }
+
+.theme-dark {
+  color: #e2e8f0;
+  background: #0b1220;
+}
+
+.theme-dark .topbar {
+  background: #111827;
+  border-bottom-color: #334155;
+}
+
+.theme-dark .topbar p,
+.theme-dark .toggle-inline,
+.theme-dark .toolbox-group h3,
+.theme-dark .player-step-info,
+.theme-dark .inspector-form label {
+  color: #cbd5e1;
+}
+
+.theme-dark .left-sidebar,
+.theme-dark .right-sidebar {
+  background: #0f172a;
+  border-color: #334155;
+}
+
+.theme-dark .canvas-panel {
+  background: #0b1220;
+}
+
+.theme-dark .journey-drawer {
+  background: #0f172a;
+  border-top-color: #334155;
+}
+
+.theme-dark .topbar-actions button,
+.theme-dark .inspector-form button,
+.theme-dark .journey-toolbar button,
+.theme-dark .journey-item button,
+.theme-dark .journey-step-actions button,
+.theme-dark .dsl-toolbar button {
+  background: #1e293b;
+  color: #e2e8f0;
+  border-color: #475569;
+}
+
+.theme-dark .inspector-form input,
+.theme-dark .inspector-form select,
+.theme-dark .journey-toolbar input,
+.theme-dark .journey-toolbar select,
+.theme-dark .dsl-panel textarea {
+  background: #1e293b;
+  color: #e2e8f0;
+  border-color: #475569;
+}
+
+.theme-dark .inspector-form input:disabled {
+  background: #334155;
+}
+
+.theme-dark .journey-item {
+  border-color: #475569;
+}
+
+.theme-dark .journey-item.journey-active {
+  border-color: #60a5fa;
+  background: #1e3a8a;
+}
+
+.theme-dark .node {
+  fill: #1e293b;
+  stroke: #94a3b8;
+}
+
+.theme-dark .node-title {
+  fill: #e2e8f0;
+}
+
+.theme-dark .node-subtitle {
+  fill: #cbd5e1;
+}
+
+.theme-dark .node-port {
+  fill: #0f172a;
+  stroke: #94a3b8;
+}
+
+.theme-dark .edge {
+  stroke: #94a3b8;
+}
+
+.theme-dark .edge-label {
+  fill: #e2e8f0;
+}

@@ -20,6 +20,7 @@ function App() {
   const pendingConnectionFrom = useEditorStore((state) => state.pendingConnectionFrom)
   const gridEnabled = useEditorStore((state) => state.workspace.settings.grid)
   const snapEnabled = useEditorStore((state) => state.workspace.settings.snap)
+  const theme = useEditorStore((state) => state.workspace.settings.theme)
   const viewport = useEditorStore((state) => state.viewport)
   const activeJourneyId = useEditorStore((state) => state.activeJourneyId)
   const journeyFilterId = useEditorStore((state) => state.journeyFilterId)
@@ -42,6 +43,8 @@ function App() {
   const setEdgeLabel = useEditorStore((state) => state.setEdgeLabel)
   const setGridEnabled = useEditorStore((state) => state.setGridEnabled)
   const setSnapEnabled = useEditorStore((state) => state.setSnapEnabled)
+  const setTheme = useEditorStore((state) => state.setTheme)
+  const loadShowcaseWorkspace = useEditorStore((state) => state.loadShowcaseWorkspace)
   const createJourney = useEditorStore((state) => state.createJourney)
   const setActiveJourney = useEditorStore((state) => state.setActiveJourney)
   const setJourneyFilter = useEditorStore((state) => state.setJourneyFilter)
@@ -100,6 +103,10 @@ function App() {
     })
   }, [playerConfettiNonce])
 
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme)
+  }, [theme])
+
   const exportFromCanvas = async (format: 'svg' | 'png' | 'pdf') => {
     const svg = document.querySelector('.diagram-canvas')
     if (!(svg instanceof SVGSVGElement)) {
@@ -121,7 +128,7 @@ function App() {
   }
 
   return (
-    <div className="app-layout">
+    <div className={`app-layout ${theme === 'dark' ? 'theme-dark' : 'theme-light'}`}>
       <header className="topbar">
         <div>
           <h1>{workspace.workspace.name}</h1>
@@ -184,6 +191,18 @@ function App() {
             />
             Snap
           </label>
+          <label className="toggle-inline" htmlFor="toggle-theme-dark">
+            <input
+              id="toggle-theme-dark"
+              type="checkbox"
+              checked={theme === 'dark'}
+              onChange={(event) => setTheme(event.target.checked ? 'dark' : 'light')}
+            />
+            Dark
+          </label>
+          <button type="button" onClick={() => loadShowcaseWorkspace()}>
+            Showcase
+          </button>
           <button type="button" onClick={() => resetWorkspace()}>
             Reset
           </button>

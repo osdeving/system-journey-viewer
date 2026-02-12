@@ -10,11 +10,13 @@
 
 - Canvas com pan/zoom, grid/snap, nodes/edges, ports/docking.
 - Presets C4/Infra/Hex e catálogo de protocolos.
+- Tema `light/dark` persistido no modelo FULL (`workspace.settings.theme`).
 - Journeys com passos e filtros.
 - Player com controles e animação de fluxo.
 - Drill-down Container → Component → Hex com breadcrumb.
 - DSL LITE ↔ FULL com auto-layout.
 - Export SVG/PNG/PDF.
+- Showcase pronto para demo completa via ação `Showcase` (topbar).
 
 ## Próximos incrementos sugeridos
 

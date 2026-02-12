@@ -1,5 +1,6 @@
 [
   { "id": "system", "label": "System", "iconKey": "system" },
+  { "id": "react", "label": "React", "iconKey": "component" },
   { "id": "spring-boot", "label": "Spring Boot", "iconKey": "spring" },
   { "id": "component", "label": "Component", "iconKey": "component" },
   { "id": "boundary", "label": "Boundary", "iconKey": "boundary" },
@@ -13,6 +14,7 @@
   { "id": "port-out", "label": "Port Out", "iconKey": "queue" },
   { "id": "adapter-in", "label": "Adapter In", "iconKey": "gateway" },
   { "id": "adapter-out", "label": "Adapter Out", "iconKey": "queue" },
+  { "id": "observability", "label": "Observability", "iconKey": "search" },
   { "id": "redis", "label": "Redis", "iconKey": "cache" },
   { "id": "elasticsearch", "label": "Elasticsearch", "iconKey": "search" }
 ]

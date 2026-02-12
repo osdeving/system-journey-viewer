@@ -111,6 +111,7 @@ export const liteToFullWorkspace = (ast: LiteWorkspaceAst): WorkspaceModel => {
     settings: {
       grid: false,
       snap: false,
+      theme: 'light',
     },
   }
 }

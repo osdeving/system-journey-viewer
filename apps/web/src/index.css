@@ -10,6 +10,11 @@
   -moz-osx-font-smoothing: grayscale;
 }
 
+:root[data-theme='dark'] {
+  color: #e2e8f0;
+  background: #0b1220;
+}
+
 *,
 *::before,
 *::after {

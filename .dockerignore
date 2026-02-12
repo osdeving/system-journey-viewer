@@ -1,0 +1,9 @@
+**/target
+/data
+run-logs
+.git
+.gitignore
+.vscode
+.idea
+*.iml
+.DS_Store

@@ -70,6 +70,12 @@
   - Label de comunicação voltou ao `startOffset` central (`50%`) para evitar deslocamento desnecessário.
   - Regra de posicionamento do badge isolada em helper (`resolveEdgeStepBadgeProgress`) com clamp para manter posição próxima ao começo.
   - Testes unitários adicionados para cobrir comportamento padrão e limites do posicionamento do badge.
+- Ajuste incremental (`tmp/ai/20260212-1637-stable-edge-badge-position`):
+  - Render das arestas refatorado para componente dedicado `JourneyEdge`, concentrando path + direção + badge + label.
+  - Badge de numeração passou a usar cálculo estável por distância fixa em pixels a partir da origem da seta (evita sensação de posição “aleatória” entre arestas de tamanhos diferentes).
+  - Nome da comunicação agora inclui tecnologia/protocolo no próprio label: `Nome (protocolo)`, ex.: `Auth request (http/jwt)`.
+  - Novo helper `edgePresentation` adiciona funções de composição de label e cálculo de progress do badge por comprimento estimado da curva.
+  - Testes unitários adicionados para validar posição do badge em curvas curtas/longas e composição do label com protocolo.
 
 ### Validação executada
 

@@ -12,14 +12,16 @@ import {
   snapBounds,
 } from '../engine/geometry'
 import type { EdgeModel, NodeModel } from '../model/types'
+import { protocolPresets } from '../presets/catalog'
 import { iconForKey } from '../presets/iconPipeline'
 import { useEditorStore } from '../store/useEditorStore'
 import {
-  resolveEdgeStepBadgeProgress,
   resolveEdgeJourneyBadge,
   type EdgeJourneyBadge,
   type EdgeJourneyMarker,
 } from './edgeJourneyBadge'
+import { JourneyEdge } from './JourneyEdge'
+import { curveToSvgPath, cubicPointAt, type EdgeCurvePath } from './edgePresentation'
 import { buildTrailPoints } from './trailMath'
 
 type PanState = {
@@ -45,13 +47,6 @@ type ConnectionDragState = {
   sourcePortId: string
 }
 
-type CurvePath = {
-  start: { x: number; y: number }
-  control1: { x: number; y: number }
-  control2: { x: number; y: number }
-  end: { x: number; y: number }
-}
-
 type TrailParticle = {
   id: number
   color: string
@@ -74,7 +69,7 @@ const MAX_TRAILS = 500
 const resolveCurveFromEdge = (
   edge: EdgeModel,
   nodes: Record<string, NodeModel>,
-): CurvePath | null => {
+): EdgeCurvePath | null => {
   const from = nodes[edge.from.nodeId]
   const to = nodes[edge.to.nodeId]
   if (!from || !to) {
@@ -93,28 +88,6 @@ const resolveCurveFromEdge = (
     control2: { x: middleX, y: end.y },
     end,
   }
-}
-
-const curveToSvgPath = (curve: CurvePath): string =>
-  `M ${curve.start.x} ${curve.start.y} C ${curve.control1.x} ${curve.control1.y}, ${curve.control2.x} ${curve.control2.y}, ${curve.end.x} ${curve.end.y}`
-
-const cubicPointAt = (
-  curve: CurvePath,
-  progress: number,
-): { x: number; y: number } => {
-  const p = Math.max(0, Math.min(1, progress))
-  const inverse = 1 - p
-  const x =
-    inverse ** 3 * curve.start.x +
-    3 * inverse ** 2 * p * curve.control1.x +
-    3 * inverse * p ** 2 * curve.control2.x +
-    p ** 3 * curve.end.x
-  const y =
-    inverse ** 3 * curve.start.y +
-    3 * inverse ** 2 * p * curve.control1.y +
-    3 * inverse * p ** 2 * curve.control2.y +
-    p ** 3 * curve.end.y
-  return { x, y }
 }
 
 const hexToRgba = (color: string, alpha: number): string => {
@@ -233,6 +206,13 @@ export const DiagramCanvas = () => {
     }
     return badges
   }, [activeJourneyId, edgeJourneyMarkers, edges, journeyFilterId, playerJourneyId])
+  const protocolLabelById = useMemo(
+    () =>
+      Object.fromEntries(
+        protocolPresets.map((preset) => [preset.id, preset.label]),
+      ) as Record<string, string>,
+    [],
+  )
 
   const visibleEdges = useMemo(() => {
     if (!journeyFilterId) {
@@ -799,57 +779,18 @@ export const DiagramCanvas = () => {
               return null
             }
             const path = curveToSvgPath(curve)
-            const isSelected = edge.id === selectedEdgeId
-            const isPlayerEdge = edge.id === currentPlayerEdgeId
-            const badge = edgeBadgeById[edge.id]
-            const badgePoint = badge
-              ? cubicPointAt(curve, resolveEdgeStepBadgeProgress())
-              : null
             return (
-              <g
+              <JourneyEdge
                 key={edge.id}
-                onPointerDown={(event) => {
-                  event.stopPropagation()
-                  selectEdge(edge.id)
-                }}
-              >
-                <path
-                  id={`${edge.id}_path`}
-                  d={path}
-                  fill="none"
-                  markerEnd="url(#edge-arrow)"
-                  className={
-                    isSelected
-                      ? 'edge edge-selected'
-                      : isPlayerEdge
-                        ? 'edge edge-player-active'
-                        : 'edge'
-                  }
-                />
-                <text className="edge-label">
-                  <textPath href={`#${edge.id}_path`} startOffset="50%">
-                    {edge.label}
-                  </textPath>
-                </text>
-                {badge && badgePoint ? (
-                  <g className="edge-step-badge-group">
-                    <circle
-                      className="edge-step-badge"
-                      cx={badgePoint.x}
-                      cy={badgePoint.y}
-                      r={8}
-                      style={{ fill: badge.colorKey }}
-                    />
-                    <text
-                      className="edge-step-number"
-                      x={badgePoint.x}
-                      y={badgePoint.y}
-                    >
-                      {badge.stepNumber}
-                    </text>
-                  </g>
-                ) : null}
-              </g>
+                edge={edge}
+                curve={curve}
+                path={path}
+                protocolLabel={protocolLabelById[edge.protocolPresetId]}
+                badge={edgeBadgeById[edge.id]}
+                isSelected={edge.id === selectedEdgeId}
+                isPlayerEdge={edge.id === currentPlayerEdgeId}
+                onSelect={() => selectEdge(edge.id)}
+              />
             )
           })}
           {connectionPreview ? (

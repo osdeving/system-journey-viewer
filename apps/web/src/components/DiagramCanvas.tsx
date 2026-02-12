@@ -15,6 +15,7 @@ import type { EdgeModel, NodeModel } from '../model/types'
 import { iconForKey } from '../presets/iconPipeline'
 import { useEditorStore } from '../store/useEditorStore'
 import {
+  resolveEdgeStepBadgeProgress,
   resolveEdgeJourneyBadge,
   type EdgeJourneyBadge,
   type EdgeJourneyMarker,
@@ -801,7 +802,9 @@ export const DiagramCanvas = () => {
             const isSelected = edge.id === selectedEdgeId
             const isPlayerEdge = edge.id === currentPlayerEdgeId
             const badge = edgeBadgeById[edge.id]
-            const badgePoint = badge ? cubicPointAt(curve, 0.44) : null
+            const badgePoint = badge
+              ? cubicPointAt(curve, resolveEdgeStepBadgeProgress())
+              : null
             return (
               <g
                 key={edge.id}
@@ -824,10 +827,7 @@ export const DiagramCanvas = () => {
                   }
                 />
                 <text className="edge-label">
-                  <textPath
-                    href={`#${edge.id}_path`}
-                    startOffset={badge ? '56%' : '50%'}
-                  >
+                  <textPath href={`#${edge.id}_path`} startOffset="50%">
                     {edge.label}
                   </textPath>
                 </text>

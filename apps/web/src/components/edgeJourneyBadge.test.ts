@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { resolveEdgeJourneyBadge, type EdgeJourneyMarker } from './edgeJourneyBadge'
+import {
+  resolveEdgeJourneyBadge,
+  resolveEdgeStepBadgeProgress,
+  type EdgeJourneyMarker,
+} from './edgeJourneyBadge'
 
 const markers: EdgeJourneyMarker[] = [
   {
@@ -80,5 +84,19 @@ describe('resolveEdgeJourneyBadge', () => {
       stepNumber: 2,
       colorKey: '#16a34a',
     })
+  })
+})
+
+describe('resolveEdgeStepBadgeProgress', () => {
+  it('uses a progress value near edge start by default', () => {
+    const progress = resolveEdgeStepBadgeProgress()
+    expect(progress).toBeGreaterThanOrEqual(0.05)
+    expect(progress).toBeLessThanOrEqual(0.2)
+    expect(progress).toBeLessThan(0.5)
+  })
+
+  it('clamps custom progress to keep badge close to start', () => {
+    expect(resolveEdgeStepBadgeProgress(0)).toBe(0.05)
+    expect(resolveEdgeStepBadgeProgress(0.5)).toBe(0.2)
   })
 })

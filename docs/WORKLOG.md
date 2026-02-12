@@ -65,6 +65,11 @@
   - Cor do badge agora segue a `colorKey` da jornada ativa no contexto (filtro > jornada ativa > player > fallback por menor passo).
   - Helper dedicado (`resolveEdgeJourneyBadge`) criado para centralizar prioridade e facilitar reuso/teste.
   - Testes unitários adicionados para validar resolução de badge por prioridade de jornada.
+- Ajuste incremental (`tmp/ai/20260212-1618-badge-start-position`):
+  - Badge de numeração movido do meio da aresta para o início do path (lado de saída da comunicação).
+  - Label de comunicação voltou ao `startOffset` central (`50%`) para evitar deslocamento desnecessário.
+  - Regra de posicionamento do badge isolada em helper (`resolveEdgeStepBadgeProgress`) com clamp para manter posição próxima ao começo.
+  - Testes unitários adicionados para cobrir comportamento padrão e limites do posicionamento do badge.
 
 ### Validação executada
 

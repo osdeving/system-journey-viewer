@@ -68,6 +68,10 @@ export const DiagramCanvas = () => {
   const activeTool = useEditorStore((state) => state.activeTool)
   const pendingConnectionFrom = useEditorStore((state) => state.pendingConnectionFrom)
   const journeyFilterId = useEditorStore((state) => state.journeyFilterId)
+  const playerJourneyId = useEditorStore((state) => state.playerJourneyId)
+  const playerStepIndex = useEditorStore((state) => state.playerStepIndex)
+  const playerHighlightNodes = useEditorStore((state) => state.playerHighlightNodes)
+  const playerIsRunning = useEditorStore((state) => state.playerIsRunning)
   const setViewport = useEditorStore((state) => state.setViewport)
   const selectNode = useEditorStore((state) => state.selectNode)
   const selectEdge = useEditorStore((state) => state.selectEdge)
@@ -129,6 +133,37 @@ export const DiagramCanvas = () => {
     const edgeSet = new Set(journey.steps.map((step) => step.edgeId))
     return edges.filter((edge) => edgeSet.has(edge.id))
   }, [edges, journeyFilterId, workspace.journeys])
+
+  const currentPlayerEdgeId = useMemo(() => {
+    if (!playerJourneyId) {
+      return null
+    }
+    const journey = workspace.journeys[playerJourneyId]
+    if (!journey) {
+      return null
+    }
+    const sortedSteps = journey.steps.slice().sort((left, right) => left.n - right.n)
+    const currentStep = sortedSteps[playerStepIndex]
+    return currentStep?.edgeId ?? null
+  }, [playerJourneyId, playerStepIndex, workspace.journeys])
+
+  const highlightedNodeIds = useMemo(() => {
+    if (!playerHighlightNodes || !currentPlayerEdgeId) {
+      return new Set<string>()
+    }
+    const edge = workspace.edges[currentPlayerEdgeId]
+    if (!edge) {
+      return new Set<string>()
+    }
+    const set = new Set<string>([edge.from.nodeId, edge.to.nodeId])
+    const journey = playerJourneyId ? workspace.journeys[playerJourneyId] : undefined
+    const sortedSteps = journey?.steps.slice().sort((left, right) => left.n - right.n) ?? []
+    const currentStep = sortedSteps[playerStepIndex]
+    for (const nodeId of currentStep?.highlightNodes ?? []) {
+      set.add(nodeId)
+    }
+    return set
+  }, [currentPlayerEdgeId, playerHighlightNodes, playerJourneyId, playerStepIndex, workspace.edges, workspace.journeys])
 
   const onBackgroundPointerDown = (event: ReactPointerEvent<SVGSVGElement>): void => {
     if (event.button !== 0) {
@@ -335,6 +370,7 @@ export const DiagramCanvas = () => {
               return null
             }
             const isSelected = edge.id === selectedEdgeId
+            const isPlayerEdge = edge.id === currentPlayerEdgeId
             const midpoint = edgeMidpoint(edge, workspace.nodes)
             const badges = edgeJourneyMarkers[edge.id] ?? []
             return (
@@ -350,7 +386,15 @@ export const DiagramCanvas = () => {
                   d={path}
                   fill="none"
                   markerEnd="url(#edge-arrow)"
-                  className={isSelected ? 'edge edge-selected' : 'edge'}
+                  className={
+                    isPlayerEdge && playerIsRunning
+                      ? 'edge edge-playing'
+                      : isSelected
+                        ? 'edge edge-selected'
+                        : isPlayerEdge
+                          ? 'edge edge-selected'
+                          : 'edge'
+                  }
                 />
                 <text className="edge-label">
                   <textPath href={`#${edge.id}_path`} startOffset="50%">
@@ -377,6 +421,7 @@ export const DiagramCanvas = () => {
           {nodes.map((node) => {
             const isSelected = node.id === selectedNodeId
             const isPendingConnection = node.id === pendingConnectionFrom
+            const isPlayerHighlighted = highlightedNodeIds.has(node.id)
             return (
               <g
                 key={node.id}
@@ -394,6 +439,8 @@ export const DiagramCanvas = () => {
                   className={
                     isPendingConnection
                       ? 'node node-pending'
+                      : isPlayerHighlighted
+                        ? 'node node-player-highlight'
                       : isSelected
                         ? 'node node-selected'
                         : 'node'

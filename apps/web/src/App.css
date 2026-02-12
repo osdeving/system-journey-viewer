@@ -168,6 +168,12 @@
   stroke-width: 2.4;
 }
 
+.node-player-highlight {
+  stroke: #f59e0b;
+  stroke-width: 2.4;
+  filter: drop-shadow(0 0 8px rgba(245, 158, 11, 0.45));
+}
+
 .node-title {
   fill: #0f172a;
   font-size: 14px;
@@ -196,6 +202,22 @@
 .edge-selected {
   stroke: #2563eb;
   stroke-width: 3;
+}
+
+.edge-playing {
+  stroke: #f59e0b;
+  stroke-width: 3;
+  stroke-dasharray: 8 6;
+  animation: edge-energy 900ms linear infinite;
+}
+
+@keyframes edge-energy {
+  from {
+    stroke-dashoffset: 28;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
 }
 
 .edge-label {
@@ -289,12 +311,29 @@
   padding: 7px 8px;
 }
 
+.journey-toolbar select {
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  padding: 7px 8px;
+  background: #fff;
+}
+
 .journey-toolbar button {
   border: 1px solid #cbd5e1;
   background: #fff;
   border-radius: 8px;
   padding: 7px 10px;
   cursor: pointer;
+}
+
+.journey-toolbar input[type='range'] {
+  width: 120px;
+}
+
+.player-step-info {
+  font-size: 12px;
+  color: #475569;
+  font-weight: 600;
 }
 
 .journey-list {

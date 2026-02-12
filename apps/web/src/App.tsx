@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import confetti from 'canvas-confetti'
 import './App.css'
 import { DiagramCanvas } from './components/DiagramCanvas'
 import { nodePresetsByCategory, protocolPresets, resolveNodePreset } from './presets/catalog'
@@ -18,6 +19,13 @@ function App() {
   const viewport = useEditorStore((state) => state.viewport)
   const activeJourneyId = useEditorStore((state) => state.activeJourneyId)
   const journeyFilterId = useEditorStore((state) => state.journeyFilterId)
+  const playerJourneyId = useEditorStore((state) => state.playerJourneyId)
+  const playerIsRunning = useEditorStore((state) => state.playerIsRunning)
+  const playerStepIndex = useEditorStore((state) => state.playerStepIndex)
+  const playerLoop = useEditorStore((state) => state.playerLoop)
+  const playerSpeedMs = useEditorStore((state) => state.playerSpeedMs)
+  const playerHighlightNodes = useEditorStore((state) => state.playerHighlightNodes)
+  const playerConfettiNonce = useEditorStore((state) => state.playerConfettiNonce)
   const hydrate = useEditorStore((state) => state.hydrate)
   const persist = useEditorStore((state) => state.persist)
   const resetWorkspace = useEditorStore((state) => state.resetWorkspace)
@@ -34,6 +42,13 @@ function App() {
   const setJourneyFilter = useEditorStore((state) => state.setJourneyFilter)
   const addEdgeToJourney = useEditorStore((state) => state.addEdgeToJourney)
   const removeEdgeFromJourney = useEditorStore((state) => state.removeEdgeFromJourney)
+  const setPlayerJourney = useEditorStore((state) => state.setPlayerJourney)
+  const setPlayerRunning = useEditorStore((state) => state.setPlayerRunning)
+  const setPlayerLoop = useEditorStore((state) => state.setPlayerLoop)
+  const setPlayerSpeedMs = useEditorStore((state) => state.setPlayerSpeedMs)
+  const setPlayerHighlightNodes = useEditorStore((state) => state.setPlayerHighlightNodes)
+  const stepPlayer = useEditorStore((state) => state.stepPlayer)
+  const resetPlayer = useEditorStore((state) => state.resetPlayer)
   const [journeyDraftName, setJourneyDraftName] = useState('')
 
   const selectedNode = selectedNodeId ? workspace.nodes[selectedNodeId] : undefined
@@ -47,11 +62,33 @@ function App() {
     [currentView.journeyIds, workspace.journeys],
   ) as Array<(typeof workspace.journeys)[string]>
   const activeJourney = activeJourneyId ? workspace.journeys[activeJourneyId] : undefined
+  const playerJourney = playerJourneyId ? workspace.journeys[playerJourneyId] : undefined
 
   useEffect(() => {
     const timeout = window.setTimeout(() => persist(), DEBOUNCE_SAVE_MS)
     return () => window.clearTimeout(timeout)
   }, [workspace, currentViewId, viewport, persist])
+
+  useEffect(() => {
+    if (!playerIsRunning) {
+      return
+    }
+    const timer = window.setInterval(() => {
+      stepPlayer()
+    }, playerSpeedMs)
+    return () => window.clearInterval(timer)
+  }, [playerIsRunning, playerSpeedMs, stepPlayer])
+
+  useEffect(() => {
+    if (!playerConfettiNonce) {
+      return
+    }
+    confetti({
+      particleCount: 140,
+      spread: 85,
+      origin: { y: 0.62 },
+    })
+  }, [playerConfettiNonce])
 
   return (
     <div className="app-layout">
@@ -228,6 +265,60 @@ function App() {
           <button type="button" onClick={() => setJourneyFilter(null)}>
             Limpar filtro
           </button>
+          <select
+            value={playerJourneyId ?? ''}
+            onChange={(event) => setPlayerJourney(event.target.value || null)}
+          >
+            <option value="">Player: selecione jornada</option>
+            {viewJourneys.map((journey) => (
+              <option key={journey.id} value={journey.id}>
+                {journey.name}
+              </option>
+            ))}
+          </select>
+          <button
+            type="button"
+            disabled={!playerJourney}
+            onClick={() => setPlayerRunning(!playerIsRunning)}
+          >
+            {playerIsRunning ? 'Pausar' : 'Play'}
+          </button>
+          <button type="button" disabled={!playerJourney} onClick={() => stepPlayer()}>
+            Step
+          </button>
+          <button type="button" disabled={!playerJourney} onClick={() => resetPlayer()}>
+            Reset Player
+          </button>
+          <label className="toggle-inline">
+            <input
+              type="checkbox"
+              checked={playerLoop}
+              onChange={(event) => setPlayerLoop(event.target.checked)}
+            />
+            Loop
+          </label>
+          <label className="toggle-inline">
+            <input
+              type="checkbox"
+              checked={playerHighlightNodes}
+              onChange={(event) => setPlayerHighlightNodes(event.target.checked)}
+            />
+            Highlight Nodes
+          </label>
+          <label className="toggle-inline">
+            Speed
+            <input
+              type="range"
+              min={120}
+              max={1800}
+              step={60}
+              value={playerSpeedMs}
+              onChange={(event) => setPlayerSpeedMs(Number(event.target.value))}
+            />
+          </label>
+          <span className="player-step-info">
+            Step {playerStepIndex + 1}/{playerJourney?.steps.length ?? 0}
+          </span>
         </div>
         <div className="journey-list">
           {viewJourneys.map((journey) => (

@@ -52,4 +52,22 @@ describe('useEditorStore', () => {
     expect(updated.workspace.journeys[firstJourneyId].steps[0].n).toBe(1)
     expect(updated.workspace.journeys[secondJourneyId].steps[0].n).toBe(1)
   })
+
+  it('stops player and emits confetti when journey reaches end', () => {
+    const state = useEditorStore.getState()
+    state.beginConnection('n_api')
+    state.connectPendingTo('n_kafka')
+    const edgeId = useEditorStore.getState().workspace.views.v_container.edgeIds[0]
+    const journeyId = state.createJourney('Fluxo Player')
+    state.addEdgeToJourney(journeyId, edgeId)
+    state.setPlayerJourney(journeyId)
+    state.setPlayerRunning(true)
+    const before = useEditorStore.getState().playerConfettiNonce
+
+    state.stepPlayer()
+    const updated = useEditorStore.getState()
+
+    expect(updated.playerIsRunning).toBe(false)
+    expect(updated.playerConfettiNonce).toBe(before + 1)
+  })
 })

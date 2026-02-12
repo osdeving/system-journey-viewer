@@ -30,6 +30,13 @@ interface EditorState {
   pendingConnectionFrom: string | null
   activeJourneyId: string | null
   journeyFilterId: string | null
+  playerJourneyId: string | null
+  playerIsRunning: boolean
+  playerStepIndex: number
+  playerLoop: boolean
+  playerSpeedMs: number
+  playerHighlightNodes: boolean
+  playerConfettiNonce: number
   hydrate: () => void
   persist: () => void
   resetWorkspace: () => void
@@ -54,6 +61,13 @@ interface EditorState {
   setJourneyFilter: (journeyId: string | null) => void
   addEdgeToJourney: (journeyId: string, edgeId: string) => void
   removeEdgeFromJourney: (journeyId: string, edgeId: string) => void
+  setPlayerJourney: (journeyId: string | null) => void
+  setPlayerRunning: (running: boolean) => void
+  setPlayerLoop: (loop: boolean) => void
+  setPlayerSpeedMs: (speedMs: number) => void
+  setPlayerHighlightNodes: (enabled: boolean) => void
+  stepPlayer: () => void
+  resetPlayer: () => void
 }
 
 const getDefaultState = (): Pick<
@@ -67,6 +81,13 @@ const getDefaultState = (): Pick<
   | 'pendingConnectionFrom'
   | 'activeJourneyId'
   | 'journeyFilterId'
+  | 'playerJourneyId'
+  | 'playerIsRunning'
+  | 'playerStepIndex'
+  | 'playerLoop'
+  | 'playerSpeedMs'
+  | 'playerHighlightNodes'
+  | 'playerConfettiNonce'
 > => {
   const fallbackWorkspace = createDefaultWorkspace()
   const snapshot = loadSnapshot(fallbackWorkspace.workspace.id, DEFAULT_VIEW_ID)
@@ -81,6 +102,13 @@ const getDefaultState = (): Pick<
       pendingConnectionFrom: null,
       activeJourneyId: null,
       journeyFilterId: null,
+      playerJourneyId: null,
+      playerIsRunning: false,
+      playerStepIndex: 0,
+      playerLoop: false,
+      playerSpeedMs: 900,
+      playerHighlightNodes: true,
+      playerConfettiNonce: 0,
     }
   }
   return {
@@ -93,6 +121,13 @@ const getDefaultState = (): Pick<
     pendingConnectionFrom: null,
     activeJourneyId: null,
     journeyFilterId: null,
+    playerJourneyId: null,
+    playerIsRunning: false,
+    playerStepIndex: 0,
+    playerLoop: false,
+    playerSpeedMs: 900,
+    playerHighlightNodes: true,
+    playerConfettiNonce: 0,
   }
 }
 
@@ -173,6 +208,13 @@ export const useEditorStore = create<EditorState>()(
         pendingConnectionFrom: null,
         activeJourneyId: null,
         journeyFilterId: null,
+        playerJourneyId: null,
+        playerIsRunning: false,
+        playerStepIndex: 0,
+        playerLoop: false,
+        playerSpeedMs: 900,
+        playerHighlightNodes: true,
+        playerConfettiNonce: 0,
       })
     },
     persist: () => {
@@ -189,6 +231,13 @@ export const useEditorStore = create<EditorState>()(
         pendingConnectionFrom: null,
         activeJourneyId: null,
         journeyFilterId: null,
+        playerJourneyId: null,
+        playerIsRunning: false,
+        playerStepIndex: 0,
+        playerLoop: false,
+        playerSpeedMs: 900,
+        playerHighlightNodes: true,
+        playerConfettiNonce: 0,
       })
       saveSnapshot(toSnapshot(get()))
     },
@@ -362,6 +411,9 @@ export const useEditorStore = create<EditorState>()(
         }
         view.journeyIds.push(journeyId)
         state.activeJourneyId = journeyId
+        if (!state.playerJourneyId) {
+          state.playerJourneyId = journeyId
+        }
       })
       return journeyId
     },
@@ -396,6 +448,67 @@ export const useEditorStore = create<EditorState>()(
           return
         }
         journey.steps = journey.steps.filter((step) => step.edgeId !== edgeId)
+      })
+    },
+    setPlayerJourney: (journeyId) => {
+      set((state) => {
+        state.playerJourneyId = journeyId
+        state.playerStepIndex = 0
+      })
+    },
+    setPlayerRunning: (running) => {
+      set((state) => {
+        state.playerIsRunning = running
+      })
+    },
+    setPlayerLoop: (loop) => {
+      set((state) => {
+        state.playerLoop = loop
+      })
+    },
+    setPlayerSpeedMs: (speedMs) => {
+      set((state) => {
+        state.playerSpeedMs = Math.max(120, speedMs)
+      })
+    },
+    setPlayerHighlightNodes: (enabled) => {
+      set((state) => {
+        state.playerHighlightNodes = enabled
+      })
+    },
+    stepPlayer: () => {
+      set((state) => {
+        const journeyId = state.playerJourneyId
+        if (!journeyId) {
+          return
+        }
+        const journey = state.workspace.journeys[journeyId]
+        if (!journey) {
+          state.playerIsRunning = false
+          return
+        }
+        const sortedSteps = journey.steps.slice().sort((left, right) => left.n - right.n)
+        if (!sortedSteps.length) {
+          state.playerIsRunning = false
+          return
+        }
+        const isLastStep = state.playerStepIndex >= sortedSteps.length - 1
+        if (isLastStep) {
+          if (state.playerLoop) {
+            state.playerStepIndex = 0
+            return
+          }
+          state.playerIsRunning = false
+          state.playerConfettiNonce += 1
+          return
+        }
+        state.playerStepIndex += 1
+      })
+    },
+    resetPlayer: () => {
+      set((state) => {
+        state.playerIsRunning = false
+        state.playerStepIndex = 0
       })
     },
   })),

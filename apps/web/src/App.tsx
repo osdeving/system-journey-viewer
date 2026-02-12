@@ -3,6 +3,10 @@ import type { PointerEvent as ReactPointerEvent } from 'react'
 import confetti from 'canvas-confetti'
 import './App.css'
 import { DiagramCanvas } from './components/DiagramCanvas'
+import {
+  buildNodeConfettiBursts,
+  resolveNodeConfettiAnchor,
+} from './components/playerConfetti'
 import { fullViewToLiteDsl, liteToFullWorkspace } from './dsl-lite/convert'
 import { parseLiteDsl } from './dsl-lite/parser'
 import { exportPdf, exportPng, exportSvg } from './export/exporters'
@@ -40,6 +44,7 @@ const isTextInputTarget = (target: EventTarget | null): boolean => {
 
 function App() {
   const layoutRef = useRef<HTMLDivElement | null>(null)
+  const canvasPanelRef = useRef<HTMLElement | null>(null)
   const dslRestoreHeightRef = useRef<number | null>(null)
   const previousViewIdRef = useRef<string | null>(null)
   const leftResizeRef = useRef<{ pointerId: number; startX: number; startWidth: number } | null>(null)
@@ -259,11 +264,36 @@ function App() {
     if (!playerConfettiNonce) {
       return
     }
-    confetti({
-      particleCount: 140,
-      spread: 85,
-      origin: { y: 0.62 },
+    const state = useEditorStore.getState()
+    const targetNode = state.playerConfettiNodeId
+      ? state.workspace.nodes[state.playerConfettiNodeId]
+      : undefined
+    const canvasRect = canvasPanelRef.current?.getBoundingClientRect()
+    if (!targetNode || !canvasRect) {
+      confetti({
+        particleCount: 120,
+        spread: 82,
+        origin: { y: 0.62 },
+      })
+      return
+    }
+
+    const anchor = resolveNodeConfettiAnchor(
+      targetNode.bounds,
+      state.viewport,
+      canvasRect,
+    )
+    const bursts = buildNodeConfettiBursts(anchor, {
+      width: window.innerWidth,
+      height: window.innerHeight,
     })
+    for (const burst of bursts) {
+      confetti({
+        ...burst,
+        ticks: 220,
+        gravity: 1.04,
+      })
+    }
   }, [playerConfettiNonce])
 
   useEffect(() => {
@@ -496,7 +526,7 @@ function App() {
           </div>
         ))}
       </aside>
-      <main className="canvas-panel">
+      <main className="canvas-panel" ref={canvasPanelRef}>
         {activeTool === 'connector' ? (
           <p className="canvas-hint">
             {pendingConnectionFrom

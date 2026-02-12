@@ -20,6 +20,7 @@
 - Player com bolinha em movimento no path e rastro temporal via canvas overlay (trail com fade/remoção).
 - Labels de comunicação com badge circular colorido por jornada (número dentro da bolinha) no início da seta quando há contexto de passo.
 - Render de seta refatorado em componente dedicado (`JourneyEdge`), com badge posicionado por distância fixa da origem e label com tecnologia no formato `Nome (protocolo)`.
+- Confete do player associado ao nó final da jornada (centro do componente + raio proporcional ao tamanho), incluindo disparo em ciclos de loop.
 - Remoção de componente por teclado (`Delete`/`Backspace`) com confirmação e aviso de impacto em jornadas conectadas.
 - Remoção de node limpa edges conectadas e passos de jornada associados.
 - Preset `boundary` com borda pontilhada e fundo transparente (incluindo tema escuro).

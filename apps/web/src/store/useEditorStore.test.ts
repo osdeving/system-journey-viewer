@@ -137,6 +137,33 @@ describe('useEditorStore', () => {
 
     expect(updated.playerIsRunning).toBe(false)
     expect(updated.playerConfettiNonce).toBe(before + 1)
+    expect(updated.playerConfettiNodeId).toBe('n_kafka')
+  })
+
+  it('emits confetti on each loop completion and keeps running', () => {
+    const state = useEditorStore.getState()
+    const beforeEdges = new Set(state.workspace.views.v_container.edgeIds)
+    state.beginConnection('n_api')
+    state.connectPendingTo('n_kafka')
+    const edgeId =
+      useEditorStore
+        .getState()
+        .workspace.views.v_container.edgeIds.find((candidate) => !beforeEdges.has(candidate)) ??
+      'e_c_5'
+    const journeyId = state.createJourney('Fluxo Loop')
+    state.addEdgeToJourney(journeyId, edgeId)
+    state.setPlayerJourney(journeyId)
+    state.setPlayerLoop(true)
+    state.setPlayerRunning(true)
+    const before = useEditorStore.getState().playerConfettiNonce
+
+    state.stepPlayer()
+    const updated = useEditorStore.getState()
+
+    expect(updated.playerIsRunning).toBe(true)
+    expect(updated.playerStepIndex).toBe(0)
+    expect(updated.playerConfettiNonce).toBe(before + 1)
+    expect(updated.playerConfettiNodeId).toBe('n_kafka')
   })
 
   it('supports theme toggle and showcase reload', () => {

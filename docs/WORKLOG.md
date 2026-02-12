@@ -76,6 +76,12 @@
   - Nome da comunicação agora inclui tecnologia/protocolo no próprio label: `Nome (protocolo)`, ex.: `Auth request (http/jwt)`.
   - Novo helper `edgePresentation` adiciona funções de composição de label e cálculo de progress do badge por comprimento estimado da curva.
   - Testes unitários adicionados para validar posição do badge em curvas curtas/longas e composição do label com protocolo.
+- Ajuste incremental (`tmp/ai/20260212-1652-confetti-loop-anchor`):
+  - Player agora dispara confete em toda conclusão de ciclo, inclusive quando `Loop` está ativo (não apenas na primeira execução).
+  - Evento de confete passou a carregar o nó final da jornada (`playerConfettiNodeId`) para ancorar visualmente no alvo correto.
+  - Disparo de confete no App agora calcula centro do componente final com base no viewport/canvas e gera bursts em raio proporcional ao tamanho do node.
+  - Novo helper `playerConfetti` centraliza cálculo de âncora e composição dos bursts.
+  - Testes unitários adicionados para: confete em loop no store e geometria/bursts do helper de confete.
 
 ### Validação executada
 

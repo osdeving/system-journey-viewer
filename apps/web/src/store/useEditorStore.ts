@@ -40,6 +40,7 @@ interface EditorState {
   playerSpeedMs: number
   playerHighlightNodes: boolean
   playerConfettiNonce: number
+  playerConfettiNodeId: string | null
   hydrate: () => void
   persist: () => void
   resetWorkspace: () => void
@@ -101,6 +102,7 @@ const getDefaultState = (): Pick<
   | 'playerSpeedMs'
   | 'playerHighlightNodes'
   | 'playerConfettiNonce'
+  | 'playerConfettiNodeId'
 > => {
   const fallbackWorkspace = createDefaultWorkspace()
   const snapshot = loadSnapshot(fallbackWorkspace.workspace.id, DEFAULT_VIEW_ID)
@@ -124,6 +126,7 @@ const getDefaultState = (): Pick<
       playerSpeedMs: 900,
       playerHighlightNodes: true,
       playerConfettiNonce: 0,
+      playerConfettiNodeId: null,
     }
   }
   const resolvedViewId = snapshot.workspace.views[snapshot.currentViewId]
@@ -149,6 +152,7 @@ const getDefaultState = (): Pick<
     playerSpeedMs: 900,
     playerHighlightNodes: true,
     playerConfettiNonce: 0,
+    playerConfettiNodeId: null,
   }
 }
 
@@ -242,6 +246,7 @@ export const useEditorStore = create<EditorState>()(
         playerSpeedMs: 900,
         playerHighlightNodes: true,
         playerConfettiNonce: 0,
+        playerConfettiNodeId: null,
       })
     },
     persist: () => {
@@ -267,6 +272,7 @@ export const useEditorStore = create<EditorState>()(
         playerSpeedMs: 900,
         playerHighlightNodes: true,
         playerConfettiNonce: 0,
+        playerConfettiNodeId: null,
       })
       saveSnapshot(toSnapshot(get()))
     },
@@ -286,6 +292,7 @@ export const useEditorStore = create<EditorState>()(
         state.playerJourneyId = firstJourneyId
         state.playerIsRunning = false
         state.playerStepIndex = 0
+        state.playerConfettiNodeId = null
       })
     },
     selectNode: (nodeId) => {
@@ -319,6 +326,7 @@ export const useEditorStore = create<EditorState>()(
         state.playerJourneyId = firstJourneyId
         state.playerIsRunning = false
         state.playerStepIndex = 0
+        state.playerConfettiNodeId = null
       })
     },
     navigateBack: () => {
@@ -338,6 +346,7 @@ export const useEditorStore = create<EditorState>()(
         state.playerJourneyId = firstJourneyId
         state.playerIsRunning = false
         state.playerStepIndex = 0
+        state.playerConfettiNodeId = null
       })
     },
     goToView: (viewId) => {
@@ -593,6 +602,7 @@ export const useEditorStore = create<EditorState>()(
         playerSpeedMs: 900,
         playerHighlightNodes: true,
         playerConfettiNonce: 0,
+        playerConfettiNodeId: null,
       })
       saveSnapshot(toSnapshot(get()))
     },
@@ -660,6 +670,7 @@ export const useEditorStore = create<EditorState>()(
       set((state) => {
         state.playerJourneyId = journeyId
         state.playerStepIndex = 0
+        state.playerConfettiNodeId = null
       })
     },
     setPlayerRunning: (running) => {
@@ -700,12 +711,15 @@ export const useEditorStore = create<EditorState>()(
         }
         const isLastStep = state.playerStepIndex >= sortedSteps.length - 1
         if (isLastStep) {
+          const finalStep = sortedSteps[sortedSteps.length - 1]
+          const finalEdge = state.workspace.edges[finalStep.edgeId]
+          state.playerConfettiNodeId = finalEdge?.to.nodeId ?? null
+          state.playerConfettiNonce += 1
           if (state.playerLoop) {
             state.playerStepIndex = 0
             return
           }
           state.playerIsRunning = false
-          state.playerConfettiNonce += 1
           return
         }
         state.playerStepIndex += 1
@@ -715,6 +729,7 @@ export const useEditorStore = create<EditorState>()(
       set((state) => {
         state.playerIsRunning = false
         state.playerStepIndex = 0
+        state.playerConfettiNodeId = null
       })
     },
   })),

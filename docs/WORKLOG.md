@@ -54,6 +54,12 @@
   - Adicionados indicadores visuais de modo: ferramenta ativa, camada (`Container/Component/Hex`) e estado do player (`Animação/Render`).
   - Adicionados splitters para redimensionar toolbox (largura) e painel de jornadas (altura), diminuindo/aumentando o canvas conforme ajuste.
   - Testes unitários atualizados para validar novo comportamento de troca de view e estado do player.
+- Ajuste incremental (`tmp/ai/20260212-1320-dsl-tabs-maximize`):
+  - Drawer inferior ganhou tabs (`Journeys` e `DSL`) para navegação por contexto.
+  - Modo DSL com botão de `Maximizar DSL` / `Restaurar DSL`, reaproveitando splitter vertical existente.
+  - Modo maximizado do DSL expande área de edição e textarea passa a ocupar 100% do espaço disponível do painel.
+  - Estilos dark/light adicionados para tabs e controle de maximize.
+  - Teste de estilo atualizado para cobrir classes de tabs e maximize.
 
 ### Validação executada
 

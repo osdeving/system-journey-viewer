@@ -18,4 +18,12 @@ describe('App boundary styles', () => {
     expect(appCss).toContain('.layout-splitter-left')
     expect(appCss).toContain('.layout-splitter-journey')
   })
+
+  it('styles drawer tabs and dsl maximize layout', () => {
+    expect(appCss).toContain('.drawer-tabs')
+    expect(appCss).toContain('.drawer-tab')
+    expect(appCss).toContain('.drawer-maximize-button')
+    expect(appCss).toContain('.journey-drawer-dsl .dsl-panel')
+    expect(appCss).toContain('.dsl-panel-maximized textarea')
+  })
 })

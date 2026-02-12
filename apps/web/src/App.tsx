@@ -25,6 +25,8 @@ const viewKindLabel: Record<string, string> = {
   hex: 'Hex',
 }
 
+type DrawerTab = 'journeys' | 'dsl'
+
 const isTextInputTarget = (target: EventTarget | null): boolean => {
   if (!(target instanceof HTMLElement)) {
     return false
@@ -38,6 +40,7 @@ const isTextInputTarget = (target: EventTarget | null): boolean => {
 
 function App() {
   const layoutRef = useRef<HTMLDivElement | null>(null)
+  const dslRestoreHeightRef = useRef<number | null>(null)
   const previousViewIdRef = useRef<string | null>(null)
   const leftResizeRef = useRef<{ pointerId: number; startX: number; startWidth: number } | null>(null)
   const journeyResizeRef = useRef<{
@@ -101,6 +104,8 @@ function App() {
   const [exportError, setExportError] = useState<string | null>(null)
   const [leftSidebarWidth, setLeftSidebarWidth] = useState(DEFAULT_LEFT_SIDEBAR_WIDTH)
   const [journeyHeight, setJourneyHeight] = useState(DEFAULT_JOURNEY_HEIGHT)
+  const [drawerTab, setDrawerTab] = useState<DrawerTab>('journeys')
+  const [dslMaximized, setDslMaximized] = useState(false)
 
   const selectedNode = selectedNodeId ? workspace.nodes[selectedNodeId] : undefined
   const selectedEdge = selectedEdgeId ? workspace.edges[selectedEdgeId] : undefined
@@ -129,6 +134,37 @@ function App() {
   const activateJourneyPlayback = (journeyId: string | null) => {
     setPlayerJourney(journeyId)
     setPlayerRunning(Boolean(journeyId))
+  }
+
+  const getMaxJourneyHeight = (): number => {
+    const layoutHeight = layoutRef.current?.getBoundingClientRect().height ?? 0
+    if (layoutHeight <= 0) {
+      return journeyHeight
+    }
+    return Math.max(MIN_JOURNEY_HEIGHT, layoutHeight - TOPBAR_HEIGHT - MIN_CANVAS_HEIGHT)
+  }
+
+  const switchDrawerTab = (tab: DrawerTab) => {
+    if (tab !== 'dsl' && dslMaximized) {
+      const restoreHeight = dslRestoreHeightRef.current ?? DEFAULT_JOURNEY_HEIGHT
+      setJourneyHeight(restoreHeight)
+      dslRestoreHeightRef.current = null
+      setDslMaximized(false)
+    }
+    setDrawerTab(tab)
+  }
+
+  const toggleDslMaximized = () => {
+    if (!dslMaximized) {
+      dslRestoreHeightRef.current = journeyHeight
+      setJourneyHeight(getMaxJourneyHeight())
+      setDslMaximized(true)
+      return
+    }
+    const restoreHeight = dslRestoreHeightRef.current ?? DEFAULT_JOURNEY_HEIGHT
+    setJourneyHeight(restoreHeight)
+    dslRestoreHeightRef.current = null
+    setDslMaximized(false)
   }
 
   const onLeftSplitterPointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
@@ -169,13 +205,11 @@ function App() {
     if (event.button !== 0) {
       return
     }
-    const layoutHeight = layoutRef.current?.getBoundingClientRect().height ?? 0
-    const maxHeight = Math.max(MIN_JOURNEY_HEIGHT, layoutHeight - TOPBAR_HEIGHT - MIN_CANVAS_HEIGHT)
     journeyResizeRef.current = {
       pointerId: event.pointerId,
       startY: event.clientY,
       startHeight: journeyHeight,
-      maxHeight,
+      maxHeight: getMaxJourneyHeight(),
     }
     event.currentTarget.setPointerCapture(event.pointerId)
   }
@@ -190,6 +224,10 @@ function App() {
       MIN_JOURNEY_HEIGHT,
       Math.min(resize.maxHeight, resize.startHeight + delta),
     )
+    if (dslMaximized) {
+      dslRestoreHeightRef.current = null
+      setDslMaximized(false)
+    }
     setJourneyHeight(nextHeight)
   }
 
@@ -542,163 +580,190 @@ function App() {
           </div>
         ) : null}
       </aside>
-      <section className="journey-drawer">
-        <div className="journey-toolbar">
-          <strong>Journeys</strong>
-          <input
-            placeholder="Nova jornada"
-            value={journeyDraftName}
-            onChange={(event) => setJourneyDraftName(event.target.value)}
-          />
+      <section className={drawerTab === 'dsl' ? 'journey-drawer journey-drawer-dsl' : 'journey-drawer'}>
+        <div className="drawer-tabs">
           <button
             type="button"
-            onClick={() => {
-              const journeyId = createJourney(journeyDraftName)
-              setJourneyDraftName('')
-              setActiveJourney(journeyId)
-            }}
+            className={drawerTab === 'journeys' ? 'drawer-tab drawer-tab-active' : 'drawer-tab'}
+            onClick={() => switchDrawerTab('journeys')}
           >
-            Criar jornada
+            Journeys
           </button>
-          <button type="button" onClick={() => setJourneyFilter(null)}>
-            Limpar filtro
-          </button>
-          <select
-            value={playerJourneyId ?? ''}
-            onChange={(event) => activateJourneyPlayback(event.target.value || null)}
-          >
-            <option value="">Player: selecione jornada</option>
-            {viewJourneys.map((journey) => (
-              <option key={journey.id} value={journey.id}>
-                {journey.name}
-              </option>
-            ))}
-          </select>
           <button
             type="button"
-            disabled={!playerJourney}
-            onClick={() => setPlayerRunning(!playerIsRunning)}
+            className={drawerTab === 'dsl' ? 'drawer-tab drawer-tab-active' : 'drawer-tab'}
+            onClick={() => switchDrawerTab('dsl')}
           >
-            {playerIsRunning ? 'Pausar' : 'Play'}
+            DSL
           </button>
-          <button type="button" disabled={!playerJourney} onClick={() => stepPlayer()}>
-            Step
-          </button>
-          <button type="button" disabled={!playerJourney} onClick={() => resetPlayer()}>
-            Reset Player
-          </button>
-          <label className="toggle-inline">
-            <input
-              type="checkbox"
-              checked={playerLoop}
-              onChange={(event) => setPlayerLoop(event.target.checked)}
-            />
-            Loop
-          </label>
-          <label className="toggle-inline">
-            <input
-              type="checkbox"
-              checked={playerHighlightNodes}
-              onChange={(event) => setPlayerHighlightNodes(event.target.checked)}
-            />
-            Highlight Nodes
-          </label>
-          <label className="toggle-inline">
-            Speed
-            <input
-              type="range"
-              min={120}
-              max={1800}
-              step={60}
-              value={playerSpeedMs}
-              onChange={(event) => setPlayerSpeedMs(Number(event.target.value))}
-            />
-          </label>
-          <span className="player-step-info">
-            Step {playerStepIndex + 1}/{playerJourney?.steps.length ?? 0}
-          </span>
+          <span className="drawer-tabs-spacer" />
+          {drawerTab === 'dsl' ? (
+            <button type="button" className="drawer-maximize-button" onClick={() => toggleDslMaximized()}>
+              {dslMaximized ? 'Restaurar DSL' : 'Maximizar DSL'}
+            </button>
+          ) : null}
         </div>
-        <div className="journey-list">
-          {viewJourneys.map((journey) => (
-            <div
-              key={journey.id}
-              className={activeJourneyId === journey.id ? 'journey-item journey-active' : 'journey-item'}
-              onClick={() => {
-                setActiveJourney(journey.id)
-                activateJourneyPlayback(journey.id)
-              }}
-            >
-              <span className="journey-color-dot" style={{ background: journey.colorKey }} />
-              <span>{journey.name}</span>
+        {drawerTab === 'journeys' ? (
+          <>
+            <div className="journey-toolbar">
+              <strong>Journeys</strong>
+              <input
+                placeholder="Nova jornada"
+                value={journeyDraftName}
+                onChange={(event) => setJourneyDraftName(event.target.value)}
+              />
               <button
                 type="button"
-                onClick={(event) => {
-                  event.stopPropagation()
-                  setJourneyFilter(journeyFilterId === journey.id ? null : journey.id)
-                  setActiveJourney(journey.id)
-                  activateJourneyPlayback(journey.id)
+                onClick={() => {
+                  const journeyId = createJourney(journeyDraftName)
+                  setJourneyDraftName('')
+                  setActiveJourney(journeyId)
                 }}
               >
-                {journeyFilterId === journey.id ? 'Filtrando' : 'Filtrar'}
+                Criar jornada
+              </button>
+              <button type="button" onClick={() => setJourneyFilter(null)}>
+                Limpar filtro
+              </button>
+              <select
+                value={playerJourneyId ?? ''}
+                onChange={(event) => activateJourneyPlayback(event.target.value || null)}
+              >
+                <option value="">Player: selecione jornada</option>
+                {viewJourneys.map((journey) => (
+                  <option key={journey.id} value={journey.id}>
+                    {journey.name}
+                  </option>
+                ))}
+              </select>
+              <button
+                type="button"
+                disabled={!playerJourney}
+                onClick={() => setPlayerRunning(!playerIsRunning)}
+              >
+                {playerIsRunning ? 'Pausar' : 'Play'}
+              </button>
+              <button type="button" disabled={!playerJourney} onClick={() => stepPlayer()}>
+                Step
+              </button>
+              <button type="button" disabled={!playerJourney} onClick={() => resetPlayer()}>
+                Reset Player
+              </button>
+              <label className="toggle-inline">
+                <input
+                  type="checkbox"
+                  checked={playerLoop}
+                  onChange={(event) => setPlayerLoop(event.target.checked)}
+                />
+                Loop
+              </label>
+              <label className="toggle-inline">
+                <input
+                  type="checkbox"
+                  checked={playerHighlightNodes}
+                  onChange={(event) => setPlayerHighlightNodes(event.target.checked)}
+                />
+                Highlight Nodes
+              </label>
+              <label className="toggle-inline">
+                Speed
+                <input
+                  type="range"
+                  min={120}
+                  max={1800}
+                  step={60}
+                  value={playerSpeedMs}
+                  onChange={(event) => setPlayerSpeedMs(Number(event.target.value))}
+                />
+              </label>
+              <span className="player-step-info">
+                Step {playerStepIndex + 1}/{playerJourney?.steps.length ?? 0}
+              </span>
+            </div>
+            <div className="journey-list">
+              {viewJourneys.map((journey) => (
+                <div
+                  key={journey.id}
+                  className={activeJourneyId === journey.id ? 'journey-item journey-active' : 'journey-item'}
+                  onClick={() => {
+                    setActiveJourney(journey.id)
+                    activateJourneyPlayback(journey.id)
+                  }}
+                >
+                  <span className="journey-color-dot" style={{ background: journey.colorKey }} />
+                  <span>{journey.name}</span>
+                  <button
+                    type="button"
+                    onClick={(event) => {
+                      event.stopPropagation()
+                      setJourneyFilter(journeyFilterId === journey.id ? null : journey.id)
+                      setActiveJourney(journey.id)
+                      activateJourneyPlayback(journey.id)
+                    }}
+                  >
+                    {journeyFilterId === journey.id ? 'Filtrando' : 'Filtrar'}
+                  </button>
+                </div>
+              ))}
+            </div>
+            {activeJourney ? (
+              <ol className="journey-steps">
+                {activeJourney.steps
+                  .slice()
+                  .sort((a, b) => a.n - b.n)
+                  .map((step) => (
+                    <li key={`${activeJourney.id}:${step.edgeId}`}>
+                      {step.n}. {workspace.edges[step.edgeId]?.label ?? step.edgeId}
+                      <span className="journey-step-actions">
+                        <button type="button" onClick={() => removeEdgeFromJourney(activeJourney.id, step.edgeId)}>
+                          Remover
+                        </button>
+                      </span>
+                    </li>
+                  ))}
+              </ol>
+            ) : (
+              <p>Crie uma jornada e associe edges pelo Inspector.</p>
+            )}
+          </>
+        ) : (
+          <div className={`dsl-panel ${dslMaximized ? 'dsl-panel-maximized' : ''}`}>
+            <div className="dsl-toolbar">
+              <strong>DSL LITE</strong>
+              <button
+                type="button"
+                onClick={() => {
+                  setDslText(fullViewToLiteDsl(workspace, currentViewId))
+                  setDslError(null)
+                }}
+              >
+                Exportar view atual
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  try {
+                    const ast = parseLiteDsl(dslText)
+                    const imported = liteToFullWorkspace(ast)
+                    const nextViewId = Object.keys(imported.views)[0]
+                    replaceWorkspace(imported, nextViewId)
+                    setDslError(null)
+                  } catch (error) {
+                    setDslError(error instanceof Error ? error.message : 'Falha ao importar DSL.')
+                  }
+                }}
+              >
+                Importar DSL
               </button>
             </div>
-          ))}
-        </div>
-        {activeJourney ? (
-          <ol className="journey-steps">
-            {activeJourney.steps
-              .slice()
-              .sort((a, b) => a.n - b.n)
-              .map((step) => (
-                <li key={`${activeJourney.id}:${step.edgeId}`}>
-                  {step.n}. {workspace.edges[step.edgeId]?.label ?? step.edgeId}
-                  <span className="journey-step-actions">
-                    <button type="button" onClick={() => removeEdgeFromJourney(activeJourney.id, step.edgeId)}>
-                      Remover
-                    </button>
-                  </span>
-                </li>
-              ))}
-          </ol>
-        ) : (
-          <p>Crie uma jornada e associe edges pelo Inspector.</p>
-        )}
-        <div className="dsl-panel">
-          <div className="dsl-toolbar">
-            <strong>DSL LITE</strong>
-            <button
-              type="button"
-              onClick={() => {
-                setDslText(fullViewToLiteDsl(workspace, currentViewId))
-                setDslError(null)
-              }}
-            >
-              Exportar view atual
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                try {
-                  const ast = parseLiteDsl(dslText)
-                  const imported = liteToFullWorkspace(ast)
-                  const nextViewId = Object.keys(imported.views)[0]
-                  replaceWorkspace(imported, nextViewId)
-                  setDslError(null)
-                } catch (error) {
-                  setDslError(error instanceof Error ? error.message : 'Falha ao importar DSL.')
-                }
-              }}
-            >
-              Importar DSL
-            </button>
+            <textarea
+              value={dslText}
+              onChange={(event) => setDslText(event.target.value)}
+              placeholder='workspace "Pedidos" { ... }'
+            />
+            {dslError ? <p className="dsl-error">{dslError}</p> : null}
           </div>
-          <textarea
-            value={dslText}
-            onChange={(event) => setDslText(event.target.value)}
-            placeholder='workspace "Pedidos" { ... }'
-          />
-          {dslError ? <p className="dsl-error">{dslError}</p> : null}
-        </div>
+        )}
       </section>
     </div>
   )

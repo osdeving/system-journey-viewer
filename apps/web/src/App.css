@@ -383,6 +383,45 @@
   padding: 14px 18px;
   display: grid;
   gap: 10px;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.journey-drawer-dsl {
+  grid-template-rows: auto 1fr;
+}
+
+.drawer-tabs {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.drawer-tab {
+  border: 1px solid #cbd5e1;
+  background: #fff;
+  border-radius: 8px;
+  padding: 6px 12px;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.drawer-tab-active {
+  border-color: #2563eb;
+  background: #eff6ff;
+}
+
+.drawer-tabs-spacer {
+  flex: 1;
+}
+
+.drawer-maximize-button {
+  border: 1px solid #cbd5e1;
+  background: #fff;
+  border-radius: 8px;
+  padding: 6px 10px;
+  cursor: pointer;
+  font-size: 12px;
 }
 
 .journey-toolbar {
@@ -484,6 +523,13 @@
   padding-top: 10px;
   display: grid;
   gap: 8px;
+  min-height: 0;
+}
+
+.journey-drawer-dsl .dsl-panel {
+  border-top: 0;
+  padding-top: 0;
+  grid-template-rows: auto 1fr auto;
 }
 
 .dsl-toolbar {
@@ -509,6 +555,13 @@
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   font-size: 12px;
   line-height: 1.4;
+  resize: none;
+}
+
+.journey-drawer-dsl .dsl-panel textarea,
+.dsl-panel-maximized textarea {
+  min-height: 0;
+  height: 100%;
 }
 
 .dsl-error {
@@ -570,6 +623,18 @@
 .theme-dark .journey-drawer {
   background: #0f172a;
   border-top-color: #334155;
+}
+
+.theme-dark .drawer-tab,
+.theme-dark .drawer-maximize-button {
+  background: #1e293b;
+  border-color: #475569;
+  color: #e2e8f0;
+}
+
+.theme-dark .drawer-tab-active {
+  border-color: #60a5fa;
+  background: #1e3a8a;
 }
 
 .theme-dark .topbar-actions button,

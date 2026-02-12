@@ -30,6 +30,8 @@
 - Troca de view (drilldown/back/goToView) interrompe player ativo e reposiciona jornada do player para a camada atual.
 - Layout com splitters para redimensionar painel de jornadas (vertical) e toolbox (largura).
 - Indicadores visuais de modo exibindo ferramenta ativa, camada atual e estado do player (Animação/Render).
+- Drawer inferior com tabs (`Journeys` / `DSL`) para reduzir ruído visual durante edição.
+- DSL com ação de maximizar/restaurar painel para edição focada.
 
 ## Próximos incrementos sugeridos
 

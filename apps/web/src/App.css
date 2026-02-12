@@ -49,6 +49,11 @@
   cursor: pointer;
 }
 
+.tool-button.tool-active {
+  background: #e0e7ff;
+  border-color: #6366f1;
+}
+
 .left-sidebar,
 .right-sidebar {
   padding: 16px;
@@ -79,11 +84,34 @@
   gap: 8px;
 }
 
+.toolbox-list li {
+  cursor: grab;
+  user-select: none;
+}
+
+.toolbox-list li:active {
+  cursor: grabbing;
+}
+
 .canvas-panel {
   grid-area: main;
   min-width: 0;
   min-height: 0;
   background: #eef2ff;
+  position: relative;
+}
+
+.canvas-hint {
+  position: absolute;
+  left: 12px;
+  top: 8px;
+  z-index: 2;
+  margin: 0;
+  padding: 4px 10px;
+  border-radius: 8px;
+  font-size: 12px;
+  background: rgba(15, 23, 42, 0.75);
+  color: #f8fafc;
 }
 
 .canvas-shell {
@@ -116,6 +144,11 @@
   filter: drop-shadow(0 0 6px rgba(37, 99, 235, 0.4));
 }
 
+.node-pending {
+  stroke: #f97316;
+  stroke-width: 2.4;
+}
+
 .node-title {
   fill: #0f172a;
   font-size: 14px;
@@ -129,19 +162,48 @@
   pointer-events: none;
 }
 
-dl {
-  margin: 0;
+.edge {
+  stroke: #64748b;
+  stroke-width: 2;
+  cursor: pointer;
+}
+
+.edge-selected {
+  stroke: #2563eb;
+  stroke-width: 3;
+}
+
+.edge-label {
+  fill: #334155;
+  font-size: 11px;
+  text-anchor: middle;
+  dominant-baseline: text-after-edge;
+}
+
+.resize-handle {
+  fill: #2563eb;
+}
+
+.inspector-form {
   display: grid;
-  grid-template-columns: 90px 1fr;
-  gap: 8px;
+  gap: 6px;
 }
 
-dt {
+.inspector-form label {
+  font-size: 12px;
   color: #334155;
-  font-weight: 700;
+  font-weight: 600;
 }
 
-dd {
+.inspector-form input {
+  width: 100%;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  padding: 7px 8px;
+  font-size: 13px;
+}
+
+.inspector-form input:disabled {
+  background: #f1f5f9;
   margin: 0;
-  color: #1e293b;
 }

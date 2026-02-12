@@ -60,6 +60,11 @@
   - Modo maximizado do DSL expande área de edição e textarea passa a ocupar 100% do espaço disponível do painel.
   - Estilos dark/light adicionados para tabs e controle de maximize.
   - Teste de estilo atualizado para cobrir classes de tabs e maximize.
+- Ajuste incremental (`tmp/ai/20260212-1410-colored-step-badge`):
+  - Numeração de jornada removida do prefixo textual e movida para badge circular ao lado do label da comunicação.
+  - Cor do badge agora segue a `colorKey` da jornada ativa no contexto (filtro > jornada ativa > player > fallback por menor passo).
+  - Helper dedicado (`resolveEdgeJourneyBadge`) criado para centralizar prioridade e facilitar reuso/teste.
+  - Testes unitários adicionados para validar resolução de badge por prioridade de jornada.
 
 ### Validação executada
 

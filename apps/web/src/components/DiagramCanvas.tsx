@@ -14,6 +14,11 @@ import {
 import type { EdgeModel, NodeModel } from '../model/types'
 import { iconForKey } from '../presets/iconPipeline'
 import { useEditorStore } from '../store/useEditorStore'
+import {
+  resolveEdgeJourneyBadge,
+  type EdgeJourneyBadge,
+  type EdgeJourneyMarker,
+} from './edgeJourneyBadge'
 import { buildTrailPoints } from './trailMath'
 
 type PanState = {
@@ -91,14 +96,6 @@ const resolveCurveFromEdge = (
 
 const curveToSvgPath = (curve: CurvePath): string =>
   `M ${curve.start.x} ${curve.start.y} C ${curve.control1.x} ${curve.control1.y}, ${curve.control2.x} ${curve.control2.y}, ${curve.end.x} ${curve.end.y}`
-
-const edgePath = (
-  edge: EdgeModel,
-  nodes: Record<string, NodeModel>,
-): string | null => {
-  const curve = resolveCurveFromEdge(edge, nodes)
-  return curve ? curveToSvgPath(curve) : null
-}
 
 const cubicPointAt = (
   curve: CurvePath,
@@ -200,10 +197,7 @@ export const DiagramCanvas = () => {
   )
 
   const edgeJourneyMarkers = useMemo(() => {
-    const markers: Record<
-      string,
-      Array<{ journeyId: string; colorKey: string; stepNumber: number }>
-    > = {}
+    const markers: Record<string, EdgeJourneyMarker[]> = {}
     for (const journeyId of currentView.journeyIds) {
       const journey = workspace.journeys[journeyId]
       if (!journey) {
@@ -223,29 +217,20 @@ export const DiagramCanvas = () => {
     return markers
   }, [currentView.journeyIds, workspace.journeys])
 
-  const edgeLabelById = useMemo(() => {
-    const labels: Record<string, string> = {}
+  const edgeBadgeById = useMemo(() => {
+    const badges: Record<string, EdgeJourneyBadge> = {}
     for (const edge of edges) {
       const markers = edgeJourneyMarkers[edge.id] ?? []
-      const byJourney = (journeyId: string | null): number | null => {
-        if (!journeyId) {
-          return null
-        }
-        return markers.find((marker) => marker.journeyId === journeyId)?.stepNumber ?? null
+      const badge = resolveEdgeJourneyBadge(markers, {
+        journeyFilterId,
+        activeJourneyId,
+        playerJourneyId,
+      })
+      if (badge) {
+        badges[edge.id] = badge
       }
-      const stepNumber =
-        byJourney(journeyFilterId) ??
-        byJourney(activeJourneyId) ??
-        byJourney(playerJourneyId) ??
-        (markers.length === 1
-          ? markers[0].stepNumber
-          : markers
-              .slice()
-              .sort((left, right) => left.stepNumber - right.stepNumber)[0]
-              ?.stepNumber ?? null)
-      labels[edge.id] = stepNumber ? `${stepNumber}. ${edge.label}` : edge.label
     }
-    return labels
+    return badges
   }, [activeJourneyId, edgeJourneyMarkers, edges, journeyFilterId, playerJourneyId])
 
   const visibleEdges = useMemo(() => {
@@ -808,12 +793,15 @@ export const DiagramCanvas = () => {
             />
           ) : null}
           {visibleEdges.map((edge) => {
-            const path = edgePath(edge, workspace.nodes)
-            if (!path) {
+            const curve = resolveCurveFromEdge(edge, workspace.nodes)
+            if (!curve) {
               return null
             }
+            const path = curveToSvgPath(curve)
             const isSelected = edge.id === selectedEdgeId
             const isPlayerEdge = edge.id === currentPlayerEdgeId
+            const badge = edgeBadgeById[edge.id]
+            const badgePoint = badge ? cubicPointAt(curve, 0.44) : null
             return (
               <g
                 key={edge.id}
@@ -836,10 +824,31 @@ export const DiagramCanvas = () => {
                   }
                 />
                 <text className="edge-label">
-                  <textPath href={`#${edge.id}_path`} startOffset="50%">
-                    {edgeLabelById[edge.id] ?? edge.label}
+                  <textPath
+                    href={`#${edge.id}_path`}
+                    startOffset={badge ? '56%' : '50%'}
+                  >
+                    {edge.label}
                   </textPath>
                 </text>
+                {badge && badgePoint ? (
+                  <g className="edge-step-badge-group">
+                    <circle
+                      className="edge-step-badge"
+                      cx={badgePoint.x}
+                      cy={badgePoint.y}
+                      r={8}
+                      style={{ fill: badge.colorKey }}
+                    />
+                    <text
+                      className="edge-step-number"
+                      x={badgePoint.x}
+                      y={badgePoint.y}
+                    >
+                      {badge.stepNumber}
+                    </text>
+                  </g>
+                ) : null}
               </g>
             )
           })}

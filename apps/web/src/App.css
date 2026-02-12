@@ -314,16 +314,23 @@
   dominant-baseline: text-after-edge;
 }
 
+.edge-step-badge-group {
+  pointer-events: none;
+}
+
 .edge-step-number {
   fill: #fff;
   font-size: 9px;
   font-weight: 700;
+  text-anchor: middle;
+  dominant-baseline: central;
   pointer-events: none;
 }
 
 .edge-step-badge {
   stroke: rgba(15, 23, 42, 0.2);
-  stroke-width: 1;
+  stroke-width: 1.2;
+  filter: drop-shadow(0 0 4px rgba(15, 23, 42, 0.18));
 }
 
 .resize-handle {
@@ -704,4 +711,9 @@
 
 .theme-dark .edge-label {
   fill: #e2e8f0;
+}
+
+.theme-dark .edge-step-badge {
+  stroke: rgba(15, 23, 42, 0.5);
+  filter: drop-shadow(0 0 6px rgba(15, 23, 42, 0.4));
 }

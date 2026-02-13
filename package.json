@@ -8,9 +8,11 @@
   ],
   "scripts": {
     "dev": "npm --workspace @sjv/web run dev",
+    "dev:gateway": "npm --workspace @sjv/codex-gateway run dev",
     "build": "npm --workspace @sjv/web run build",
     "test": "npm --workspace @sjv/web run test",
     "test:run": "npm --workspace @sjv/web run test:run",
+    "test:run:gateway": "npm --workspace @sjv/codex-gateway run test:run",
     "lint": "npm --workspace @sjv/web run lint"
   }
 }

@@ -107,3 +107,29 @@
 - `npm --workspace @sjv/web run lint`
 - `npm --workspace @sjv/web run test:run`
 - `npm --workspace @sjv/web run build`
+
+## 2026-02-13
+
+- Integração do Codex SDK no fluxo do editor DSL via gateway server-side:
+  - Novo app `apps/codex-gateway` com endpoint `POST /api/codex/dsl-assist`.
+  - Gateway usa `@openai/codex-sdk` com suporte a `startThread`/`resumeThread` por `threadId`.
+  - Prompt builder dedicado para forçar retorno de DSL completa em bloco fenced `dsl`.
+- DSL editor (`apps/web/src/App.tsx`) atualizado com:
+  - campo de instrução para Codex,
+  - botão `Refinar com Codex`,
+  - reuso de `threadId` entre chamadas para continuidade de contexto,
+  - botão `Limpar contexto Codex`,
+  - feedback de status/erro no painel.
+- Cliente frontend novo (`apps/web/src/dsl-lite/codexAssist.ts`) para chamada HTTP e extração robusta da DSL a partir da resposta textual.
+- Proxy de dev adicionado no Vite (`/api/codex` -> `http://localhost:8787`).
+- Testes adicionados:
+  - `apps/codex-gateway/src/dslAssist.test.js`
+  - `apps/web/src/dsl-lite/codexAssist.test.ts`
+- README atualizado com instruções de execução do gateway e variáveis de configuração.
+
+### Validação executada
+
+- `npm run lint`
+- `npm run test:run`
+- `npm run test:run:gateway`
+- `npm run build`

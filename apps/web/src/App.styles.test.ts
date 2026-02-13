@@ -25,6 +25,8 @@ describe('App boundary styles', () => {
     expect(appCss).toContain('.drawer-maximize-button')
     expect(appCss).toContain('.journey-drawer-dsl .dsl-panel')
     expect(appCss).toContain('.dsl-panel-maximized textarea')
+    expect(appCss).toContain('.dsl-codex-instruction')
+    expect(appCss).toContain('.dsl-codex-status')
   })
 
   it('includes flow and impact animations for player feedback', () => {

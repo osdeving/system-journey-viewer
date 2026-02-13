@@ -5,6 +5,7 @@
 - Roadmap M0→M9 implementado.
 - Branch por etapa criada (`roadmap/m0-*` até `roadmap/m9-*`), com promoção por cherry-pick sem merge commit.
 - Arquitetura adotada: editor SVG custom com adapter interno (sem lock-in), modelo FULL versionado (`schemaVersion: 1.0`) e DSL LITE para import/export textual.
+- Integração Codex adicionada via gateway server-side (`apps/codex-gateway`) para apoiar refinamento da DSL no editor.
 
 ## Fluxos implementados
 
@@ -40,6 +41,8 @@
 - Indicadores visuais de modo exibindo ferramenta ativa, camada atual e estado do player (Animação/Render).
 - Drawer inferior com tabs (`Journeys` / `DSL`) para reduzir ruído visual durante edição.
 - DSL com ação de maximizar/restaurar painel para edição focada.
+- DSL com assistência do Codex: instrução customizada, execução via endpoint `/api/codex/dsl-assist`, reaproveitamento de `threadId` e ação para limpar contexto do thread.
+- Vite com proxy `/api/codex` para gateway local (`http://localhost:8787`) durante desenvolvimento.
 
 ## Próximos incrementos sugeridos
 

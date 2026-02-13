@@ -17,3 +17,9 @@
 - **Contexto**: highlight de edge/node e sincronização com filtros de jornada e drill-down.
 - **Decisão**: player state no `useEditorStore` (journey, step, loop, speed).
 - **Consequência**: render reativo único em canvas e controles desacoplados da camada visual.
+
+## 2026-02-13 — Integração Codex via gateway server-side
+
+- **Contexto**: o editor DSL precisava de assistência do Codex SDK sem expor credenciais/API key no browser.
+- **Decisão**: introduzir `apps/codex-gateway` (Node.js) como adapter server-side com endpoint HTTP `/api/codex/dsl-assist`, mantendo o frontend apenas como cliente.
+- **Consequência**: integração segura e stateful por `threadId` (continuidade de contexto) com leve aumento de complexidade operacional (dois processos em dev: web + gateway).

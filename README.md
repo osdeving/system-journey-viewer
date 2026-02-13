@@ -24,11 +24,33 @@ npm install
 npm run dev
 ```
 
+Para habilitar o assistente Codex no editor DSL, rode também o gateway server-side em outro terminal:
+
+```bash
+npm run dev:gateway
+```
+
+Variáveis opcionais do gateway (`apps/codex-gateway`):
+
+- `OPENAI_API_KEY` ou `CODEX_API_KEY`
+- `OPENAI_BASE_URL`
+- `CODEX_MODEL` (ex.: `gpt-5-codex`)
+- `CODEX_WORKDIR` (repo alvo para contexto do agente)
+- `CODEX_SANDBOX_MODE` (`read-only`, `workspace-write`, `danger-full-access`)
+- `CODEX_APPROVAL_POLICY` (`never`, `on-request`, `on-failure`, `untrusted`)
+
+No painel `DSL`, use:
+
+- campo de instrução para orientar a transformação;
+- botão `Refinar com Codex` para gerar uma nova versão da DSL;
+- botão `Limpar contexto Codex` para reiniciar o thread.
+
 ## Validar
 
 ```bash
 npm run lint
 npm run test:run
+npm run test:run:gateway
 npm run build
 ```
 

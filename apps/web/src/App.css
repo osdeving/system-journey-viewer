@@ -619,6 +619,7 @@
   display: flex;
   align-items: center;
   gap: 8px;
+  flex-wrap: wrap;
 }
 
 .dsl-toolbar button {
@@ -626,6 +627,15 @@
   background: #fff;
   border-radius: 8px;
   padding: 6px 10px;
+  font-size: 12px;
+}
+
+.dsl-codex-instruction {
+  min-width: 280px;
+  flex: 1;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  padding: 6px 8px;
   font-size: 12px;
 }
 
@@ -651,6 +661,13 @@
   margin: 0;
   color: #dc2626;
   font-size: 12px;
+}
+
+.dsl-codex-status,
+.dsl-codex-thread {
+  margin: 0;
+  font-size: 12px;
+  color: #334155;
 }
 
 .theme-dark {
@@ -735,10 +752,16 @@
 .theme-dark .inspector-form select,
 .theme-dark .journey-toolbar input,
 .theme-dark .journey-toolbar select,
+.theme-dark .dsl-codex-instruction,
 .theme-dark .dsl-panel textarea {
   background: #1e293b;
   color: #e2e8f0;
   border-color: #475569;
+}
+
+.theme-dark .dsl-codex-status,
+.theme-dark .dsl-codex-thread {
+  color: #cbd5e1;
 }
 
 .theme-dark .inspector-form input:disabled {

@@ -7,6 +7,10 @@ import {
   buildNodeConfettiBursts,
   resolveNodeConfettiAnchor,
 } from './components/playerConfetti'
+import {
+  extractDslFromCodexResponse,
+  requestCodexDslAssist,
+} from './dsl-lite/codexAssist'
 import { fullViewToLiteDsl, liteToFullWorkspace } from './dsl-lite/convert'
 import { parseLiteDsl } from './dsl-lite/parser'
 import { exportPdf, exportPng, exportSvg } from './export/exporters'
@@ -122,6 +126,12 @@ function App() {
   const [journeyDraftName, setJourneyDraftName] = useState('')
   const [dslText, setDslText] = useState('')
   const [dslError, setDslError] = useState<string | null>(null)
+  const [dslCodexInstruction, setDslCodexInstruction] = useState(
+    'Refine o DSL preservando comportamento e melhorando legibilidade.',
+  )
+  const [dslCodexThreadId, setDslCodexThreadId] = useState<string | null>(null)
+  const [dslCodexStatus, setDslCodexStatus] = useState<string | null>(null)
+  const [dslCodexRunning, setDslCodexRunning] = useState(false)
   const [exportError, setExportError] = useState<string | null>(null)
   const [leftSidebarWidth, setLeftSidebarWidth] = useState(DEFAULT_LEFT_SIDEBAR_WIDTH)
   const [journeyHeight, setJourneyHeight] = useState(DEFAULT_JOURNEY_HEIGHT)
@@ -417,6 +427,44 @@ function App() {
       setExportError(null)
     } catch (error) {
       setExportError(error instanceof Error ? error.message : 'Falha ao exportar arquivo.')
+    }
+  }
+
+  const runCodexAssistForDsl = async () => {
+    const trimmedDsl = dslText.trim()
+    if (!trimmedDsl) {
+      setDslError('Preencha a DSL antes de executar o Codex.')
+      return
+    }
+    const instruction = dslCodexInstruction.trim()
+    if (!instruction) {
+      setDslError('Informe uma instrução para o Codex.')
+      return
+    }
+
+    setDslCodexRunning(true)
+    setDslError(null)
+    setDslCodexStatus(null)
+    try {
+      const result = await requestCodexDslAssist({
+        dslText: trimmedDsl,
+        instruction,
+        threadId: dslCodexThreadId,
+      })
+      setDslCodexThreadId(result.threadId)
+      const extractedDsl = extractDslFromCodexResponse(result.finalResponse)
+      if (!extractedDsl) {
+        setDslCodexStatus(
+          'Codex respondeu sem bloco DSL. Ajuste a instrução para retornar o resultado em ```dsl ... ```.',
+        )
+        return
+      }
+      setDslText(extractedDsl)
+      setDslCodexStatus('DSL atualizada com sucesso via Codex.')
+    } catch (error) {
+      setDslError(error instanceof Error ? error.message : 'Falha ao executar Codex.')
+    } finally {
+      setDslCodexRunning(false)
     }
   }
 
@@ -844,12 +892,33 @@ function App() {
               >
                 Importar DSL
               </button>
+              <input
+                className="dsl-codex-instruction"
+                value={dslCodexInstruction}
+                onChange={(event) => setDslCodexInstruction(event.target.value)}
+                placeholder="Instrução para o Codex (ex.: separar fluxos async por boundary)"
+              />
+              <button type="button" onClick={() => void runCodexAssistForDsl()} disabled={dslCodexRunning}>
+                {dslCodexRunning ? 'Codex executando...' : 'Refinar com Codex'}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setDslCodexThreadId(null)
+                  setDslCodexStatus('Contexto do thread Codex limpo.')
+                }}
+                disabled={!dslCodexThreadId || dslCodexRunning}
+              >
+                Limpar contexto Codex
+              </button>
             </div>
             <textarea
               value={dslText}
               onChange={(event) => setDslText(event.target.value)}
               placeholder='workspace "Pedidos" { ... }'
             />
+            {dslCodexThreadId ? <p className="dsl-codex-thread">Thread Codex: {dslCodexThreadId}</p> : null}
+            {dslCodexStatus ? <p className="dsl-codex-status">{dslCodexStatus}</p> : null}
             {dslError ? <p className="dsl-error">{dslError}</p> : null}
           </div>
         )}

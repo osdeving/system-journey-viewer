@@ -180,3 +180,18 @@
 - `npm --workspace @sjv/web run test:run`
 - `npm --workspace @sjv/web run build`
 - `npm --workspace @sjv/codex-gateway run test:run`
+
+- Ajuste incremental (`tmp/ai/20260215-1007-canvas-interactions`):
+  - Canvas ganhou seleção múltipla de componentes por modificador (`Shift/Ctrl/Cmd`) com arraste em grupo preservando alinhamento por grid.
+  - Resize de node foi migrado para hit-area de borda inteira, com cursor contextual (`ew/ns/diagonal`) e suporte a ajuste por qualquer aresta/canto.
+  - Ports passaram a ser dinâmicos por tamanho do node (`resolveNodePorts`), com normalização em workspace default/snapshot/import DSL e recomputação em resize.
+  - Manipulação de arestas no modo `Select`: arraste de endpoint a partir de encaixe, preview ao vivo e reconexão para outro encaixe ou body do node (resolução para porta mais próxima).
+  - Estratégia para múltiplas arestas no mesmo encaixe implementada com desempate por proximidade da curva e ciclo por cliques sucessivos no mesmo anchor.
+  - Topbar recebeu menu desktop (`File/Edit/View/Insert`) mantendo os botões rápidos existentes.
+  - Cobertura adicionada para: portas dinâmicas, multi-select/reconexão no store e estilos novos de menu/interação.
+
+### Validação executada (ajuste canvas-interactions)
+
+- `npm --workspace @sjv/web run lint`
+- `npm --workspace @sjv/web run test:run`
+- `npm --workspace @sjv/web run build`

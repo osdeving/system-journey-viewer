@@ -47,6 +47,11 @@
 - README raiz reestruturado para leitura humana (onboarding rápido, fluxo de uso, limites atuais e mapa de documentação).
 - Spec oficial da DSL LITE disponível em `docs/DSL_LITE_SPEC.md` (EBNF, semântica, catálogo e limites de hierarquia/drilldown).
 - DSL LITE evoluída para arquivo único multi-view com hierarquia (`parent/via`, `drilldown`) e fronteira por grupo (`contains`) aplicada no render via boundary.
+- Canvas com seleção múltipla de componentes (add/remove por modificador), arraste em grupo e remoção em lote via teclado.
+- Resize de node por arraste em qualquer trecho da borda, com cursor contextual por direção de ajuste.
+- Ports dinâmicos por tamanho do node (mais encaixes conforme largura/altura), propagados em criação/import e resize.
+- Manipulação de setas no modo Select: drag de endpoint por encaixe, reconexão para outro encaixe ou body do node (auto-nearest port) e ciclo de desempate quando múltiplas setas compartilham o mesmo encaixe.
+- Topbar com menu desktop (`File/Edit/View/Insert`) além dos botões rápidos existentes.
 
 ## Próximos incrementos sugeridos
 

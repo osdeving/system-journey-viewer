@@ -44,4 +44,12 @@ describe('App boundary styles', () => {
     expect(appCss).toContain('.node-color-presets')
     expect(appCss).toContain('.node-color-chip')
   })
+
+  it('includes desktop menu and advanced canvas interaction styles', () => {
+    expect(appCss).toContain('.desktop-menu-bar')
+    expect(appCss).toContain('.desktop-menu-list')
+    expect(appCss).toContain('.node-border-hitarea')
+    expect(appCss).toContain('.edge-anchor-handle')
+    expect(appCss).toContain('.edge-anchor-handle-active')
+  })
 })

@@ -18,6 +18,22 @@ describe('useEditorStore', () => {
     expect(afterCount).toBe(beforeCount + 1)
     expect(after.workspace.nodes[nodeId]).toBeDefined()
     expect(after.selectedNodeId).toBe(nodeId)
+    expect(after.selectedNodeIds).toEqual([nodeId])
+  })
+
+  it('supports additive multi-selection with toggle behavior', () => {
+    const state = useEditorStore.getState()
+
+    state.selectNode('n_api')
+    state.selectNode('n_kafka', { additive: true })
+    let updated = useEditorStore.getState()
+    expect(updated.selectedNodeIds).toEqual(['n_api', 'n_kafka'])
+    expect(updated.selectedNodeId).toBe('n_kafka')
+
+    state.selectNode('n_api', { additive: true })
+    updated = useEditorStore.getState()
+    expect(updated.selectedNodeIds).toEqual(['n_kafka'])
+    expect(updated.selectedNodeId).toBe('n_kafka')
   })
 
   it('updates node fill color from inspector action', () => {
@@ -62,6 +78,29 @@ describe('useEditorStore', () => {
     expect(edgeId ? updated.workspace.edges[edgeId].to.portId : '').toBe('north')
   })
 
+  it('reconnects selected edge endpoint to another node and port', () => {
+    const state = useEditorStore.getState()
+    const edgeId = state.workspace.views.v_container.edgeIds[0]
+
+    state.reconnectEdgeEndpoint(edgeId, 'to', 'n_kafka', 'south')
+    const updated = useEditorStore.getState()
+
+    expect(updated.workspace.edges[edgeId].to.nodeId).toBe('n_kafka')
+    expect(updated.workspace.edges[edgeId].to.portId).toBe('south')
+    expect(updated.selectedEdgeId).toBe(edgeId)
+    expect(updated.selectedNodeIds).toHaveLength(0)
+  })
+
+  it('recomputes dynamic ports when node is resized', () => {
+    const state = useEditorStore.getState()
+    const beforePorts = state.workspace.nodes.n_api.ports.length
+
+    state.setNodeBounds('n_api', { ...state.workspace.nodes.n_api.bounds, w: 480, h: 280 })
+    const updated = useEditorStore.getState()
+
+    expect(updated.workspace.nodes.n_api.ports.length).toBeGreaterThan(beforePorts)
+  })
+
   it('cancels pending connector state', () => {
     const state = useEditorStore.getState()
 
@@ -89,6 +128,7 @@ describe('useEditorStore', () => {
     const updatedView = updated.workspace.views[updated.currentViewId]
 
     expect(updated.selectedNodeId).toBeNull()
+    expect(updated.selectedNodeIds).toEqual([])
     expect(updated.workspace.nodes[nodeId]).toBeUndefined()
     expect(updatedView.nodeIds.includes(nodeId)).toBe(false)
     connectedEdgeIds.forEach((edgeId) => {

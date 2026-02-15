@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import type { PointerEvent as ReactPointerEvent } from 'react'
+import type { MouseEvent as ReactMouseEvent, PointerEvent as ReactPointerEvent } from 'react'
 import confetti from 'canvas-confetti'
 import './App.css'
 import { DiagramCanvas } from './components/DiagramCanvas'
@@ -77,6 +77,7 @@ function App() {
   const currentViewId = useEditorStore((state) => state.currentViewId)
   const viewHistory = useEditorStore((state) => state.viewHistory)
   const selectedNodeId = useEditorStore((state) => state.selectedNodeId)
+  const selectedNodeIds = useEditorStore((state) => state.selectedNodeIds)
   const selectedEdgeId = useEditorStore((state) => state.selectedEdgeId)
   const activeTool = useEditorStore((state) => state.activeTool)
   const pendingConnectionFrom = useEditorStore((state) => state.pendingConnectionFrom)
@@ -140,6 +141,13 @@ function App() {
 
   const selectedNode = selectedNodeId ? workspace.nodes[selectedNodeId] : undefined
   const selectedEdge = selectedEdgeId ? workspace.edges[selectedEdgeId] : undefined
+  const selectedNodes = useMemo(
+    () =>
+      selectedNodeIds
+        .map((nodeId) => workspace.nodes[nodeId])
+        .filter((node): node is NonNullable<typeof selectedNode> => !!node),
+    [selectedNodeIds, workspace.nodes],
+  )
   const nodeColorPresets = useMemo(() => {
     const usedColors = Object.values(workspace.nodes)
       .map((node) => node.style?.fillColor?.trim())
@@ -363,17 +371,18 @@ function App() {
       if (isTextInputTarget(event.target)) {
         return
       }
-      if (!selectedNode) {
+      if (!selectedNodes.length) {
         return
       }
       event.preventDefault()
 
+      const selectedNodeIdSet = new Set(selectedNodes.map((node) => node.id))
       const connectedEdgeIds = currentView.edgeIds.filter((edgeId) => {
         const edge = workspace.edges[edgeId]
         if (!edge) {
           return false
         }
-        return edge.from.nodeId === selectedNode.id || edge.to.nodeId === selectedNode.id
+        return selectedNodeIdSet.has(edge.from.nodeId) || selectedNodeIdSet.has(edge.to.nodeId)
       })
       const connectedEdgeSet = new Set(connectedEdgeIds)
       const affectedJourneyNames: string[] = []
@@ -387,7 +396,12 @@ function App() {
         }
       }
 
-      const messageParts = [`Remover "${selectedNode.name}" do stage?`]
+      const firstSelected = selectedNodes[0]
+      const messageParts = [
+        selectedNodes.length === 1
+          ? `Remover "${firstSelected.name}" do stage?`
+          : `Remover ${selectedNodes.length} componentes selecionados do stage?`,
+      ]
       if (connectedEdgeIds.length > 0) {
         messageParts.push(
           `Isso também removerá ${connectedEdgeIds.length} comunicação(ões) conectada(s) ao componente.`,
@@ -403,12 +417,19 @@ function App() {
       if (!window.confirm(messageParts.join('\n\n'))) {
         return
       }
-      removeNode(selectedNode.id)
+      selectedNodes.forEach((node) => removeNode(node.id))
     }
 
     window.addEventListener('keydown', onDeleteKey)
     return () => window.removeEventListener('keydown', onDeleteKey)
-  }, [currentView.edgeIds, currentView.journeyIds, removeNode, selectedNode, workspace.edges, workspace.journeys])
+  }, [
+    currentView.edgeIds,
+    currentView.journeyIds,
+    removeNode,
+    selectedNodes,
+    workspace.edges,
+    workspace.journeys,
+  ])
 
   const exportFromCanvas = async (format: 'svg' | 'png' | 'pdf') => {
     const svg = document.querySelector('.diagram-canvas')
@@ -468,6 +489,21 @@ function App() {
     }
   }
 
+  const closeDesktopMenu = (target: EventTarget | null) => {
+    if (!(target instanceof HTMLElement)) {
+      return
+    }
+    const menu = target.closest('details')
+    if (menu instanceof HTMLDetailsElement) {
+      menu.open = false
+    }
+  }
+
+  const runDesktopMenuAction = (event: ReactMouseEvent<HTMLButtonElement>, action: () => void) => {
+    action()
+    closeDesktopMenu(event.currentTarget)
+  }
+
   return (
     <div
       ref={layoutRef}
@@ -475,9 +511,133 @@ function App() {
       style={layoutStyle}
     >
       <header className="topbar">
-        <div>
+        <div className="topbar-meta">
           <h1>{workspace.workspace.name}</h1>
           <p>{breadcrumb.map((viewId) => workspace.views[viewId]?.name ?? viewId).join(' / ')}</p>
+          <nav className="desktop-menu-bar" aria-label="Menu principal">
+            <details className="desktop-menu">
+              <summary>File</summary>
+              <div className="desktop-menu-list">
+                <button type="button" onClick={(event) => runDesktopMenuAction(event, () => persist())}>
+                  Save
+                </button>
+                <button type="button" onClick={(event) => runDesktopMenuAction(event, () => hydrate())}>
+                  Reload
+                </button>
+                <button
+                  type="button"
+                  onClick={(event) =>
+                    runDesktopMenuAction(event, () => {
+                      void exportFromCanvas('svg')
+                    })
+                  }
+                >
+                  Export SVG
+                </button>
+                <button
+                  type="button"
+                  onClick={(event) =>
+                    runDesktopMenuAction(event, () => {
+                      void exportFromCanvas('png')
+                    })
+                  }
+                >
+                  Export PNG
+                </button>
+                <button
+                  type="button"
+                  onClick={(event) =>
+                    runDesktopMenuAction(event, () => {
+                      void exportFromCanvas('pdf')
+                    })
+                  }
+                >
+                  Export PDF
+                </button>
+                <button type="button" onClick={(event) => runDesktopMenuAction(event, () => resetWorkspace())}>
+                  Reset Workspace
+                </button>
+              </div>
+            </details>
+            <details className="desktop-menu">
+              <summary>Edit</summary>
+              <div className="desktop-menu-list">
+                <button type="button" onClick={(event) => runDesktopMenuAction(event, () => navigateBack())}>
+                  Back
+                </button>
+                <button
+                  type="button"
+                  onClick={(event) => runDesktopMenuAction(event, () => setActiveTool('select'))}
+                >
+                  Select Tool
+                </button>
+                <button
+                  type="button"
+                  onClick={(event) => runDesktopMenuAction(event, () => setActiveTool('connector'))}
+                >
+                  Connector Tool
+                </button>
+              </div>
+            </details>
+            <details className="desktop-menu">
+              <summary>View</summary>
+              <div className="desktop-menu-list">
+                <button type="button" onClick={(event) => runDesktopMenuAction(event, () => zoomByFactor(1.1))}>
+                  Zoom In
+                </button>
+                <button type="button" onClick={(event) => runDesktopMenuAction(event, () => zoomByFactor(0.9))}>
+                  Zoom Out
+                </button>
+                <button
+                  type="button"
+                  onClick={(event) =>
+                    runDesktopMenuAction(event, () => setGridEnabled(!gridEnabled))
+                  }
+                >
+                  {gridEnabled ? 'Hide Grid' : 'Show Grid'}
+                </button>
+                <button
+                  type="button"
+                  onClick={(event) =>
+                    runDesktopMenuAction(event, () => setSnapEnabled(!snapEnabled))
+                  }
+                >
+                  {snapEnabled ? 'Disable Snap' : 'Enable Snap'}
+                </button>
+                <button
+                  type="button"
+                  onClick={(event) =>
+                    runDesktopMenuAction(event, () => setTheme(theme === 'dark' ? 'light' : 'dark'))
+                  }
+                >
+                  {theme === 'dark' ? 'Use Light Theme' : 'Use Dark Theme'}
+                </button>
+              </div>
+            </details>
+            <details className="desktop-menu">
+              <summary>Insert</summary>
+              <div className="desktop-menu-list">
+                <button
+                  type="button"
+                  onClick={(event) => runDesktopMenuAction(event, () => loadShowcaseWorkspace())}
+                >
+                  Load Showcase
+                </button>
+                <button
+                  type="button"
+                  onClick={(event) => runDesktopMenuAction(event, () => switchDrawerTab('journeys'))}
+                >
+                  Focus Journeys
+                </button>
+                <button
+                  type="button"
+                  onClick={(event) => runDesktopMenuAction(event, () => switchDrawerTab('dsl'))}
+                >
+                  Focus DSL
+                </button>
+              </div>
+            </details>
+          </nav>
           <div className="mode-indicators">
             <span className={activeTool === 'connector' ? 'mode-pill mode-pill-active' : 'mode-pill'}>
               {activeTool === 'connector' ? 'Modo: Connector' : 'Modo: Select'}
@@ -623,6 +783,9 @@ function App() {
       <aside className="right-sidebar">
         <h2>Inspector</h2>
         {!selectedNode && !selectedEdge ? <p>Selecione um node ou edge no canvas.</p> : null}
+        {selectedNodes.length > 1 ? (
+          <p>{selectedNodes.length} componentes selecionados (foco atual: {selectedNode?.name ?? 'n/a'}).</p>
+        ) : null}
         {selectedNode ? (
           <div className="inspector-form">
             <label htmlFor="node-id">ID</label>

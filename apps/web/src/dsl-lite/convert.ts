@@ -1,14 +1,8 @@
 import { resolveNodePreset, resolveTechPreset } from '../presets/catalog'
+import { resolveNodePorts } from '../model/nodePorts'
 import { fallbackAliasFromNodeId, toEdgeLineText, toJourneyStepText, toNodeLineText } from './parser'
 import type { LiteViewAst, LiteWorkspaceAst } from './types'
 import type { WorkspaceModel } from '../model/types'
-
-const defaultPorts = [
-  { id: 'north', x: 0.5, y: 0 },
-  { id: 'east', x: 1, y: 0.5 },
-  { id: 'south', x: 0.5, y: 1 },
-  { id: 'west', x: 0, y: 0.5 },
-]
 
 const slugify = (text: string): string =>
   text
@@ -288,6 +282,12 @@ export const liteToFullWorkspace = (ast: LiteWorkspaceAst): WorkspaceModel => {
       const techPreset = resolveTechPreset(node.techId ?? preset?.defaultTechId ?? '')
       const col = index % 3
       const row = Math.floor(index / 3)
+      const bounds = {
+        x: 120 + col * 280,
+        y: 120 + row * 180,
+        w: preset?.defaultWidth ?? 220,
+        h: preset?.defaultHeight ?? 120,
+      }
       nodes[nodeId] = {
         id: nodeId,
         presetId: preset?.id,
@@ -297,13 +297,8 @@ export const liteToFullWorkspace = (ast: LiteWorkspaceAst): WorkspaceModel => {
         tech: techPreset
           ? { id: techPreset.id, label: techPreset.label, iconKey: techPreset.iconKey }
           : undefined,
-        bounds: {
-          x: 120 + col * 280,
-          y: 120 + row * 180,
-          w: preset?.defaultWidth ?? 220,
-          h: preset?.defaultHeight ?? 120,
-        },
-        ports: defaultPorts,
+        bounds,
+        ports: resolveNodePorts(bounds),
         children: [],
         drilldownRef: resolveViewRef(node.drilldownToViewId),
       }
@@ -425,6 +420,7 @@ export const liteToFullWorkspace = (ast: LiteWorkspaceAst): WorkspaceModel => {
       w: Math.max(boundary.bounds.w, groupBounds.w),
       h: Math.max(boundary.bounds.h, groupBounds.h),
     }
+    boundary.ports = resolveNodePorts(boundary.bounds)
   }
 
   return {

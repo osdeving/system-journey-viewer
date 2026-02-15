@@ -3,8 +3,10 @@ import { immer } from 'zustand/middleware/immer'
 import { nearestPortId, nodeCenter } from '../engine/geometry'
 import { journeyColorByIndex } from '../journeys/colors'
 import { createDefaultWorkspace } from '../model/defaultWorkspace'
+import { normalizeWorkspaceNodePorts, resolveNodePorts } from '../model/nodePorts'
 import { resolveNodePreset, resolveTechPreset } from '../presets/catalog'
 import type {
+  EdgeEndpoint,
   EditorSnapshot,
   NodeBounds,
   NodeModel,
@@ -20,6 +22,8 @@ const MAX_ZOOM = 2.8
 const DEFAULT_PLAYER_JOURNEY_ID = 'j_c_1'
 
 export type ActiveTool = 'select' | 'connector'
+type SelectOptions = { additive?: boolean }
+type EdgeEndpointKey = 'from' | 'to'
 
 interface EditorState {
   workspace: WorkspaceModel
@@ -27,6 +31,7 @@ interface EditorState {
   viewHistory: string[]
   viewport: ViewportState
   selectedNodeId: string | null
+  selectedNodeIds: string[]
   selectedEdgeId: string | null
   activeTool: ActiveTool
   pendingConnectionFrom: string | null
@@ -45,7 +50,7 @@ interface EditorState {
   persist: () => void
   resetWorkspace: () => void
   replaceWorkspace: (workspace: WorkspaceModel, viewId?: string) => void
-  selectNode: (nodeId: string | null) => void
+  selectNode: (nodeId: string | null, options?: SelectOptions) => void
   selectEdge: (edgeId: string | null) => void
   openDrilldown: (nodeId: string) => void
   navigateBack: () => void
@@ -56,6 +61,7 @@ interface EditorState {
   addNode: (presetId: string, x: number, y: number) => string
   removeNode: (nodeId: string) => void
   setNodeBounds: (nodeId: string, bounds: NodeBounds) => void
+  setNodesBounds: (updates: Array<{ nodeId: string; bounds: NodeBounds }>) => void
   moveNode: (nodeId: string, dx: number, dy: number) => void
   setNodeName: (nodeId: string, name: string) => void
   setNodeTech: (nodeId: string, techLabel: string) => void
@@ -63,6 +69,12 @@ interface EditorState {
   beginConnection: (nodeId: string, portId?: string) => void
   connectPendingTo: (targetNodeId: string, portId?: string) => void
   cancelPendingConnection: () => void
+  reconnectEdgeEndpoint: (
+    edgeId: string,
+    endpoint: EdgeEndpointKey,
+    targetNodeId: string,
+    targetPortId?: string,
+  ) => void
   setEdgeProtocol: (edgeId: string, protocolPresetId: string) => void
   setEdgeLabel: (edgeId: string, label: string) => void
   setGridEnabled: (enabled: boolean) => void
@@ -90,6 +102,7 @@ const getDefaultState = (): Pick<
   | 'viewHistory'
   | 'viewport'
   | 'selectedNodeId'
+  | 'selectedNodeIds'
   | 'selectedEdgeId'
   | 'activeTool'
   | 'pendingConnectionFrom'
@@ -114,6 +127,7 @@ const getDefaultState = (): Pick<
       viewHistory: [],
       viewport: DEFAULT_VIEWPORT,
       selectedNodeId: null,
+      selectedNodeIds: [],
       selectedEdgeId: null,
       activeTool: 'select',
       pendingConnectionFrom: null,
@@ -134,11 +148,12 @@ const getDefaultState = (): Pick<
     ? snapshot.currentViewId
     : DEFAULT_VIEW_ID
   return {
-    workspace: snapshot.workspace,
+    workspace: normalizeWorkspaceNodePorts(snapshot.workspace),
     currentViewId: resolvedViewId,
     viewHistory: [],
     viewport: snapshot.viewport,
     selectedNodeId: null,
+    selectedNodeIds: [],
     selectedEdgeId: null,
     activeTool: 'select',
     pendingConnectionFrom: null,
@@ -180,16 +195,15 @@ const nextNumericId = (
   return `${prefix}_${max + 1}`
 }
 
-const defaultPorts = [
-  { id: 'north', x: 0.5, y: 0 },
-  { id: 'east', x: 1, y: 0.5 },
-  { id: 'south', x: 0.5, y: 1 },
-  { id: 'west', x: 0, y: 0.5 },
-]
-
 const createNode = (id: string, presetId: string, x: number, y: number): NodeModel => {
   const preset = resolveNodePreset(presetId) ?? resolveNodePreset('container')
   const techPreset = preset ? resolveTechPreset(preset.defaultTechId) : undefined
+  const bounds = {
+    x,
+    y,
+    w: preset?.defaultWidth ?? 220,
+    h: preset?.defaultHeight ?? 120,
+  }
   return {
     id,
     presetId: preset?.id,
@@ -199,16 +213,27 @@ const createNode = (id: string, presetId: string, x: number, y: number): NodeMod
     tech: techPreset
       ? { id: techPreset.id, label: techPreset.label, iconKey: techPreset.iconKey }
       : undefined,
-    bounds: {
-      x,
-      y,
-      w: preset?.defaultWidth ?? 220,
-      h: preset?.defaultHeight ?? 120,
-    },
-    ports: defaultPorts,
+    bounds,
+    ports: resolveNodePorts(bounds),
     children: [],
   }
 }
+
+const applyNodeBounds = (node: NodeModel, bounds: NodeBounds): void => {
+  const sizeChanged = node.bounds.w !== bounds.w || node.bounds.h !== bounds.h
+  node.bounds = bounds
+  if (sizeChanged) {
+    node.ports = resolveNodePorts(bounds)
+  }
+}
+
+const resolveEndpointPortId = (
+  endpoint: EdgeEndpoint,
+  oppositeNode: NodeModel,
+  targetNode: NodeModel,
+  explicitPortId?: string,
+): string | undefined =>
+  explicitPortId ?? endpoint.portId ?? nearestPortId(targetNode, nodeCenter(oppositeNode))
 
 const nextJourneyStepNumber = (used: number[]): number => {
   let candidate = 1
@@ -233,6 +258,7 @@ export const useEditorStore = create<EditorState>()(
         viewHistory: [],
         viewport: defaults.viewport,
         selectedNodeId: null,
+        selectedNodeIds: [],
         selectedEdgeId: null,
         activeTool: 'select',
         pendingConnectionFrom: null,
@@ -260,6 +286,7 @@ export const useEditorStore = create<EditorState>()(
         viewHistory: [],
         viewport: DEFAULT_VIEWPORT,
         selectedNodeId: null,
+        selectedNodeIds: [],
         selectedEdgeId: null,
         activeTool: 'select',
         pendingConnectionFrom: null,
@@ -279,12 +306,14 @@ export const useEditorStore = create<EditorState>()(
     },
     replaceWorkspace: (workspace, viewId) => {
       const firstViewId = viewId ?? Object.keys(workspace.views)[0] ?? DEFAULT_VIEW_ID
-      const firstJourneyId = firstJourneyForView(workspace, firstViewId)
+      const normalizedWorkspace = normalizeWorkspaceNodePorts(workspace)
+      const firstJourneyId = firstJourneyForView(normalizedWorkspace, firstViewId)
       set((state) => {
-        state.workspace = workspace
+        state.workspace = normalizedWorkspace
         state.currentViewId = firstViewId
         state.viewHistory = []
         state.selectedNodeId = null
+        state.selectedNodeIds = []
         state.selectedEdgeId = null
         state.pendingConnectionFrom = null
         state.pendingConnectionPortId = null
@@ -296,9 +325,30 @@ export const useEditorStore = create<EditorState>()(
         state.playerConfettiNodeId = null
       })
     },
-    selectNode: (nodeId) => {
+    selectNode: (nodeId, options) => {
       set((state) => {
-        state.selectedNodeId = nodeId
+        if (!nodeId) {
+          state.selectedNodeId = null
+          state.selectedNodeIds = []
+          state.selectedEdgeId = null
+          return
+        }
+        const additive = options?.additive ?? false
+        if (!additive) {
+          state.selectedNodeId = nodeId
+          state.selectedNodeIds = [nodeId]
+          state.selectedEdgeId = null
+          return
+        }
+
+        const alreadySelected = state.selectedNodeIds.includes(nodeId)
+        if (alreadySelected) {
+          state.selectedNodeIds = state.selectedNodeIds.filter((candidate) => candidate !== nodeId)
+          state.selectedNodeId = state.selectedNodeIds[state.selectedNodeIds.length - 1] ?? null
+        } else {
+          state.selectedNodeIds.push(nodeId)
+          state.selectedNodeId = nodeId
+        }
         state.selectedEdgeId = null
       })
     },
@@ -306,6 +356,7 @@ export const useEditorStore = create<EditorState>()(
       set((state) => {
         state.selectedEdgeId = edgeId
         state.selectedNodeId = null
+        state.selectedNodeIds = []
       })
     },
     openDrilldown: (nodeId) => {
@@ -319,6 +370,7 @@ export const useEditorStore = create<EditorState>()(
         state.viewHistory.push(state.currentViewId)
         state.currentViewId = targetViewId
         state.selectedNodeId = null
+        state.selectedNodeIds = []
         state.selectedEdgeId = null
         state.pendingConnectionFrom = null
         state.pendingConnectionPortId = null
@@ -339,6 +391,7 @@ export const useEditorStore = create<EditorState>()(
         const firstJourneyId = firstJourneyForView(state.workspace, previousViewId)
         state.currentViewId = previousViewId
         state.selectedNodeId = null
+        state.selectedNodeIds = []
         state.selectedEdgeId = null
         state.pendingConnectionFrom = null
         state.pendingConnectionPortId = null
@@ -359,6 +412,7 @@ export const useEditorStore = create<EditorState>()(
         const firstJourneyId = view.journeyIds[0] ?? null
         state.currentViewId = viewId
         state.selectedNodeId = null
+        state.selectedNodeIds = []
         state.selectedEdgeId = null
         state.pendingConnectionFrom = null
         state.pendingConnectionPortId = null
@@ -398,6 +452,7 @@ export const useEditorStore = create<EditorState>()(
         state.workspace.nodes[nodeId] = createNode(nodeId, presetId, x, y)
         view.nodeIds.push(nodeId)
         state.selectedNodeId = nodeId
+        state.selectedNodeIds = [nodeId]
         state.selectedEdgeId = null
       })
       return nodeId
@@ -438,6 +493,12 @@ export const useEditorStore = create<EditorState>()(
         if (state.selectedNodeId === nodeId) {
           state.selectedNodeId = null
         }
+        if (state.selectedNodeIds.includes(nodeId)) {
+          state.selectedNodeIds = state.selectedNodeIds.filter((candidate) => candidate !== nodeId)
+          if (!state.selectedNodeId) {
+            state.selectedNodeId = state.selectedNodeIds[state.selectedNodeIds.length - 1] ?? null
+          }
+        }
         if (state.selectedEdgeId && removedEdgeIds.has(state.selectedEdgeId)) {
           state.selectedEdgeId = null
         }
@@ -464,10 +525,22 @@ export const useEditorStore = create<EditorState>()(
     },
     setNodeBounds: (nodeId, bounds) => {
       set((state) => {
-        if (!state.workspace.nodes[nodeId]) {
+        const node = state.workspace.nodes[nodeId]
+        if (!node) {
           return
         }
-        state.workspace.nodes[nodeId].bounds = bounds
+        applyNodeBounds(node, bounds)
+      })
+    },
+    setNodesBounds: (updates) => {
+      set((state) => {
+        for (const update of updates) {
+          const node = state.workspace.nodes[update.nodeId]
+          if (!node) {
+            continue
+          }
+          applyNodeBounds(node, update.bounds)
+        }
       })
     },
     moveNode: (nodeId, dx, dy) => {
@@ -556,6 +629,7 @@ export const useEditorStore = create<EditorState>()(
         view.edgeIds.push(edgeId)
         state.selectedEdgeId = edgeId
         state.selectedNodeId = null
+        state.selectedNodeIds = []
         state.pendingConnectionFrom = null
         state.pendingConnectionPortId = null
       })
@@ -564,6 +638,41 @@ export const useEditorStore = create<EditorState>()(
       set((state) => {
         state.pendingConnectionFrom = null
         state.pendingConnectionPortId = null
+      })
+    },
+    reconnectEdgeEndpoint: (edgeId, endpointKey, targetNodeId, targetPortId) => {
+      set((state) => {
+        const edge = state.workspace.edges[edgeId]
+        const targetNode = state.workspace.nodes[targetNodeId]
+        if (!edge || !targetNode) {
+          return
+        }
+
+        const oppositeEndpointKey: EdgeEndpointKey = endpointKey === 'from' ? 'to' : 'from'
+        const oppositeEndpoint = edge[oppositeEndpointKey]
+        if (oppositeEndpoint.nodeId === targetNodeId) {
+          return
+        }
+
+        const oppositeNode = state.workspace.nodes[oppositeEndpoint.nodeId]
+        if (!oppositeNode) {
+          return
+        }
+
+        const nextPortId = resolveEndpointPortId(
+          edge[endpointKey],
+          oppositeNode,
+          targetNode,
+          targetPortId,
+        )
+
+        edge[endpointKey] = {
+          nodeId: targetNodeId,
+          portId: nextPortId,
+        }
+        state.selectedEdgeId = edgeId
+        state.selectedNodeId = null
+        state.selectedNodeIds = []
       })
     },
     setEdgeProtocol: (edgeId, protocolPresetId) => {
@@ -606,6 +715,7 @@ export const useEditorStore = create<EditorState>()(
         viewHistory: [],
         viewport: DEFAULT_VIEWPORT,
         selectedNodeId: null,
+        selectedNodeIds: [],
         selectedEdgeId: null,
         activeTool: 'select',
         pendingConnectionFrom: null,

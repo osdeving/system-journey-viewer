@@ -1,4 +1,5 @@
 import type { WorkspaceModel } from './types'
+import { normalizeWorkspaceNodePorts } from './nodePorts'
 
 const defaultPorts = [
   { id: 'north', x: 0.5, y: 0 },
@@ -7,13 +8,14 @@ const defaultPorts = [
   { id: 'west', x: 0, y: 0.5 },
 ]
 
-export const createDefaultWorkspace = (): WorkspaceModel => ({
-  schemaVersion: '1.0',
-  workspace: {
-    id: 'workspace-default',
-    name: 'Orders Platform Showcase',
-  },
-  views: {
+export const createDefaultWorkspace = (): WorkspaceModel =>
+  normalizeWorkspaceNodePorts({
+    schemaVersion: '1.0',
+    workspace: {
+      id: 'workspace-default',
+      name: 'Orders Platform Showcase',
+    },
+    views: {
     v_container: {
       id: 'v_container',
       kind: 'container',
@@ -609,5 +611,5 @@ export const createDefaultWorkspace = (): WorkspaceModel => ({
     grid: true,
     snap: true,
     theme: 'light',
-  },
-})
+    },
+  })

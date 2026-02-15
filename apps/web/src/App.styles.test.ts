@@ -36,6 +36,11 @@ describe('App boundary styles', () => {
     expect(appCss).toContain('@keyframes node-impact-shake')
   })
 
+  it('uses seamless dashed animation settings for edge flow', () => {
+    expect(appCss).toMatch(/\.edge-flowing\s*\{[^}]*stroke-dasharray:\s*6 6;[^}]*\}/s)
+    expect(appCss).toContain('stroke-dashoffset: -12;')
+  })
+
   it('contains visual styles for node shapes and color palette', () => {
     expect(appCss).toContain('.node-shape-detail')
     expect(appCss).toContain('.node-connector-icon')

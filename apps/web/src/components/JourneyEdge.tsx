@@ -1,5 +1,6 @@
 import type { EdgeModel } from '../model/types'
 import type { EdgeJourneyBadge } from './edgeJourneyBadge'
+import { resolveJourneyEdgeClassName } from './journeyEdgeClassName'
 import {
   composeEdgeDisplayLabel,
   cubicPointAt,
@@ -15,7 +16,6 @@ interface JourneyEdgeProps {
   badge?: EdgeJourneyBadge
   isSelected: boolean
   isPlayerEdge: boolean
-  isFlowing: boolean
   onSelect: () => void
 }
 
@@ -27,7 +27,6 @@ export const JourneyEdge = ({
   badge,
   isSelected,
   isPlayerEdge,
-  isFlowing,
   onSelect,
 }: JourneyEdgeProps) => {
   const pathId = `${edge.id}_path`
@@ -48,14 +47,7 @@ export const JourneyEdge = ({
         d={path}
         fill="none"
         markerEnd="url(#edge-arrow)"
-        className={[
-          'edge',
-          isSelected ? 'edge-selected' : '',
-          isPlayerEdge ? 'edge-player-active' : '',
-          isFlowing ? 'edge-flowing' : '',
-        ]
-          .filter(Boolean)
-          .join(' ')}
+        className={resolveJourneyEdgeClassName({ isSelected, isPlayerEdge })}
       />
       <text className="edge-label">
         <textPath href={`#${pathId}`} startOffset="50%">

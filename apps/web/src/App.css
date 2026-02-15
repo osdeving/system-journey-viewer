@@ -442,6 +442,8 @@
 .edge {
   stroke: var(--sjv-edge);
   stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
   cursor: pointer;
   filter: drop-shadow(0 0 2px color-mix(in srgb, var(--sjv-edge) 35%, transparent));
 }
@@ -459,14 +461,16 @@
 }
 
 .edge-flowing {
-  stroke-dasharray: 10 6;
-  animation: edge-flow-dash 0.8s linear infinite;
+  stroke-dasharray: 6 6;
+  animation: edge-flow-dash 0.9s linear infinite;
+  will-change: stroke-dashoffset;
 }
 
 .edge-preview {
   stroke: var(--sjv-edge-preview);
   stroke-width: 2;
-  stroke-dasharray: 6 4;
+  stroke-dasharray: 6 6;
+  animation: edge-flow-dash 0.9s linear infinite;
   opacity: 0.9;
   pointer-events: none;
 }
@@ -1017,7 +1021,7 @@
     stroke-dashoffset: 0;
   }
   to {
-    stroke-dashoffset: -30;
+    stroke-dashoffset: -12;
   }
 }
 

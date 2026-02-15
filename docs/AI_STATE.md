@@ -54,7 +54,7 @@
 - Topbar com menu desktop (`File/Edit/View/Insert`) além dos botões rápidos existentes.
 - Visual refresh do canvas inspirado na UI de referência em `temp/`: paleta dark azul/verde, fundo com gradientes radiais, setas com arrowhead customizado e rastro do player com glow reforçado (track base + progresso + orb halo).
 - Showcase padrão ajustado para identidade dark (tema default `dark`) e sem cores fixas por node no seed, permitindo que a paleta visual da UI conduza o look inicial.
-- Tracejado animado da comunicação ativa agora permanece visível também fora do `Player: Animação` (modo render/pausado), mantendo leitura de fluxo sem depender da execução do player.
+- Todas as setas agora usam tracejado animado contínuo (inclusive preview de conexão), com ciclo de dash sem salto perceptível para movimento mais suave.
 
 ## Próximos incrementos sugeridos
 

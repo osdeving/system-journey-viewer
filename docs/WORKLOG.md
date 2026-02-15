@@ -226,3 +226,21 @@
 - `npm --workspace @sjv/web run lint`
 - `npm --workspace @sjv/web run test:run`
 - `npm --workspace @sjv/web run build`
+
+- Ajuste incremental (`tmp/ai/20260215-1058-smooth-dashed-arrows`):
+  - Todas as setas renderizadas pelo `JourneyEdge` agora mantêm classe de fluxo tracejado animado sempre ativa (não há mais seta sólida no canvas).
+  - Preview de conexão também passou a usar o mesmo tracejado animado para manter consistência visual.
+  - Animação de dash foi suavizada para evitar “engasgo” no loop:
+    - padrão reduzido (`stroke-dasharray: 6 6`),
+    - deslocamento final alinhado ao período do dash (`stroke-dashoffset: -12`),
+    - velocidade ajustada para `0.9s linear infinite`.
+  - Estilo base de aresta recebeu `stroke-linecap`/`stroke-linejoin` arredondados para leitura mais suave do traço.
+  - Novo helper testável para classes da aresta (`journeyEdgeClassName.ts`) e testes adicionados/atualizados:
+    - `apps/web/src/components/JourneyEdge.test.ts`
+    - `apps/web/src/App.styles.test.ts`
+
+### Validação executada (ajuste smooth-dashed-arrows)
+
+- `npm --workspace @sjv/web run lint`
+- `npm --workspace @sjv/web run test:run`
+- `npm --workspace @sjv/web run build`

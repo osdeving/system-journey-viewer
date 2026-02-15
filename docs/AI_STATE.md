@@ -37,10 +37,12 @@
 - Conexão por clique em node removida no modo Connector (somente alça→alça).
 - Seleção/filtro de jornada na lista aciona automaticamente o player (autoplay) para a jornada clicada.
 - Troca de view (drilldown/back/goToView) interrompe player ativo e reposiciona jornada do player para a camada atual.
-- Layout com splitters para redimensionar painel de jornadas (vertical) e toolbox (largura).
+- Layout com splitters para redimensionar painel inferior (timeline/DSL) e toolbox (largura).
 - Indicadores visuais de modo exibindo ferramenta ativa, camada atual e estado do player (Animação/Render).
-- Drawer inferior com tabs (`Journeys` / `DSL`) para reduzir ruído visual durante edição.
+- Painel de Journeys reposicionado para a lateral direita junto ao Inspector, com controles verticais (filtro/player) para melhor responsividade.
+- Drawer inferior com tabs (`Journey Timeline` / `DSL`) para separar leitura de passos da edição de DSL.
 - DSL com ação de maximizar/restaurar painel para edição focada.
+- Modo foco (`F` / `Esc`) adicionado para canvas full-view, ocultando paleta, inspector e painel inferior.
 - DSL com assistência do Codex: instrução customizada, execução via endpoint `/api/codex/dsl-assist`, reaproveitamento de `threadId` e ação para limpar contexto do thread.
 - Vite com proxy `/api/codex` para gateway local (`http://localhost:8787`) durante desenvolvimento.
 - Guia de operação da UI disponível em `docs/UI_JOURNEYS_CAPABILITIES.md` (jornadas de uso, capacidades e limitações atuais).

@@ -256,3 +256,23 @@
 - `npm --workspace @sjv/web run lint`
 - `npm --workspace @sjv/web run test:run`
 - `npm --workspace @sjv/web run build`
+
+- Ajuste incremental (`tmp/ai/20260215-1127-ui-ux-focus-sidebar`):
+  - Branch `develop` criada a partir de `roadmap/m9-export` para centralizar a continuidade dos ajustes visuais.
+  - Controles de jornada/filtro/player movidos para a lateral direita, junto do Inspector, em painel dedicado com layout vertical (mais estável em viewport menor).
+  - Lista de jornadas mantida na lateral com seleção/autoplay e toggle de filtro por jornada.
+  - Drawer inferior de jornadas simplificado para `Journey Timeline` (passos da jornada ativa), removendo a toolbar horizontal congestionada.
+  - Modo foco adicionado (`Modo foco` na topbar, atalho `F` para alternar e `Esc` para sair):
+    - oculta palette, inspector e painel inferior,
+    - mantém canvas ocupando praticamente toda a tela útil.
+  - CSS refinado para UX “studio-like”:
+    - painéis laterais com blocos visuais (`sidebar-panel`),
+    - controles de jornada em grid/linhas responsivas,
+    - ajustes de responsividade para topbar/actions em larguras menores.
+  - Teste de estilos atualizado para cobrir classes novas de foco e jornada lateral.
+
+### Validação executada (ajuste ui-ux-focus-sidebar)
+
+- `npm --workspace @sjv/web run lint`
+- `npm --workspace @sjv/web run test:run`
+- `npm --workspace @sjv/web run build`

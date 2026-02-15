@@ -19,6 +19,7 @@ import { useEditorStore } from './store/useEditorStore'
 
 const DEBOUNCE_SAVE_MS = 900
 const DEFAULT_LEFT_SIDEBAR_WIDTH = 240
+const RIGHT_SIDEBAR_WIDTH = 340
 const DEFAULT_JOURNEY_HEIGHT = 220
 const MIN_LEFT_SIDEBAR_WIDTH = 180
 const MAX_LEFT_SIDEBAR_WIDTH = 440
@@ -138,6 +139,7 @@ function App() {
   const [journeyHeight, setJourneyHeight] = useState(DEFAULT_JOURNEY_HEIGHT)
   const [drawerTab, setDrawerTab] = useState<DrawerTab>('journeys')
   const [dslMaximized, setDslMaximized] = useState(false)
+  const [focusMode, setFocusMode] = useState(false)
 
   const selectedNode = selectedNodeId ? workspace.nodes[selectedNodeId] : undefined
   const selectedEdge = selectedEdgeId ? workspace.edges[selectedEdgeId] : undefined
@@ -174,11 +176,17 @@ function App() {
   const playerModeLabel = playerIsRunning ? 'Animação' : 'Render'
 
   const layoutStyle = useMemo(
-    () => ({
-      gridTemplateColumns: `${leftSidebarWidth}px 1fr 280px`,
-      gridTemplateRows: `${TOPBAR_HEIGHT}px 1fr ${journeyHeight}px`,
-    }),
-    [journeyHeight, leftSidebarWidth],
+    () =>
+      focusMode
+        ? {
+            gridTemplateColumns: '1fr',
+            gridTemplateRows: `${TOPBAR_HEIGHT}px 1fr`,
+          }
+        : {
+            gridTemplateColumns: `${leftSidebarWidth}px 1fr ${RIGHT_SIDEBAR_WIDTH}px`,
+            gridTemplateRows: `${TOPBAR_HEIGHT}px 1fr ${journeyHeight}px`,
+          },
+    [focusMode, journeyHeight, leftSidebarWidth],
   )
 
   const activateJourneyPlayback = (journeyId: string | null) => {
@@ -215,6 +223,10 @@ function App() {
     setJourneyHeight(restoreHeight)
     dslRestoreHeightRef.current = null
     setDslMaximized(false)
+  }
+
+  const toggleFocusMode = () => {
+    setFocusMode((current) => !current)
   }
 
   const onLeftSplitterPointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
@@ -344,6 +356,26 @@ function App() {
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme)
   }, [theme])
+
+  useEffect(() => {
+    const onFocusShortcut = (event: KeyboardEvent) => {
+      if (isTextInputTarget(event.target)) {
+        return
+      }
+      if (event.key === 'f' || event.key === 'F') {
+        event.preventDefault()
+        setFocusMode((current) => !current)
+        return
+      }
+      if (event.key === 'Escape' && focusMode) {
+        event.preventDefault()
+        setFocusMode(false)
+      }
+    }
+
+    window.addEventListener('keydown', onFocusShortcut)
+    return () => window.removeEventListener('keydown', onFocusShortcut)
+  }, [focusMode])
 
   useEffect(() => {
     if (previousViewIdRef.current === null) {
@@ -507,7 +539,7 @@ function App() {
   return (
     <div
       ref={layoutRef}
-      className={`app-layout ${theme === 'dark' ? 'theme-dark' : 'theme-light'}`}
+      className={`app-layout ${focusMode ? 'app-layout-focus' : ''} ${theme === 'dark' ? 'theme-dark' : 'theme-light'}`}
       style={layoutStyle}
     >
       <header className="topbar">
@@ -612,6 +644,12 @@ function App() {
                 >
                   {theme === 'dark' ? 'Use Light Theme' : 'Use Dark Theme'}
                 </button>
+                <button
+                  type="button"
+                  onClick={(event) => runDesktopMenuAction(event, () => toggleFocusMode())}
+                >
+                  {focusMode ? 'Exit Focus Mode' : 'Focus Mode'}
+                </button>
               </div>
             </details>
             <details className="desktop-menu">
@@ -625,13 +663,23 @@ function App() {
                 </button>
                 <button
                   type="button"
-                  onClick={(event) => runDesktopMenuAction(event, () => switchDrawerTab('journeys'))}
+                  onClick={(event) =>
+                    runDesktopMenuAction(event, () => {
+                      setFocusMode(false)
+                      switchDrawerTab('journeys')
+                    })
+                  }
                 >
                   Focus Journeys
                 </button>
                 <button
                   type="button"
-                  onClick={(event) => runDesktopMenuAction(event, () => switchDrawerTab('dsl'))}
+                  onClick={(event) =>
+                    runDesktopMenuAction(event, () => {
+                      setFocusMode(false)
+                      switchDrawerTab('dsl')
+                    })
+                  }
                 >
                   Focus DSL
                 </button>
@@ -643,6 +691,9 @@ function App() {
               {activeTool === 'connector' ? 'Modo: Connector' : 'Modo: Select'}
             </span>
             <span className="mode-pill">Camada: {currentViewModeLabel}</span>
+            <span className={focusMode ? 'mode-pill mode-pill-active' : 'mode-pill'}>
+              View: {focusMode ? 'Focus' : 'Studio'}
+            </span>
             <span className={playerIsRunning ? 'mode-pill mode-pill-playing' : 'mode-pill'}>
               Player: {playerModeLabel}
             </span>
@@ -720,47 +771,54 @@ function App() {
           <button type="button" onClick={() => resetWorkspace()}>
             Reset
           </button>
+          <button type="button" className="focus-toggle-button" onClick={() => toggleFocusMode()}>
+            {focusMode ? 'Sair do foco' : 'Modo foco'}
+          </button>
         </div>
         {exportError ? <p className="topbar-error">{exportError}</p> : null}
       </header>
-      <div
-        className="layout-splitter layout-splitter-left"
-        style={{ left: leftSidebarWidth - 3, top: TOPBAR_HEIGHT, bottom: journeyHeight }}
-        onPointerDown={onLeftSplitterPointerDown}
-        onPointerMove={onLeftSplitterPointerMove}
-        onPointerUp={stopLeftResize}
-        onPointerCancel={stopLeftResize}
-      />
-      <div
-        className="layout-splitter layout-splitter-journey"
-        style={{ bottom: journeyHeight - 3 }}
-        onPointerDown={onJourneySplitterPointerDown}
-        onPointerMove={onJourneySplitterPointerMove}
-        onPointerUp={stopJourneyResize}
-        onPointerCancel={stopJourneyResize}
-      />
-      <aside className="left-sidebar">
-        <h2>Palette</h2>
-        <p>Arraste para o canvas:</p>
-        {Object.entries(nodePresetsByCategory).map(([category, presets]) => (
-          <div key={category} className="toolbox-group">
-            <h3>{category}</h3>
-            <ul className="toolbox-list">
-              {presets.map((preset) => (
-                <li
-                  key={preset.id}
-                  draggable
-                  onDragStart={(event) => {
-                    event.dataTransfer.setData('application/x-node-preset-id', preset.id)
-                  }}
-                >
-                  {preset.label}
-                </li>
-              ))}
-            </ul>
-          </div>
-        ))}
-      </aside>
+      {!focusMode ? (
+        <>
+          <div
+            className="layout-splitter layout-splitter-left"
+            style={{ left: leftSidebarWidth - 3, top: TOPBAR_HEIGHT, bottom: journeyHeight }}
+            onPointerDown={onLeftSplitterPointerDown}
+            onPointerMove={onLeftSplitterPointerMove}
+            onPointerUp={stopLeftResize}
+            onPointerCancel={stopLeftResize}
+          />
+          <div
+            className="layout-splitter layout-splitter-journey"
+            style={{ bottom: journeyHeight - 3 }}
+            onPointerDown={onJourneySplitterPointerDown}
+            onPointerMove={onJourneySplitterPointerMove}
+            onPointerUp={stopJourneyResize}
+            onPointerCancel={stopJourneyResize}
+          />
+          <aside className="left-sidebar">
+            <h2>Palette</h2>
+            <p>Arraste para o canvas:</p>
+            {Object.entries(nodePresetsByCategory).map(([category, presets]) => (
+              <div key={category} className="toolbox-group">
+                <h3>{category}</h3>
+                <ul className="toolbox-list">
+                  {presets.map((preset) => (
+                    <li
+                      key={preset.id}
+                      draggable
+                      onDragStart={(event) => {
+                        event.dataTransfer.setData('application/x-node-preset-id', preset.id)
+                      }}
+                    >
+                      {preset.label}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </aside>
+        </>
+      ) : null}
       <main className="canvas-panel" ref={canvasPanelRef}>
         {activeTool === 'connector' ? (
           <p className="canvas-hint">
@@ -780,133 +838,111 @@ function App() {
         ) : null}
         <DiagramCanvas />
       </main>
-      <aside className="right-sidebar">
-        <h2>Inspector</h2>
-        {!selectedNode && !selectedEdge ? <p>Selecione um node ou edge no canvas.</p> : null}
-        {selectedNodes.length > 1 ? (
-          <p>{selectedNodes.length} componentes selecionados (foco atual: {selectedNode?.name ?? 'n/a'}).</p>
-        ) : null}
-        {selectedNode ? (
-          <div className="inspector-form">
-            <label htmlFor="node-id">ID</label>
-            <input id="node-id" value={selectedNode.id} disabled />
-            <label htmlFor="node-kind">Tipo</label>
-            <input id="node-kind" value={selectedNode.kind} disabled />
-            <label htmlFor="node-name">Nome</label>
-            <input
-              id="node-name"
-              value={selectedNode.name}
-              onChange={(event) => setNodeName(selectedNode.id, event.target.value)}
-            />
-            <label htmlFor="node-preset">Preset</label>
-            <input
-              id="node-preset"
-              value={resolveNodePreset(selectedNode.presetId ?? '')?.label ?? 'Custom'}
-              disabled
-            />
-            <label htmlFor="node-tech">Tecnologia</label>
-            <input
-              id="node-tech"
-              value={selectedNode.tech?.label ?? ''}
-              onChange={(event) => setNodeTech(selectedNode.id, event.target.value)}
-            />
-            {selectedNode.kind !== 'boundary' ? (
-              <>
-                <label htmlFor="node-color">Cor</label>
-                <input
-                  id="node-color"
-                  type="color"
-                  value={
-                    isHexColor(selectedNode.style?.fillColor)
-                      ? selectedNode.style?.fillColor ?? '#ffffff'
-                      : '#ffffff'
-                  }
-                  onChange={(event) => setNodeColor(selectedNode.id, event.target.value)}
-                />
-                <label>Últimas 10 cores</label>
-                <div className="node-color-presets">
-                  {nodeColorPresets.map((color) => (
-                    <button
-                      key={color}
-                      type="button"
-                      className={
-                        selectedNode.style?.fillColor === color
-                          ? 'node-color-chip node-color-chip-active'
-                          : 'node-color-chip'
-                      }
-                      style={{ background: color }}
-                      title={color}
-                      onClick={() => setNodeColor(selectedNode.id, color)}
-                    />
-                  ))}
-                </div>
-              </>
+      {!focusMode ? (
+        <aside className="right-sidebar">
+          <section className="sidebar-panel">
+            <h2>Inspector</h2>
+            {!selectedNode && !selectedEdge ? <p>Selecione um node ou edge no canvas.</p> : null}
+            {selectedNodes.length > 1 ? (
+              <p>{selectedNodes.length} componentes selecionados (foco atual: {selectedNode?.name ?? 'n/a'}).</p>
             ) : null}
-          </div>
-        ) : null}
-        {selectedEdge ? (
-          <div className="inspector-form">
-            <label htmlFor="edge-id">ID</label>
-            <input id="edge-id" value={selectedEdge.id} disabled />
-            <label htmlFor="edge-label">Label</label>
-            <input
-              id="edge-label"
-              value={selectedEdge.label}
-              onChange={(event) => setEdgeLabel(selectedEdge.id, event.target.value)}
-            />
-            <label htmlFor="edge-protocol">Protocolo</label>
-            <select
-              id="edge-protocol"
-              value={selectedEdge.protocolPresetId}
-              onChange={(event) => setEdgeProtocol(selectedEdge.id, event.target.value)}
-            >
-              {protocolPresets.map((protocol) => (
-                <option key={protocol.id} value={protocol.id}>
-                  {protocol.label}
-                </option>
-              ))}
-            </select>
-            <button
-              type="button"
-              onClick={() => {
-                if (activeJourneyId) {
-                  addEdgeToJourney(activeJourneyId, selectedEdge.id)
-                }
-              }}
-              disabled={!activeJourneyId}
-            >
-              Add to Active Journey
-            </button>
-          </div>
-        ) : null}
-      </aside>
-      <section className={drawerTab === 'dsl' ? 'journey-drawer journey-drawer-dsl' : 'journey-drawer'}>
-        <div className="drawer-tabs">
-          <button
-            type="button"
-            className={drawerTab === 'journeys' ? 'drawer-tab drawer-tab-active' : 'drawer-tab'}
-            onClick={() => switchDrawerTab('journeys')}
-          >
-            Journeys
-          </button>
-          <button
-            type="button"
-            className={drawerTab === 'dsl' ? 'drawer-tab drawer-tab-active' : 'drawer-tab'}
-            onClick={() => switchDrawerTab('dsl')}
-          >
-            DSL
-          </button>
-          <span className="drawer-tabs-spacer" />
-          {drawerTab === 'dsl' ? (
-            <button type="button" className="drawer-maximize-button" onClick={() => toggleDslMaximized()}>
-              {dslMaximized ? 'Restaurar DSL' : 'Maximizar DSL'}
-            </button>
-          ) : null}
-        </div>
-        {drawerTab === 'journeys' ? (
-          <>
-            <div className="journey-toolbar">
-              <strong>Journeys</strong>
+            {selectedNode ? (
+              <div className="inspector-form">
+                <label htmlFor="node-id">ID</label>
+                <input id="node-id" value={selectedNode.id} disabled />
+                <label htmlFor="node-kind">Tipo</label>
+                <input id="node-kind" value={selectedNode.kind} disabled />
+                <label htmlFor="node-name">Nome</label>
+                <input
+                  id="node-name"
+                  value={selectedNode.name}
+                  onChange={(event) => setNodeName(selectedNode.id, event.target.value)}
+                />
+                <label htmlFor="node-preset">Preset</label>
+                <input
+                  id="node-preset"
+                  value={resolveNodePreset(selectedNode.presetId ?? '')?.label ?? 'Custom'}
+                  disabled
+                />
+                <label htmlFor="node-tech">Tecnologia</label>
+                <input
+                  id="node-tech"
+                  value={selectedNode.tech?.label ?? ''}
+                  onChange={(event) => setNodeTech(selectedNode.id, event.target.value)}
+                />
+                {selectedNode.kind !== 'boundary' ? (
+                  <>
+                    <label htmlFor="node-color">Cor</label>
+                    <input
+                      id="node-color"
+                      type="color"
+                      value={
+                        isHexColor(selectedNode.style?.fillColor)
+                          ? selectedNode.style?.fillColor ?? '#ffffff'
+                          : '#ffffff'
+                      }
+                      onChange={(event) => setNodeColor(selectedNode.id, event.target.value)}
+                    />
+                    <label>Últimas 10 cores</label>
+                    <div className="node-color-presets">
+                      {nodeColorPresets.map((color) => (
+                        <button
+                          key={color}
+                          type="button"
+                          className={
+                            selectedNode.style?.fillColor === color
+                              ? 'node-color-chip node-color-chip-active'
+                              : 'node-color-chip'
+                          }
+                          style={{ background: color }}
+                          title={color}
+                          onClick={() => setNodeColor(selectedNode.id, color)}
+                        />
+                      ))}
+                    </div>
+                  </>
+                ) : null}
+              </div>
+            ) : null}
+            {selectedEdge ? (
+              <div className="inspector-form">
+                <label htmlFor="edge-id">ID</label>
+                <input id="edge-id" value={selectedEdge.id} disabled />
+                <label htmlFor="edge-label">Label</label>
+                <input
+                  id="edge-label"
+                  value={selectedEdge.label}
+                  onChange={(event) => setEdgeLabel(selectedEdge.id, event.target.value)}
+                />
+                <label htmlFor="edge-protocol">Protocolo</label>
+                <select
+                  id="edge-protocol"
+                  value={selectedEdge.protocolPresetId}
+                  onChange={(event) => setEdgeProtocol(selectedEdge.id, event.target.value)}
+                >
+                  {protocolPresets.map((protocol) => (
+                    <option key={protocol.id} value={protocol.id}>
+                      {protocol.label}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (activeJourneyId) {
+                      addEdgeToJourney(activeJourneyId, selectedEdge.id)
+                    }
+                  }}
+                  disabled={!activeJourneyId}
+                >
+                  Add to Active Journey
+                </button>
+              </div>
+            ) : null}
+          </section>
+          <section className="sidebar-panel sidebar-panel-journeys">
+            <h2>Journeys</h2>
+            <div className="journey-side-create">
               <input
                 placeholder="Nova jornada"
                 value={journeyDraftName}
@@ -918,13 +954,36 @@ function App() {
                   const journeyId = createJourney(journeyDraftName)
                   setJourneyDraftName('')
                   setActiveJourney(journeyId)
+                  activateJourneyPlayback(journeyId)
                 }}
               >
                 Criar jornada
               </button>
+            </div>
+            <div className="journey-side-filter">
+              <select
+                value={journeyFilterId ?? ''}
+                onChange={(event) => {
+                  const nextJourneyId = event.target.value || null
+                  setJourneyFilter(nextJourneyId)
+                  if (nextJourneyId) {
+                    setActiveJourney(nextJourneyId)
+                    activateJourneyPlayback(nextJourneyId)
+                  }
+                }}
+              >
+                <option value="">Filtro: todas jornadas</option>
+                {viewJourneys.map((journey) => (
+                  <option key={journey.id} value={journey.id}>
+                    {journey.name}
+                  </option>
+                ))}
+              </select>
               <button type="button" onClick={() => setJourneyFilter(null)}>
                 Limpar filtro
               </button>
+            </div>
+            <div className="journey-side-player">
               <select
                 value={playerJourneyId ?? ''}
                 onChange={(event) => activateJourneyPlayback(event.target.value || null)}
@@ -936,36 +995,40 @@ function App() {
                   </option>
                 ))}
               </select>
-              <button
-                type="button"
-                disabled={!playerJourney}
-                onClick={() => setPlayerRunning(!playerIsRunning)}
-              >
-                {playerIsRunning ? 'Pausar' : 'Play'}
-              </button>
-              <button type="button" disabled={!playerJourney} onClick={() => stepPlayer()}>
-                Step
-              </button>
-              <button type="button" disabled={!playerJourney} onClick={() => resetPlayer()}>
-                Reset Player
-              </button>
-              <label className="toggle-inline">
-                <input
-                  type="checkbox"
-                  checked={playerLoop}
-                  onChange={(event) => setPlayerLoop(event.target.checked)}
-                />
-                Loop
-              </label>
-              <label className="toggle-inline">
-                <input
-                  type="checkbox"
-                  checked={playerHighlightNodes}
-                  onChange={(event) => setPlayerHighlightNodes(event.target.checked)}
-                />
-                Highlight Nodes
-              </label>
-              <label className="toggle-inline">
+              <div className="journey-player-actions">
+                <button
+                  type="button"
+                  disabled={!playerJourney}
+                  onClick={() => setPlayerRunning(!playerIsRunning)}
+                >
+                  {playerIsRunning ? 'Pausar' : 'Play'}
+                </button>
+                <button type="button" disabled={!playerJourney} onClick={() => stepPlayer()}>
+                  Step
+                </button>
+                <button type="button" disabled={!playerJourney} onClick={() => resetPlayer()}>
+                  Reset
+                </button>
+              </div>
+              <div className="journey-player-toggles">
+                <label className="toggle-inline">
+                  <input
+                    type="checkbox"
+                    checked={playerLoop}
+                    onChange={(event) => setPlayerLoop(event.target.checked)}
+                  />
+                  Loop
+                </label>
+                <label className="toggle-inline">
+                  <input
+                    type="checkbox"
+                    checked={playerHighlightNodes}
+                    onChange={(event) => setPlayerHighlightNodes(event.target.checked)}
+                  />
+                  Highlight
+                </label>
+              </div>
+              <label className="journey-speed-control">
                 Speed
                 <input
                   type="range"
@@ -980,7 +1043,7 @@ function App() {
                 Step {playerStepIndex + 1}/{playerJourney?.steps.length ?? 0}
               </span>
             </div>
-            <div className="journey-list">
+            <div className="journey-list journey-list-sidebar">
               {viewJourneys.map((journey) => (
                 <div
                   key={journey.id}
@@ -1006,28 +1069,63 @@ function App() {
                 </div>
               ))}
             </div>
-            {activeJourney ? (
-              <ol className="journey-steps">
-                {activeJourney.steps
-                  .slice()
-                  .sort((a, b) => a.n - b.n)
-                  .map((step) => (
-                    <li key={`${activeJourney.id}:${step.edgeId}`}>
-                      {step.n}. {workspace.edges[step.edgeId]?.label ?? step.edgeId}
-                      <span className="journey-step-actions">
-                        <button type="button" onClick={() => removeEdgeFromJourney(activeJourney.id, step.edgeId)}>
-                          Remover
-                        </button>
-                      </span>
-                    </li>
-                  ))}
-              </ol>
-            ) : (
-              <p>Crie uma jornada e associe edges pelo Inspector.</p>
-            )}
-          </>
-        ) : (
-          <div className={`dsl-panel ${dslMaximized ? 'dsl-panel-maximized' : ''}`}>
+          </section>
+        </aside>
+      ) : null}
+      {!focusMode ? (
+        <section className={drawerTab === 'dsl' ? 'journey-drawer journey-drawer-dsl' : 'journey-drawer'}>
+          <div className="drawer-tabs">
+            <button
+              type="button"
+              className={drawerTab === 'journeys' ? 'drawer-tab drawer-tab-active' : 'drawer-tab'}
+              onClick={() => switchDrawerTab('journeys')}
+            >
+              Journey Timeline
+            </button>
+            <button
+              type="button"
+              className={drawerTab === 'dsl' ? 'drawer-tab drawer-tab-active' : 'drawer-tab'}
+              onClick={() => switchDrawerTab('dsl')}
+            >
+              DSL
+            </button>
+            <span className="drawer-tabs-spacer" />
+            {drawerTab === 'dsl' ? (
+              <button type="button" className="drawer-maximize-button" onClick={() => toggleDslMaximized()}>
+                {dslMaximized ? 'Restaurar DSL' : 'Maximizar DSL'}
+              </button>
+            ) : null}
+          </div>
+          {drawerTab === 'journeys' ? (
+            <>
+              <div className="journey-timeline-toolbar">
+                <strong>Timeline da jornada ativa</strong>
+                <span className="player-step-info">
+                  Step {playerStepIndex + 1}/{playerJourney?.steps.length ?? 0}
+                </span>
+              </div>
+              {activeJourney ? (
+                <ol className="journey-steps">
+                  {activeJourney.steps
+                    .slice()
+                    .sort((a, b) => a.n - b.n)
+                    .map((step) => (
+                      <li key={`${activeJourney.id}:${step.edgeId}`}>
+                        {step.n}. {workspace.edges[step.edgeId]?.label ?? step.edgeId}
+                        <span className="journey-step-actions">
+                          <button type="button" onClick={() => removeEdgeFromJourney(activeJourney.id, step.edgeId)}>
+                            Remover
+                          </button>
+                        </span>
+                      </li>
+                    ))}
+                </ol>
+              ) : (
+                <p>Selecione uma jornada na lateral para visualizar a timeline.</p>
+              )}
+            </>
+          ) : (
+            <div className={`dsl-panel ${dslMaximized ? 'dsl-panel-maximized' : ''}`}>
             <div className="dsl-toolbar">
               <strong>DSL LITE</strong>
               <button
@@ -1083,9 +1181,10 @@ function App() {
             {dslCodexThreadId ? <p className="dsl-codex-thread">Thread Codex: {dslCodexThreadId}</p> : null}
             {dslCodexStatus ? <p className="dsl-codex-status">{dslCodexStatus}</p> : null}
             {dslError ? <p className="dsl-error">{dslError}</p> : null}
-          </div>
-        )}
-      </section>
+            </div>
+          )}
+        </section>
+      ) : null}
     </div>
   )
 }

@@ -3,6 +3,8 @@ export interface LiteNode {
   alias: string
   name: string
   techId?: string
+  drilldownToViewId?: string
+  containsAliases?: string[]
 }
 
 export interface LiteEdge {
@@ -24,10 +26,21 @@ export interface LiteJourney {
   steps: LiteJourneyStep[]
 }
 
-export interface LiteWorkspaceAst {
-  workspaceName: string
-  viewKind: 'system-context' | 'container' | 'component' | 'hex'
+export interface LiteViewParent {
+  viewId: string
+  viaAlias: string
+}
+
+export interface LiteViewAst {
+  id: string
+  kind: 'system-context' | 'container' | 'component' | 'hex'
   nodes: LiteNode[]
   edges: LiteEdge[]
   journeys: LiteJourney[]
+  parent?: LiteViewParent
+}
+
+export interface LiteWorkspaceAst {
+  workspaceName: string
+  views: LiteViewAst[]
 }

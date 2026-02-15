@@ -159,9 +159,24 @@
     - não serializa `drilldownRef`/links entre views.
   - README atualizado para referenciar a nova spec.
   - Mudança documental; sem validações adicionais de build/test nesta etapa.
+- Ajuste incremental (`tmp/ai/20260215-1000-dsl-hierarchy-boundary`):
+  - DSL LITE evoluída para suportar arquivo único multi-view:
+    - `view <viewId> <viewKind>`
+    - `parent <viewId> via <alias>`
+    - `drilldown <viewId>` em node.
+  - Conceito de fronteira por grupo adicionado na DSL:
+    - `boundary ... contains alias1,alias2,...`
+    - import aplica `children` e ajusta bounds da boundary para envolver o grupo.
+  - Conversão DSL->FULL agora resolve hierarquia pai/filho e mantém compatibilidade com sintaxe legada de view única.
+  - Export DSL atualizado para workspace completo (`fullWorkspaceToLiteDsl`) e botão da UI alterado para `Exportar workspace completo`.
+  - Testes de DSL expandidos para cobrir multi-view, drilldown por `parent/via`, boundary group e roundtrip.
+  - Spec da DSL (`docs/DSL_LITE_SPEC.md`) atualizada para refletir a nova gramática/semântica.
+  - Guia de capacidades da UI e README atualizados com o novo comportamento.
+  - `docs/DECISIONS.md` atualizado com decisão arquitetural da DSL unificada multi-view.
 
 ### Validação executada
 
 - `npm --workspace @sjv/web run lint`
 - `npm --workspace @sjv/web run test:run`
 - `npm --workspace @sjv/web run build`
+- `npm --workspace @sjv/codex-gateway run test:run`

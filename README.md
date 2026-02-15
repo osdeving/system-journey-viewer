@@ -73,8 +73,8 @@ Guia completo de operação:
 
 A sincronização entre canvas e DSL é manual:
 
-- `Exportar view atual`: gera DSL a partir da view atual.
-- `Importar DSL`: aplica o texto DSL no workspace.
+- `Exportar workspace completo`: gera um único DSL com todas as views.
+- `Importar DSL`: aplica o texto DSL no workspace (incluindo hierarquia entre views).
 
 Editar a textarea sozinha não atualiza o canvas em tempo real até clicar em `Importar DSL`.
 

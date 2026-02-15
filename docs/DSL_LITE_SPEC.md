@@ -4,30 +4,39 @@ Especificacao oficial da DSL LITE usada no editor.
 
 Objetivo:
 - dar um contrato claro para humanos e IAs gerarem DSL valida;
-- documentar limites atuais (especialmente hierarquia e drilldown).
+- documentar a semantica real de hierarquia, drilldown e fronteiras.
 
 Status:
-- versao atual da implementacao: parser/conversor em `apps/web/src/dsl-lite/*`
-- esta spec descreve o comportamento atual do codigo, nao uma visao futura.
+- fonte da verdade: `apps/web/src/dsl-lite/parser.ts` e `apps/web/src/dsl-lite/convert.ts`
+- esta spec descreve o comportamento atual da implementacao.
 
 ## 1. Visao geral (human readable)
 
-A DSL LITE modela **uma view logica** com:
+A DSL LITE agora suporta **arquivo unico com multiplas views**.
+
+Cada view pode declarar:
 - nodes
 - edges
-- journeys (passos sobre edges)
+- journeys
+- parent/via (hierarquia)
 
-Estrutura base:
+Nodes podem declarar:
+- `drilldown <viewId>` (pai aponta para filho)
+- `contains a,b,c` (fronteira agrupando aliases da mesma view)
+
+Exemplo curto:
 
 ```dsl
-workspace "Nome Workspace" {
-  view container {
-    container api "API Pedidos" tech spring-boot
+workspace "Pedidos" {
+  view v_container container {
+    boundary core "Core Services" contains api,worker,orders
+    container api "ms-pedidos" tech spring-boot drilldown v_component_api
+    container worker "ms-fulfillment" tech spring-boot
     db orders "orders-db" tech postgres
-    api -> orders : sql "insert order"
-    journey "Fluxo A" color #2563eb {
-      1: api -> orders
-    }
+  }
+
+  view v_component_api component parent v_container via api {
+    component app "CreateOrderService" tech application-service
   }
 }
 ```
@@ -37,19 +46,33 @@ workspace "Nome Workspace" {
 ```ebnf
 dsl              = ws, workspaceDecl, ws ;
 
-workspaceDecl    = "workspace", ws1, string, ws, "{", ws, viewDecl, ws, "}" ;
-viewDecl         = "view", ws1, viewKind, ws, "{", ws, { statement, ws }, "}" ;
+workspaceDecl    = "workspace", ws1, string, ws, "{", ws, { viewDecl, ws }, "}" ;
+
+viewDecl         = modernViewDecl | legacyViewDecl ;
+modernViewDecl   = "view", ws1, viewId, ws1, viewKind,
+                   [ ws1, "parent", ws1, viewId, ws1, "via", ws1, alias ],
+                   ws, "{", ws, { statement, ws }, "}" ;
+legacyViewDecl   = "view", ws1, viewKind, ws, "{", ws, { statement, ws }, "}" ;
 
 statement        = nodeDecl | edgeDecl | journeyDecl ;
 
-nodeDecl         = kind, ws1, alias, ws1, string, [ ws1, "tech", ws1, techId ] ;
+nodeDecl         = kind, ws1, alias, ws1, string,
+                   [ ws1, "tech", ws1, techId ],
+                   [ ws1, "drilldown", ws1, viewId ],
+                   [ ws1, "contains", ws1, aliasList ] ;
+
+aliasList        = alias, { ws?, ",", ws?, alias } ;
+
 edgeDecl         = alias, ws, "->", ws, alias,
                    [ ws, ":", ws, protocolId, [ ws1, string ] ] ;
+
 journeyDecl      = "journey", ws1, string, [ ws1, "color", ws1, colorToken ],
                    ws, "{", ws, { journeyStep, ws }, "}" ;
+
 journeyStep      = integer, ws, ":", ws, alias, ws, "->", ws, alias ;
 
 viewKind         = "system-context" | "container" | "component" | "hex" ;
+viewId           = id ;
 kind             = id ;
 techId           = id ;
 protocolId       = id ;
@@ -66,42 +89,89 @@ stringChar       = ? any char except " ? ;
 
 ws               = { " " | "\t" | "\r" | "\n" } ;
 ws1              = ( " " | "\t" ), { " " | "\t" } ;
+ws?              = { " " | "\t" } ;
 ```
 
 ## 3. Regras semanticas
 
-### 3.1 Workspace e view
-- `workspace "..." {` define nome do workspace.
-- `view <kind> {` define o tipo da view.
-- `view` desconhecida cai para `container`.
+### 3.1 Workspace e views
+- `workspace "..." { ... }` define nome do workspace.
+- Pode haver varias views no mesmo arquivo.
+- Formato recomendado de view:
+  - `view <viewId> <viewKind> { ... }`
+- Formato legado continua aceito:
+  - `view <viewKind> { ... }`
+  - nesse caso o parser gera `viewId` automaticamente (`v_<kind>`).
 
-### 3.2 Nodes
-- Formato: `<kind> <alias> "Nome" [tech <techId>]`
-- `alias` deve ser unico para referenciacao de edge.
-- `kind` desconhecido e convertido com fallback para preset `container`.
-- `techId` desconhecido nao quebra parse; o node fica sem tech resolvida.
+### 3.2 Escopo por view
+- `alias` de node e local da view.
+- edges e journey steps referenciam aliases da mesma view.
+- edge com alias inexistente e descartada na conversao.
 
-### 3.3 Edges
-- Formato: `<fromAlias> -> <toAlias> [: <protocolId> ["Label"]]`
-- Se protocolo/label forem omitidos:
+### 3.3 Nodes
+- Formato:
+  - `<kind> <alias> "Nome" [tech <techId>] [drilldown <viewId>] [contains a,b,c]`
+- `kind` desconhecido: fallback para preset `container`.
+- `techId` desconhecido: nao quebra parse; node pode ficar sem tech resolvida.
+
+### 3.4 Drilldown e hierarquia
+- Existem duas formas de ligar pai/filho:
+  1. no node do pai: `drilldown <viewIdFilha>`
+  2. na view filha: `parent <viewIdPai> via <aliasDoNodePai>`
+- Na conversao para modelo FULL:
+  - a UI usa `node.drilldownRef` para abrir drilldown no double-click;
+  - `parent/via` tambem seta esse `drilldownRef` automaticamente no node do pai.
+- Em conflito entre regras, a implementacao evita sobrescrever `drilldownRef` ja definido para outro alvo.
+
+### 3.5 Fronteira por grupo (`contains`)
+- Use em node de `kind boundary`:
+  - `boundary core "Core Services" contains api,worker,orders`
+- Efeito no import:
+  - `boundary.children` recebe os nodes listados;
+  - bounds da fronteira sao ajustados para envolver o grupo com padding.
+- Efeito na UI:
+  - fronteira e renderizada como boundary normal, ja envolvendo os filhos.
+
+### 3.6 Edges
+- Formato:
+  - `<fromAlias> -> <toAlias> [: <protocolId> ["Label"]]`
+- defaults:
   - protocolo = `http`
   - label = `request`
-- Edge com alias inexistente e descartada na conversao para FULL.
 
-### 3.4 Journeys
+### 3.7 Journeys
 - Formato:
   - `journey "Nome" [color <token>] { ... }`
   - passo: `<n>: <fromAlias> -> <toAlias>`
-- `color` default: `#2563eb`.
-- Passo de jornada so e mantido se existir edge correspondente `fromAlias->toAlias`.
+- `color` default: `#2563eb`
+- passo so e mantido se houver edge correspondente `fromAlias->toAlias`.
 
-### 3.5 Validacao minima
-- DSL sem node gera erro:
-  - `DSL LITE invalida: nenhum node encontrado.`
+### 3.8 Validacao minima
+- se total de nodes no arquivo for zero:
+  - erro `DSL LITE inválida: nenhum node encontrado.`
 
-## 4. Catalogo recomendado (valores aceitos na UI)
+## 4. Import/export no editor
 
-### 4.1 `kind` de node (presets atuais)
+- `Exportar workspace completo`:
+  - gera um unico arquivo DSL com todas as views.
+  - inclui `parent ... via ...` quando encontra relacao de drilldown.
+- `Importar DSL`:
+  - reconstrui o workspace FULL com multiplas views.
+  - aplica drilldown e fronteiras de grupo.
+- a sincronizacao continua manual:
+  - editar textarea nao atualiza canvas ate clicar `Importar DSL`.
+
+## 5. Regras de tolerancia do parser
+
+- linhas vazias sao ignoradas.
+- linhas iniciando com `//` ou `#` sao ignoradas.
+- linhas nao reconhecidas sao ignoradas (nao causam erro por si).
+- se `journey` abrir e nao fechar, ela e fechada implicitamente no fim.
+- se houver declaracoes fora de bloco de view, o parser cria uma view implicita `v_container`.
+
+## 6. Catalogo recomendado (valores da UI)
+
+### 6.1 `kind` de node
 - `system`
 - `container`
 - `component`
@@ -117,7 +187,7 @@ ws1              = ( " " | "\t" ), { " " | "\t" } ;
 - `adapter-in`
 - `adapter-out`
 
-### 4.2 `protocolId` (presets atuais)
+### 6.2 `protocolId`
 - `http`
 - `internal-call`
 - `grpc`
@@ -125,7 +195,7 @@ ws1              = ( " " | "\t" ), { " " | "\t" } ;
 - `sql`
 - `oauth2-token`
 
-### 4.3 `techId` (presets atuais)
+### 6.3 `techId`
 - `system`
 - `react`
 - `spring-boot`
@@ -145,59 +215,39 @@ ws1              = ( " " | "\t" ), { " " | "\t" } ;
 - `redis`
 - `elasticsearch`
 
-## 5. Hierarquia, drilldown e multiplas views
-
-Esta e a parte mais importante para evitar erro de IA.
-
-### 5.1 O que a DSL LITE atual NAO representa
-- Nao existe sintaxe para:
-  - multiplas `view` no mesmo documento com escopo correto;
-  - relacao pai-filho entre views;
-  - `drilldownRef` (duplo clique para entrar em outra view).
-
-### 5.2 Comportamento real do import/export hoje
-- `Exportar view atual` exporta **somente a view corrente** para DSL.
-- `Importar DSL` cria workspace FULL com **uma unica view** (`v_<viewKind>`) e substitui o workspace atual.
-- Resultado: ao importar DSL LITE, os nodes nao ganham `drilldownRef` automaticamente.
-
-### 5.3 Resposta objetiva para "cada view tem DSL separada?"
-- **Sim, na pratica atual cada DSL LITE representa uma view por vez.**
-- Para manter hierarquia completa (Container -> Component -> Hex), a DSL LITE sozinha nao preserva esses links hoje.
-
-## 6. Regras de tolerancia do parser (importante para IA)
-
-- Linhas vazias sao ignoradas.
-- Linhas iniciando com `//` ou `#` sao ignoradas.
-- Linhas nao reconhecidas sao ignoradas (nao causam erro por si).
-- Se `journey` abrir e nao fechar, ela e fechada implicitamente no fim do arquivo.
-
-## 7. Exemplo valido (referencia)
+## 7. Exemplo completo (multi-view + hierarquia + fronteira)
 
 ```dsl
 workspace "Pedidos" {
-  view container {
+  view v_container container {
+    boundary core "Core Services" contains api,worker,orders
     container api "ms-pedidos" tech spring-boot
-    queue kafka "Kafka" tech kafka
+    container worker "ms-fulfillment" tech spring-boot
     db orders "orders-db" tech postgres
 
-    api -> kafka : kafka-event "pedido.criado"
+    api -> worker : kafka-event "order.created"
     api -> orders : sql "insert order"
-    api -> orders
+  }
 
-    journey "Fluxo A" color #2563eb {
-      1: api -> kafka
-      2: api -> orders
-    }
+  view v_component_api component parent v_container via api {
+    component app "CreateOrderService" tech application-service drilldown v_hex_api
+    component repo "OrderRepo" tech component
+    app -> repo : internal-call "save"
+  }
+
+  view v_hex_api hex parent v_component_api via app {
+    domain core_domain "OrderDomain" tech domain
   }
 }
 ```
 
-## 8. Checklist para usar com IA geradora
+## 8. Checklist para IA geradora
 
-Antes de importar, valide:
+Antes de importar:
 1. Existe `workspace "..." {`.
-2. Existe exatamente uma `view ... {`.
-3. Ha pelo menos 1 node.
-4. Todos os aliases de edge existem em nodes.
-5. Todos os passos de journey referenciam pares `from -> to` que existem em edges.
-6. `kind`, `protocolId` e `techId` estao no catalogo recomendado.
+2. Toda view tem `viewId` unico (quando usar sintaxe moderna).
+3. Ha pelo menos 1 node no arquivo.
+4. Em cada view, aliases usados em edges existem como nodes.
+5. Steps de journey referenciam edges existentes na mesma view.
+6. `drilldown` e `parent/via` apontam para `viewId`/alias existentes.
+7. Para fronteira de grupo, `contains` usa aliases da mesma view.

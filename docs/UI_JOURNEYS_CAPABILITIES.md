@@ -48,7 +48,7 @@ Documento de referência rápida para não se perder no que a UI já suporta hoj
 
 6. Exportar ou usar DSL
 - Exporte o canvas em `SVG/PNG/PDF`.
-- Na aba `DSL`, use `Exportar view atual` e `Importar DSL`.
+- Na aba `DSL`, use `Exportar workspace completo` e `Importar DSL`.
 - Opcional: `Refinar com Codex` para assistência textual da DSL.
 
 ## 3) O que a UI já permite hoje
@@ -73,8 +73,8 @@ Documento de referência rápida para não se perder no que a UI já suporta hoj
 - Drilldown:
   - container → component → hex (quando há referência)
 - DSL:
-  - exportar view para DSL LITE
-  - importar DSL LITE (reconstrói workspace)
+  - exportar workspace completo para DSL LITE (arquivo único multi-view)
+  - importar DSL LITE (reconstrói workspace com hierarquia/drilldown)
   - assistência do Codex via gateway
 - Export:
   - SVG, PNG e PDF

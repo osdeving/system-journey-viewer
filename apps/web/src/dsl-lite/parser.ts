@@ -1,10 +1,37 @@
-import type { LiteJourney, LiteJourneyStep, LiteWorkspaceAst } from './types'
+import type { LiteJourney, LiteJourneyStep, LiteViewAst, LiteWorkspaceAst } from './types'
 
-const toViewKind = (raw: string): LiteWorkspaceAst['viewKind'] => {
+const DEFAULT_VIEW_ID = 'v_container'
+const DEFAULT_VIEW_KIND: LiteViewAst['kind'] = 'container'
+
+const toViewKind = (raw: string): LiteViewAst['kind'] => {
   if (raw === 'system-context' || raw === 'container' || raw === 'component' || raw === 'hex') {
     return raw
   }
   return 'container'
+}
+
+const createViewAst = (
+  id: string,
+  kind: LiteViewAst['kind'],
+  parent?: LiteViewAst['parent'],
+): LiteViewAst => ({
+  id,
+  kind,
+  parent,
+  nodes: [],
+  edges: [],
+  journeys: [],
+})
+
+const parseAliasList = (raw?: string): string[] | undefined => {
+  if (!raw) {
+    return undefined
+  }
+  const aliases = raw
+    .split(',')
+    .map((value) => value.trim())
+    .filter(Boolean)
+  return aliases.length ? aliases : undefined
 }
 
 export const parseLiteDsl = (input: string): LiteWorkspaceAst => {
@@ -15,19 +42,52 @@ export const parseLiteDsl = (input: string): LiteWorkspaceAst => {
 
   const result: LiteWorkspaceAst = {
     workspaceName: 'Workspace',
-    viewKind: 'container',
-    nodes: [],
-    edges: [],
-    journeys: [],
+    views: [],
   }
 
+  let openView: LiteViewAst | null = null
+  let implicitView: LiteViewAst | null = null
   let openJourney: LiteJourney | null = null
+  let legacyViewIndex = 0
+
+  const activeView = (): LiteViewAst | null => openView ?? implicitView
+
+  const ensureImplicitView = (): LiteViewAst => {
+    if (!implicitView) {
+      implicitView = createViewAst(DEFAULT_VIEW_ID, DEFAULT_VIEW_KIND)
+    }
+    return implicitView
+  }
+
+  const closeJourney = () => {
+    if (!openJourney) {
+      return
+    }
+    const view = activeView() ?? ensureImplicitView()
+    view.journeys.push(openJourney)
+    openJourney = null
+  }
+
+  const closeView = () => {
+    if (!openView) {
+      return
+    }
+    closeJourney()
+    result.views.push(openView)
+    openView = null
+  }
 
   for (const line of lines) {
-    if (line === '}' || line === '{') {
-      if (line === '}' && openJourney) {
-        result.journeys.push(openJourney)
-        openJourney = null
+    if (line === '{') {
+      continue
+    }
+    if (line === '}') {
+      if (openJourney) {
+        closeJourney()
+        continue
+      }
+      if (openView) {
+        closeView()
       }
       continue
     }
@@ -38,11 +98,30 @@ export const parseLiteDsl = (input: string): LiteWorkspaceAst => {
       continue
     }
 
-    const viewMatch = line.match(/^view\s+([a-z-]+)\s*\{$/)
-    if (viewMatch) {
-      result.viewKind = toViewKind(viewMatch[1])
+    const viewWithIdMatch = line.match(
+      /^view\s+([A-Za-z0-9_-]+)\s+([a-z-]+)(?:\s+parent\s+([A-Za-z0-9_-]+)\s+via\s+([A-Za-z0-9_-]+))?\s*\{$/,
+    )
+    if (viewWithIdMatch) {
+      closeView()
+      const parent =
+        viewWithIdMatch[3] && viewWithIdMatch[4]
+          ? { viewId: viewWithIdMatch[3], viaAlias: viewWithIdMatch[4] }
+          : undefined
+      openView = createViewAst(viewWithIdMatch[1], toViewKind(viewWithIdMatch[2]), parent)
       continue
     }
+
+    const legacyViewMatch = line.match(/^view\s+([a-z-]+)\s*\{$/)
+    if (legacyViewMatch) {
+      closeView()
+      legacyViewIndex += 1
+      const kind = toViewKind(legacyViewMatch[1])
+      const viewId = legacyViewIndex === 1 ? `v_${kind}` : `v_${kind}_${legacyViewIndex}`
+      openView = createViewAst(viewId, kind)
+      continue
+    }
+
+    const view = activeView() ?? ensureImplicitView()
 
     if (openJourney) {
       const stepMatch = line.match(/^(\d+)\s*:\s*([A-Za-z0-9_-]+)\s*->\s*([A-Za-z0-9_-]+)$/)
@@ -58,6 +137,7 @@ export const parseLiteDsl = (input: string): LiteWorkspaceAst => {
 
     const journeyMatch = line.match(/^journey\s+"([^"]+)"(?:\s+color\s+([#A-Za-z0-9_-]+))?\s*\{$/)
     if (journeyMatch) {
+      closeJourney()
       openJourney = {
         name: journeyMatch[1],
         color: journeyMatch[2] ?? '#2563eb',
@@ -67,14 +147,16 @@ export const parseLiteDsl = (input: string): LiteWorkspaceAst => {
     }
 
     const nodeMatch = line.match(
-      /^([a-z-]+)\s+([A-Za-z0-9_-]+)\s+"([^"]+)"(?:\s+tech\s+([A-Za-z0-9_-]+))?$/,
+      /^([a-z-]+)\s+([A-Za-z0-9_-]+)\s+"([^"]+)"(?:\s+tech\s+([A-Za-z0-9_-]+))?(?:\s+drilldown\s+([A-Za-z0-9_-]+))?(?:\s+contains\s+([A-Za-z0-9_,-\s]+))?$/,
     )
     if (nodeMatch) {
-      result.nodes.push({
+      view.nodes.push({
         kind: nodeMatch[1],
         alias: nodeMatch[2],
         name: nodeMatch[3],
         techId: nodeMatch[4],
+        drilldownToViewId: nodeMatch[5],
+        containsAliases: parseAliasList(nodeMatch[6]),
       })
       continue
     }
@@ -83,7 +165,7 @@ export const parseLiteDsl = (input: string): LiteWorkspaceAst => {
       /^([A-Za-z0-9_-]+)\s*->\s*([A-Za-z0-9_-]+)(?:\s*:\s*([A-Za-z0-9_-]+)(?:\s*"([^"]*)")?)?$/,
     )
     if (edgeMatch) {
-      result.edges.push({
+      view.edges.push({
         fromAlias: edgeMatch[1],
         toAlias: edgeMatch[2],
         protocol: edgeMatch[3] ?? 'http',
@@ -93,11 +175,14 @@ export const parseLiteDsl = (input: string): LiteWorkspaceAst => {
     }
   }
 
-  if (openJourney) {
-    result.journeys.push(openJourney)
+  closeView()
+  closeJourney()
+  if (implicitView) {
+    result.views.push(implicitView)
   }
 
-  if (result.nodes.length === 0) {
+  const totalNodeCount = result.views.reduce((sum, view) => sum + view.nodes.length, 0)
+  if (totalNodeCount === 0) {
     throw new Error('DSL LITE inválida: nenhum node encontrado.')
   }
 
@@ -112,12 +197,25 @@ const aliasByNodeId = (nodeId: string): string => {
 export const toJourneyStepText = (step: LiteJourneyStep): string =>
   `${step.n}: ${step.fromAlias} -> ${step.toAlias}`
 
+export type NodeLineTextOptions = {
+  techId?: string
+  drilldownToViewId?: string
+  containsAliases?: string[]
+}
+
 export const toNodeLineText = (
   kind: string,
   alias: string,
   name: string,
-  techId?: string,
-): string => `${kind} ${alias} "${name}"${techId ? ` tech ${techId}` : ''}`
+  options?: NodeLineTextOptions,
+): string => {
+  const suffix = [
+    options?.techId ? ` tech ${options.techId}` : '',
+    options?.drilldownToViewId ? ` drilldown ${options.drilldownToViewId}` : '',
+    options?.containsAliases?.length ? ` contains ${options.containsAliases.join(',')}` : '',
+  ].join('')
+  return `${kind} ${alias} "${name}"${suffix}`
+}
 
 export const toEdgeLineText = (
   fromAlias: string,

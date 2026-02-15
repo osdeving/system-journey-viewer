@@ -43,6 +43,12 @@ Task:
 - Apply the user request to the current DSL.
 - Preserve semantic behavior unless the user explicitly asks to change behavior.
 - Keep the DSL valid and complete.
+- Preserve hierarchy links when present:
+  - node-level \`drilldown <viewId>\`
+  - view-level \`parent <viewId> via <alias>\`
+- Preserve boundary grouping when present:
+  - \`boundary ... contains alias1,alias2,...\`
+- Multi-view workspace is allowed and expected in a single DSL file.
 
 User request:
 ${instruction}

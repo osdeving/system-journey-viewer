@@ -11,7 +11,7 @@ import {
   extractDslFromCodexResponse,
   requestCodexDslAssist,
 } from './dsl-lite/codexAssist'
-import { fullViewToLiteDsl, liteToFullWorkspace } from './dsl-lite/convert'
+import { fullWorkspaceToLiteDsl, liteToFullWorkspace } from './dsl-lite/convert'
 import { parseLiteDsl } from './dsl-lite/parser'
 import { exportPdf, exportPng, exportSvg } from './export/exporters'
 import { nodePresetsByCategory, protocolPresets, resolveNodePreset } from './presets/catalog'
@@ -870,11 +870,11 @@ function App() {
               <button
                 type="button"
                 onClick={() => {
-                  setDslText(fullViewToLiteDsl(workspace, currentViewId))
+                  setDslText(fullWorkspaceToLiteDsl(workspace))
                   setDslError(null)
                 }}
               >
-                Exportar view atual
+                Exportar workspace completo
               </button>
               <button
                 type="button"

@@ -46,6 +46,7 @@
 - Guia de operação da UI disponível em `docs/UI_JOURNEYS_CAPABILITIES.md` (jornadas de uso, capacidades e limitações atuais).
 - README raiz reestruturado para leitura humana (onboarding rápido, fluxo de uso, limites atuais e mapa de documentação).
 - Spec oficial da DSL LITE disponível em `docs/DSL_LITE_SPEC.md` (EBNF, semântica, catálogo e limites de hierarquia/drilldown).
+- DSL LITE evoluída para arquivo único multi-view com hierarquia (`parent/via`, `drilldown`) e fronteira por grupo (`contains`) aplicada no render via boundary.
 
 ## Próximos incrementos sugeridos
 

@@ -1617,7 +1617,7 @@ export const DiagramCanvas = () => {
                     className="node-port"
                     cx={node.bounds.w * port.x}
                     cy={node.bounds.h * port.y}
-                    r={4}
+                    r={3}
                     onPointerDown={(event) => onPortPointerDown(event, node, port.id)}
                     onPointerEnter={(event) => onPortPointerEnter(event, node, port.id)}
                     onPointerUp={(event) => onPortPointerUp(event, node, port.id)}

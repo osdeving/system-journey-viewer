@@ -29,8 +29,8 @@ export interface ConfettiBurstSpec {
   startVelocity: number
 }
 
-const MIN_CONFETTI_RADIUS_PX = 32
-const MAX_CONFETTI_RADIUS_PX = 180
+const MIN_CONFETTI_RADIUS_PX = 22
+const MAX_CONFETTI_RADIUS_PX = 120
 const RING_ORIGINS = 6
 
 const clamp = (value: number, min: number, max: number): number =>

@@ -3,7 +3,7 @@ import { normalizeWorkspaceNodePorts, resolveNodePorts } from './nodePorts'
 import { createDefaultWorkspace } from './defaultWorkspace'
 
 describe('resolveNodePorts', () => {
-  it('keeps legacy cardinal ports and adds more by size', () => {
+  it('keeps legacy cardinal ports and adds denser ports by size', () => {
     const ports = resolveNodePorts({ w: 420, h: 180 })
     const ids = new Set(ports.map((port) => port.id))
 
@@ -11,18 +11,20 @@ describe('resolveNodePorts', () => {
     expect(ids.has('south')).toBe(true)
     expect(ids.has('west')).toBe(true)
     expect(ids.has('east')).toBe(true)
-    expect(ports.length).toBeGreaterThan(8)
+    expect(ports.length).toBeGreaterThan(12)
   })
 
-  it('does not duplicate corner side ports', () => {
+  it('avoids corner ports on top and bottom edges', () => {
     const ports = resolveNodePorts({ w: 160, h: 110 })
     const westPorts = ports.filter((port) => port.id === 'west')
     const eastPorts = ports.filter((port) => port.id === 'east')
 
     expect(westPorts).toHaveLength(1)
     expect(eastPorts).toHaveLength(1)
-    expect(ports.some((port) => port.x === 0 && port.y === 0)).toBe(true)
-    expect(ports.some((port) => port.x === 1 && port.y === 1)).toBe(true)
+    expect(ports.some((port) => port.x === 0 && port.y === 0)).toBe(false)
+    expect(ports.some((port) => port.x === 1 && port.y === 1)).toBe(false)
+    expect(ports.some((port) => port.id === 'north' && port.x === 0.5)).toBe(true)
+    expect(ports.some((port) => port.id === 'south' && port.x === 0.5)).toBe(true)
   })
 })
 

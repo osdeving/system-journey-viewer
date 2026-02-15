@@ -1,6 +1,26 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { PointerEvent as ReactPointerEvent } from 'react'
 import confetti from 'canvas-confetti'
+import Editor from '@monaco-editor/react'
+import type { Monaco } from '@monaco-editor/react'
+import {
+  Dock,
+  Eye,
+  EyeOff,
+  GripVertical,
+  PanelBottomClose,
+  PanelBottomOpen,
+  PanelLeftClose,
+  PanelLeftOpen,
+  PanelRightClose,
+  PanelRightOpen,
+  Pause,
+  Play,
+  Presentation,
+  RotateCcw,
+  SkipBack,
+  SkipForward,
+} from 'lucide-react'
 import './App.css'
 import { DiagramCanvas } from './components/DiagramCanvas'
 import {
@@ -12,6 +32,12 @@ import {
   requestCodexDslAssist,
 } from './dsl-lite/codexAssist'
 import { fullWorkspaceToLiteDsl, liteToFullWorkspace } from './dsl-lite/convert'
+import {
+  JOURNEY_SCRIPT_LANGUAGE_ID,
+  JOURNEY_SCRIPT_NAME,
+  registerJourneyScriptLanguage,
+  resolveJourneyScriptTheme,
+} from './dsl-lite/monacoJourneyScript'
 import { parseLiteDsl } from './dsl-lite/parser'
 import { exportPdf, exportPng, exportSvg } from './export/exporters'
 import { nodePresetsByCategory, protocolPresets, resolveNodePreset } from './presets/catalog'
@@ -26,6 +52,7 @@ const MAX_LEFT_SIDEBAR_WIDTH = 440
 const MIN_JOURNEY_HEIGHT = 160
 const TOPBAR_HEIGHT = 80
 const MIN_CANVAS_HEIGHT = 220
+const MIN_DOCK_HEIGHT = 260
 const DEFAULT_NODE_COLOR_PRESETS = [
   '#ffffff',
   '#dbeafe',
@@ -46,9 +73,12 @@ const viewKindLabel: Record<string, string> = {
   hex: 'Hex',
 }
 
-type DrawerTab = 'journeys' | 'dsl'
+type DrawerTab = 'journeys' | 'dsl' | 'dock'
+type DockTab = 'inspector' | 'journeys'
+type DockPosition = 'right' | 'bottom'
 type DesktopMenuId = 'file' | 'edit' | 'view' | 'insert'
 const DESKTOP_MENU_ORDER: DesktopMenuId[] = ['file', 'edit', 'view', 'insert']
+const DEFAULT_DOCK_TAB_ORDER: DockTab[] = ['inspector', 'journeys']
 
 const isTextInputTarget = (target: EventTarget | null): boolean => {
   if (!(target instanceof HTMLElement)) {
@@ -70,6 +100,8 @@ function App() {
   const canvasPanelRef = useRef<HTMLElement | null>(null)
   const dslRestoreHeightRef = useRef<number | null>(null)
   const previousViewIdRef = useRef<string | null>(null)
+  const dockTabDragRef = useRef<DockTab | null>(null)
+  const journeyDragRef = useRef<string | null>(null)
   const leftResizeRef = useRef<{ pointerId: number; startX: number; startWidth: number } | null>(null)
   const journeyResizeRef = useRef<{
     pointerId: number
@@ -118,6 +150,7 @@ function App() {
   const createJourney = useEditorStore((state) => state.createJourney)
   const setActiveJourney = useEditorStore((state) => state.setActiveJourney)
   const setJourneyFilter = useEditorStore((state) => state.setJourneyFilter)
+  const reorderJourneyInCurrentView = useEditorStore((state) => state.reorderJourneyInCurrentView)
   const addEdgeToJourney = useEditorStore((state) => state.addEdgeToJourney)
   const removeEdgeFromJourney = useEditorStore((state) => state.removeEdgeFromJourney)
   const navigateBack = useEditorStore((state) => state.navigateBack)
@@ -126,6 +159,7 @@ function App() {
   const setPlayerLoop = useEditorStore((state) => state.setPlayerLoop)
   const setPlayerSpeedMs = useEditorStore((state) => state.setPlayerSpeedMs)
   const setPlayerHighlightNodes = useEditorStore((state) => state.setPlayerHighlightNodes)
+  const prevPlayerStep = useEditorStore((state) => state.prevPlayerStep)
   const stepPlayer = useEditorStore((state) => state.stepPlayer)
   const resetPlayer = useEditorStore((state) => state.resetPlayer)
   const [journeyDraftName, setJourneyDraftName] = useState('')
@@ -143,6 +177,13 @@ function App() {
   const [drawerTab, setDrawerTab] = useState<DrawerTab>('journeys')
   const [dslMaximized, setDslMaximized] = useState(false)
   const [focusMode, setFocusMode] = useState(false)
+  const [presentationMode, setPresentationMode] = useState(false)
+  const [leftSidebarCollapsed, setLeftSidebarCollapsed] = useState(false)
+  const [dockCollapsed, setDockCollapsed] = useState(false)
+  const [drawerCollapsed, setDrawerCollapsed] = useState(false)
+  const [dockPosition, setDockPosition] = useState<DockPosition>('right')
+  const [dockTabOrder, setDockTabOrder] = useState<DockTab[]>(DEFAULT_DOCK_TAB_ORDER)
+  const [activeDockTab, setActiveDockTab] = useState<DockTab>('inspector')
   const [openDesktopMenu, setOpenDesktopMenu] = useState<DesktopMenuId | null>(null)
 
   const selectedNode = selectedNodeId ? workspace.nodes[selectedNodeId] : undefined
@@ -178,19 +219,25 @@ function App() {
   const playerJourney = playerJourneyId ? workspace.journeys[playerJourneyId] : undefined
   const currentViewModeLabel = viewKindLabel[currentView.kind] ?? currentView.kind
   const playerModeLabel = playerIsRunning ? 'Animação' : 'Render'
+  const immersiveMode = focusMode || presentationMode
+  const leftPanelVisible = !immersiveMode && !leftSidebarCollapsed
+  const rightDockVisible = !immersiveMode && dockPosition === 'right' && !dockCollapsed
+  const drawerVisible = !immersiveMode && !drawerCollapsed
 
   const layoutStyle = useMemo(
     () =>
-      focusMode
+      immersiveMode
         ? {
             gridTemplateColumns: '1fr',
             gridTemplateRows: `${TOPBAR_HEIGHT}px 1fr`,
           }
         : {
-            gridTemplateColumns: `${leftSidebarWidth}px 1fr ${RIGHT_SIDEBAR_WIDTH}px`,
-            gridTemplateRows: `${TOPBAR_HEIGHT}px 1fr ${journeyHeight}px`,
+            gridTemplateColumns: `${leftPanelVisible ? leftSidebarWidth : 0}px 1fr ${
+              rightDockVisible ? RIGHT_SIDEBAR_WIDTH : 0
+            }px`,
+            gridTemplateRows: `${TOPBAR_HEIGHT}px 1fr ${drawerVisible ? journeyHeight : 0}px`,
           },
-    [focusMode, journeyHeight, leftSidebarWidth],
+    [drawerVisible, immersiveMode, journeyHeight, leftPanelVisible, leftSidebarWidth, rightDockVisible],
   )
 
   const activateJourneyPlayback = (journeyId: string | null) => {
@@ -230,7 +277,37 @@ function App() {
   }
 
   const toggleFocusMode = () => {
+    setPresentationMode(false)
     setFocusMode((current) => !current)
+  }
+
+  const togglePresentationMode = () => {
+    setFocusMode(false)
+    setPresentationMode((current) => {
+      const next = !current
+      if (next) {
+        setLeftSidebarCollapsed(true)
+        setDockCollapsed(true)
+        setDrawerCollapsed(true)
+      } else {
+        setLeftSidebarCollapsed(false)
+        setDockCollapsed(false)
+        setDrawerCollapsed(false)
+      }
+      return next
+    })
+  }
+
+  const toggleLeftSidebar = () => {
+    setLeftSidebarCollapsed((current) => !current)
+  }
+
+  const toggleDockPanel = () => {
+    setDockCollapsed((current) => !current)
+  }
+
+  const toggleWorkbench = () => {
+    setDrawerCollapsed((current) => !current)
   }
 
   const toggleDesktopMenu = (menuId: DesktopMenuId) => {
@@ -240,6 +317,46 @@ function App() {
   const runDesktopMenuAction = (action: () => void) => {
     action()
     setOpenDesktopMenu(null)
+  }
+
+  const handleDockTabDragStart = (tab: DockTab) => {
+    dockTabDragRef.current = tab
+  }
+
+  const handleDockTabDrop = (targetTab: DockTab) => {
+    const sourceTab = dockTabDragRef.current
+    dockTabDragRef.current = null
+    if (!sourceTab || sourceTab === targetTab) {
+      return
+    }
+    setDockTabOrder((current) => {
+      const sourceIndex = current.indexOf(sourceTab)
+      const targetIndex = current.indexOf(targetTab)
+      if (sourceIndex < 0 || targetIndex < 0) {
+        return current
+      }
+      const next = current.slice()
+      next.splice(sourceIndex, 1)
+      next.splice(targetIndex, 0, sourceTab)
+      return next
+    })
+  }
+
+  const onJourneyDragStart = (journeyId: string) => {
+    journeyDragRef.current = journeyId
+  }
+
+  const onJourneyDrop = (targetJourneyId: string) => {
+    const draggedJourneyId = journeyDragRef.current
+    journeyDragRef.current = null
+    if (!draggedJourneyId || draggedJourneyId === targetJourneyId) {
+      return
+    }
+    reorderJourneyInCurrentView(draggedJourneyId, targetJourneyId)
+  }
+
+  const handleDslEditorBeforeMount = (monaco: Monaco): void => {
+    registerJourneyScriptLanguage(monaco)
   }
 
   const onLeftSplitterPointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
@@ -413,30 +530,61 @@ function App() {
   }, [openDesktopMenu])
 
   useEffect(() => {
-    if (focusMode) {
+    if (immersiveMode) {
       setOpenDesktopMenu(null)
     }
-  }, [focusMode])
+  }, [immersiveMode])
 
   useEffect(() => {
-    const onFocusShortcut = (event: KeyboardEvent) => {
+    const onModeShortcut = (event: KeyboardEvent) => {
       if (isTextInputTarget(event.target)) {
         return
       }
       if (event.key === 'f' || event.key === 'F') {
         event.preventDefault()
+        setPresentationMode(false)
         setFocusMode((current) => !current)
         return
       }
-      if (event.key === 'Escape' && focusMode) {
+      if (event.key === 'p' || event.key === 'P') {
         event.preventDefault()
         setFocusMode(false)
+        setPresentationMode((current) => {
+          const next = !current
+          if (next) {
+            setLeftSidebarCollapsed(true)
+            setDockCollapsed(true)
+            setDrawerCollapsed(true)
+          } else {
+            setLeftSidebarCollapsed(false)
+            setDockCollapsed(false)
+            setDrawerCollapsed(false)
+          }
+          return next
+        })
+        return
+      }
+      if (event.key === 'Escape' && (focusMode || presentationMode)) {
+        event.preventDefault()
+        setFocusMode(false)
+        if (presentationMode) {
+          setLeftSidebarCollapsed(false)
+          setDockCollapsed(false)
+          setDrawerCollapsed(false)
+        }
+        setPresentationMode(false)
       }
     }
 
-    window.addEventListener('keydown', onFocusShortcut)
-    return () => window.removeEventListener('keydown', onFocusShortcut)
-  }, [focusMode])
+    window.addEventListener('keydown', onModeShortcut)
+    return () => window.removeEventListener('keydown', onModeShortcut)
+  }, [focusMode, presentationMode])
+
+  useEffect(() => {
+    if (dockPosition !== 'bottom' && drawerTab === 'dock') {
+      setDrawerTab('journeys')
+    }
+  }, [dockPosition, drawerTab])
 
   useEffect(() => {
     if (previousViewIdRef.current === null) {
@@ -582,10 +730,327 @@ function App() {
     }
   }
 
+  const dockLabelByTab: Record<DockTab, string> = {
+    inspector: 'Inspector',
+    journeys: 'Journeys',
+  }
+  const resolvedActiveDockTab = dockTabOrder.includes(activeDockTab)
+    ? activeDockTab
+    : dockTabOrder[0]
+
+  const inspectorDockContent = (
+    <div className="dock-content-section">
+      <h2>Inspector</h2>
+      {!selectedNode && !selectedEdge ? <p>Selecione um node ou edge no canvas.</p> : null}
+      {selectedNodes.length > 1 ? (
+        <p>{selectedNodes.length} componentes selecionados (foco atual: {selectedNode?.name ?? 'n/a'}).</p>
+      ) : null}
+      {selectedNode ? (
+        <div className="inspector-form">
+          <label htmlFor="node-id">ID</label>
+          <input id="node-id" value={selectedNode.id} disabled />
+          <label htmlFor="node-kind">Tipo</label>
+          <input id="node-kind" value={selectedNode.kind} disabled />
+          <label htmlFor="node-name">Nome</label>
+          <input
+            id="node-name"
+            value={selectedNode.name}
+            onChange={(event) => setNodeName(selectedNode.id, event.target.value)}
+          />
+          <label htmlFor="node-preset">Preset</label>
+          <input
+            id="node-preset"
+            value={resolveNodePreset(selectedNode.presetId ?? '')?.label ?? 'Custom'}
+            disabled
+          />
+          <label htmlFor="node-tech">Tecnologia</label>
+          <input
+            id="node-tech"
+            value={selectedNode.tech?.label ?? ''}
+            onChange={(event) => setNodeTech(selectedNode.id, event.target.value)}
+          />
+          {selectedNode.kind !== 'boundary' ? (
+            <>
+              <label htmlFor="node-color">Cor</label>
+              <input
+                id="node-color"
+                type="color"
+                value={
+                  isHexColor(selectedNode.style?.fillColor)
+                    ? selectedNode.style?.fillColor ?? '#ffffff'
+                    : '#ffffff'
+                }
+                onChange={(event) => setNodeColor(selectedNode.id, event.target.value)}
+              />
+              <label>Últimas 10 cores</label>
+              <div className="node-color-presets">
+                {nodeColorPresets.map((color) => (
+                  <button
+                    key={color}
+                    type="button"
+                    className={
+                      selectedNode.style?.fillColor === color
+                        ? 'node-color-chip node-color-chip-active'
+                        : 'node-color-chip'
+                    }
+                    style={{ background: color }}
+                    title={color}
+                    onClick={() => setNodeColor(selectedNode.id, color)}
+                  />
+                ))}
+              </div>
+            </>
+          ) : null}
+        </div>
+      ) : null}
+      {selectedEdge ? (
+        <div className="inspector-form">
+          <label htmlFor="edge-id">ID</label>
+          <input id="edge-id" value={selectedEdge.id} disabled />
+          <label htmlFor="edge-label">Label</label>
+          <input
+            id="edge-label"
+            value={selectedEdge.label}
+            onChange={(event) => setEdgeLabel(selectedEdge.id, event.target.value)}
+          />
+          <label htmlFor="edge-protocol">Protocolo</label>
+          <select
+            id="edge-protocol"
+            value={selectedEdge.protocolPresetId}
+            onChange={(event) => setEdgeProtocol(selectedEdge.id, event.target.value)}
+          >
+            {protocolPresets.map((protocol) => (
+              <option key={protocol.id} value={protocol.id}>
+                {protocol.label}
+              </option>
+            ))}
+          </select>
+          <button
+            type="button"
+            onClick={() => {
+              if (activeJourneyId) {
+                addEdgeToJourney(activeJourneyId, selectedEdge.id)
+              }
+            }}
+            disabled={!activeJourneyId}
+          >
+            Add to Active Journey
+          </button>
+        </div>
+      ) : null}
+    </div>
+  )
+
+  const journeysDockContent = (
+    <div className="dock-content-section">
+      <h2>Journeys</h2>
+      <div className="journey-side-create">
+        <input
+          placeholder="Nova jornada"
+          value={journeyDraftName}
+          onChange={(event) => setJourneyDraftName(event.target.value)}
+        />
+        <button
+          type="button"
+          onClick={() => {
+            const journeyId = createJourney(journeyDraftName)
+            setJourneyDraftName('')
+            setActiveJourney(journeyId)
+            activateJourneyPlayback(journeyId)
+          }}
+        >
+          Criar jornada
+        </button>
+      </div>
+      <div className="journey-side-filter">
+        <select
+          value={journeyFilterId ?? ''}
+          onChange={(event) => {
+            const nextJourneyId = event.target.value || null
+            setJourneyFilter(nextJourneyId)
+            if (nextJourneyId) {
+              setActiveJourney(nextJourneyId)
+              activateJourneyPlayback(nextJourneyId)
+            }
+          }}
+        >
+          <option value="">Filtro: todas jornadas</option>
+          {viewJourneys.map((journey) => (
+            <option key={journey.id} value={journey.id}>
+              {journey.name}
+            </option>
+          ))}
+        </select>
+        <button type="button" onClick={() => setJourneyFilter(null)}>
+          Limpar filtro
+        </button>
+      </div>
+      <div className="journey-side-player">
+        <select value={playerJourneyId ?? ''} onChange={(event) => activateJourneyPlayback(event.target.value || null)}>
+          <option value="">Player: selecione jornada</option>
+          {viewJourneys.map((journey) => (
+            <option key={journey.id} value={journey.id}>
+              {journey.name}
+            </option>
+          ))}
+        </select>
+        <div className="journey-player-actions journey-player-actions-iconic" role="group" aria-label="Controles do player">
+          <button type="button" disabled={!playerJourney} onClick={() => prevPlayerStep()} aria-label="Passo anterior">
+            <SkipBack size={15} />
+          </button>
+          <button
+            type="button"
+            disabled={!playerJourney}
+            onClick={() => setPlayerRunning(!playerIsRunning)}
+            aria-label={playerIsRunning ? 'Pausar player' : 'Iniciar player'}
+          >
+            {playerIsRunning ? <Pause size={16} /> : <Play size={16} />}
+          </button>
+          <button type="button" disabled={!playerJourney} onClick={() => stepPlayer()} aria-label="Próximo passo">
+            <SkipForward size={15} />
+          </button>
+          <button type="button" disabled={!playerJourney} onClick={() => resetPlayer()} aria-label="Resetar player">
+            <RotateCcw size={15} />
+          </button>
+        </div>
+        <div className="journey-player-toggles">
+          <label className="toggle-inline">
+            <input
+              type="checkbox"
+              checked={playerLoop}
+              onChange={(event) => setPlayerLoop(event.target.checked)}
+            />
+            Loop
+          </label>
+          <label className="toggle-inline">
+            <input
+              type="checkbox"
+              checked={playerHighlightNodes}
+              onChange={(event) => setPlayerHighlightNodes(event.target.checked)}
+            />
+            Highlight
+          </label>
+        </div>
+        <label className="journey-speed-control">
+          Speed
+          <input
+            type="range"
+            min={120}
+            max={1800}
+            step={60}
+            value={playerSpeedMs}
+            onChange={(event) => setPlayerSpeedMs(Number(event.target.value))}
+          />
+        </label>
+        <span className="player-step-info">
+          Step {playerStepIndex + 1}/{playerJourney?.steps.length ?? 0}
+        </span>
+      </div>
+      <div className="journey-list journey-list-sidebar">
+        {viewJourneys.map((journey) => (
+          <div
+            key={journey.id}
+            className={activeJourneyId === journey.id ? 'journey-item journey-active' : 'journey-item'}
+            draggable
+            onDragStart={() => onJourneyDragStart(journey.id)}
+            onDragEnd={() => {
+              journeyDragRef.current = null
+            }}
+            onDragOver={(event) => event.preventDefault()}
+            onDrop={() => onJourneyDrop(journey.id)}
+            onClick={() => {
+              setActiveJourney(journey.id)
+              activateJourneyPlayback(journey.id)
+            }}
+          >
+            <span className="journey-drag-handle" aria-hidden="true">
+              <GripVertical size={13} />
+            </span>
+            <span className="journey-color-dot" style={{ background: journey.colorKey }} />
+            <span>{journey.name}</span>
+            <button
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation()
+                setJourneyFilter(journeyFilterId === journey.id ? null : journey.id)
+                setActiveJourney(journey.id)
+                activateJourneyPlayback(journey.id)
+              }}
+            >
+              {journeyFilterId === journey.id ? 'Filtrando' : 'Filtrar'}
+            </button>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+
+  const dockPanel = (
+    <div className={dockPosition === 'right' ? 'dock-panel dock-panel-right' : 'dock-panel dock-panel-bottom'}>
+      <div className="dock-tab-strip">
+        {dockTabOrder.map((tab) => (
+          <button
+            key={tab}
+            type="button"
+            draggable
+            className={resolvedActiveDockTab === tab ? 'dock-tab dock-tab-active' : 'dock-tab'}
+            onClick={() => setActiveDockTab(tab)}
+            onDragStart={() => handleDockTabDragStart(tab)}
+            onDragOver={(event) => event.preventDefault()}
+            onDrop={() => handleDockTabDrop(tab)}
+            onDragEnd={() => {
+              dockTabDragRef.current = null
+            }}
+          >
+            <GripVertical size={12} />
+            <span>{dockLabelByTab[tab]}</span>
+          </button>
+        ))}
+        <span className="dock-tab-spacer" />
+        <div className="dock-placement-actions">
+          <button
+            type="button"
+            className={dockPosition === 'right' ? 'dock-placement dock-placement-active' : 'dock-placement'}
+            onClick={() => {
+              setDockPosition('right')
+              if (drawerTab === 'dock') {
+                setDrawerTab('journeys')
+              }
+            }}
+            title="Dock à direita"
+            aria-label="Dock à direita"
+          >
+            <PanelRightOpen size={14} />
+          </button>
+          <button
+            type="button"
+            className={dockPosition === 'bottom' ? 'dock-placement dock-placement-active' : 'dock-placement'}
+            onClick={() => {
+              setDockPosition('bottom')
+              setDrawerTab('dock')
+              setDrawerCollapsed(false)
+              setDockCollapsed(false)
+              setJourneyHeight(Math.max(journeyHeight, MIN_DOCK_HEIGHT))
+            }}
+            title="Dock embaixo"
+            aria-label="Dock embaixo"
+          >
+            <PanelBottomOpen size={14} />
+          </button>
+        </div>
+      </div>
+      <div className="dock-tab-body">
+        {resolvedActiveDockTab === 'inspector' ? inspectorDockContent : journeysDockContent}
+      </div>
+    </div>
+  )
+
   return (
     <div
       ref={layoutRef}
-      className={`app-layout ${focusMode ? 'app-layout-focus' : ''} ${theme === 'dark' ? 'theme-dark' : 'theme-light'}`}
+      className={`app-layout ${focusMode ? 'app-layout-focus' : ''} ${
+        presentationMode ? 'app-layout-presentation' : ''
+      } ${theme === 'dark' ? 'theme-dark' : 'theme-light'}`}
       style={layoutStyle}
     >
       <header className="topbar">
@@ -781,6 +1246,14 @@ function App() {
                     <span>{focusMode ? 'Exit Focus Mode' : 'Focus Mode'}</span>
                     <kbd>F</kbd>
                   </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => runDesktopMenuAction(() => togglePresentationMode())}
+                  >
+                    <span>{presentationMode ? 'Exit Presentation' : 'Presentation Mode'}</span>
+                    <kbd>P</kbd>
+                  </button>
                 </div>
               ) : null}
             </div>
@@ -822,6 +1295,8 @@ function App() {
                     onClick={() =>
                       runDesktopMenuAction(() => {
                         setFocusMode(false)
+                        setPresentationMode(false)
+                        setDrawerCollapsed(false)
                         switchDrawerTab('journeys')
                       })
                     }
@@ -834,11 +1309,30 @@ function App() {
                     onClick={() =>
                       runDesktopMenuAction(() => {
                         setFocusMode(false)
+                        setPresentationMode(false)
+                        setDrawerCollapsed(false)
                         switchDrawerTab('dsl')
                       })
                     }
                   >
                     <span>Open DSL Editor</span>
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() =>
+                      runDesktopMenuAction(() => {
+                        setFocusMode(false)
+                        setPresentationMode(false)
+                        setDockCollapsed(false)
+                        if (dockPosition === 'bottom') {
+                          setDrawerCollapsed(false)
+                          switchDrawerTab('dock')
+                        }
+                      })
+                    }
+                  >
+                    <span>Open Dock Panel</span>
                   </button>
                 </div>
               ) : null}
@@ -849,8 +1343,8 @@ function App() {
               {activeTool === 'connector' ? 'Modo: Connector' : 'Modo: Select'}
             </span>
             <span className="mode-pill">Camada: {currentViewModeLabel}</span>
-            <span className={focusMode ? 'mode-pill mode-pill-active' : 'mode-pill'}>
-              View: {focusMode ? 'Focus' : 'Studio'}
+            <span className={immersiveMode ? 'mode-pill mode-pill-active' : 'mode-pill'}>
+              View: {presentationMode ? 'Presentation' : focusMode ? 'Focus' : 'Studio'}
             </span>
             <span className={playerIsRunning ? 'mode-pill mode-pill-playing' : 'mode-pill'}>
               Player: {playerModeLabel}
@@ -881,80 +1375,119 @@ function App() {
           <button type="button" onClick={() => zoomByFactor(0.9)}>
             Zoom -
           </button>
-          <label className="toggle-inline" htmlFor="toggle-grid">
-            <input
-              id="toggle-grid"
-              type="checkbox"
-              checked={gridEnabled}
-              onChange={(event) => setGridEnabled(event.target.checked)}
-            />
-            Grid
-          </label>
-          <label className="toggle-inline" htmlFor="toggle-snap">
-            <input
-              id="toggle-snap"
-              type="checkbox"
-              checked={snapEnabled}
-              onChange={(event) => setSnapEnabled(event.target.checked)}
-            />
-            Snap
-          </label>
-          <label className="toggle-inline" htmlFor="toggle-theme-dark">
-            <input
-              id="toggle-theme-dark"
-              type="checkbox"
-              checked={theme === 'dark'}
-              onChange={(event) => setTheme(event.target.checked ? 'dark' : 'light')}
-            />
-            Dark
-          </label>
+          <button
+            type="button"
+            className="icon-toggle-button"
+            onClick={() => setGridEnabled(!gridEnabled)}
+            title={gridEnabled ? 'Ocultar grid' : 'Mostrar grid'}
+          >
+            <Dock size={14} />
+            <span>{gridEnabled ? 'Grid on' : 'Grid off'}</span>
+          </button>
+          <button
+            type="button"
+            className="icon-toggle-button"
+            onClick={() => setSnapEnabled(!snapEnabled)}
+            title={snapEnabled ? 'Desabilitar snap' : 'Habilitar snap'}
+          >
+            {snapEnabled ? <Eye size={14} /> : <EyeOff size={14} />}
+            <span>{snapEnabled ? 'Snap on' : 'Snap off'}</span>
+          </button>
+          <button
+            type="button"
+            className="icon-toggle-button"
+            onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+            title={theme === 'dark' ? 'Tema claro' : 'Tema escuro'}
+          >
+            <span>{theme === 'dark' ? 'Dark' : 'Light'}</span>
+          </button>
+          <button
+            type="button"
+            className="icon-toggle-button"
+            onClick={() => toggleLeftSidebar()}
+            title={leftSidebarCollapsed ? 'Mostrar paleta' : 'Ocultar paleta'}
+          >
+            {leftSidebarCollapsed ? <PanelLeftOpen size={15} /> : <PanelLeftClose size={15} />}
+          </button>
+          <button
+            type="button"
+            className="icon-toggle-button"
+            onClick={() => toggleDockPanel()}
+            title={dockCollapsed ? 'Mostrar dock' : 'Ocultar dock'}
+          >
+            {dockPosition === 'bottom' ? (
+              dockCollapsed ? (
+                <PanelBottomOpen size={15} />
+              ) : (
+                <PanelBottomClose size={15} />
+              )
+            ) : dockCollapsed ? (
+              <PanelRightOpen size={15} />
+            ) : (
+              <PanelRightClose size={15} />
+            )}
+          </button>
+          <button
+            type="button"
+            className="icon-toggle-button"
+            onClick={() => toggleWorkbench()}
+            title={drawerCollapsed ? 'Mostrar workbench' : 'Ocultar workbench'}
+          >
+            {drawerCollapsed ? <PanelBottomOpen size={15} /> : <PanelBottomClose size={15} />}
+          </button>
           <button type="button" className="focus-toggle-button" onClick={() => toggleFocusMode()}>
-            {focusMode ? 'Sair do foco' : 'Modo foco'}
+            {focusMode ? 'Sair foco' : 'Foco'}
+          </button>
+          <button type="button" className="focus-toggle-button" onClick={() => togglePresentationMode()}>
+            <Presentation size={14} />
+            <span>{presentationMode ? 'Sair apresentação' : 'Presentation mode'}</span>
           </button>
         </div>
         {exportError ? <p className="topbar-error">{exportError}</p> : null}
       </header>
-      {!focusMode ? (
-        <>
-          <div
-            className="layout-splitter layout-splitter-left"
-            style={{ left: leftSidebarWidth - 3, top: TOPBAR_HEIGHT, bottom: journeyHeight }}
-            onPointerDown={onLeftSplitterPointerDown}
-            onPointerMove={onLeftSplitterPointerMove}
-            onPointerUp={stopLeftResize}
-            onPointerCancel={stopLeftResize}
-          />
-          <div
-            className="layout-splitter layout-splitter-journey"
-            style={{ bottom: journeyHeight - 3 }}
-            onPointerDown={onJourneySplitterPointerDown}
-            onPointerMove={onJourneySplitterPointerMove}
-            onPointerUp={stopJourneyResize}
-            onPointerCancel={stopJourneyResize}
-          />
-          <aside className="left-sidebar">
-            <h2>Palette</h2>
-            <p>Arraste para o canvas:</p>
-            {Object.entries(nodePresetsByCategory).map(([category, presets]) => (
-              <div key={category} className="toolbox-group">
-                <h3>{category}</h3>
-                <ul className="toolbox-list">
-                  {presets.map((preset) => (
-                    <li
-                      key={preset.id}
-                      draggable
-                      onDragStart={(event) => {
-                        event.dataTransfer.setData('application/x-node-preset-id', preset.id)
-                      }}
-                    >
-                      {preset.label}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ))}
-          </aside>
-        </>
+      {!immersiveMode && leftPanelVisible ? (
+        <div
+          className="layout-splitter layout-splitter-left"
+          style={{ left: leftSidebarWidth - 3, top: TOPBAR_HEIGHT, bottom: drawerVisible ? journeyHeight : 0 }}
+          onPointerDown={onLeftSplitterPointerDown}
+          onPointerMove={onLeftSplitterPointerMove}
+          onPointerUp={stopLeftResize}
+          onPointerCancel={stopLeftResize}
+        />
+      ) : null}
+      {!immersiveMode && drawerVisible ? (
+        <div
+          className="layout-splitter layout-splitter-journey"
+          style={{ bottom: journeyHeight - 3 }}
+          onPointerDown={onJourneySplitterPointerDown}
+          onPointerMove={onJourneySplitterPointerMove}
+          onPointerUp={stopJourneyResize}
+          onPointerCancel={stopJourneyResize}
+        />
+      ) : null}
+      {!immersiveMode && leftPanelVisible ? (
+        <aside className="left-sidebar">
+          <h2>Palette</h2>
+          <p>Arraste para o canvas:</p>
+          {Object.entries(nodePresetsByCategory).map(([category, presets]) => (
+            <div key={category} className="toolbox-group">
+              <h3>{category}</h3>
+              <ul className="toolbox-list">
+                {presets.map((preset) => (
+                  <li
+                    key={preset.id}
+                    draggable
+                    onDragStart={(event) => {
+                      event.dataTransfer.setData('application/x-node-preset-id', preset.id)
+                    }}
+                  >
+                    {preset.label}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </aside>
       ) : null}
       <main className="canvas-panel" ref={canvasPanelRef}>
         {activeTool === 'connector' ? (
@@ -975,241 +1508,8 @@ function App() {
         ) : null}
         <DiagramCanvas />
       </main>
-      {!focusMode ? (
-        <aside className="right-sidebar">
-          <section className="sidebar-panel">
-            <h2>Inspector</h2>
-            {!selectedNode && !selectedEdge ? <p>Selecione um node ou edge no canvas.</p> : null}
-            {selectedNodes.length > 1 ? (
-              <p>{selectedNodes.length} componentes selecionados (foco atual: {selectedNode?.name ?? 'n/a'}).</p>
-            ) : null}
-            {selectedNode ? (
-              <div className="inspector-form">
-                <label htmlFor="node-id">ID</label>
-                <input id="node-id" value={selectedNode.id} disabled />
-                <label htmlFor="node-kind">Tipo</label>
-                <input id="node-kind" value={selectedNode.kind} disabled />
-                <label htmlFor="node-name">Nome</label>
-                <input
-                  id="node-name"
-                  value={selectedNode.name}
-                  onChange={(event) => setNodeName(selectedNode.id, event.target.value)}
-                />
-                <label htmlFor="node-preset">Preset</label>
-                <input
-                  id="node-preset"
-                  value={resolveNodePreset(selectedNode.presetId ?? '')?.label ?? 'Custom'}
-                  disabled
-                />
-                <label htmlFor="node-tech">Tecnologia</label>
-                <input
-                  id="node-tech"
-                  value={selectedNode.tech?.label ?? ''}
-                  onChange={(event) => setNodeTech(selectedNode.id, event.target.value)}
-                />
-                {selectedNode.kind !== 'boundary' ? (
-                  <>
-                    <label htmlFor="node-color">Cor</label>
-                    <input
-                      id="node-color"
-                      type="color"
-                      value={
-                        isHexColor(selectedNode.style?.fillColor)
-                          ? selectedNode.style?.fillColor ?? '#ffffff'
-                          : '#ffffff'
-                      }
-                      onChange={(event) => setNodeColor(selectedNode.id, event.target.value)}
-                    />
-                    <label>Últimas 10 cores</label>
-                    <div className="node-color-presets">
-                      {nodeColorPresets.map((color) => (
-                        <button
-                          key={color}
-                          type="button"
-                          className={
-                            selectedNode.style?.fillColor === color
-                              ? 'node-color-chip node-color-chip-active'
-                              : 'node-color-chip'
-                          }
-                          style={{ background: color }}
-                          title={color}
-                          onClick={() => setNodeColor(selectedNode.id, color)}
-                        />
-                      ))}
-                    </div>
-                  </>
-                ) : null}
-              </div>
-            ) : null}
-            {selectedEdge ? (
-              <div className="inspector-form">
-                <label htmlFor="edge-id">ID</label>
-                <input id="edge-id" value={selectedEdge.id} disabled />
-                <label htmlFor="edge-label">Label</label>
-                <input
-                  id="edge-label"
-                  value={selectedEdge.label}
-                  onChange={(event) => setEdgeLabel(selectedEdge.id, event.target.value)}
-                />
-                <label htmlFor="edge-protocol">Protocolo</label>
-                <select
-                  id="edge-protocol"
-                  value={selectedEdge.protocolPresetId}
-                  onChange={(event) => setEdgeProtocol(selectedEdge.id, event.target.value)}
-                >
-                  {protocolPresets.map((protocol) => (
-                    <option key={protocol.id} value={protocol.id}>
-                      {protocol.label}
-                    </option>
-                  ))}
-                </select>
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (activeJourneyId) {
-                      addEdgeToJourney(activeJourneyId, selectedEdge.id)
-                    }
-                  }}
-                  disabled={!activeJourneyId}
-                >
-                  Add to Active Journey
-                </button>
-              </div>
-            ) : null}
-          </section>
-          <section className="sidebar-panel sidebar-panel-journeys">
-            <h2>Journeys</h2>
-            <div className="journey-side-create">
-              <input
-                placeholder="Nova jornada"
-                value={journeyDraftName}
-                onChange={(event) => setJourneyDraftName(event.target.value)}
-              />
-              <button
-                type="button"
-                onClick={() => {
-                  const journeyId = createJourney(journeyDraftName)
-                  setJourneyDraftName('')
-                  setActiveJourney(journeyId)
-                  activateJourneyPlayback(journeyId)
-                }}
-              >
-                Criar jornada
-              </button>
-            </div>
-            <div className="journey-side-filter">
-              <select
-                value={journeyFilterId ?? ''}
-                onChange={(event) => {
-                  const nextJourneyId = event.target.value || null
-                  setJourneyFilter(nextJourneyId)
-                  if (nextJourneyId) {
-                    setActiveJourney(nextJourneyId)
-                    activateJourneyPlayback(nextJourneyId)
-                  }
-                }}
-              >
-                <option value="">Filtro: todas jornadas</option>
-                {viewJourneys.map((journey) => (
-                  <option key={journey.id} value={journey.id}>
-                    {journey.name}
-                  </option>
-                ))}
-              </select>
-              <button type="button" onClick={() => setJourneyFilter(null)}>
-                Limpar filtro
-              </button>
-            </div>
-            <div className="journey-side-player">
-              <select
-                value={playerJourneyId ?? ''}
-                onChange={(event) => activateJourneyPlayback(event.target.value || null)}
-              >
-                <option value="">Player: selecione jornada</option>
-                {viewJourneys.map((journey) => (
-                  <option key={journey.id} value={journey.id}>
-                    {journey.name}
-                  </option>
-                ))}
-              </select>
-              <div className="journey-player-actions">
-                <button
-                  type="button"
-                  disabled={!playerJourney}
-                  onClick={() => setPlayerRunning(!playerIsRunning)}
-                >
-                  {playerIsRunning ? 'Pausar' : 'Play'}
-                </button>
-                <button type="button" disabled={!playerJourney} onClick={() => stepPlayer()}>
-                  Step
-                </button>
-                <button type="button" disabled={!playerJourney} onClick={() => resetPlayer()}>
-                  Reset
-                </button>
-              </div>
-              <div className="journey-player-toggles">
-                <label className="toggle-inline">
-                  <input
-                    type="checkbox"
-                    checked={playerLoop}
-                    onChange={(event) => setPlayerLoop(event.target.checked)}
-                  />
-                  Loop
-                </label>
-                <label className="toggle-inline">
-                  <input
-                    type="checkbox"
-                    checked={playerHighlightNodes}
-                    onChange={(event) => setPlayerHighlightNodes(event.target.checked)}
-                  />
-                  Highlight
-                </label>
-              </div>
-              <label className="journey-speed-control">
-                Speed
-                <input
-                  type="range"
-                  min={120}
-                  max={1800}
-                  step={60}
-                  value={playerSpeedMs}
-                  onChange={(event) => setPlayerSpeedMs(Number(event.target.value))}
-                />
-              </label>
-              <span className="player-step-info">
-                Step {playerStepIndex + 1}/{playerJourney?.steps.length ?? 0}
-              </span>
-            </div>
-            <div className="journey-list journey-list-sidebar">
-              {viewJourneys.map((journey) => (
-                <div
-                  key={journey.id}
-                  className={activeJourneyId === journey.id ? 'journey-item journey-active' : 'journey-item'}
-                  onClick={() => {
-                    setActiveJourney(journey.id)
-                    activateJourneyPlayback(journey.id)
-                  }}
-                >
-                  <span className="journey-color-dot" style={{ background: journey.colorKey }} />
-                  <span>{journey.name}</span>
-                  <button
-                    type="button"
-                    onClick={(event) => {
-                      event.stopPropagation()
-                      setJourneyFilter(journeyFilterId === journey.id ? null : journey.id)
-                      setActiveJourney(journey.id)
-                      activateJourneyPlayback(journey.id)
-                    }}
-                  >
-                    {journeyFilterId === journey.id ? 'Filtrando' : 'Filtrar'}
-                  </button>
-                </div>
-              ))}
-            </div>
-          </section>
-        </aside>
-      ) : null}
-      {!focusMode ? (
+      {rightDockVisible ? <aside className="right-sidebar right-sidebar-dock">{dockPanel}</aside> : null}
+      {drawerVisible ? (
         <section className={drawerTab === 'dsl' ? 'journey-drawer journey-drawer-dsl' : 'journey-drawer'}>
           <div className="drawer-tabs">
             <button
@@ -1226,6 +1526,15 @@ function App() {
             >
               DSL
             </button>
+            {dockPosition === 'bottom' ? (
+              <button
+                type="button"
+                className={drawerTab === 'dock' ? 'drawer-tab drawer-tab-active' : 'drawer-tab'}
+                onClick={() => switchDrawerTab('dock')}
+              >
+                Dock
+              </button>
+            ) : null}
             <span className="drawer-tabs-spacer" />
             {drawerTab === 'dsl' ? (
               <button type="button" className="drawer-maximize-button" onClick={() => toggleDslMaximized()}>
@@ -1261,10 +1570,10 @@ function App() {
                 <p>Selecione uma jornada na lateral para visualizar a timeline.</p>
               )}
             </>
-          ) : (
+          ) : drawerTab === 'dsl' ? (
             <div className={`dsl-panel ${dslMaximized ? 'dsl-panel-maximized' : ''}`}>
             <div className="dsl-toolbar">
-              <strong>DSL LITE</strong>
+              <strong>{JOURNEY_SCRIPT_NAME} DSL</strong>
               <button
                 type="button"
                 onClick={() => {
@@ -1310,15 +1619,34 @@ function App() {
                 Limpar contexto Codex
               </button>
             </div>
-            <textarea
-              value={dslText}
-              onChange={(event) => setDslText(event.target.value)}
-              placeholder='workspace "Pedidos" { ... }'
-            />
+            <div className="dsl-monaco-editor">
+              <Editor
+                beforeMount={handleDslEditorBeforeMount}
+                language={JOURNEY_SCRIPT_LANGUAGE_ID}
+                value={dslText}
+                onChange={(value) => setDslText(value ?? '')}
+                theme={resolveJourneyScriptTheme(theme)}
+                options={{
+                  minimap: { enabled: false },
+                  fontSize: 13,
+                  lineHeight: 21,
+                  fontLigatures: true,
+                  padding: { top: 10 },
+                  scrollBeyondLastLine: false,
+                  automaticLayout: true,
+                  smoothScrolling: true,
+                  cursorBlinking: 'phase',
+                }}
+              />
+            </div>
             {dslCodexThreadId ? <p className="dsl-codex-thread">Thread Codex: {dslCodexThreadId}</p> : null}
             {dslCodexStatus ? <p className="dsl-codex-status">{dslCodexStatus}</p> : null}
             {dslError ? <p className="dsl-error">{dslError}</p> : null}
             </div>
+          ) : dockPosition === 'bottom' ? (
+            dockCollapsed ? <p>Dock oculto. Use o atalho na topbar para reabrir.</p> : dockPanel
+          ) : (
+            <p>Dock está no modo lateral.</p>
           )}
         </section>
       ) : null}

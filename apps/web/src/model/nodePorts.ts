@@ -1,7 +1,7 @@
 import type { NodeBounds, PortModel, WorkspaceModel } from './types'
 
-const HORIZONTAL_SPACING = 88
-const VERTICAL_SPACING = 76
+const HORIZONTAL_SPACING = 56
+const VERTICAL_SPACING = 52
 
 const clamp = (value: number, min: number, max: number): number =>
   Math.max(min, Math.min(max, value))
@@ -29,18 +29,22 @@ const distributedRatios = (size: number, spacing: number): number[] => {
 }
 
 const buildTopPorts = (positions: number[]): PortModel[] =>
-  positions.map((x, index) => ({
+  positions
+    .filter((x) => x > 0 && x < 1)
+    .map((x, index) => ({
     id: Math.abs(x - 0.5) < 0.0001 ? 'north' : `north_${index + 1}`,
     x,
     y: 0,
-  }))
+    }))
 
 const buildBottomPorts = (positions: number[]): PortModel[] =>
-  positions.map((x, index) => ({
+  positions
+    .filter((x) => x > 0 && x < 1)
+    .map((x, index) => ({
     id: Math.abs(x - 0.5) < 0.0001 ? 'south' : `south_${index + 1}`,
     x,
     y: 1,
-  }))
+    }))
 
 const buildSidePorts = (
   positions: number[],

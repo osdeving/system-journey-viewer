@@ -165,6 +165,19 @@ describe('useEditorStore', () => {
     expect(updated.workspace.journeys[secondJourneyId].steps[0].n).toBe(1)
   })
 
+  it('reorders journeys in current view', () => {
+    const state = useEditorStore.getState()
+    const before = [...state.workspace.views.v_container.journeyIds]
+    expect(before.length).toBeGreaterThanOrEqual(2)
+
+    state.reorderJourneyInCurrentView(before[0], before[1])
+    const updated = useEditorStore.getState()
+    const after = updated.workspace.views.v_container.journeyIds
+
+    expect(after[0]).toBe(before[1])
+    expect(after[1]).toBe(before[0])
+  })
+
   it('stops player and emits confetti when journey reaches end', () => {
     const state = useEditorStore.getState()
     const beforeEdges = new Set(state.workspace.views.v_container.edgeIds)
@@ -213,6 +226,28 @@ describe('useEditorStore', () => {
     expect(updated.playerStepIndex).toBe(0)
     expect(updated.playerConfettiNonce).toBe(before + 1)
     expect(updated.playerConfettiNodeId).toBe('n_kafka')
+  })
+
+  it('moves player backwards and wraps to the last step when loop is on', () => {
+    const state = useEditorStore.getState()
+    const journeyId = 'j_c_1'
+    state.setPlayerJourney(journeyId)
+    state.setPlayerLoop(false)
+    state.stepPlayer()
+    state.stepPlayer()
+    let updated = useEditorStore.getState()
+    expect(updated.playerStepIndex).toBe(2)
+
+    state.prevPlayerStep()
+    updated = useEditorStore.getState()
+    expect(updated.playerStepIndex).toBe(1)
+
+    state.resetPlayer()
+    state.setPlayerLoop(true)
+    state.prevPlayerStep()
+    updated = useEditorStore.getState()
+    expect(updated.playerStepIndex).toBe(updated.workspace.journeys[journeyId].steps.length - 1)
+    expect(updated.playerIsRunning).toBe(false)
   })
 
   it('supports theme toggle and showcase reload', () => {

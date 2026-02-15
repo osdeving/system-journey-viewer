@@ -25,8 +25,8 @@ describe('resolveNodeConfettiAnchor', () => {
       { left: 0, top: 0, width: 1200, height: 900 },
     )
 
-    expect(small.radiusPx).toBe(32)
-    expect(large.radiusPx).toBe(180)
+    expect(small.radiusPx).toBe(22)
+    expect(large.radiusPx).toBe(120)
   })
 })
 

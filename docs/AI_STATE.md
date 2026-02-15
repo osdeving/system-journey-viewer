@@ -46,6 +46,13 @@
 - Menubar desktop refatorado para estado controlado (sem `details`), com fechamento por clique externo/`Esc`, navegação entre menus por setas e logo do app na topbar.
 - Topbar com ações rápidas reduzidas e restante das operações concentradas no menubar, melhorando legibilidade.
 - Editor DSL recebeu polimento visual (surface dedicada, tipografia mono refinada, foco/contraste e feedbacks mais claros).
+- DSL ganhou nome oficial `JourneyScript` e integração com Monaco (`@monaco-editor/react`) com syntax highlighting custom (Monarch) e tema light/dark dedicado.
+- Painel `Inspector/Journeys` virou dockable window: abas arrastáveis, reposicionamento para direita/baixo e abertura via drawer quando dockado embaixo.
+- Lista de jornadas lateral ganhou reorder por drag-and-drop, mantendo persistência na ordem da view.
+- Player recebeu controle padrão com ícones (retroceder, play/pause, avançar, reset) e suporte a passo anterior no store.
+- Layout ganhou preset `Presentation mode` (`P`) + microinterações de abertura/fechamento de painéis (palette, dock, workbench).
+- Ports/alças refinados: sem cantos no topo/base, maior densidade de encaixes por tamanho, bolinhas menores e mais discretas.
+- Raio de confete no fim da jornada reduzido para efeito menos invasivo no canvas.
 - DSL com assistência do Codex: instrução customizada, execução via endpoint `/api/codex/dsl-assist`, reaproveitamento de `threadId` e ação para limpar contexto do thread.
 - Vite com proxy `/api/codex` para gateway local (`http://localhost:8787`) durante desenvolvimento.
 - Guia de operação da UI disponível em `docs/UI_JOURNEYS_CAPABILITIES.md` (jornadas de uso, capacidades e limitações atuais).
@@ -64,5 +71,5 @@
 ## Próximos incrementos sugeridos
 
 - Refinar roteamento ortogonal avançado.
-- Introduzir Monaco para DSL (atualmente textarea).
+- Evoluir dock para undock em janela flutuante real (drag livre) e presets salvos de layout por usuário.
 - Otimizar bundle do export PDF (chunk grande por `jspdf`).

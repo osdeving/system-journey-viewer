@@ -16,21 +16,27 @@ describe('App boundary styles', () => {
     expect(appCss).toContain('.mode-pill-active')
     expect(appCss).toContain('.mode-pill-playing')
     expect(appCss).toContain('.app-layout-focus')
+    expect(appCss).toContain('.app-layout-presentation')
     expect(appCss).toContain('.focus-toggle-button')
+    expect(appCss).toContain('.icon-toggle-button')
     expect(appCss).toContain('.layout-splitter-left')
     expect(appCss).toContain('.layout-splitter-journey')
   })
 
-  it('styles drawer tabs and dsl maximize layout', () => {
+  it('styles drawer tabs, dock panel and monaco dsl layout', () => {
     expect(appCss).toContain('.drawer-tabs')
     expect(appCss).toContain('.drawer-tab')
     expect(appCss).toContain('.drawer-maximize-button')
     expect(appCss).toContain('.journey-drawer-dsl .dsl-panel')
-    expect(appCss).toContain('.sidebar-panel')
+    expect(appCss).toContain('.dock-panel')
+    expect(appCss).toContain('.dock-tab-strip')
+    expect(appCss).toContain('.dock-tab')
+    expect(appCss).toContain('.dock-placement')
     expect(appCss).toContain('.journey-side-player')
     expect(appCss).toContain('.journey-list-sidebar')
     expect(appCss).toContain('.journey-timeline-toolbar')
-    expect(appCss).toContain('.dsl-panel-maximized textarea')
+    expect(appCss).toContain('.dsl-monaco-editor')
+    expect(appCss).toContain('.dsl-panel-maximized .dsl-monaco-editor')
     expect(appCss).toContain('.dsl-codex-instruction')
     expect(appCss).toContain('.dsl-codex-status')
   })
@@ -54,6 +60,7 @@ describe('App boundary styles', () => {
     expect(appCss).toContain('.node-connector-male')
     expect(appCss).toContain('.node-color-presets')
     expect(appCss).toContain('.node-color-chip')
+    expect(appCss).toContain('.journey-drag-handle')
   })
 
   it('includes desktop menu and advanced canvas interaction styles', () => {

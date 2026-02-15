@@ -295,3 +295,33 @@
 - `npm --workspace @sjv/web run lint`
 - `npm --workspace @sjv/web run test:run`
 - `npm --workspace @sjv/web run build`
+
+- Ajuste incremental (`tmp/ai/20260215-1501-monaco-dock-player-polish`, continuação):
+  - DSL recebeu nome oficial `JourneyScript` e editor Monaco integrado (`@monaco-editor/react` + `monaco-editor`), com:
+    - registro de linguagem custom (`journey-script`) via Monarch,
+    - tema dedicado light/dark,
+    - migração do `textarea` para Monaco no drawer DSL.
+  - UI de painéis evoluída para dockable workflow:
+    - `Inspector` e `Journeys` agora vivem em um dock com abas arrastáveis,
+    - dock pode alternar entre direita e baixo,
+    - quando dockado embaixo, aparece como aba `Dock` no drawer.
+  - Journeys lateral ganhou reorder por drag-and-drop (ordem persistida em `view.journeyIds`).
+  - Player recebeu grupo de controles padrão com ícones (`prev/play-pause/next/reset`) e ação `prevPlayerStep` no store.
+  - Topbar refinada com controles de visibilidade de painéis (palette/dock/workbench), mantendo menubar desktop e logo integrado ao bloco principal de menu.
+  - Novo preset `Presentation mode` (`P`) com comportamento de demo:
+    - oculta painéis para visão executiva,
+    - restaura layout ao sair.
+  - Refino de alças/ports:
+    - portas de topo/base não usam mais cantos,
+    - densidade de portas aumentada (spacing reduzido),
+    - bolinhas de porta menores no canvas.
+  - Confete do player com raio reduzido para efeito mais discreto (`MIN/MAX` menores).
+  - Estilos atualizados para suportar dock, microinterações de abertura e Monaco no tema claro/escuro.
+  - Cobertura de testes atualizada para store, estilos, ports e confete.
+
+### Validação executada (ajuste monaco-dock-player-polish)
+
+- `npm --workspace @sjv/web run lint`
+- `npm --workspace @sjv/web run test:run`
+- `npm --workspace @sjv/web run build`
+

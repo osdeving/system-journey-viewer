@@ -133,3 +133,16 @@
 - `npm run test:run`
 - `npm run test:run:gateway`
 - `npm run build`
+
+## 2026-02-15
+
+- Ajuste incremental (`tmp/ai/20260215-0724-cylinder-shapes`):
+  - Shapes de `db` e `queue` foram redesenhados com geometria de cilindro via paths SVG dedicados (shell + rims), para o preenchimento acompanhar corretamente o contorno.
+  - Render de node no `DiagramCanvas` passou a usar helper de geometria (`nodeShapePaths`) em vez da composição anterior.
+  - Novo teste unitário para geometria dos shapes (`nodeShapePaths.test.ts`) cobrindo clamp e estrutura dos paths gerados.
+
+### Validação executada
+
+- `npm --workspace @sjv/web run lint`
+- `npm --workspace @sjv/web run test:run`
+- `npm --workspace @sjv/web run build`

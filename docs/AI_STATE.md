@@ -24,7 +24,7 @@
 - Confete do player associado ao nó final da jornada (centro do componente + raio proporcional ao tamanho), incluindo disparo em ciclos de loop.
 - Player refinado com chegada visual ao final da seta antes do highlight do destino, impacto com “tremida” no componente alvo e fluxo tracejado animado na aresta ativa.
 - Inspector permite definir cor de preenchimento para componentes/containers (persistido no modelo).
-- Nós `db` e `queue` renderizados com formas específicas (cilindro e tubo), mantendo conectores/ports compatíveis.
+- Nós `db` e `queue` renderizados com formas específicas (cilindro vertical/horizontal por paths SVG), mantendo conectores/ports compatíveis e preenchimento alinhado ao contorno.
 - Inspector mostra paleta com últimas 10 cores para seleção rápida de componentes/containers.
 - Showcase inicial colorizado com paleta visual para facilitar demonstração.
 - Nodes Hex exibem ícones de conector: porta fêmea para `port-in/port-out` e plug macho para `adapter-in/adapter-out`.

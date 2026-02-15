@@ -22,6 +22,7 @@ import {
 } from './edgeJourneyBadge'
 import { resolveHexConnectorRole } from './hexConnectorRole'
 import { JourneyEdge } from './JourneyEdge'
+import { resolveDbCylinderShape, resolveQueueCylinderShape } from './nodeShapePaths'
 import { curveToSvgPath, cubicPointAt, type EdgeCurvePath } from './edgePresentation'
 import { buildTrailPoints } from './trailMath'
 
@@ -842,15 +843,8 @@ export const DiagramCanvas = () => {
               .join(' ')
             const nodeFillColor =
               node.kind === 'boundary' ? undefined : node.style?.fillColor
-            const dbCapHeight = Math.max(
-              10,
-              Math.min(20, node.bounds.h * 0.18),
-            )
-            const dbBottomY = node.bounds.h - dbCapHeight
-            const queueRadius = Math.max(
-              14,
-              Math.min(node.bounds.h / 2, 34),
-            )
+            const dbShape = resolveDbCylinderShape(node.bounds.w, node.bounds.h)
+            const queueShape = resolveQueueCylinderShape(node.bounds.w, node.bounds.h)
             const connectorRole =
               currentView.kind === 'hex'
                 ? resolveHexConnectorRole(node.kind)
@@ -874,60 +868,25 @@ export const DiagramCanvas = () => {
                 {node.kind === 'db' ? (
                   <g>
                     <path
-                      d={`M 0 ${dbCapHeight} C 0 ${
-                        dbCapHeight * 0.45
-                      }, ${node.bounds.w} ${dbCapHeight * 0.45}, ${
-                        node.bounds.w
-                      } ${dbCapHeight} L ${node.bounds.w} ${dbBottomY} C ${
-                        node.bounds.w
-                      } ${dbBottomY + dbCapHeight * 0.55}, 0 ${
-                        dbBottomY + dbCapHeight * 0.55
-                      }, 0 ${dbBottomY} Z`}
+                      d={dbShape.shellPath}
                       className={nodeClassName}
                       style={nodeFillColor ? { fill: nodeFillColor } : undefined}
                     />
-                    <ellipse
-                      cx={node.bounds.w / 2}
-                      cy={dbCapHeight}
-                      rx={node.bounds.w / 2}
-                      ry={dbCapHeight}
-                      className="node-shape-detail"
-                    />
                     <path
-                      d={`M 0 ${dbBottomY} C 0 ${
-                        dbBottomY + dbCapHeight * 0.55
-                      }, ${node.bounds.w} ${
-                        dbBottomY + dbCapHeight * 0.55
-                      }, ${node.bounds.w} ${dbBottomY}`}
+                      d={dbShape.topFrontArcPath}
                       className="node-shape-detail"
                     />
+                    <path d={dbShape.bottomBackArcPath} className="node-shape-detail" />
                   </g>
                 ) : node.kind === 'queue' ? (
                   <g>
-                    <rect
-                      x={0}
-                      y={0}
-                      width={node.bounds.w}
-                      height={node.bounds.h}
-                      rx={queueRadius}
+                    <path
+                      d={queueShape.shellPath}
                       className={nodeClassName}
                       style={nodeFillColor ? { fill: nodeFillColor } : undefined}
                     />
-                    <ellipse
-                      cx={node.bounds.w - queueRadius * 0.42}
-                      cy={node.bounds.h / 2}
-                      rx={queueRadius * 0.78}
-                      ry={node.bounds.h / 2}
-                      className="node-shape-detail"
-                    />
-                    <path
-                      d={`M ${queueRadius * 0.45} ${
-                        node.bounds.h * 0.18
-                      } A ${queueRadius * 0.75} ${node.bounds.h * 0.32} 0 0 1 ${
-                        queueRadius * 0.45
-                      } ${node.bounds.h * 0.82}`}
-                      className="node-shape-detail"
-                    />
+                    <path d={queueShape.frontCapPath} className="node-shape-detail" />
+                    <path d={queueShape.rearInnerArcPath} className="node-shape-detail" />
                   </g>
                 ) : (
                   <rect

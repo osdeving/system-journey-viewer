@@ -145,6 +145,11 @@
   - Novo arquivo: `docs/UI_JOURNEYS_CAPABILITIES.md`.
   - Documento cobre: mapa da tela, happy path por fluxo, o que já permite, o que ainda não permite e checklist de uso rápido.
   - Mudança documental; sem validações adicionais de build/test nesta etapa.
+- Ajuste incremental (`tmp/ai/20260215-0755-human-readme`):
+  - README raiz reestruturado para onboarding humano (visão do produto, quickstart, fluxo de uso e limites).
+  - Seções práticas adicionadas: demo rápida, sincronização manual da DSL, scripts principais e mapa de docs.
+  - Links explícitos para `docs/UI_JOURNEYS_CAPABILITIES.md`, `docs/AI_STATE.md`, `docs/WORKLOG.md` e `docs/DECISIONS.md`.
+  - Mudança documental; sem validações adicionais de build/test nesta etapa.
 
 ### Validação executada
 

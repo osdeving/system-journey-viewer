@@ -1,60 +1,127 @@
 # System Journey Viewer
 
-Editor visual C4 + Journeys com Player, Drill-down, HexView, DSL LITE e export.
+Editor visual para modelar arquitetura e fluxos de jornada em múltiplas camadas (`Container`, `Component`, `Hex`), com player de execução, DSL LITE e export.
 
-## Showcase
+## O que este projeto resolve
 
-- O app inicia com um workspace de showcase completo (Container, Component e Hex com jornadas).
-- Use `Showcase` na topbar para recarregar o cenário de demonstração.
-- Use o toggle `Dark` na topbar para alternar tema claro/escuro.
-- O player exibe bolinha em movimento no path com rastro iluminado e fade temporal.
-- A numeração da jornada aparece à esquerda do nome da comunicação.
+Se você precisa explicar fluxo de negócio e arquitetura no mesmo artefato, o System Journey Viewer permite:
 
-## Stack
+- desenhar os componentes e suas comunicações;
+- montar jornadas de usuário (passos sobre edges);
+- executar essas jornadas com animação;
+- detalhar por drill-down entre visões;
+- exportar para `SVG`, `PNG` e `PDF`;
+- editar/importar via DSL LITE quando preferir modo textual.
 
-- `React + TypeScript + Vite`
-- `Zustand + Immer` para estado
-- `Zod` para schema FULL
-- `Vitest` para testes unitários
+## Demo rápida (5 minutos)
 
-## Executar
+1. Suba a aplicação (`npm run dev`).
+2. Abra a UI e clique em `Showcase` para carregar o cenário de demonstração.
+3. Na aba `Journeys`, selecione uma jornada e clique em `Play`.
+4. Faça drill-down com double-click em nodes com referência.
+5. Exporte em `SVG` pela topbar.
+
+## Como rodar localmente
+
+Pré-requisitos:
+
+- `Node.js`
+- `npm`
+
+Instalação e execução do frontend:
 
 ```bash
 npm install
 npm run dev
 ```
 
-Para habilitar o assistente Codex no editor DSL, rode também o gateway server-side em outro terminal:
+## Assistência Codex no painel DSL (opcional)
+
+Para habilitar o botão `Refinar com Codex`, rode também o gateway:
 
 ```bash
 npm run dev:gateway
 ```
 
-Variáveis opcionais do gateway (`apps/codex-gateway`):
+Variáveis suportadas pelo gateway (`apps/codex-gateway`):
 
 - `OPENAI_API_KEY` ou `CODEX_API_KEY`
 - `OPENAI_BASE_URL`
-- `CODEX_MODEL` (ex.: `gpt-5-codex`)
-- `CODEX_WORKDIR` (repo alvo para contexto do agente)
+- `CODEX_MODEL` (exemplo: `gpt-5-codex`)
+- `CODEX_WORKDIR`
 - `CODEX_SANDBOX_MODE` (`read-only`, `workspace-write`, `danger-full-access`)
 - `CODEX_APPROVAL_POLICY` (`never`, `on-request`, `on-failure`, `untrusted`)
+- `CODEX_SKIP_GIT_REPO_CHECK` (`true`/`false`)
+- `CODEX_NETWORK_ACCESS_ENABLED` (`true`/`false`)
+- `CODEX_GATEWAY_PORT` (default: `8787`)
 
-No painel `DSL`, use:
+## Fluxo de uso da UI
 
-- campo de instrução para orientar a transformação;
-- botão `Refinar com Codex` para gerar uma nova versão da DSL;
-- botão `Limpar contexto Codex` para reiniciar o thread.
+1. Arraste nodes da `Palette` para o canvas.
+2. Use `Connector` para criar comunicação (porta -> porta).
+3. Ajuste nome/tecnologia/cor do node no `Inspector`.
+4. Ajuste label e protocolo da edge no `Inspector`.
+5. Crie uma jornada na aba `Journeys`.
+6. Adicione edges na jornada ativa com `Add to Active Journey`.
+7. Execute no player com `Play/Step/Loop`.
 
-## Validar
+Guia completo de operação:
 
-```bash
-npm run lint
-npm run test:run
-npm run test:run:gateway
-npm run build
-```
+- `docs/UI_JOURNEYS_CAPABILITIES.md`
 
-## Branches do roadmap
+## DSL: como funciona a sincronização
+
+A sincronização entre canvas e DSL é manual:
+
+- `Exportar view atual`: gera DSL a partir da view atual.
+- `Importar DSL`: aplica o texto DSL no workspace.
+
+Editar a textarea sozinha não atualiza o canvas em tempo real até clicar em `Importar DSL`.
+
+## Scripts principais
+
+Na raiz do monorepo:
+
+- `npm run dev`: sobe a UI web
+- `npm run dev:gateway`: sobe o gateway Codex
+- `npm run lint`: lint da UI
+- `npm run test:run`: testes da UI
+- `npm run test:run:gateway`: testes do gateway
+- `npm run build`: build da UI
+
+## Estrutura do repositório
+
+- `apps/web`: aplicação React/Vite (editor visual)
+- `apps/codex-gateway`: gateway HTTP para integração com Codex SDK
+- `docs`: documentação técnica e operacional
+
+## Estado atual e limites conhecidos
+
+Estado funcional atual:
+
+- roadmap M0 -> M9 concluído;
+- showcase pronto para demo ponta-a-ponta;
+- player e drill-down funcionando.
+
+Limites atuais da UI:
+
+- sem remoção isolada de edge pela interface;
+- sem undo/redo;
+- sem multi-seleção/cópia/cola;
+- gestão de jornadas ainda básica (sem excluir/renomear por UI).
+
+Detalhamento dos limites:
+
+- `docs/UI_JOURNEYS_CAPABILITIES.md`
+
+## Documentação complementar
+
+- `docs/UI_JOURNEYS_CAPABILITIES.md`: guia direto para uso da interface
+- `docs/AI_STATE.md`: estado consolidado do produto
+- `docs/WORKLOG.md`: histórico de mudanças por sessão
+- `docs/DECISIONS.md`: decisões arquiteturais
+
+## Histórico de branches do roadmap
 
 - `roadmap/m0-bootstrap`
 - `roadmap/m1-nodes-edges`

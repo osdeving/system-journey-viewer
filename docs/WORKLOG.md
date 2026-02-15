@@ -244,3 +244,15 @@
 - `npm --workspace @sjv/web run lint`
 - `npm --workspace @sjv/web run test:run`
 - `npm --workspace @sjv/web run build`
+
+- Ajuste incremental (`tmp/ai/20260215-1120-remove-impact-shake`):
+  - Removida a animação de tremida no hit do player no componente de destino.
+  - `DiagramCanvas` deixou de aplicar as classes de impacto (`node-player-impact` e `node-group-impact`) durante a passagem do fluxo.
+  - CSS limpo das regras e keyframe de shake (`@keyframes node-impact-shake`), mantendo apenas o feedback de iluminação (`node-player-highlight`).
+  - Teste de estilos atualizado para garantir presença da animação de fluxo e ausência da animação de impacto.
+
+### Validação executada (ajuste remove-impact-shake)
+
+- `npm --workspace @sjv/web run lint`
+- `npm --workspace @sjv/web run test:run`
+- `npm --workspace @sjv/web run build`

@@ -29,11 +29,11 @@ describe('App boundary styles', () => {
     expect(appCss).toContain('.dsl-codex-status')
   })
 
-  it('includes flow and impact animations for player feedback', () => {
+  it('includes flow animation for player feedback', () => {
     expect(appCss).toContain('.edge-flowing')
     expect(appCss).toContain('@keyframes edge-flow-dash')
-    expect(appCss).toContain('.node-group-impact')
-    expect(appCss).toContain('@keyframes node-impact-shake')
+    expect(appCss).not.toContain('.node-group-impact')
+    expect(appCss).not.toContain('@keyframes node-impact-shake')
   })
 
   it('uses seamless dashed animation settings for edge flow', () => {

@@ -22,7 +22,7 @@
 - Labels de comunicação com badge circular colorido por jornada (número dentro da bolinha) no início da seta quando há contexto de passo.
 - Render de seta refatorado em componente dedicado (`JourneyEdge`), com badge posicionado por distância fixa da origem e label com tecnologia no formato `Nome (protocolo)`.
 - Confete do player associado ao nó final da jornada (centro do componente + raio proporcional ao tamanho), incluindo disparo em ciclos de loop.
-- Player refinado com chegada visual ao final da seta antes do highlight do destino, impacto com “tremida” no componente alvo e fluxo tracejado animado na aresta ativa.
+- Player refinado com chegada visual ao final da seta antes do highlight do destino, sem tremida no componente alvo (somente iluminação) e fluxo tracejado animado na aresta ativa.
 - Inspector permite definir cor de preenchimento para componentes/containers (persistido no modelo).
 - Nós `db` e `queue` renderizados com formas específicas (cilindro vertical/horizontal por paths SVG), mantendo conectores/ports compatíveis e preenchimento alinhado ao contorno.
 - Inspector mostra paleta com últimas 10 cores para seleção rápida de componentes/containers.

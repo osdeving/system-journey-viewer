@@ -536,16 +536,6 @@ export const DiagramCanvas = () => {
     travelProgressForUi,
     workspace.edges,
   ])
-  const impactedNodeId = useMemo(() => {
-    if (!playerIsRunning || travelProgressForUi < NODE_HIT_PROGRESS_THRESHOLD) {
-      return null
-    }
-    if (!currentPlayerEdgeId) {
-      return null
-    }
-    const edge = workspace.edges[currentPlayerEdgeId]
-    return edge?.to.nodeId ?? null
-  }, [currentPlayerEdgeId, playerIsRunning, travelProgressForUi, workspace.edges])
 
   useEffect(() => {
     connectionDragRef.current = null
@@ -1478,7 +1468,6 @@ export const DiagramCanvas = () => {
             const isSelected = selectedNodeIdSet.has(node.id)
             const isPendingConnection = node.id === pendingConnectionFrom
             const isPlayerHighlighted = highlightedNodeIds.has(node.id)
-            const isPlayerImpacted = node.id === impactedNodeId
             const nodeClassName = [
               'node',
               node.kind === 'boundary' ? 'node-boundary' : '',
@@ -1486,7 +1475,6 @@ export const DiagramCanvas = () => {
               isSelected ? 'node-selected' : '',
               node.drilldownRef ? 'node-drilldown' : '',
               isPlayerHighlighted ? 'node-player-highlight' : '',
-              isPlayerImpacted ? 'node-player-impact' : '',
             ]
               .filter(Boolean)
               .join(' ')
@@ -1504,7 +1492,6 @@ export const DiagramCanvas = () => {
               <g
                 key={node.id}
                 transform={`translate(${node.bounds.x}, ${node.bounds.y})`}
-                className={isPlayerImpacted ? 'node-group-impact' : ''}
                 onPointerDown={(event) => onNodePointerDown(event, node, 'move')}
                 onPointerMove={onNodePointerMove}
                 onPointerUp={onNodePointerUp}

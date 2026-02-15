@@ -105,18 +105,20 @@ const ZOOM_SENSITIVITY = 0.0012
 const STEP_NODE_GLOW_DELAY_RATIO = 0.12
 const STEP_TRAVEL_COMPLETE_RATIO = 0.94
 const NODE_HIT_PROGRESS_THRESHOLD = 0.98
-const TRAIL_INITIAL_ALPHA = 0.6
-const TRAIL_FADE_FACTOR = 0.0004
-const TRAIL_PARTICLE_RADIUS = 3.6
-const TRAIL_PARTICLE_SHADOW_BLUR = 15
-const ORB_RADIUS = 5.4
-const ORB_SHADOW_BLUR = 20
-const TRAIL_MIN_SPACING = 1.4
-const MAX_TRAILS = 500
+const TRAIL_INITIAL_ALPHA = 0.72
+const TRAIL_FADE_FACTOR = 0.0003
+const TRAIL_PARTICLE_RADIUS = 4.2
+const TRAIL_PARTICLE_SHADOW_BLUR = 18
+const ORB_RADIUS = 6.2
+const ORB_SHADOW_BLUR = 24
+const TRAIL_MIN_SPACING = 1.1
+const MAX_TRAILS = 700
 const MIN_NODE_SIZE = 80
 const RESIZE_BORDER_HIT_SIZE = 10
 const EDGE_ANCHOR_CAPTURE_RADIUS = 11
 const EDGE_ANCHOR_RESOLVE_RADIUS = 12
+const PLAYER_TRACK_BASE_ALPHA = 0.18
+const PLAYER_TRACK_PROGRESS_ALPHA = 0.88
 
 const resolveCurveFromEdge = (
   edge: EdgeModel,
@@ -208,6 +210,67 @@ const distancePointToCurve = (
     }
   }
   return min
+}
+
+const drawCurveTrack = (
+  context: CanvasRenderingContext2D,
+  curve: EdgeCurvePath,
+  options: {
+    color: string
+    alpha: number
+    width: number
+    glow: number
+  },
+): void => {
+  context.save()
+  context.strokeStyle = hexToRgba(options.color, options.alpha)
+  context.lineWidth = options.width
+  context.shadowColor = hexToRgba(options.color, Math.min(1, options.alpha + 0.14))
+  context.shadowBlur = options.glow
+  context.beginPath()
+  context.moveTo(curve.start.x, curve.start.y)
+  context.bezierCurveTo(
+    curve.control1.x,
+    curve.control1.y,
+    curve.control2.x,
+    curve.control2.y,
+    curve.end.x,
+    curve.end.y,
+  )
+  context.stroke()
+  context.restore()
+}
+
+const drawCurveProgress = (
+  context: CanvasRenderingContext2D,
+  curve: EdgeCurvePath,
+  progress: number,
+  options: {
+    color: string
+    alpha: number
+    width: number
+    glow: number
+  },
+): void => {
+  const clampedProgress = Math.max(0, Math.min(1, progress))
+  if (clampedProgress <= 0) {
+    return
+  }
+  const steps = 28
+  context.save()
+  context.strokeStyle = hexToRgba(options.color, options.alpha)
+  context.lineWidth = options.width
+  context.shadowColor = hexToRgba(options.color, Math.min(1, options.alpha + 0.16))
+  context.shadowBlur = options.glow
+  context.beginPath()
+  context.moveTo(curve.start.x, curve.start.y)
+  for (let index = 1; index <= steps; index += 1) {
+    const t = (clampedProgress * index) / steps
+    const point = cubicPointAt(curve, t)
+    context.lineTo(point.x, point.y)
+  }
+  context.stroke()
+  context.restore()
 }
 
 const hexToRgba = (color: string, alpha: number): string => {
@@ -637,6 +700,21 @@ export const DiagramCanvas = () => {
       context.globalCompositeOperation = 'screen'
       context.setTransform(viewport.zoom, 0, 0, viewport.zoom, viewport.x, viewport.y)
 
+      if (playerIsRunning && currentPlayerCurve) {
+        drawCurveTrack(context, currentPlayerCurve, {
+          color: currentPlayerColor,
+          alpha: PLAYER_TRACK_BASE_ALPHA,
+          width: 2.2 / Math.max(viewport.zoom, 0.25),
+          glow: 9 / Math.max(viewport.zoom, 0.25),
+        })
+        drawCurveProgress(context, currentPlayerCurve, travelProgress, {
+          color: currentPlayerColor,
+          alpha: PLAYER_TRACK_PROGRESS_ALPHA,
+          width: 3.3 / Math.max(viewport.zoom, 0.25),
+          glow: 16 / Math.max(viewport.zoom, 0.25),
+        })
+      }
+
       for (const trail of trailsRef.current) {
         context.beginPath()
         context.arc(trail.position.x, trail.position.y, trail.radius, 0, Math.PI * 2)
@@ -651,9 +729,16 @@ export const DiagramCanvas = () => {
       if (playerIsRunning && orbPositionRef.current) {
         const orbRadius = ORB_RADIUS / Math.max(viewport.zoom, 0.25)
         context.beginPath()
+        context.arc(orbPositionRef.current.x, orbPositionRef.current.y, orbRadius * 1.95, 0, Math.PI * 2)
+        context.fillStyle = hexToRgba(currentPlayerColor, 0.22)
+        context.shadowColor = hexToRgba(currentPlayerColor, 0.35)
+        context.shadowBlur = (ORB_SHADOW_BLUR * 1.3) / Math.max(viewport.zoom, 0.25)
+        context.fill()
+
+        context.beginPath()
         context.arc(orbPositionRef.current.x, orbPositionRef.current.y, orbRadius, 0, Math.PI * 2)
-        context.fillStyle = hexToRgba(currentPlayerColor, 0.95)
-        context.shadowColor = hexToRgba(currentPlayerColor, 0.95)
+        context.fillStyle = hexToRgba(currentPlayerColor, 0.98)
+        context.shadowColor = hexToRgba(currentPlayerColor, 0.98)
         context.shadowBlur = ORB_SHADOW_BLUR / Math.max(viewport.zoom, 0.25)
         context.fill()
 
@@ -1312,7 +1397,7 @@ export const DiagramCanvas = () => {
               <path
                 d={`M ${DEFAULT_GRID_SIZE} 0 L 0 0 0 ${DEFAULT_GRID_SIZE}`}
                 fill="none"
-                stroke="#dbe4ff"
+                stroke="var(--sjv-grid-line)"
                 strokeWidth={1}
               />
             </pattern>
@@ -1326,7 +1411,7 @@ export const DiagramCanvas = () => {
             orient="auto"
             markerUnits="strokeWidth"
           >
-            <path d="M0,0 L8,4 L0,8 z" fill="#475569" />
+            <path d="M0,0 L8,4 L0,8 z" className="edge-arrow-head" />
           </marker>
         </defs>
         <g transform={`translate(${viewport.x}, ${viewport.y}) scale(${viewport.zoom})`}>

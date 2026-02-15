@@ -195,3 +195,23 @@
 - `npm --workspace @sjv/web run lint`
 - `npm --workspace @sjv/web run test:run`
 - `npm --workspace @sjv/web run build`
+
+- Ajuste incremental (`tmp/ai/20260215-1035-import-temp-visual`):
+  - Pasta `temp/` analisada para capturar direção visual da UI embrionária (paleta, setas e rastro).
+  - `App.css` atualizado com tokens visuais do canvas (`--sjv-*`) e nova direção dark:
+    - gradientes radiais no fundo,
+    - grid de baixa opacidade,
+    - contraste azul/verde para destaque de seleção/fluxo.
+  - Setas receberam arrowhead estilizado por classe CSS (`.edge-arrow-head`) para acompanhar a nova paleta.
+  - Canvas de trail/player recebeu refinamento visual no `DiagramCanvas`:
+    - rastro mais intenso/contínuo,
+    - glow de trilha e partícula,
+    - track base + track de progresso sobre a aresta ativa,
+    - halo externo da bolinha para percepção de movimento.
+  - Teste de estilos ampliado para cobrir tokens/pontos de estilo da nova identidade visual.
+
+### Validação executada (ajuste import-temp-visual)
+
+- `npm --workspace @sjv/web run lint`
+- `npm --workspace @sjv/web run test:run`
+- `npm --workspace @sjv/web run build`

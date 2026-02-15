@@ -52,4 +52,11 @@ describe('App boundary styles', () => {
     expect(appCss).toContain('.edge-anchor-handle')
     expect(appCss).toContain('.edge-anchor-handle-active')
   })
+
+  it('applies the imported dark palette and arrow styling tokens', () => {
+    expect(appCss).toContain('--sjv-canvas-bg')
+    expect(appCss).toContain('--sjv-edge-player')
+    expect(appCss).toContain('.edge-arrow-head')
+    expect(appCss).toContain('.theme-dark .canvas-panel::before')
+  })
 })

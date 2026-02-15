@@ -4,6 +4,25 @@
   height: 100vh;
 }
 
+:root {
+  --sjv-panel-bg: #f7f9fd;
+  --sjv-canvas-bg:
+    radial-gradient(820px 420px at -10% -30%, rgba(59, 130, 246, 0.18), transparent 62%),
+    radial-gradient(640px 320px at 115% -10%, rgba(16, 185, 129, 0.16), transparent 58%),
+    #eef2ff;
+  --sjv-grid-line: rgba(148, 163, 184, 0.2);
+  --sjv-node-fill: #ffffff;
+  --sjv-node-stroke: #64748b;
+  --sjv-node-selected: #2563eb;
+  --sjv-node-highlight: #f59e0b;
+  --sjv-edge: #64748b;
+  --sjv-edge-selected: #2563eb;
+  --sjv-edge-player: #0ea5e9;
+  --sjv-edge-preview: #0ea5e9;
+  --sjv-edge-arrow: #475569;
+  --sjv-trail-blend: screen;
+}
+
 .app-layout {
   display: grid;
   height: 100%;
@@ -245,8 +264,21 @@
   grid-area: main;
   min-width: 0;
   min-height: 0;
-  background: #eef2ff;
+  overflow: hidden;
+  background: var(--sjv-canvas-bg);
   position: relative;
+}
+
+.canvas-panel::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    linear-gradient(to right, var(--sjv-grid-line) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--sjv-grid-line) 1px, transparent 1px);
+  background-size: 26px 26px;
+  opacity: 0.35;
 }
 
 .canvas-hint {
@@ -291,7 +323,7 @@
   width: 100%;
   height: 100%;
   pointer-events: none;
-  mix-blend-mode: screen;
+  mix-blend-mode: var(--sjv-trail-blend);
 }
 
 .diagram-canvas:active {
@@ -299,9 +331,10 @@
 }
 
 .node {
-  fill: #ffffff;
-  stroke: #64748b;
+  fill: var(--sjv-node-fill);
+  stroke: var(--sjv-node-stroke);
   stroke-width: 1.2;
+  transition: filter 0.2s ease, stroke-color 0.2s ease, transform 0.2s ease;
 }
 
 .node-boundary {
@@ -313,9 +346,9 @@
 }
 
 .node-selected {
-  stroke: #2563eb;
+  stroke: var(--sjv-node-selected);
   stroke-width: 2.4;
-  filter: drop-shadow(0 0 6px rgba(37, 99, 235, 0.4));
+  filter: drop-shadow(0 0 8px color-mix(in srgb, var(--sjv-node-selected) 44%, transparent));
 }
 
 .node-pending {
@@ -328,13 +361,13 @@
 }
 
 .node-player-highlight {
-  stroke: #f59e0b;
+  stroke: var(--sjv-node-highlight);
   stroke-width: 2.4;
-  filter: drop-shadow(0 0 8px rgba(245, 158, 11, 0.45));
+  filter: drop-shadow(0 0 8px color-mix(in srgb, var(--sjv-node-highlight) 45%, transparent));
 }
 
 .node-player-impact {
-  stroke: #f59e0b;
+  stroke: var(--sjv-node-highlight);
   stroke-width: 2.6;
 }
 
@@ -359,7 +392,7 @@
 
 .node-port {
   fill: #fff;
-  stroke: #475569;
+  stroke: color-mix(in srgb, var(--sjv-node-stroke) 84%, #0f172a);
   stroke-width: 1.5;
 }
 
@@ -407,32 +440,39 @@
 }
 
 .edge {
-  stroke: #64748b;
+  stroke: var(--sjv-edge);
   stroke-width: 2;
   cursor: pointer;
+  filter: drop-shadow(0 0 2px color-mix(in srgb, var(--sjv-edge) 35%, transparent));
 }
 
 .edge-selected {
-  stroke: #2563eb;
+  stroke: var(--sjv-edge-selected);
   stroke-width: 3;
+  filter: drop-shadow(0 0 8px color-mix(in srgb, var(--sjv-edge-selected) 42%, transparent));
 }
 
 .edge-player-active {
-  stroke: #f59e0b;
+  stroke: var(--sjv-edge-player);
   stroke-width: 2.5;
+  filter: drop-shadow(0 0 10px color-mix(in srgb, var(--sjv-edge-player) 50%, transparent));
 }
 
 .edge-flowing {
-  stroke-dasharray: 9 6;
+  stroke-dasharray: 10 6;
   animation: edge-flow-dash 0.8s linear infinite;
 }
 
 .edge-preview {
-  stroke: #0ea5e9;
+  stroke: var(--sjv-edge-preview);
   stroke-width: 2;
   stroke-dasharray: 6 4;
   opacity: 0.9;
   pointer-events: none;
+}
+
+.edge-arrow-head {
+  fill: var(--sjv-edge-arrow);
 }
 
 .edge-label {
@@ -462,15 +502,18 @@
 }
 
 .edge-anchor-handle {
-  fill: rgba(14, 165, 233, 0.01);
+  fill: color-mix(in srgb, var(--sjv-edge-preview) 12%, transparent);
   stroke: transparent;
-  stroke-width: 1.2;
+  stroke-width: 1.1;
   cursor: grab;
+  opacity: 0.5;
+  transition: opacity 0.15s ease, fill 0.15s ease, stroke 0.15s ease;
 }
 
 .edge-anchor-handle-active {
-  fill: rgba(14, 165, 233, 0.15);
-  stroke: rgba(14, 165, 233, 0.9);
+  fill: color-mix(in srgb, var(--sjv-edge-preview) 28%, transparent);
+  stroke: color-mix(in srgb, var(--sjv-edge-preview) 84%, #fff);
+  opacity: 0.95;
 }
 
 .resize-handle {
@@ -760,11 +803,29 @@
 
 .theme-dark {
   color: #e2e8f0;
-  background: #0b1220;
+  background:
+    radial-gradient(1000px 550px at 10% -20%, rgba(30, 64, 175, 0.35), transparent 60%),
+    radial-gradient(900px 500px at 110% 0%, rgba(21, 128, 61, 0.2), transparent 55%),
+    #020617;
+  --sjv-canvas-bg:
+    radial-gradient(900px 460px at 8% -18%, rgba(72, 166, 255, 0.16), transparent 62%),
+    radial-gradient(760px 380px at 108% -4%, rgba(51, 209, 160, 0.14), transparent 62%),
+    linear-gradient(180deg, rgba(17, 24, 36, 0.92), rgba(11, 15, 20, 0.96));
+  --sjv-grid-line: rgba(255, 255, 255, 0.04);
+  --sjv-node-fill: #111824;
+  --sjv-node-stroke: #2a3648;
+  --sjv-node-selected: #48a6ff;
+  --sjv-node-highlight: #33d1a0;
+  --sjv-edge: #5e6877;
+  --sjv-edge-selected: #48a6ff;
+  --sjv-edge-player: #33d1a0;
+  --sjv-edge-preview: #48a6ff;
+  --sjv-edge-arrow: #7dc4ff;
+  --sjv-trail-blend: screen;
 }
 
 .theme-dark .topbar {
-  background: #111827;
+  background: linear-gradient(180deg, rgba(17, 24, 36, 0.96), rgba(15, 21, 31, 0.96));
   border-bottom-color: #334155;
 }
 
@@ -826,7 +887,11 @@
 }
 
 .theme-dark .canvas-panel {
-  background: #0b1220;
+  background: var(--sjv-canvas-bg);
+}
+
+.theme-dark .canvas-panel::before {
+  opacity: 0.46;
 }
 
 .theme-dark .layout-splitter:hover {
@@ -891,13 +956,13 @@
 }
 
 .theme-dark .node {
-  fill: #1e293b;
-  stroke: #94a3b8;
+  fill: var(--sjv-node-fill);
+  stroke: var(--sjv-node-stroke);
 }
 
 .theme-dark .node-boundary {
   fill: none;
-  stroke: #60a5fa;
+  stroke: rgba(72, 166, 255, 0.8);
 }
 
 .theme-dark .node-title {
@@ -909,33 +974,33 @@
 }
 
 .theme-dark .node-port {
-  fill: #0f172a;
-  stroke: #94a3b8;
+  fill: #0f151f;
+  stroke: #8193a8;
 }
 
 .theme-dark .node-shape-detail {
-  stroke: rgba(148, 163, 184, 0.62);
+  stroke: rgba(155, 176, 198, 0.58);
 }
 
 .theme-dark .node-connector-shell {
-  fill: rgba(15, 23, 42, 0.9);
-  stroke: rgba(148, 163, 184, 0.62);
+  fill: rgba(15, 21, 31, 0.92);
+  stroke: rgba(155, 176, 198, 0.58);
 }
 
 .theme-dark .node-connector-dot {
-  fill: rgba(148, 163, 184, 0.8);
+  fill: rgba(155, 176, 198, 0.86);
 }
 
 .theme-dark .node-connector-line {
-  stroke: rgba(203, 213, 225, 0.88);
+  stroke: rgba(229, 237, 247, 0.82);
 }
 
 .theme-dark .edge {
-  stroke: #94a3b8;
+  stroke: var(--sjv-edge);
 }
 
 .theme-dark .edge-preview {
-  stroke: #38bdf8;
+  stroke: var(--sjv-edge-preview);
 }
 
 .theme-dark .edge-label {

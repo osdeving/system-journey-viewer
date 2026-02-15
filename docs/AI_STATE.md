@@ -52,6 +52,7 @@
 - Ports dinâmicos por tamanho do node (mais encaixes conforme largura/altura), propagados em criação/import e resize.
 - Manipulação de setas no modo Select: drag de endpoint por encaixe, reconexão para outro encaixe ou body do node (auto-nearest port) e ciclo de desempate quando múltiplas setas compartilham o mesmo encaixe.
 - Topbar com menu desktop (`File/Edit/View/Insert`) além dos botões rápidos existentes.
+- Visual refresh do canvas inspirado na UI de referência em `temp/`: paleta dark azul/verde, fundo com gradientes radiais, setas com arrowhead customizado e rastro do player com glow reforçado (track base + progresso + orb halo).
 
 ## Próximos incrementos sugeridos
 

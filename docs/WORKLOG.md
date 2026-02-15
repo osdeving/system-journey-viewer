@@ -150,6 +150,15 @@
   - Seções práticas adicionadas: demo rápida, sincronização manual da DSL, scripts principais e mapa de docs.
   - Links explícitos para `docs/UI_JOURNEYS_CAPABILITIES.md`, `docs/AI_STATE.md`, `docs/WORKLOG.md` e `docs/DECISIONS.md`.
   - Mudança documental; sem validações adicionais de build/test nesta etapa.
+- Ajuste incremental (`tmp/ai/20260215-0945-dsl-spec`):
+  - Criada spec oficial da DSL LITE em `docs/DSL_LITE_SPEC.md` com duas visões:
+    - EBNF (gramática formal),
+    - human readable (regras práticas para humanos e IAs).
+  - Seção específica adicionada para hierarquia/drilldown, esclarecendo limite atual:
+    - DSL LITE representa uma view por vez,
+    - não serializa `drilldownRef`/links entre views.
+  - README atualizado para referenciar a nova spec.
+  - Mudança documental; sem validações adicionais de build/test nesta etapa.
 
 ### Validação executada
 

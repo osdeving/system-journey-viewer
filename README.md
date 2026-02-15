@@ -78,6 +78,10 @@ A sincronização entre canvas e DSL é manual:
 
 Editar a textarea sozinha não atualiza o canvas em tempo real até clicar em `Importar DSL`.
 
+Spec oficial da DSL LITE:
+
+- `docs/DSL_LITE_SPEC.md`
+
 ## Scripts principais
 
 Na raiz do monorepo:
@@ -117,6 +121,7 @@ Detalhamento dos limites:
 ## Documentação complementar
 
 - `docs/UI_JOURNEYS_CAPABILITIES.md`: guia direto para uso da interface
+- `docs/DSL_LITE_SPEC.md`: spec da DSL LITE (EBNF + semantica + limites)
 - `docs/AI_STATE.md`: estado consolidado do produto
 - `docs/WORKLOG.md`: histórico de mudanças por sessão
 - `docs/DECISIONS.md`: decisões arquiteturais

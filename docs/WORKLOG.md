@@ -276,3 +276,22 @@
 - `npm --workspace @sjv/web run lint`
 - `npm --workspace @sjv/web run test:run`
 - `npm --workspace @sjv/web run build`
+
+- Ajuste incremental (`tmp/ai/20260215-1127-ui-ux-focus-sidebar`, continuação):
+  - Menubar de topo refeito para padrão desktop profissional (estado controlado), removendo dependência de `details/summary`.
+  - Menu agora fecha por clique fora/`Esc` e permite troca rápida entre menus por `ArrowLeft`/`ArrowRight` quando aberto.
+  - Itens de menu ganharam estrutura mais clara (`label + shortcut`) e papel semântico (`role="menu"` / `menuitem`).
+  - Topbar recebeu logo do app e hierarquia visual revisada.
+  - Barra de ações rápidas foi simplificada para evitar duplicidade com o menubar.
+  - Editor DSL recebeu polimento de UI:
+    - superfície dedicada com contraste melhor,
+    - tipografia mono refinada,
+    - campo de edição com estados de foco mais claros e feedback textual mais legível.
+  - Estilos dark/light atualizados para o novo menubar e novo visual do DSL.
+  - Teste de estilos ampliado para cobrir classes novas de menubar/logo.
+
+### Validação executada (ajuste menubar-pro-and-dsl-polish)
+
+- `npm --workspace @sjv/web run lint`
+- `npm --workspace @sjv/web run test:run`
+- `npm --workspace @sjv/web run build`

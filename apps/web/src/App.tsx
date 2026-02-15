@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import type { MouseEvent as ReactMouseEvent, PointerEvent as ReactPointerEvent } from 'react'
+import type { PointerEvent as ReactPointerEvent } from 'react'
 import confetti from 'canvas-confetti'
 import './App.css'
 import { DiagramCanvas } from './components/DiagramCanvas'
@@ -47,6 +47,8 @@ const viewKindLabel: Record<string, string> = {
 }
 
 type DrawerTab = 'journeys' | 'dsl'
+type DesktopMenuId = 'file' | 'edit' | 'view' | 'insert'
+const DESKTOP_MENU_ORDER: DesktopMenuId[] = ['file', 'edit', 'view', 'insert']
 
 const isTextInputTarget = (target: EventTarget | null): boolean => {
   if (!(target instanceof HTMLElement)) {
@@ -64,6 +66,7 @@ const isHexColor = (value?: string): boolean =>
 
 function App() {
   const layoutRef = useRef<HTMLDivElement | null>(null)
+  const desktopMenuBarRef = useRef<HTMLDivElement | null>(null)
   const canvasPanelRef = useRef<HTMLElement | null>(null)
   const dslRestoreHeightRef = useRef<number | null>(null)
   const previousViewIdRef = useRef<string | null>(null)
@@ -140,6 +143,7 @@ function App() {
   const [drawerTab, setDrawerTab] = useState<DrawerTab>('journeys')
   const [dslMaximized, setDslMaximized] = useState(false)
   const [focusMode, setFocusMode] = useState(false)
+  const [openDesktopMenu, setOpenDesktopMenu] = useState<DesktopMenuId | null>(null)
 
   const selectedNode = selectedNodeId ? workspace.nodes[selectedNodeId] : undefined
   const selectedEdge = selectedEdgeId ? workspace.edges[selectedEdgeId] : undefined
@@ -227,6 +231,15 @@ function App() {
 
   const toggleFocusMode = () => {
     setFocusMode((current) => !current)
+  }
+
+  const toggleDesktopMenu = (menuId: DesktopMenuId) => {
+    setOpenDesktopMenu((current) => (current === menuId ? null : menuId))
+  }
+
+  const runDesktopMenuAction = (action: () => void) => {
+    action()
+    setOpenDesktopMenu(null)
   }
 
   const onLeftSplitterPointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
@@ -356,6 +369,54 @@ function App() {
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme)
   }, [theme])
+
+  useEffect(() => {
+    const onWindowPointerDown = (event: MouseEvent) => {
+      if (!desktopMenuBarRef.current) {
+        return
+      }
+      const target = event.target
+      if (target instanceof Node && desktopMenuBarRef.current.contains(target)) {
+        return
+      }
+      setOpenDesktopMenu(null)
+    }
+
+    const onWindowKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setOpenDesktopMenu(null)
+        return
+      }
+      if (!openDesktopMenu) {
+        return
+      }
+      if (event.key !== 'ArrowRight' && event.key !== 'ArrowLeft') {
+        return
+      }
+      event.preventDefault()
+      const currentIndex = DESKTOP_MENU_ORDER.indexOf(openDesktopMenu)
+      if (currentIndex < 0) {
+        return
+      }
+      const direction = event.key === 'ArrowRight' ? 1 : -1
+      const nextIndex =
+        (currentIndex + direction + DESKTOP_MENU_ORDER.length) % DESKTOP_MENU_ORDER.length
+      setOpenDesktopMenu(DESKTOP_MENU_ORDER[nextIndex])
+    }
+
+    window.addEventListener('pointerdown', onWindowPointerDown)
+    window.addEventListener('keydown', onWindowKeyDown)
+    return () => {
+      window.removeEventListener('pointerdown', onWindowPointerDown)
+      window.removeEventListener('keydown', onWindowKeyDown)
+    }
+  }, [openDesktopMenu])
+
+  useEffect(() => {
+    if (focusMode) {
+      setOpenDesktopMenu(null)
+    }
+  }, [focusMode])
 
   useEffect(() => {
     const onFocusShortcut = (event: KeyboardEvent) => {
@@ -521,21 +582,6 @@ function App() {
     }
   }
 
-  const closeDesktopMenu = (target: EventTarget | null) => {
-    if (!(target instanceof HTMLElement)) {
-      return
-    }
-    const menu = target.closest('details')
-    if (menu instanceof HTMLDetailsElement) {
-      menu.open = false
-    }
-  }
-
-  const runDesktopMenuAction = (event: ReactMouseEvent<HTMLButtonElement>, action: () => void) => {
-    action()
-    closeDesktopMenu(event.currentTarget)
-  }
-
   return (
     <div
       ref={layoutRef}
@@ -544,147 +590,259 @@ function App() {
     >
       <header className="topbar">
         <div className="topbar-meta">
-          <h1>{workspace.workspace.name}</h1>
-          <p>{breadcrumb.map((viewId) => workspace.views[viewId]?.name ?? viewId).join(' / ')}</p>
-          <nav className="desktop-menu-bar" aria-label="Menu principal">
-            <details className="desktop-menu">
-              <summary>File</summary>
-              <div className="desktop-menu-list">
-                <button type="button" onClick={(event) => runDesktopMenuAction(event, () => persist())}>
-                  Save
-                </button>
-                <button type="button" onClick={(event) => runDesktopMenuAction(event, () => hydrate())}>
-                  Reload
-                </button>
-                <button
-                  type="button"
-                  onClick={(event) =>
-                    runDesktopMenuAction(event, () => {
-                      void exportFromCanvas('svg')
-                    })
-                  }
+          <div className="topbar-brand-row">
+            <div className="app-logo-badge" aria-hidden="true">
+              <svg viewBox="0 0 64 64">
+                <defs>
+                  <linearGradient id="sjvLogoGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stopColor="#38bdf8" />
+                    <stop offset="100%" stopColor="#22c55e" />
+                  </linearGradient>
+                </defs>
+                <rect x="6" y="6" width="52" height="52" rx="14" fill="url(#sjvLogoGradient)" opacity="0.18" />
+                <path
+                  d="M17 20 H29 M35 20 H47 M17 44 H29 M35 44 H47 M23 20 V44 M41 20 V44"
+                  stroke="url(#sjvLogoGradient)"
+                  strokeWidth="3.2"
+                  strokeLinecap="round"
+                />
+                <circle cx="23" cy="20" r="4.2" fill="#38bdf8" />
+                <circle cx="41" cy="20" r="4.2" fill="#22c55e" />
+                <circle cx="23" cy="44" r="4.2" fill="#22c55e" />
+                <circle cx="41" cy="44" r="4.2" fill="#38bdf8" />
+              </svg>
+            </div>
+            <div className="app-brand-copy">
+              <h1>{workspace.workspace.name}</h1>
+              <p>{breadcrumb.map((viewId) => workspace.views[viewId]?.name ?? viewId).join(' / ')}</p>
+            </div>
+          </div>
+          <nav className="desktop-menu-bar" aria-label="Menu principal" ref={desktopMenuBarRef}>
+            <div
+              className={openDesktopMenu === 'file' ? 'desktop-menu desktop-menu-open' : 'desktop-menu'}
+              onMouseEnter={() => {
+                if (openDesktopMenu) {
+                  setOpenDesktopMenu('file')
+                }
+              }}
+            >
+              <button
+                type="button"
+                className="desktop-menu-trigger"
+                aria-haspopup="menu"
+                aria-expanded={openDesktopMenu === 'file'}
+                aria-controls="desktop-menu-file"
+                onClick={() => toggleDesktopMenu('file')}
+              >
+                File
+              </button>
+              {openDesktopMenu === 'file' ? (
+                <div id="desktop-menu-file" className="desktop-menu-list" role="menu" aria-label="File menu">
+                  <button type="button" role="menuitem" onClick={() => runDesktopMenuAction(() => persist())}>
+                    <span>Save</span>
+                    <kbd>Ctrl+S</kbd>
+                  </button>
+                  <button type="button" role="menuitem" onClick={() => runDesktopMenuAction(() => hydrate())}>
+                    <span>Reload</span>
+                    <kbd>Ctrl+R</kbd>
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() =>
+                      runDesktopMenuAction(() => {
+                        void exportFromCanvas('svg')
+                      })
+                    }
+                  >
+                    <span>Export SVG</span>
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() =>
+                      runDesktopMenuAction(() => {
+                        void exportFromCanvas('png')
+                      })
+                    }
+                  >
+                    <span>Export PNG</span>
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() =>
+                      runDesktopMenuAction(() => {
+                        void exportFromCanvas('pdf')
+                      })
+                    }
+                  >
+                    <span>Export PDF</span>
+                  </button>
+                  <button type="button" role="menuitem" onClick={() => runDesktopMenuAction(() => resetWorkspace())}>
+                    <span>Reset Workspace</span>
+                  </button>
+                </div>
+              ) : null}
+            </div>
+            <div
+              className={openDesktopMenu === 'edit' ? 'desktop-menu desktop-menu-open' : 'desktop-menu'}
+              onMouseEnter={() => {
+                if (openDesktopMenu) {
+                  setOpenDesktopMenu('edit')
+                }
+              }}
+            >
+              <button
+                type="button"
+                className="desktop-menu-trigger"
+                aria-haspopup="menu"
+                aria-expanded={openDesktopMenu === 'edit'}
+                aria-controls="desktop-menu-edit"
+                onClick={() => toggleDesktopMenu('edit')}
+              >
+                Edit
+              </button>
+              {openDesktopMenu === 'edit' ? (
+                <div id="desktop-menu-edit" className="desktop-menu-list" role="menu" aria-label="Edit menu">
+                  <button type="button" role="menuitem" onClick={() => runDesktopMenuAction(() => navigateBack())}>
+                    <span>Back</span>
+                    <kbd>Alt+←</kbd>
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => runDesktopMenuAction(() => setActiveTool('select'))}
+                  >
+                    <span>Select Tool</span>
+                    <kbd>V</kbd>
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => runDesktopMenuAction(() => setActiveTool('connector'))}
+                  >
+                    <span>Connector Tool</span>
+                    <kbd>C</kbd>
+                  </button>
+                </div>
+              ) : null}
+            </div>
+            <div
+              className={openDesktopMenu === 'view' ? 'desktop-menu desktop-menu-open' : 'desktop-menu'}
+              onMouseEnter={() => {
+                if (openDesktopMenu) {
+                  setOpenDesktopMenu('view')
+                }
+              }}
+            >
+              <button
+                type="button"
+                className="desktop-menu-trigger"
+                aria-haspopup="menu"
+                aria-expanded={openDesktopMenu === 'view'}
+                aria-controls="desktop-menu-view"
+                onClick={() => toggleDesktopMenu('view')}
+              >
+                View
+              </button>
+              {openDesktopMenu === 'view' ? (
+                <div id="desktop-menu-view" className="desktop-menu-list" role="menu" aria-label="View menu">
+                  <button type="button" role="menuitem" onClick={() => runDesktopMenuAction(() => zoomByFactor(1.1))}>
+                    <span>Zoom In</span>
+                    <kbd>Ctrl+</kbd>
+                  </button>
+                  <button type="button" role="menuitem" onClick={() => runDesktopMenuAction(() => zoomByFactor(0.9))}>
+                    <span>Zoom Out</span>
+                    <kbd>Ctrl-</kbd>
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => runDesktopMenuAction(() => setGridEnabled(!gridEnabled))}
+                  >
+                    <span>{gridEnabled ? 'Hide Grid' : 'Show Grid'}</span>
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => runDesktopMenuAction(() => setSnapEnabled(!snapEnabled))}
+                  >
+                    <span>{snapEnabled ? 'Disable Snap' : 'Enable Snap'}</span>
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => runDesktopMenuAction(() => setTheme(theme === 'dark' ? 'light' : 'dark'))}
+                  >
+                    <span>{theme === 'dark' ? 'Use Light Theme' : 'Use Dark Theme'}</span>
+                  </button>
+                  <button type="button" role="menuitem" onClick={() => runDesktopMenuAction(() => toggleFocusMode())}>
+                    <span>{focusMode ? 'Exit Focus Mode' : 'Focus Mode'}</span>
+                    <kbd>F</kbd>
+                  </button>
+                </div>
+              ) : null}
+            </div>
+            <div
+              className={openDesktopMenu === 'insert' ? 'desktop-menu desktop-menu-open' : 'desktop-menu'}
+              onMouseEnter={() => {
+                if (openDesktopMenu) {
+                  setOpenDesktopMenu('insert')
+                }
+              }}
+            >
+              <button
+                type="button"
+                className="desktop-menu-trigger"
+                aria-haspopup="menu"
+                aria-expanded={openDesktopMenu === 'insert'}
+                aria-controls="desktop-menu-insert"
+                onClick={() => toggleDesktopMenu('insert')}
+              >
+                Insert
+              </button>
+              {openDesktopMenu === 'insert' ? (
+                <div
+                  id="desktop-menu-insert"
+                  className="desktop-menu-list"
+                  role="menu"
+                  aria-label="Insert menu"
                 >
-                  Export SVG
-                </button>
-                <button
-                  type="button"
-                  onClick={(event) =>
-                    runDesktopMenuAction(event, () => {
-                      void exportFromCanvas('png')
-                    })
-                  }
-                >
-                  Export PNG
-                </button>
-                <button
-                  type="button"
-                  onClick={(event) =>
-                    runDesktopMenuAction(event, () => {
-                      void exportFromCanvas('pdf')
-                    })
-                  }
-                >
-                  Export PDF
-                </button>
-                <button type="button" onClick={(event) => runDesktopMenuAction(event, () => resetWorkspace())}>
-                  Reset Workspace
-                </button>
-              </div>
-            </details>
-            <details className="desktop-menu">
-              <summary>Edit</summary>
-              <div className="desktop-menu-list">
-                <button type="button" onClick={(event) => runDesktopMenuAction(event, () => navigateBack())}>
-                  Back
-                </button>
-                <button
-                  type="button"
-                  onClick={(event) => runDesktopMenuAction(event, () => setActiveTool('select'))}
-                >
-                  Select Tool
-                </button>
-                <button
-                  type="button"
-                  onClick={(event) => runDesktopMenuAction(event, () => setActiveTool('connector'))}
-                >
-                  Connector Tool
-                </button>
-              </div>
-            </details>
-            <details className="desktop-menu">
-              <summary>View</summary>
-              <div className="desktop-menu-list">
-                <button type="button" onClick={(event) => runDesktopMenuAction(event, () => zoomByFactor(1.1))}>
-                  Zoom In
-                </button>
-                <button type="button" onClick={(event) => runDesktopMenuAction(event, () => zoomByFactor(0.9))}>
-                  Zoom Out
-                </button>
-                <button
-                  type="button"
-                  onClick={(event) =>
-                    runDesktopMenuAction(event, () => setGridEnabled(!gridEnabled))
-                  }
-                >
-                  {gridEnabled ? 'Hide Grid' : 'Show Grid'}
-                </button>
-                <button
-                  type="button"
-                  onClick={(event) =>
-                    runDesktopMenuAction(event, () => setSnapEnabled(!snapEnabled))
-                  }
-                >
-                  {snapEnabled ? 'Disable Snap' : 'Enable Snap'}
-                </button>
-                <button
-                  type="button"
-                  onClick={(event) =>
-                    runDesktopMenuAction(event, () => setTheme(theme === 'dark' ? 'light' : 'dark'))
-                  }
-                >
-                  {theme === 'dark' ? 'Use Light Theme' : 'Use Dark Theme'}
-                </button>
-                <button
-                  type="button"
-                  onClick={(event) => runDesktopMenuAction(event, () => toggleFocusMode())}
-                >
-                  {focusMode ? 'Exit Focus Mode' : 'Focus Mode'}
-                </button>
-              </div>
-            </details>
-            <details className="desktop-menu">
-              <summary>Insert</summary>
-              <div className="desktop-menu-list">
-                <button
-                  type="button"
-                  onClick={(event) => runDesktopMenuAction(event, () => loadShowcaseWorkspace())}
-                >
-                  Load Showcase
-                </button>
-                <button
-                  type="button"
-                  onClick={(event) =>
-                    runDesktopMenuAction(event, () => {
-                      setFocusMode(false)
-                      switchDrawerTab('journeys')
-                    })
-                  }
-                >
-                  Focus Journeys
-                </button>
-                <button
-                  type="button"
-                  onClick={(event) =>
-                    runDesktopMenuAction(event, () => {
-                      setFocusMode(false)
-                      switchDrawerTab('dsl')
-                    })
-                  }
-                >
-                  Focus DSL
-                </button>
-              </div>
-            </details>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => runDesktopMenuAction(() => loadShowcaseWorkspace())}
+                  >
+                    <span>Load Showcase</span>
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() =>
+                      runDesktopMenuAction(() => {
+                        setFocusMode(false)
+                        switchDrawerTab('journeys')
+                      })
+                    }
+                  >
+                    <span>Open Journey Timeline</span>
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() =>
+                      runDesktopMenuAction(() => {
+                        setFocusMode(false)
+                        switchDrawerTab('dsl')
+                      })
+                    }
+                  >
+                    <span>Open DSL Editor</span>
+                  </button>
+                </div>
+              ) : null}
+            </div>
           </nav>
           <div className="mode-indicators">
             <span className={activeTool === 'connector' ? 'mode-pill mode-pill-active' : 'mode-pill'}>
@@ -716,21 +874,6 @@ function App() {
             onClick={() => setActiveTool('connector')}
           >
             Connector
-          </button>
-          <button type="button" onClick={() => hydrate()}>
-            Reload
-          </button>
-          <button type="button" onClick={() => persist()}>
-            Save
-          </button>
-          <button type="button" onClick={() => void exportFromCanvas('svg')}>
-            Export SVG
-          </button>
-          <button type="button" onClick={() => void exportFromCanvas('png')}>
-            Export PNG
-          </button>
-          <button type="button" onClick={() => void exportFromCanvas('pdf')}>
-            Export PDF
           </button>
           <button type="button" onClick={() => zoomByFactor(1.1)}>
             Zoom +
@@ -765,12 +908,6 @@ function App() {
             />
             Dark
           </label>
-          <button type="button" onClick={() => loadShowcaseWorkspace()}>
-            Showcase
-          </button>
-          <button type="button" onClick={() => resetWorkspace()}>
-            Reset
-          </button>
           <button type="button" className="focus-toggle-button" onClick={() => toggleFocusMode()}>
             {focusMode ? 'Sair do foco' : 'Modo foco'}
           </button>

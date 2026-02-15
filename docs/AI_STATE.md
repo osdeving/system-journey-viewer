@@ -43,6 +43,9 @@
 - Drawer inferior com tabs (`Journey Timeline` / `DSL`) para separar leitura de passos da edição de DSL.
 - DSL com ação de maximizar/restaurar painel para edição focada.
 - Modo foco (`F` / `Esc`) adicionado para canvas full-view, ocultando paleta, inspector e painel inferior.
+- Menubar desktop refatorado para estado controlado (sem `details`), com fechamento por clique externo/`Esc`, navegação entre menus por setas e logo do app na topbar.
+- Topbar com ações rápidas reduzidas e restante das operações concentradas no menubar, melhorando legibilidade.
+- Editor DSL recebeu polimento visual (surface dedicada, tipografia mono refinada, foco/contraste e feedbacks mais claros).
 - DSL com assistência do Codex: instrução customizada, execução via endpoint `/api/codex/dsl-assist`, reaproveitamento de `threadId` e ação para limpar contexto do thread.
 - Vite com proxy `/api/codex` para gateway local (`http://localhost:8787`) durante desenvolvimento.
 - Guia de operação da UI disponível em `docs/UI_JOURNEYS_CAPABILITIES.md` (jornadas de uso, capacidades e limitações atuais).

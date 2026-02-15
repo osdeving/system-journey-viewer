@@ -144,6 +144,7 @@
   - Criado documento de referência da UI com jornadas do usuário e capacidades/limitações atuais.
   - Novo arquivo: `docs/UI_JOURNEYS_CAPABILITIES.md`.
   - Documento cobre: mapa da tela, happy path por fluxo, o que já permite, o que ainda não permite e checklist de uso rápido.
+  - Mudança documental; sem validações adicionais de build/test nesta etapa.
 
 ### Validação executada
 

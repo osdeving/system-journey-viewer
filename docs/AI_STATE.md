@@ -53,6 +53,8 @@
 - Manipulação de setas no modo Select: drag de endpoint por encaixe, reconexão para outro encaixe ou body do node (auto-nearest port) e ciclo de desempate quando múltiplas setas compartilham o mesmo encaixe.
 - Topbar com menu desktop (`File/Edit/View/Insert`) além dos botões rápidos existentes.
 - Visual refresh do canvas inspirado na UI de referência em `temp/`: paleta dark azul/verde, fundo com gradientes radiais, setas com arrowhead customizado e rastro do player com glow reforçado (track base + progresso + orb halo).
+- Showcase padrão ajustado para identidade dark (tema default `dark`) e sem cores fixas por node no seed, permitindo que a paleta visual da UI conduza o look inicial.
+- Tracejado animado da comunicação ativa agora permanece visível também fora do `Player: Animação` (modo render/pausado), mantendo leitura de fluxo sem depender da execução do player.
 
 ## Próximos incrementos sugeridos
 

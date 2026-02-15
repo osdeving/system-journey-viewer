@@ -1434,7 +1434,7 @@ export const DiagramCanvas = () => {
               badge={edgeBadgeById[edge.id]}
               isSelected={edge.id === selectedEdgeId}
               isPlayerEdge={edge.id === currentPlayerEdgeId}
-              isFlowing={playerIsRunning && edge.id === currentPlayerEdgeId}
+              isFlowing={edge.id === currentPlayerEdgeId}
               onSelect={() => selectEdge(edge.id)}
             />
           ))}

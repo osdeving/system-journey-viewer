@@ -215,3 +215,14 @@
 - `npm --workspace @sjv/web run lint`
 - `npm --workspace @sjv/web run test:run`
 - `npm --workspace @sjv/web run build`
+
+- Ajuste incremental (`tmp/ai/20260215-1047-showcase-dark-default`):
+  - Showcase base (`createDefaultWorkspace`) migrado para `theme: dark` por padrão.
+  - Cores fixas por node (`style.fillColor`) removidas do seed do showcase para deixar a identidade visual definida pela paleta global da UI.
+  - Tracejado animado da aresta ativa do player passou a ficar visível também fora do estado `playerIsRunning` (modo render/pausado), já que o rastro cobriu melhor o feedback de animação.
+
+### Validação executada (ajuste showcase-dark-default)
+
+- `npm --workspace @sjv/web run lint`
+- `npm --workspace @sjv/web run test:run`
+- `npm --workspace @sjv/web run build`

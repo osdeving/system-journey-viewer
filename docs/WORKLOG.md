@@ -140,6 +140,10 @@
   - Shapes de `db` e `queue` foram redesenhados com geometria de cilindro via paths SVG dedicados (shell + rims), para o preenchimento acompanhar corretamente o contorno.
   - Render de node no `DiagramCanvas` passou a usar helper de geometria (`nodeShapePaths`) em vez da composição anterior.
   - Novo teste unitário para geometria dos shapes (`nodeShapePaths.test.ts`) cobrindo clamp e estrutura dos paths gerados.
+- Ajuste incremental (`tmp/ai/20260215-0739-ui-journey-doc`):
+  - Criado documento de referência da UI com jornadas do usuário e capacidades/limitações atuais.
+  - Novo arquivo: `docs/UI_JOURNEYS_CAPABILITIES.md`.
+  - Documento cobre: mapa da tela, happy path por fluxo, o que já permite, o que ainda não permite e checklist de uso rápido.
 
 ### Validação executada
 

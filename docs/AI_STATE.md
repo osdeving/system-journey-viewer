@@ -43,6 +43,7 @@
 - DSL com ação de maximizar/restaurar painel para edição focada.
 - DSL com assistência do Codex: instrução customizada, execução via endpoint `/api/codex/dsl-assist`, reaproveitamento de `threadId` e ação para limpar contexto do thread.
 - Vite com proxy `/api/codex` para gateway local (`http://localhost:8787`) durante desenvolvimento.
+- Guia de operação da UI disponível em `docs/UI_JOURNEYS_CAPABILITIES.md` (jornadas de uso, capacidades e limitações atuais).
 
 ## Próximos incrementos sugeridos
 

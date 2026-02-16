@@ -1,7 +1,6 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { PointerEvent as ReactPointerEvent } from 'react'
 import confetti from 'canvas-confetti'
-import Editor from '@monaco-editor/react'
 import type { Monaco } from '@monaco-editor/react'
 import {
   Dock,
@@ -72,6 +71,8 @@ const DEFAULT_NODE_COLOR_PRESETS = [
   '#e0e7ff',
   '#fef3c7',
 ]
+
+const MonacoEditor = lazy(() => import('@monaco-editor/react'))
 
 const viewKindLabel: Record<string, string> = {
   'system-context': 'System Context',
@@ -2072,24 +2073,26 @@ function App() {
               </button>
             </div>
             <div className="dsl-monaco-editor">
-              <Editor
-                beforeMount={handleDslEditorBeforeMount}
-                language={JOURNEY_SCRIPT_LANGUAGE_ID}
-                value={dslText}
-                onChange={(value) => setDslText(value ?? '')}
-                theme={resolveJourneyScriptTheme(theme)}
-                options={{
-                  minimap: { enabled: false },
-                  fontSize: 13,
-                  lineHeight: 21,
-                  fontLigatures: true,
-                  padding: { top: 10 },
-                  scrollBeyondLastLine: false,
-                  automaticLayout: true,
-                  smoothScrolling: true,
-                  cursorBlinking: 'phase',
-                }}
-              />
+              <Suspense fallback={<p className="dsl-codex-status">Loading JourneyScript editor...</p>}>
+                <MonacoEditor
+                  beforeMount={handleDslEditorBeforeMount}
+                  language={JOURNEY_SCRIPT_LANGUAGE_ID}
+                  value={dslText}
+                  onChange={(value) => setDslText(value ?? '')}
+                  theme={resolveJourneyScriptTheme(theme)}
+                  options={{
+                    minimap: { enabled: false },
+                    fontSize: 13,
+                    lineHeight: 21,
+                    fontLigatures: true,
+                    padding: { top: 10 },
+                    scrollBeyondLastLine: false,
+                    automaticLayout: true,
+                    smoothScrolling: true,
+                    cursorBlinking: 'phase',
+                  }}
+                />
+              </Suspense>
             </div>
             {dslCodexThreadId ? <p className="dsl-codex-thread">Thread Codex: {dslCodexThreadId}</p> : null}
             {dslCodexStatus ? <p className="dsl-codex-status">{dslCodexStatus}</p> : null}

@@ -13,6 +13,28 @@ It supports multi-layer modeling (`Container`, `Component`, `Hex`), animated jou
 - Optional Codex-assisted DSL refinement through a secure gateway.
 - Dark/light themes and presentation mode for demos.
 
+## Product Demo
+
+> [!WARNING]
+> The live walkthrough below was captured by an automated robot script.
+> During capture playback, some UI elements may look temporarily misaligned.
+
+### Static UI snapshot (recommended reference)
+
+![System Journey Viewer static UI snapshot](docs/print-ui.png)
+
+### Live UI walkthrough (captured from a running app)
+
+![System Journey Viewer live walkthrough](docs/readme-live-demo.gif)
+
+- High-quality MP4: [`docs/readme-live-demo.mp4`](docs/readme-live-demo.mp4)
+
+### Journey animation examples (exported from the editor)
+
+![Journey export example](docs/orders-platform-showcase-component-orchestration.gif)
+
+- MP4 export example: [`docs/orders-platform-showcase-order-creation-sync-event.mp4`](docs/orders-platform-showcase-order-creation-sync-event.mp4)
+
 ## Repository Structure
 
 - `apps/web`: React + Vite web editor.
@@ -63,7 +85,7 @@ This repository is preconfigured for Vercel static deployment of the web app.
 - Framework preset: `Vite`
 - Root directory: repository root
 - Build command: `npm run build`
-- Output directory: `apps/web/dist`
+- Output directory: `dist`
 
 A `vercel.json` file is included with SPA rewrite support.
 
@@ -79,6 +101,30 @@ If you deploy the gateway in another environment, use variables documented in `.
 
 - The web app can run without the gateway.
 - DSL assist is optional and only used when the user triggers Codex refinement.
+
+## Generate Demo Media with Playwright (Optional)
+
+You can regenerate real UI demo media automatically.
+
+1. Start the web app:
+
+```bash
+npm --workspace @sjv/web run dev -- --host 127.0.0.1 --port 4173
+```
+
+2. In another terminal, install Playwright browser runtime and run the capture script:
+
+```bash
+npm install --no-save playwright
+npm exec playwright install chromium
+DEMO_URL=http://127.0.0.1:4173 node scripts/capture-readme-demo.mjs
+```
+
+Generated files:
+
+- `docs/readme-live-demo.webm`
+- `docs/readme-live-demo.mp4`
+- `docs/readme-live-demo.gif`
 
 ## Open Source and Community
 

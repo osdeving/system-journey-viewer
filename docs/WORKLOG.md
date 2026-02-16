@@ -2,6 +2,68 @@
 
 Chronological engineering log. Entries are kept concise and focused on behavior and validation.
 
+## 2026-02-16 - README demo disclaimer and Vercel build/output fixes
+
+### Scope
+
+- Improve README clarity for demo media quality expectations.
+- Add static UI reference image.
+- Fix Vercel output directory mismatch and reduce build chunk warnings.
+
+### Changes
+
+- README updates:
+  - added visible warning that robot-captured demo may show temporary UI misalignment;
+  - added static screenshot section using `docs/print-ui.png`;
+  - updated Vercel output directory instructions to `dist`.
+- Build/deploy pipeline updates:
+  - added `scripts/prepare-root-dist.mjs` to copy `apps/web/dist` to root `dist`;
+  - updated root `build` script to run web build and then mirror output to root `dist`;
+  - updated `vercel.json` to `outputDirectory: \"dist\"`.
+- Bundle/chunk updates:
+  - lazy-loaded Monaco editor in `apps/web/src/App.tsx`;
+  - added manual chunk strategy and raised chunk warning threshold in `apps/web/vite.config.ts`.
+
+### Validation
+
+- `npm run lint`
+- `npm run test:run`
+- `npm run build`
+
+## 2026-02-16 - README demo media and Playwright capture workflow
+
+### Scope
+
+- Improved README to communicate product value visually.
+- Added real UI walkthrough media generated from a running instance.
+- Added a reusable automation script for future README/demo media refresh.
+
+### Changes
+
+- README enhancements:
+  - new `Product Demo` section with embedded GIF and MP4 links;
+  - added exported journey animation examples from `docs/`;
+  - added `Generate Demo Media with Playwright` section with reproducible commands.
+- Added `scripts/capture-readme-demo.mjs`:
+  - launches Chromium with Playwright,
+  - loads showcase data and enters presentation mode,
+  - starts journey playback and records video,
+  - outputs `webm` and encodes `mp4` + `gif` via `ffmpeg`.
+- Added/updated demo artifacts:
+  - `docs/readme-live-demo.webm`
+  - `docs/readme-live-demo.mp4`
+  - `docs/readme-live-demo.gif`
+  - existing showcase export assets are referenced by README.
+
+### Validation
+
+- `npm --workspace @sjv/web run dev -- --host 127.0.0.1 --port 4173`
+- `npm install --no-save playwright`
+- `npm exec playwright install chromium`
+- `DEMO_URL=http://127.0.0.1:4173 node scripts/capture-readme-demo.mjs`
+- `npm run lint`
+- `npm run test:run`
+
 ## 2026-02-16 - Open-source readiness and full English documentation
 
 ### Scope
@@ -103,4 +165,3 @@ Chronological engineering log. Entries are kept concise and focused on behavior 
 ### Validation
 
 - Iterative lint/test/build checks per milestone branch.
-

@@ -620,6 +620,39 @@ const resolveJourneyStepCurves = (
   return resolved
 }
 
+const resolveJourneyStepPathsFromRenderedSvg = (
+  svg: SVGSVGElement,
+  journey: JourneyModel,
+): JourneyCurveStep[] => {
+  const pathsByEdgeId = new Map<string, string>()
+  svg.querySelectorAll('path[id$="_path"]').forEach((pathNode) => {
+    const id = pathNode.getAttribute('id')
+    const pathData = pathNode.getAttribute('d')
+    if (!id || !pathData || !id.endsWith('_path')) {
+      return
+    }
+    const edgeId = id.slice(0, -5)
+    if (!edgeId) {
+      return
+    }
+    pathsByEdgeId.set(edgeId, pathData)
+  })
+
+  const sortedSteps = journey.steps.slice().sort((left, right) => left.n - right.n)
+  const resolved: JourneyCurveStep[] = []
+  for (const step of sortedSteps) {
+    const pathData = pathsByEdgeId.get(step.edgeId)
+    if (!pathData) {
+      continue
+    }
+    resolved.push({
+      edgeId: step.edgeId,
+      path: pathData,
+    })
+  }
+  return resolved
+}
+
 const resolveCurveFromEdge = (
   edge: EdgeModel,
   nodes: Record<string, NodeModel>,
@@ -786,12 +819,14 @@ export const exportAnimatedJourneySvg = ({
   playerSpeedMs,
   filenameBase,
 }: ExportAnimatedSvgOptions): void => {
-  const curves = resolveJourneyStepCurves(workspace, journey)
+  const clone = cloneSvgWithInlineStyles(svg)
+  const renderedCurves = resolveJourneyStepPathsFromRenderedSvg(clone, journey)
+  const curves =
+    renderedCurves.length > 0 ? renderedCurves : resolveJourneyStepCurves(workspace, journey)
   if (!curves.length) {
     throw new Error('A jornada selecionada não possui passos válidos para SVG animado.')
   }
 
-  const clone = cloneSvgWithInlineStyles(svg)
   const { width, height } = resolveSvgDimensions(svg)
   const themeMode = resolveThemeMode(svg)
   removeGridArtifacts(clone)
@@ -808,18 +843,6 @@ export const exportAnimatedJourneySvg = ({
 
   const style = document.createElementNS(SVG_NS, 'style')
   style.textContent = `
-@keyframes edge-flow-dash {
-  from { stroke-dashoffset: 0; }
-  to { stroke-dashoffset: -12; }
-}
-.export-journey-step {
-  fill: none;
-  stroke: ${journey.colorKey};
-  stroke-width: 2.8;
-  stroke-dasharray: 6 6;
-  animation: edge-flow-dash 0.9s linear infinite;
-  opacity: 0.92;
-}
 .export-journey-orb {
   fill: ${journey.colorKey};
   filter: drop-shadow(0 0 8px ${journey.colorKey});
@@ -833,14 +856,6 @@ export const exportAnimatedJourneySvg = ({
 
   const overlay = document.createElementNS(SVG_NS, 'g')
   overlay.setAttribute('pointer-events', 'none')
-
-  for (const [index, curve] of curves.entries()) {
-    const path = document.createElementNS(SVG_NS, 'path')
-    path.setAttribute('id', `export-journey-path-${index}`)
-    path.setAttribute('d', curve.path)
-    path.setAttribute('class', 'export-journey-step')
-    overlay.appendChild(path)
-  }
 
   const travelDurationMs = Math.max(MIN_TRAVEL_DURATION_MS, playerSpeedMs)
   const timeline = resolveJourneyLoopTimeline(
@@ -884,7 +899,12 @@ export const exportAnimatedJourneySvg = ({
 
   overlay.appendChild(halo)
   overlay.appendChild(orb)
-  clone.appendChild(overlay)
+  const worldLayer = clone.querySelector('g[transform]')
+  if (worldLayer instanceof SVGGElement) {
+    worldLayer.appendChild(overlay)
+  } else {
+    clone.appendChild(overlay)
+  }
 
   const xml = new XMLSerializer().serializeToString(clone)
   const blob = new Blob([xml], { type: 'image/svg+xml;charset=utf-8' })

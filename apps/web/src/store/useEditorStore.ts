@@ -44,6 +44,7 @@ interface EditorState {
   playerLoop: boolean
   playerSpeedMs: number
   playerHighlightNodes: boolean
+  playerTrailEnabled: boolean
   playerConfettiNonce: number
   playerConfettiNodeId: string | null
   hydrate: () => void
@@ -92,6 +93,7 @@ interface EditorState {
   setPlayerLoop: (loop: boolean) => void
   setPlayerSpeedMs: (speedMs: number) => void
   setPlayerHighlightNodes: (enabled: boolean) => void
+  setPlayerTrailEnabled: (enabled: boolean) => void
   prevPlayerStep: () => void
   stepPlayer: () => void
   resetPlayer: () => void
@@ -117,6 +119,7 @@ const getDefaultState = (): Pick<
   | 'playerLoop'
   | 'playerSpeedMs'
   | 'playerHighlightNodes'
+  | 'playerTrailEnabled'
   | 'playerConfettiNonce'
   | 'playerConfettiNodeId'
 > => {
@@ -142,6 +145,7 @@ const getDefaultState = (): Pick<
       playerLoop: false,
       playerSpeedMs: 900,
       playerHighlightNodes: true,
+      playerTrailEnabled: true,
       playerConfettiNonce: 0,
       playerConfettiNodeId: null,
     }
@@ -169,6 +173,7 @@ const getDefaultState = (): Pick<
     playerLoop: false,
     playerSpeedMs: 900,
     playerHighlightNodes: true,
+    playerTrailEnabled: true,
     playerConfettiNonce: 0,
     playerConfettiNodeId: null,
   }
@@ -274,6 +279,7 @@ export const useEditorStore = create<EditorState>()(
         playerLoop: false,
         playerSpeedMs: 900,
         playerHighlightNodes: true,
+        playerTrailEnabled: true,
         playerConfettiNonce: 0,
         playerConfettiNodeId: null,
       })
@@ -301,6 +307,7 @@ export const useEditorStore = create<EditorState>()(
         playerLoop: false,
         playerSpeedMs: 900,
         playerHighlightNodes: true,
+        playerTrailEnabled: true,
         playerConfettiNonce: 0,
         playerConfettiNodeId: null,
       })
@@ -730,6 +737,7 @@ export const useEditorStore = create<EditorState>()(
         playerLoop: false,
         playerSpeedMs: 900,
         playerHighlightNodes: true,
+        playerTrailEnabled: true,
         playerConfettiNonce: 0,
         playerConfettiNodeId: null,
       })
@@ -839,6 +847,11 @@ export const useEditorStore = create<EditorState>()(
     setPlayerHighlightNodes: (enabled) => {
       set((state) => {
         state.playerHighlightNodes = enabled
+      })
+    },
+    setPlayerTrailEnabled: (enabled) => {
+      set((state) => {
+        state.playerTrailEnabled = enabled
       })
     },
     prevPlayerStep: () => {

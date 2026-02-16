@@ -250,6 +250,19 @@ describe('useEditorStore', () => {
     expect(updated.playerIsRunning).toBe(false)
   })
 
+  it('allows enabling and disabling player trail rendering', () => {
+    const state = useEditorStore.getState()
+    expect(state.playerTrailEnabled).toBe(true)
+
+    state.setPlayerTrailEnabled(false)
+    let updated = useEditorStore.getState()
+    expect(updated.playerTrailEnabled).toBe(false)
+
+    state.setPlayerTrailEnabled(true)
+    updated = useEditorStore.getState()
+    expect(updated.playerTrailEnabled).toBe(true)
+  })
+
   it('supports theme toggle and showcase reload', () => {
     const state = useEditorStore.getState()
     state.setTheme('dark')

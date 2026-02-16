@@ -339,6 +339,7 @@ export const DiagramCanvas = () => {
   const playerStepIndex = useEditorStore((state) => state.playerStepIndex)
   const playerSpeedMs = useEditorStore((state) => state.playerSpeedMs)
   const playerHighlightNodes = useEditorStore((state) => state.playerHighlightNodes)
+  const playerTrailEnabled = useEditorStore((state) => state.playerTrailEnabled)
   const playerIsRunning = useEditorStore((state) => state.playerIsRunning)
   const stepPlayer = useEditorStore((state) => state.stepPlayer)
   const setViewport = useEditorStore((state) => state.setViewport)
@@ -630,6 +631,19 @@ export const DiagramCanvas = () => {
   }, [viewId])
 
   useEffect(() => {
+    if (playerTrailEnabled) {
+      return
+    }
+    trailsRef.current = []
+    lastTrailPositionRef.current = null
+    const trailCanvas = trailCanvasRef.current
+    const context = trailCanvas?.getContext('2d')
+    if (trailCanvas && context) {
+      context.clearRect(0, 0, trailCanvas.width, trailCanvas.height)
+    }
+  }, [playerTrailEnabled])
+
+  useEffect(() => {
     const trailCanvas = trailCanvasRef.current
     if (!trailCanvas) {
       return
@@ -745,24 +759,28 @@ export const DiagramCanvas = () => {
         if (travelProgress > 0) {
           const orbPoint = cubicPointAt(currentPlayerCurve, travelProgress)
           orbPositionRef.current = orbPoint
-          const lastTrail = lastTrailPositionRef.current
-          const minSpacing = TRAIL_MIN_SPACING * inverseSafeZoom
-          const trailPoints = buildTrailPoints(lastTrail, orbPoint, minSpacing)
-          if (trailPoints.length > 0) {
-            for (const point of trailPoints) {
-              trailsRef.current.push({
-                id: nextTrailIdRef.current,
-                color: currentPlayerColor,
-                alpha: TRAIL_INITIAL_ALPHA,
-                radius: TRAIL_PARTICLE_RADIUS * inverseSafeZoom,
-                position: point,
-              })
-              nextTrailIdRef.current += 1
+          if (playerTrailEnabled) {
+            const lastTrail = lastTrailPositionRef.current
+            const minSpacing = TRAIL_MIN_SPACING * inverseSafeZoom
+            const trailPoints = buildTrailPoints(lastTrail, orbPoint, minSpacing)
+            if (trailPoints.length > 0) {
+              for (const point of trailPoints) {
+                trailsRef.current.push({
+                  id: nextTrailIdRef.current,
+                  color: currentPlayerColor,
+                  alpha: TRAIL_INITIAL_ALPHA,
+                  radius: TRAIL_PARTICLE_RADIUS * inverseSafeZoom,
+                  position: point,
+                })
+                nextTrailIdRef.current += 1
+              }
+              lastTrailPositionRef.current = trailPoints[trailPoints.length - 1]
+              if (trailsRef.current.length > MAX_TRAILS) {
+                trimArrayStartInPlace(trailsRef.current, MAX_TRAILS)
+              }
             }
-            lastTrailPositionRef.current = trailPoints[trailPoints.length - 1]
-            if (trailsRef.current.length > MAX_TRAILS) {
-              trimArrayStartInPlace(trailsRef.current, MAX_TRAILS)
-            }
+          } else {
+            lastTrailPositionRef.current = null
           }
         } else {
           orbPositionRef.current = null
@@ -793,7 +811,7 @@ export const DiagramCanvas = () => {
         metrics.pixelRatio * viewportSnapshot.y,
       )
 
-      if (playerIsRunning && currentPlayerCurve) {
+      if (playerIsRunning && currentPlayerCurve && playerTrailEnabled) {
         drawCurveTrack(context, currentPlayerCurve, {
           color: currentPlayerColor,
           alpha: PLAYER_TRACK_BASE_ALPHA,
@@ -808,19 +826,21 @@ export const DiagramCanvas = () => {
         })
       }
 
-      for (const trail of trailsRef.current) {
-        trail.alpha -= dt * TRAIL_FADE_FACTOR
-        if (trail.alpha <= TRAIL_MIN_VISIBLE_ALPHA) {
-          continue
+      if (playerTrailEnabled) {
+        for (const trail of trailsRef.current) {
+          trail.alpha -= dt * TRAIL_FADE_FACTOR
+          if (trail.alpha <= TRAIL_MIN_VISIBLE_ALPHA) {
+            continue
+          }
+          context.beginPath()
+          context.arc(trail.position.x, trail.position.y, trail.radius, 0, Math.PI * 2)
+          context.fillStyle = hexToRgba(trail.color, trail.alpha)
+          context.shadowColor = hexToRgba(trail.color, Math.min(1, trail.alpha + 0.2))
+          context.shadowBlur = TRAIL_PARTICLE_SHADOW_BLUR * inverseSafeZoom
+          context.fill()
         }
-        context.beginPath()
-        context.arc(trail.position.x, trail.position.y, trail.radius, 0, Math.PI * 2)
-        context.fillStyle = hexToRgba(trail.color, trail.alpha)
-        context.shadowColor = hexToRgba(trail.color, Math.min(1, trail.alpha + 0.2))
-        context.shadowBlur = TRAIL_PARTICLE_SHADOW_BLUR * inverseSafeZoom
-        context.fill()
+        compactPositiveAlphaInPlace(trailsRef.current)
       }
-      compactPositiveAlphaInPlace(trailsRef.current)
 
       if (playerIsRunning && orbPositionRef.current) {
         const orbRadius = ORB_RADIUS * inverseSafeZoom
@@ -884,6 +904,7 @@ export const DiagramCanvas = () => {
     playerJourneyId,
     playerSpeedMs,
     playerStepIndex,
+    playerTrailEnabled,
     sortedPlayerSteps.length,
     stepPlayer,
     viewId,

@@ -137,6 +137,7 @@ function App() {
   const playerLoop = useEditorStore((state) => state.playerLoop)
   const playerSpeedMs = useEditorStore((state) => state.playerSpeedMs)
   const playerHighlightNodes = useEditorStore((state) => state.playerHighlightNodes)
+  const playerTrailEnabled = useEditorStore((state) => state.playerTrailEnabled)
   const playerConfettiNonce = useEditorStore((state) => state.playerConfettiNonce)
   const hydrate = useEditorStore((state) => state.hydrate)
   const persist = useEditorStore((state) => state.persist)
@@ -166,6 +167,7 @@ function App() {
   const setPlayerLoop = useEditorStore((state) => state.setPlayerLoop)
   const setPlayerSpeedMs = useEditorStore((state) => state.setPlayerSpeedMs)
   const setPlayerHighlightNodes = useEditorStore((state) => state.setPlayerHighlightNodes)
+  const setPlayerTrailEnabled = useEditorStore((state) => state.setPlayerTrailEnabled)
   const prevPlayerStep = useEditorStore((state) => state.prevPlayerStep)
   const stepPlayer = useEditorStore((state) => state.stepPlayer)
   const resetPlayer = useEditorStore((state) => state.resetPlayer)
@@ -1117,6 +1119,14 @@ function App() {
               onChange={(event) => setPlayerHighlightNodes(event.target.checked)}
             />
             Highlight
+          </label>
+          <label className="toggle-inline">
+            <input
+              type="checkbox"
+              checked={playerTrailEnabled}
+              onChange={(event) => setPlayerTrailEnabled(event.target.checked)}
+            />
+            Trail
           </label>
         </div>
         <label className="journey-speed-control">

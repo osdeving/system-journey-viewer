@@ -27,8 +27,11 @@
   - Export usa velocidade dedicada mais lenta para melhorar legibilidade do “caminhar” na seta.
   - Export foi desacelerado novamente (multiplicador maior) para GIF/MP4/SVG.
   - Composição GIF/MP4 alinhada ao `trail-canvas` (mesmo frame-space) para evitar rastro fora da linha.
+  - SVG animado passou a priorizar paths reais renderizados do stage, reduzindo deformação estrutural por recomputação geométrica.
+  - Orb/halo do SVG animado agora são anexados ao layer transformado do canvas para manter alinhamento com viewport/zoom.
 - Showcase pronto para demo completa via ação `Showcase` (topbar).
 - Player com bolinha em movimento no path e rastro temporal via canvas overlay (trail com fade/remoção).
+- Player recebeu toggle `Trail` para desativar rastro e manter somente a bolinha em movimento.
 - Labels de comunicação com badge circular colorido por jornada (número dentro da bolinha) no início da seta quando há contexto de passo.
 - Render de seta refatorado em componente dedicado (`JourneyEdge`), com badge posicionado por distância fixa da origem e label com tecnologia no formato `Nome (protocolo)`.
 - Confete do player associado ao nó final da jornada (centro do componente + raio proporcional ao tamanho), incluindo disparo em ciclos de loop.

@@ -478,3 +478,21 @@
 - `npm --workspace @sjv/web run lint`
 - `npm --workspace @sjv/web run test:run`
 - `npm --workspace @sjv/web run build`
+
+
+- Ajuste incremental (`tmp/ai/20260216-0920-export-slower-arrival-hold`, continuação):
+  - Player ganhou opção para desligar rastro e manter só a bolinha:
+    - novo estado no store `playerTrailEnabled`,
+    - toggle `Trail` nos controles de jornada,
+    - canvas deixa de desenhar trilha/progresso quando desativado, mantendo orb.
+  - Export Animated SVG revisado para robustez estrutural:
+    - resolução dos steps passou a usar paths reais já renderizados no SVG (`*_path`) quando disponíveis,
+    - fallback para recomputação geométrica mantido apenas como contingência.
+  - Overlay animado (orb/halo) do SVG exportado passa a ser anexado no layer transformado (`g[transform]`), preservando alinhamento com viewport atual.
+  - Removidos paths de overlay tracejados extras do SVG exportado, reduzindo poluição visual e casos de “quebra” da estrutura.
+
+### Validação executada (ajuste trail-toggle-svg-structure)
+
+- `npm --workspace @sjv/web run lint`
+- `npm --workspace @sjv/web run test:run`
+- `npm --workspace @sjv/web run build`

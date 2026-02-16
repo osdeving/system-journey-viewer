@@ -971,11 +971,13 @@ function App() {
           durationMs,
           resolveBaseKey,
           filenameBase,
+          preferredExtension: 'mp4',
+          allowFallback: false,
         })
         setExportStatus(
           video.extension === 'mp4'
-            ? 'Vídeo MP4 exportado.'
-            : 'Codec MP4 indisponível no navegador; vídeo exportado em WebM.',
+            ? 'Vídeo MP4 (compatível com mobile) exportado.'
+            : 'Vídeo exportado.',
         )
       }
       window.setTimeout(() => setExportStatus(null), 3200)

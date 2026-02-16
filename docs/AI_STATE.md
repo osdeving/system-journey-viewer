@@ -92,6 +92,10 @@
 - Em `Presentation mode`, menu desktop de edição foi ocultado e os indicadores ficaram compactos para liberar largura ao canvas/player e evitar overflow horizontal.
 - Grid visual do stage foi corrigido para controle real por classe (`canvas-panel-grid-visible/hidden`), permitindo ocultação forçada no modo apresentação sem alterar preferência persistida.
 - `Presentation mode` recebeu correção de `gridTemplateAreas` no layout imersivo (`'topbar' 'main'`), removendo colunas implícitas que comprimiam o `main` e deixavam o SVG estreito no lado direito.
+- Export de vídeo MP4 foi endurecido para compatibilidade mobile:
+  - botão MP4 não faz fallback silencioso para WebM,
+  - resolução de MIME prioriza candidatos H.264/`avc1` antes de WebM,
+  - quando MP4/H.264 não é suportado no navegador, retorna erro explícito orientando alternativa (Safari/Edge ou GIF).
 - Ports/alças refinados: sem cantos no topo/base, maior densidade de encaixes por tamanho, bolinhas menores e mais discretas.
 - Confete do player ficou mais discreto e local ao componente alvo (raio menor, menos partículas, bursts mais curtos).
 - DSL com assistência do Codex: instrução customizada, execução via endpoint `/api/codex/dsl-assist`, reaproveitamento de `threadId` e ação para limpar contexto do thread.

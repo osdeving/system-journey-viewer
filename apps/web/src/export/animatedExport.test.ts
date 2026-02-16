@@ -24,7 +24,7 @@ describe('animated export helpers', () => {
     const resolved = resolveVideoMimeType((mime) => mime.includes('mp4'))
     expect(resolved).toEqual({
       extension: 'mp4',
-      mimeType: 'video/mp4;codecs=h264',
+      mimeType: 'video/mp4;codecs=avc1.42E01E',
     })
   })
 
@@ -32,7 +32,26 @@ describe('animated export helpers', () => {
     const resolved = resolveVideoMimeType((mime) => mime.startsWith('video/webm'))
     expect(resolved).toEqual({
       extension: 'webm',
-      mimeType: 'video/webm;codecs=vp9',
+      mimeType: 'video/webm;codecs=vp8',
+    })
+  })
+
+  it('returns null for strict mp4 request when only webm is supported', () => {
+    const resolved = resolveVideoMimeType((mime) => mime.startsWith('video/webm'), {
+      preferredExtension: 'mp4',
+      allowFallback: false,
+    })
+    expect(resolved).toBeNull()
+  })
+
+  it('allows webm fallback for preferred mp4 when fallback is enabled', () => {
+    const resolved = resolveVideoMimeType((mime) => mime.startsWith('video/webm'), {
+      preferredExtension: 'mp4',
+      allowFallback: true,
+    })
+    expect(resolved).toEqual({
+      extension: 'webm',
+      mimeType: 'video/webm;codecs=vp8',
     })
   })
 

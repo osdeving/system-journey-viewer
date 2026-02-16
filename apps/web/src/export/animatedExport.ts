@@ -66,6 +66,11 @@ export interface VideoMimeSelection {
   mimeType: string
 }
 
+interface ResolveVideoMimeTypeOptions {
+  preferredExtension?: VideoExtension
+  allowFallback?: boolean
+}
+
 interface CaptureFrameLoopOptions {
   durationMs: number
   fps: number
@@ -95,6 +100,8 @@ export interface ExportAnimatedVideoOptions {
   resolveBaseKey: () => string
   filenameBase?: string
   fps?: number
+  preferredExtension?: VideoExtension
+  allowFallback?: boolean
 }
 
 export interface ExportAnimatedSvgOptions {
@@ -127,14 +134,27 @@ export const resolveExportPlaybackSpeedMs = (
 
 export const resolveVideoMimeType = (
   isSupported: (mimeType: string) => boolean,
+  options: ResolveVideoMimeTypeOptions = {},
 ): VideoMimeSelection | null => {
-  const orderedCandidates: VideoMimeSelection[] = [
+  const preferredExtension = options.preferredExtension ?? 'mp4'
+  const allowFallback = options.allowFallback ?? true
+  const mp4Candidates: VideoMimeSelection[] = [
+    { extension: 'mp4', mimeType: 'video/mp4;codecs=avc1.42E01E' },
+    { extension: 'mp4', mimeType: 'video/mp4;codecs=avc1.4D401F' },
+    { extension: 'mp4', mimeType: 'video/mp4;codecs=avc1' },
     { extension: 'mp4', mimeType: 'video/mp4;codecs=h264' },
     { extension: 'mp4', mimeType: 'video/mp4' },
-    { extension: 'webm', mimeType: 'video/webm;codecs=vp9' },
+  ]
+  const webmCandidates: VideoMimeSelection[] = [
     { extension: 'webm', mimeType: 'video/webm;codecs=vp8' },
+    { extension: 'webm', mimeType: 'video/webm;codecs=vp9' },
     { extension: 'webm', mimeType: 'video/webm' },
   ]
+  const preferredCandidates = preferredExtension === 'webm' ? webmCandidates : mp4Candidates
+  const fallbackCandidates = preferredExtension === 'webm' ? mp4Candidates : webmCandidates
+  const orderedCandidates = allowFallback
+    ? [...preferredCandidates, ...fallbackCandidates]
+    : preferredCandidates
   return orderedCandidates.find((candidate) => isSupported(candidate.mimeType)) ?? null
 }
 
@@ -762,12 +782,22 @@ export const exportAnimatedJourneyVideo = async ({
   resolveBaseKey,
   filenameBase,
   fps = DEFAULT_FRAME_RATE_VIDEO,
+  preferredExtension = 'mp4',
+  allowFallback = true,
 }: ExportAnimatedVideoOptions): Promise<VideoMimeSelection> => {
   if (typeof MediaRecorder === 'undefined') {
     throw new Error('Seu navegador não suporta export de vídeo via MediaRecorder.')
   }
-  const mime = resolveVideoMimeType((candidate) => MediaRecorder.isTypeSupported(candidate))
+  const mime = resolveVideoMimeType(
+    (candidate) => MediaRecorder.isTypeSupported(candidate),
+    { preferredExtension, allowFallback },
+  )
   if (!mime) {
+    if (preferredExtension === 'mp4') {
+      throw new Error(
+        'Este navegador não suporta gravação MP4/H.264. Para vídeo compatível com mobile, exporte em Safari/Edge ou use GIF.',
+      )
+    }
     throw new Error('Navegador sem suporte para codecs de vídeo compatíveis (MP4/WebM).')
   }
 

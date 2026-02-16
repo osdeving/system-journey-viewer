@@ -166,6 +166,26 @@
 - `npm --workspace @sjv/web run test:run`
 - `npm --workspace @sjv/web run build`
 
+
+- Ajuste incremental (`tmp/ai/20260216-1018-mobile-video-compat`):
+  - Export de vídeo MP4 ficou estrito para evitar “falso MP4”:
+    - botão `Exportar MP4` agora solicita codec/container MP4 com fallback desativado,
+    - quando MP4/H.264 não for suportado no navegador, a operação falha com mensagem explícita e acionável.
+  - Seleção de MIME para vídeo refinada com prioridade real de compatibilidade MP4/H.264:
+    - adicionados candidatos `avc1` (`video/mp4;codecs=avc1...`) antes de WebM,
+    - ordem WebM também ajustada para `vp8` antes de `vp9` quando aplicável.
+  - Resultado prático:
+    - reduz risco de exportar WebM em botão MP4 e só descobrir incompatibilidade no mobile depois.
+  - Cobertura de teste expandida para os novos cenários:
+    - resolução estrita sem fallback,
+    - fallback habilitado opcional.
+
+### Validação executada (ajuste mobile-video-compat)
+
+- `npm --workspace @sjv/web run lint`
+- `npm --workspace @sjv/web run test:run`
+- `npm --workspace @sjv/web run build`
+
 ## 2026-02-13
 
 - Integração do Codex SDK no fluxo do editor DSL via gateway server-side:

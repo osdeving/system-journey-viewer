@@ -1,5 +1,5 @@
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import type { PointerEvent as ReactPointerEvent } from 'react'
+import type { ChangeEvent, PointerEvent as ReactPointerEvent } from 'react'
 import confetti from 'canvas-confetti'
 import type { Monaco } from '@monaco-editor/react'
 import {
@@ -46,6 +46,13 @@ import {
   resolveJourneyAnimationDurationMs,
 } from './export/animatedExport'
 import { exportPdf, exportPng, exportSvg } from './export/exporters'
+import {
+  buildWorkspaceFilename,
+  parseWorkspaceSnapshotFile,
+  serializeWorkspaceSnapshotFile,
+} from './file/workspaceFile'
+import { BLANK_WORKSPACE_VIEW_ID, createBlankWorkspace } from './model/blankWorkspace'
+import type { EditorSnapshot } from './model/types'
 import { nodePresetsByCategory, protocolPresets, resolveNodePreset } from './presets/catalog'
 import { useEditorStore } from './store/useEditorStore'
 
@@ -59,6 +66,7 @@ const MIN_JOURNEY_HEIGHT = 160
 const TOPBAR_HEIGHT = 80
 const MIN_CANVAS_HEIGHT = 220
 const MIN_DOCK_HEIGHT = 260
+const DEFAULT_FILE_VIEWPORT = { x: 100, y: 80, zoom: 1 }
 const DEFAULT_NODE_COLOR_PRESETS = [
   '#ffffff',
   '#dbeafe',
@@ -119,6 +127,7 @@ const resolvePlayerAnimationPreset = (
 function App() {
   const layoutRef = useRef<HTMLDivElement | null>(null)
   const desktopMenuBarRef = useRef<HTMLDivElement | null>(null)
+  const snapshotFileInputRef = useRef<HTMLInputElement | null>(null)
   const canvasPanelRef = useRef<HTMLElement | null>(null)
   const dslRestoreHeightRef = useRef<number | null>(null)
   const previousViewIdRef = useRef<string | null>(null)
@@ -423,6 +432,84 @@ function App() {
     setOpenDesktopMenu(null)
   }
 
+  const setTransientStatus = useCallback((message: string, timeoutMs = 2800) => {
+    setExportStatus(message)
+    window.setTimeout(() => setExportStatus(null), timeoutMs)
+  }, [])
+
+  const buildEditorSnapshot = useCallback(
+    (): EditorSnapshot => ({
+      workspace,
+      currentViewId,
+      viewport,
+    }),
+    [currentViewId, viewport, workspace],
+  )
+
+  const saveWorkspaceFile = useCallback(() => {
+    try {
+      const snapshot = buildEditorSnapshot()
+      const payload = serializeWorkspaceSnapshotFile(snapshot)
+      const filename = buildWorkspaceFilename(snapshot.workspace.workspace.name)
+      const blob = new Blob([payload], { type: 'application/json;charset=utf-8' })
+      const objectUrl = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = objectUrl
+      link.download = filename
+      document.body.append(link)
+      link.click()
+      link.remove()
+      URL.revokeObjectURL(objectUrl)
+      setExportError(null)
+      setTransientStatus(`Workspace file saved: ${filename}`)
+    } catch (error) {
+      setExportError(error instanceof Error ? error.message : 'Failed to save workspace file.')
+    }
+  }, [buildEditorSnapshot, setTransientStatus])
+
+  const createNewWorkspaceFile = useCallback(() => {
+    const shouldCreate = window.confirm(
+      'Create a new workspace? The current canvas state will be replaced in the editor.',
+    )
+    if (!shouldCreate) {
+      return
+    }
+    const nextWorkspace = createBlankWorkspace()
+    replaceWorkspace(nextWorkspace, BLANK_WORKSPACE_VIEW_ID)
+    setViewport(DEFAULT_FILE_VIEWPORT)
+    setExportError(null)
+    setTransientStatus('New workspace created.')
+  }, [replaceWorkspace, setViewport, setTransientStatus])
+
+  const openWorkspaceFilePicker = useCallback(() => {
+    snapshotFileInputRef.current?.click()
+  }, [])
+
+  const onWorkspaceFileInputChange = useCallback(
+    async (event: ChangeEvent<HTMLInputElement>) => {
+      const input = event.currentTarget
+      const selectedFile = input.files?.[0]
+      if (!selectedFile) {
+        return
+      }
+      try {
+        const payload = await selectedFile.text()
+        const snapshot = parseWorkspaceSnapshotFile(payload)
+        replaceWorkspace(snapshot.workspace, snapshot.currentViewId)
+        setViewport(snapshot.viewport)
+        setExportError(null)
+        setTransientStatus(`Workspace file loaded: ${selectedFile.name}`)
+      } catch (error) {
+        setExportError(
+          error instanceof Error ? error.message : 'Failed to load workspace file.',
+        )
+      } finally {
+        input.value = ''
+      }
+    },
+    [replaceWorkspace, setViewport, setTransientStatus],
+  )
+
   const moveDockToRight = () => {
     setDockPosition('right')
     setDockCollapsed(false)
@@ -648,6 +735,62 @@ function App() {
       window.removeEventListener('keydown', onWindowKeyDown)
     }
   }, [openDesktopMenu])
+
+  useEffect(() => {
+    const onFileShortcut = (event: KeyboardEvent) => {
+      if (isTextInputTarget(event.target)) {
+        return
+      }
+      if (event.altKey) {
+        return
+      }
+      const hasCommand = event.ctrlKey || event.metaKey
+      if (!hasCommand) {
+        return
+      }
+
+      const key = event.key.toLowerCase()
+
+      if (key === 'n') {
+        event.preventDefault()
+        createNewWorkspaceFile()
+        return
+      }
+      if (key === 'o') {
+        event.preventDefault()
+        openWorkspaceFilePicker()
+        return
+      }
+      if (key === 's' && event.shiftKey) {
+        event.preventDefault()
+        saveWorkspaceFile()
+        return
+      }
+      if (key === 's') {
+        event.preventDefault()
+        persist()
+        setExportError(null)
+        setTransientStatus('Workspace snapshot saved in browser storage.')
+        return
+      }
+      if (key === 'r') {
+        event.preventDefault()
+        hydrate()
+        setExportError(null)
+        setTransientStatus('Workspace reloaded from browser storage.')
+      }
+    }
+
+    window.addEventListener('keydown', onFileShortcut)
+    return () => window.removeEventListener('keydown', onFileShortcut)
+  }, [
+    createNewWorkspaceFile,
+    hydrate,
+    openWorkspaceFilePicker,
+    persist,
+    saveWorkspaceFile,
+    setTransientStatus,
+  ])
 
   useEffect(() => {
     if (immersiveMode) {
@@ -1359,6 +1502,15 @@ function App() {
       } ${theme === 'dark' ? 'theme-dark' : 'theme-light'}`}
       style={layoutStyle}
     >
+      <input
+        ref={snapshotFileInputRef}
+        type="file"
+        accept=".json,.sjv,.sjv.json,application/json"
+        hidden
+        onChange={(event) => {
+          void onWorkspaceFileInputChange(event)
+        }}
+      />
       <header className="topbar">
         <div className="topbar-meta">
           <div className="topbar-brand-row">
@@ -1410,12 +1562,36 @@ function App() {
               </button>
               {openDesktopMenu === 'file' ? (
                 <div id="desktop-menu-file" className="desktop-menu-list" role="menu" aria-label="File menu">
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => runDesktopMenuAction(() => createNewWorkspaceFile())}
+                  >
+                    <span>New File</span>
+                    <kbd>Ctrl+N</kbd>
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => runDesktopMenuAction(() => openWorkspaceFilePicker())}
+                  >
+                    <span>Open File...</span>
+                    <kbd>Ctrl+O</kbd>
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => runDesktopMenuAction(() => saveWorkspaceFile())}
+                  >
+                    <span>Save File...</span>
+                    <kbd>Ctrl+Shift+S</kbd>
+                  </button>
                   <button type="button" role="menuitem" onClick={() => runDesktopMenuAction(() => persist())}>
-                    <span>Save</span>
+                    <span>Save Snapshot</span>
                     <kbd>Ctrl+S</kbd>
                   </button>
                   <button type="button" role="menuitem" onClick={() => runDesktopMenuAction(() => hydrate())}>
-                    <span>Reload</span>
+                    <span>Reload Snapshot</span>
                     <kbd>Ctrl+R</kbd>
                   </button>
                   <button

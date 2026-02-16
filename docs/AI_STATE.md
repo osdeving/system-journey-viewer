@@ -21,6 +21,10 @@
 - Static export (`SVG`, `PNG`, `PDF`).
 - Animated export (`GIF`, `MP4`, animated `SVG`) with journey timeline playback.
 - Presentation mode with clean rendering and export-focused controls.
+- Workspace file lifecycle in-browser UI:
+  - `New File` (blank workspace),
+  - `Open File` (validated snapshot import),
+  - `Save File` (snapshot download as `.sjv.json`).
 
 ## Animation and Player State
 
@@ -45,6 +49,9 @@
 ## UI/UX State
 
 - Desktop-style menubar with controlled open/close behavior.
+- File menu now separates:
+  - local browser snapshot operations (`Save Snapshot`, `Reload Snapshot`),
+  - disk file operations (`New/Open/Save File`).
 - Dockable side panel (`Inspector` / `Journeys`) with tab drag and position switching.
 - Standard player control group with icon-based actions.
 - Monaco-based `JourneyScript` editor with custom highlighting theme.

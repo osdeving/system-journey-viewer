@@ -2,6 +2,46 @@
 
 Chronological engineering log. Entries are kept concise and focused on behavior and validation.
 
+## 2026-02-16 - Workspace file management (new/open/save)
+
+### Scope
+
+- Add disk-based workspace file operations in the web editor:
+  - create a new blank file,
+  - save current workspace snapshot to file,
+  - load workspace snapshot from file.
+
+### Changes
+
+- Added file helpers:
+  - `apps/web/src/file/workspaceFile.ts`
+    - snapshot serialization for download payload,
+    - strict snapshot parsing/validation with schema checks,
+    - workspace file naming strategy (`.sjv.json`).
+- Added blank workspace factory:
+  - `apps/web/src/model/blankWorkspace.ts`
+    - creates an empty container view workspace for `New File`.
+- Updated `apps/web/src/App.tsx`:
+  - `File` menu now includes `New File`, `Open File...`, and `Save File...`;
+  - added hidden file input workflow for loading snapshot files;
+  - added keyboard shortcuts:
+    - `Ctrl/Cmd+N` -> new file,
+    - `Ctrl/Cmd+O` -> open file,
+    - `Ctrl/Cmd+Shift+S` -> save file,
+    - existing local snapshot shortcuts kept (`Ctrl/Cmd+S`, `Ctrl/Cmd+R`).
+- Added tests:
+  - `apps/web/src/file/workspaceFile.test.ts`
+    - filename normalization,
+    - valid roundtrip parse/serialize,
+    - invalid payload handling.
+
+### Validation
+
+- `npm --workspace @sjv/web run lint`
+- `npm --workspace @sjv/web run test:run -- src/file/workspaceFile.test.ts`
+- `npm --workspace @sjv/web run test:run`
+- `npm --workspace @sjv/web run build`
+
 ## 2026-02-16 - Dependabot auto-PRs disabled
 
 ### Scope

@@ -16,6 +16,7 @@ interface JourneyEdgeProps {
   badge?: EdgeJourneyBadge
   isSelected: boolean
   isPlayerEdge: boolean
+  isFlowAnimated: boolean
   onSelect: () => void
 }
 
@@ -27,6 +28,7 @@ export const JourneyEdge = ({
   badge,
   isSelected,
   isPlayerEdge,
+  isFlowAnimated,
   onSelect,
 }: JourneyEdgeProps) => {
   const pathId = `${edge.id}_path`
@@ -47,7 +49,7 @@ export const JourneyEdge = ({
         d={path}
         fill="none"
         markerEnd="url(#edge-arrow)"
-        className={resolveJourneyEdgeClassName({ isSelected, isPlayerEdge })}
+        className={resolveJourneyEdgeClassName({ isSelected, isPlayerEdge, isFlowAnimated })}
       />
       <text className="edge-label">
         <textPath href={`#${pathId}`} startOffset="50%">

@@ -304,21 +304,22 @@ export const DiagramCanvas = () => {
   const canvasRef = useRef<HTMLDivElement | null>(null)
   const trailCanvasRef = useRef<HTMLCanvasElement | null>(null)
   const trailCanvasMetricsRef = useRef({ width: 0, height: 0, pixelRatio: 1 })
+  const viewportRef = useRef({ x: 0, y: 0, zoom: 1 })
   const trailsRef = useRef<TrailParticle[]>([])
   const lastFrameTsRef = useRef<number | null>(null)
   const nextTrailIdRef = useRef(1)
   const stepKeyRef = useRef<string | null>(null)
   const stepStartTsRef = useRef<number | null>(null)
   const stepArrivalStartTsRef = useRef<number | null>(null)
+  const playerStepArrivedRef = useRef(false)
   const stepAdvanceRequestedRef = useRef(false)
   const orbPositionRef = useRef<{ x: number; y: number } | null>(null)
   const lastTrailPositionRef = useRef<{ x: number; y: number } | null>(null)
-  const travelProgressRef = useRef(0)
   const [connectionPreview, setConnectionPreview] = useState<DragPreviewState>(null)
   const [hoverCursor, setHoverCursor] = useState<string | null>(null)
   const [dragCursor, setDragCursor] = useState<string | null>(null)
   const [hoveredAnchorKey, setHoveredAnchorKey] = useState<string | null>(null)
-  const [travelProgressForUi, setTravelProgressForUi] = useState(0)
+  const [playerStepArrivedForUi, setPlayerStepArrivedForUi] = useState(false)
 
   const workspace = useEditorStore((state) => state.workspace)
   const viewId = useEditorStore((state) => state.currentViewId)
@@ -346,6 +347,10 @@ export const DiagramCanvas = () => {
   const connectPendingTo = useEditorStore((state) => state.connectPendingTo)
   const cancelPendingConnection = useEditorStore((state) => state.cancelPendingConnection)
   const reconnectEdgeEndpoint = useEditorStore((state) => state.reconnectEdgeEndpoint)
+
+  useEffect(() => {
+    viewportRef.current = viewport
+  }, [viewport])
 
   const currentView = workspace.views[viewId]
   const gridEnabled = workspace.settings.grid
@@ -519,6 +524,23 @@ export const DiagramCanvas = () => {
     return edge ? resolveCurveFromEdge(edge, workspace.nodes) : null
   }, [currentPlayerEdgeId, workspace.edges, workspace.nodes])
   const currentPlayerColor = playerJourney?.colorKey ?? '#f59e0b'
+  const animatedEdgeIdSet = useMemo(() => {
+    const ids = new Set<string>()
+    if (selectedEdgeId) {
+      ids.add(selectedEdgeId)
+    }
+    if (currentPlayerEdgeId) {
+      ids.add(currentPlayerEdgeId)
+    }
+    const contextJourneyId = journeyFilterId ?? activeJourneyId
+    if (contextJourneyId) {
+      const journey = workspace.journeys[contextJourneyId]
+      for (const step of journey?.steps ?? []) {
+        ids.add(step.edgeId)
+      }
+    }
+    return ids
+  }, [activeJourneyId, currentPlayerEdgeId, journeyFilterId, selectedEdgeId, workspace.journeys])
 
   const highlightedNodeIds = useMemo(() => {
     if (!playerHighlightNodes || !currentPlayerEdgeId) {
@@ -529,7 +551,7 @@ export const DiagramCanvas = () => {
       return new Set<string>()
     }
     const set = new Set<string>([edge.from.nodeId])
-    if (!playerIsRunning || travelProgressForUi >= 1) {
+    if (!playerIsRunning || playerStepArrivedForUi) {
       set.add(edge.to.nodeId)
     }
     for (const nodeId of currentPlayerStep?.highlightNodes ?? []) {
@@ -541,7 +563,7 @@ export const DiagramCanvas = () => {
     currentPlayerStep?.highlightNodes,
     playerHighlightNodes,
     playerIsRunning,
-    travelProgressForUi,
+    playerStepArrivedForUi,
     workspace.edges,
   ])
 
@@ -572,15 +594,15 @@ export const DiagramCanvas = () => {
     stepKeyRef.current = null
     stepStartTsRef.current = null
     stepArrivalStartTsRef.current = null
+    playerStepArrivedRef.current = false
     stepAdvanceRequestedRef.current = false
-    travelProgressRef.current = 0
     connectionDragRef.current = null
     edgeReconnectRef.current = null
     let resetPreviewFrame = window.requestAnimationFrame(() => {
       setConnectionPreview(null)
     })
     let resetFrame = window.requestAnimationFrame(() => {
-      setTravelProgressForUi(0)
+      setPlayerStepArrivedForUi(false)
     })
     let resetCursorFrame = window.requestAnimationFrame(() => {
       setHoverCursor(null)
@@ -662,13 +684,6 @@ export const DiagramCanvas = () => {
       return
     }
 
-    const updateUiProgress = (nextProgress: number) => {
-      if (Math.abs(nextProgress - travelProgressRef.current) >= 0.02 || nextProgress === 0 || nextProgress === 1) {
-        travelProgressRef.current = nextProgress
-        setTravelProgressForUi(nextProgress)
-      }
-    }
-
     let rafId: number | null = null
     const drawFrame = (timestamp: number) => {
       const metrics = trailCanvasMetricsRef.current
@@ -680,7 +695,8 @@ export const DiagramCanvas = () => {
       const previousTs = lastFrameTsRef.current ?? timestamp
       const dt = Math.max(0, timestamp - previousTs)
       lastFrameTsRef.current = timestamp
-      const safeZoom = Math.max(viewport.zoom, 0.25)
+      const viewportSnapshot = viewportRef.current
+      const safeZoom = Math.max(viewportSnapshot.zoom, 0.25)
       const inverseSafeZoom = 1 / safeZoom
 
       const stepKey = currentPlayerEdgeId
@@ -691,10 +707,11 @@ export const DiagramCanvas = () => {
         stepKeyRef.current = stepKey
         stepStartTsRef.current = timestamp
         stepArrivalStartTsRef.current = null
+        playerStepArrivedRef.current = false
         stepAdvanceRequestedRef.current = false
         orbPositionRef.current = null
         lastTrailPositionRef.current = null
-        updateUiProgress(0)
+        setPlayerStepArrivedForUi(false)
       }
 
       let travelProgress = 0
@@ -702,6 +719,11 @@ export const DiagramCanvas = () => {
       if (playerIsRunning && stepKey && currentPlayerCurve) {
         const elapsed = Math.max(0, timestamp - (stepStartTsRef.current ?? timestamp))
         travelProgress = resolveTravelProgress(elapsed, playerSpeedMs)
+        const hasArrived = travelProgress >= 1
+        if (playerStepArrivedRef.current !== hasArrived) {
+          playerStepArrivedRef.current = hasArrived
+          setPlayerStepArrivedForUi(hasArrived)
+        }
         const arrivalState = resolveArrivalAdvance({
           travelProgress,
           nowMs: timestamp,
@@ -741,10 +763,12 @@ export const DiagramCanvas = () => {
         orbPositionRef.current = null
         lastTrailPositionRef.current = null
         stepArrivalStartTsRef.current = null
+        if (playerStepArrivedRef.current) {
+          playerStepArrivedRef.current = false
+          setPlayerStepArrivedForUi(false)
+        }
         stepAdvanceRequestedRef.current = false
       }
-
-      updateUiProgress(travelProgress)
 
       context.setTransform(metrics.pixelRatio, 0, 0, metrics.pixelRatio, 0, 0)
       context.clearRect(0, 0, metrics.width, metrics.height)
@@ -752,12 +776,12 @@ export const DiagramCanvas = () => {
       context.save()
       context.globalCompositeOperation = 'screen'
       context.setTransform(
-        metrics.pixelRatio * viewport.zoom,
+        metrics.pixelRatio * viewportSnapshot.zoom,
         0,
         0,
-        metrics.pixelRatio * viewport.zoom,
-        metrics.pixelRatio * viewport.x,
-        metrics.pixelRatio * viewport.y,
+        metrics.pixelRatio * viewportSnapshot.zoom,
+        metrics.pixelRatio * viewportSnapshot.x,
+        metrics.pixelRatio * viewportSnapshot.y,
       )
 
       if (playerIsRunning && currentPlayerCurve) {
@@ -829,10 +853,8 @@ export const DiagramCanvas = () => {
         rafId = window.requestAnimationFrame(drawFrame)
       } else {
         lastFrameTsRef.current = null
-        if (travelProgressRef.current !== 0) {
-          travelProgressRef.current = 0
-          setTravelProgressForUi(0)
-        }
+        playerStepArrivedRef.current = false
+        setPlayerStepArrivedForUi(false)
       }
     }
 
@@ -855,9 +877,6 @@ export const DiagramCanvas = () => {
     playerStepIndex,
     stepPlayer,
     viewId,
-    viewport.x,
-    viewport.y,
-    viewport.zoom,
   ])
 
   const clientToWorld = (clientX: number, clientY: number): { x: number; y: number } | null => {
@@ -1503,6 +1522,7 @@ export const DiagramCanvas = () => {
               badge={edgeBadgeById[edge.id]}
               isSelected={edge.id === selectedEdgeId}
               isPlayerEdge={edge.id === currentPlayerEdgeId}
+              isFlowAnimated={animatedEdgeIdSet.has(edge.id)}
               onSelect={() => selectEdge(edge.id)}
             />
           ))}

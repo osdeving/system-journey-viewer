@@ -60,6 +60,12 @@
   - resize do canvas movido para `ResizeObserver` + `window.resize` (fora do loop de animação),
   - limite de `devicePixelRatio` no overlay para reduzir fill-rate em telas HiDPI,
   - trilhas com trim/compactação in-place (sem `slice/filter` por frame) para reduzir GC.
+- Player UI desacoplada de progresso contínuo:
+  - highlight do destino agora atualiza em transição de chegada (booleano), sem `setState` de progresso a cada frame.
+- Hold de chegada reduzido para resposta mais fluida entre setas (`STEP_ARRIVAL_HOLD_MS = 40`).
+- Animação de dash nas arestas ficou contextual:
+  - todas as setas seguem tracejadas,
+  - animação contínua aplicada só em arestas ativas (player/filtro/jornada ativa/selecionada), reduzindo custo de paint.
 - Layout ganhou preset `Presentation mode` (`P`) + microinterações de abertura/fechamento de painéis (palette, dock, workbench).
 - Ports/alças refinados: sem cantos no topo/base, maior densidade de encaixes por tamanho, bolinhas menores e mais discretas.
 - Confete do player ficou mais discreto e local ao componente alvo (raio menor, menos partículas, bursts mais curtos).

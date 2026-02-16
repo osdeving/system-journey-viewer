@@ -43,6 +43,7 @@ describe('App boundary styles', () => {
 
   it('includes flow animation for player feedback', () => {
     expect(appCss).toContain('.edge-flowing')
+    expect(appCss).toContain('.edge-flowing-animated')
     expect(appCss).toContain('@keyframes edge-flow-dash')
     expect(appCss).not.toContain('.node-group-impact')
     expect(appCss).not.toContain('@keyframes node-impact-shake')
@@ -50,6 +51,7 @@ describe('App boundary styles', () => {
 
   it('uses seamless dashed animation settings for edge flow', () => {
     expect(appCss).toMatch(/\.edge-flowing\s*\{[^}]*stroke-dasharray:\s*6 6;[^}]*\}/s)
+    expect(appCss).toMatch(/\.edge-flowing-animated\s*\{[^}]*animation:\s*edge-flow-dash\s+0.9s\s+linear\s+infinite;[^}]*\}/s)
     expect(appCss).toContain('stroke-dashoffset: -12;')
   })
 

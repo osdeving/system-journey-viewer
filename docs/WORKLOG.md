@@ -382,3 +382,21 @@
 - `npm --workspace @sjv/web run lint`
 - `npm --workspace @sjv/web run test:run`
 - `npm --workspace @sjv/web run build`
+
+
+- Ajuste incremental (`tmp/ai/20260216-0814-player-smooth-perf`):
+  - Player deixou de publicar progresso contínuo em state React por frame no `DiagramCanvas`.
+  - Highlight do destino agora atualiza apenas na transição de chegada (`false -> true`) por step, reduzindo churn de render no componente.
+  - Loop de desenho passou a ler viewport por `ref` (sincronizado em effect), evitando reinstanciar o effect principal de animação em cada pan/zoom.
+  - Hold de chegada foi reduzido para `40ms`, deixando a transição entre arestas mais responsiva sem perder semântica de “chegada”.
+  - Política de tracejado ajustada para performance:
+    - arestas continuam tracejadas por padrão,
+    - animação de dash fica ativa apenas em arestas de contexto (player edge, filtro/jornada ativa ou edge selecionada).
+  - `JourneyEdge`/helper de classes evoluídos para separar `edge-flowing` (estático) de `edge-flowing-animated` (animado).
+  - Testes atualizados para refletir as novas classes e contratos de estilo.
+
+### Validação executada (ajuste player-smooth-perf)
+
+- `npm --workspace @sjv/web run lint`
+- `npm --workspace @sjv/web run test:run`
+- `npm --workspace @sjv/web run build`

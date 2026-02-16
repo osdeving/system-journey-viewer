@@ -713,6 +713,9 @@
 
 .edge-flowing {
   stroke-dasharray: 6 6;
+}
+
+.edge-flowing-animated {
   animation: edge-flow-dash 0.9s linear infinite;
   will-change: stroke-dashoffset;
 }

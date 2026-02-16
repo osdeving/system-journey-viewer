@@ -36,6 +36,7 @@ describe('App boundary styles', () => {
     expect(appCss).toContain('.journey-side-player')
     expect(appCss).toContain('.journey-list-sidebar')
     expect(appCss).toContain('.journey-timeline-toolbar')
+    expect(appCss).toContain('.journey-item-edge-drop-target')
     expect(appCss).toContain('.dsl-monaco-editor')
     expect(appCss).toContain('.dsl-panel-maximized .dsl-monaco-editor')
     expect(appCss).toContain('.dsl-codex-instruction')

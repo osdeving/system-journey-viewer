@@ -142,6 +142,7 @@ const FINAL_STEP_ARRIVAL_HOLD_MS = 220
 interface DiagramCanvasProps {
   presentationMode?: boolean
   forceGridHidden?: boolean
+  onEdgePointerStart?: (edgeId: string) => void
 }
 
 const resolveCurveFromEdge = (
@@ -318,6 +319,7 @@ const hexToRgba = (color: string, alpha: number): string => {
 export const DiagramCanvas = ({
   presentationMode = false,
   forceGridHidden = false,
+  onEdgePointerStart,
 }: DiagramCanvasProps = {}) => {
   const panStateRef = useRef<PanState | null>(null)
   const nodeDragStateRef = useRef<NodeDragState | null>(null)
@@ -366,6 +368,7 @@ export const DiagramCanvas = ({
   const selectNode = useEditorStore((state) => state.selectNode)
   const selectEdge = useEditorStore((state) => state.selectEdge)
   const openDrilldown = useEditorStore((state) => state.openDrilldown)
+  const createDrilldownForNode = useEditorStore((state) => state.createDrilldownForNode)
   const setNodeBounds = useEditorStore((state) => state.setNodeBounds)
   const setNodesBounds = useEditorStore((state) => state.setNodesBounds)
   const addNode = useEditorStore((state) => state.addNode)
@@ -1671,6 +1674,8 @@ export const DiagramCanvas = ({
               isSelected={edge.id === selectedEdgeId}
               isPlayerEdge={edge.id === currentPlayerEdgeId}
               isFlowAnimated={animatedEdgeIdSet.has(edge.id)}
+              isInteractive={!presentationMode}
+              onEdgePointerStart={onEdgePointerStart}
               onSelect={() => {
                 if (!presentationMode) {
                   selectEdge(edge.id)
@@ -1764,7 +1769,12 @@ export const DiagramCanvas = ({
                     setHoverCursor(null)
                   }
                 }}
-                onDoubleClick={() => {
+                onDoubleClick={(event) => {
+                  const modifiersPressed = (event.ctrlKey || event.metaKey) && event.altKey
+                  if (!presentationMode && modifiersPressed) {
+                    createDrilldownForNode(node.id)
+                    return
+                  }
                   if (node.drilldownRef) {
                     openDrilldown(node.id)
                   }

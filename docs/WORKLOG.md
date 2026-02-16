@@ -2,6 +2,41 @@
 
 Chronological engineering log. Entries are kept concise and focused on behavior and validation.
 
+## 2026-02-16 - Journey authoring UX and drilldown creation sync
+
+### Scope
+
+- Improve journey authoring directly from canvas edges.
+- Allow timeline step reordering with automatic renumbering.
+- Add shortcut-driven drilldown creation during modeling.
+- Keep journey/drilldown changes synchronized with DSL roundtrips.
+- Improve file save workflow with reusable handle on `Ctrl/Cmd+S`.
+
+### Changes
+
+- Updated store APIs in `apps/web/src/store/useEditorStore.ts`:
+  - added `createDrilldownForNode(nodeId)` to create/open detail views and convert source node to a boundary/drilldown entry point;
+  - added `reorderJourneyStep(journeyId, edgeId, targetEdgeId)` and normalized step numbering after add/remove/reorder operations.
+- Updated canvas interactions:
+  - `apps/web/src/components/JourneyEdge.tsx` now emits edge pointer-start callbacks for journey assignment gestures;
+  - `apps/web/src/components/DiagramCanvas.tsx` now supports `Ctrl/Cmd+Alt+double-click` to create a drilldown and immediately open it.
+- Updated app-level UX in `apps/web/src/App.tsx`:
+  - edge-to-journey assignment by dragging/releasing an edge onto a journey item;
+  - journey timeline step drag-and-drop reorder in the drawer;
+  - `Ctrl/Cmd+S` now reuses a previous file handle when available (save), while `Ctrl/Cmd+Shift+S` forces Save As;
+  - file open/save flow now prefers File System Access API and falls back to browser download/input.
+- Updated UI styles/tests:
+  - `apps/web/src/App.css` and `apps/web/src/App.styles.test.ts` for edge-drop-target and draggable-step affordances.
+- Added sync regression tests:
+  - `apps/web/src/dsl-lite/journeyDslSync.test.ts` for journey order and drilldown persistence across DSL conversion.
+  - expanded `apps/web/src/store/useEditorStore.test.ts` coverage for journey reordering and drilldown creation behavior.
+
+### Validation
+
+- `npm --workspace @sjv/web run lint`
+- `npm --workspace @sjv/web run test:run`
+- `npm --workspace @sjv/web run build`
+
 ## 2026-02-16 - Infra node shape switched from diamond to hexagon
 
 ### Scope

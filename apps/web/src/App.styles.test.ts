@@ -73,6 +73,8 @@ describe('App boundary styles', () => {
     expect(appCss).toContain('.app-logo-badge')
     expect(appCss).toContain('.desktop-menu-list')
     expect(appCss).toContain('.node-border-hitarea')
+    expect(appCss).toContain('.node-connection-target')
+    expect(appCss).toContain('.node-port-highlight')
     expect(appCss).toContain('.edge-anchor-handle')
     expect(appCss).toContain('.edge-anchor-handle-active')
   })

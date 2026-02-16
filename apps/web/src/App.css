@@ -702,6 +702,12 @@
   stroke-width: 2.4;
 }
 
+.node-connection-target {
+  stroke: var(--sjv-edge-preview);
+  stroke-width: 2.5;
+  filter: drop-shadow(0 0 8px color-mix(in srgb, var(--sjv-edge-preview) 50%, transparent));
+}
+
 .node-drilldown {
   stroke-dasharray: 6 4;
 }
@@ -730,6 +736,13 @@
   stroke: color-mix(in srgb, var(--sjv-node-stroke) 84%, #0f172a);
   stroke-width: 1.2;
   filter: drop-shadow(0 0 2px rgba(14, 165, 233, 0.22));
+}
+
+.node-port-highlight {
+  fill: color-mix(in srgb, var(--sjv-edge-preview) 66%, #ffffff);
+  stroke: color-mix(in srgb, var(--sjv-edge-preview) 82%, #ffffff);
+  stroke-width: 1.8;
+  filter: drop-shadow(0 0 6px color-mix(in srgb, var(--sjv-edge-preview) 65%, transparent));
 }
 
 .node-border-hitarea {

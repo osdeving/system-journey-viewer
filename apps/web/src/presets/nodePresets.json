@@ -60,6 +60,16 @@
     "defaultHeight": 90
   },
   {
+    "id": "load-balancer",
+    "kind": "load-balancer",
+    "label": "Load Balancer",
+    "category": "Infra",
+    "defaultTechId": "load-balancer",
+    "iconKey": "gateway",
+    "defaultWidth": 210,
+    "defaultHeight": 100
+  },
+  {
     "id": "gateway",
     "kind": "gateway",
     "label": "API Gateway",

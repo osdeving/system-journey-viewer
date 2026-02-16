@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  resolveDiamondShape,
   resolveDbCylinderShape,
   resolveQueueCylinderShape,
 } from './nodeShapePaths'
@@ -31,5 +32,17 @@ describe('node shape paths', () => {
     expect(shape.capRx).toBeCloseTo(57.6, 1)
     expect(shape.capRx).toBeLessThan(160)
     expect(shape.rearInnerArcPath).toContain('0 0 1')
+  })
+
+  it('builds a closed diamond path for infra nodes', () => {
+    const shape = resolveDiamondShape(220, 120)
+
+    expect(shape.shellPath).toBe('M 110 0 L 220 60 L 110 120 L 0 60 Z')
+  })
+
+  it('supports inset for interaction overlays', () => {
+    const shape = resolveDiamondShape(200, 100, 6)
+
+    expect(shape.shellPath).toBe('M 100 6 L 194 50 L 100 94 L 6 50 Z')
   })
 })

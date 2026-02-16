@@ -603,7 +603,6 @@ export const useEditorStore = create<EditorState>()(
       set((state) => {
         state.pendingConnectionFrom = nodeId
         state.pendingConnectionPortId = portId ?? null
-        state.activeTool = 'connector'
       })
     },
     connectPendingTo: (targetNodeId, targetPortId) => {

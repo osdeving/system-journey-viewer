@@ -13,6 +13,7 @@ export type NodeKind =
   | 'adapter-out'
   | 'db'
   | 'queue'
+  | 'load-balancer'
   | 'gateway'
   | 'security'
 

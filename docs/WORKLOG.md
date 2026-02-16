@@ -2,6 +2,21 @@
 
 Chronological engineering log. Entries are kept concise and focused on behavior and validation.
 
+## 2026-02-16 - Dependabot auto-PRs disabled
+
+### Scope
+
+- Stop automatic dependency update pull requests to reduce repository noise for a solo-maintainer workflow.
+
+### Changes
+
+- Removed `.github/dependabot.yml`.
+- Existing open Dependabot pull requests were previously closed.
+
+### Validation
+
+- Repository configuration change only (no runtime code path affected).
+
 ## 2026-02-16 - README demo disclaimer and Vercel build/output fixes
 
 ### Scope

@@ -76,6 +76,7 @@
   - root build now mirrors `apps/web/dist` to repository-level `dist` via `scripts/prepare-root-dist.mjs`;
   - `vercel.json` now uses `outputDirectory: "dist"` to match Vercel project defaults.
 - Build chunking was improved with lazy-loading of Monaco and manual chunk splitting in Vite config.
+- Dependabot version-update automation was disabled by removing `.github/dependabot.yml` to avoid automatic dependency PR churn in the current solo-maintainer phase.
 
 ## Suggested Next Increments
 

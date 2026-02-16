@@ -151,6 +151,21 @@
 - `npm --workspace @sjv/web run test:run`
 - `npm --workspace @sjv/web run build`
 
+
+- Ajuste incremental (`tmp/ai/20260216-1008-presentation-grid-areas-fix`):
+  - Correção estrutural do `Presentation mode` no layout CSS Grid:
+    - ao entrar em modo imersivo, o `layoutStyle` agora define também `gridTemplateAreas: 'topbar' 'main'`,
+    - remove colunas implícitas (`left/right`) que ainda eram inferidas pelo template base de 3 colunas.
+  - Efeito da correção:
+    - `main/canvas-shell/svg` passam a ocupar toda a largura disponível,
+    - elimina cenário em que o SVG ficava com largura reduzida (~300px) no lado direito e deixava vazio lateral.
+
+### Validação executada (ajuste presentation-grid-areas-fix)
+
+- `npm --workspace @sjv/web run lint`
+- `npm --workspace @sjv/web run test:run`
+- `npm --workspace @sjv/web run build`
+
 ## 2026-02-13
 
 - Integração do Codex SDK no fluxo do editor DSL via gateway server-side:

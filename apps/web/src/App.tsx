@@ -256,6 +256,7 @@ function App() {
         ? {
             gridTemplateColumns: '1fr',
             gridTemplateRows: `${TOPBAR_HEIGHT}px 1fr`,
+            gridTemplateAreas: `'topbar' 'main'`,
           }
         : {
             gridTemplateColumns: `${leftPanelVisible ? leftSidebarWidth : 0}px 1fr ${

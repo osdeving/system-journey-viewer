@@ -91,6 +91,7 @@
   - controles padrão com ícones e export animado em destaque (GIF/MP4/SVG).
 - Em `Presentation mode`, menu desktop de edição foi ocultado e os indicadores ficaram compactos para liberar largura ao canvas/player e evitar overflow horizontal.
 - Grid visual do stage foi corrigido para controle real por classe (`canvas-panel-grid-visible/hidden`), permitindo ocultação forçada no modo apresentação sem alterar preferência persistida.
+- `Presentation mode` recebeu correção de `gridTemplateAreas` no layout imersivo (`'topbar' 'main'`), removendo colunas implícitas que comprimiam o `main` e deixavam o SVG estreito no lado direito.
 - Ports/alças refinados: sem cantos no topo/base, maior densidade de encaixes por tamanho, bolinhas menores e mais discretas.
 - Confete do player ficou mais discreto e local ao componente alvo (raio menor, menos partículas, bursts mais curtos).
 - DSL com assistência do Codex: instrução customizada, execução via endpoint `/api/codex/dsl-assist`, reaproveitamento de `threadId` e ação para limpar contexto do thread.

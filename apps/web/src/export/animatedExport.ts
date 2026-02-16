@@ -8,6 +8,7 @@ const DEFAULT_FRAME_RATE_GIF = 16
 const DEFAULT_FRAME_RATE_VIDEO = 24
 const DEFAULT_BASE_REFRESH_INTERVAL_MS = 120
 const DEFAULT_TAIL_PADDING_MS = 320
+const DEFAULT_GIF_PALETTE_SAMPLE_FRAMES = 12
 const MIN_TRAVEL_DURATION_MS = 120
 const SVG_NS = 'http://www.w3.org/2000/svg'
 const XLINK_NS = 'http://www.w3.org/1999/xlink'
@@ -40,7 +41,8 @@ type CompositionRenderer = {
   context: CanvasRenderingContext2D
   width: number
   height: number
-  backgroundColor: string
+  themeMode: CanvasThemeMode
+  fallbackColor: string
   baseImage: HTMLImageElement | null
 }
 
@@ -49,7 +51,14 @@ type JourneyCurveStep = {
   path: string
 }
 
+type JourneyLoopTimeline = {
+  totalDurationMs: number
+  keyTimes: number[]
+  keyPoints: number[]
+}
+
 type VideoExtension = 'mp4' | 'webm'
+type CanvasThemeMode = 'light' | 'dark'
 
 export interface VideoMimeSelection {
   extension: VideoExtension
@@ -159,11 +168,170 @@ const cloneSvgWithInlineStyles = (svg: SVGSVGElement): SVGSVGElement => {
   return clone
 }
 
+const resolveThemeMode = (
+  svg: SVGSVGElement,
+  canvasPanel?: HTMLElement | null,
+): CanvasThemeMode => {
+  if (canvasPanel?.closest('.theme-dark')) {
+    return 'dark'
+  }
+  if (svg.closest('.theme-dark')) {
+    return 'dark'
+  }
+  if (document.querySelector('.theme-dark')) {
+    return 'dark'
+  }
+  return 'light'
+}
+
+const resolveThemeBaseColor = (mode: CanvasThemeMode): string =>
+  mode === 'dark' ? '#0b0f14' : '#eef2ff'
+
+const resolveThemeLinearStops = (
+  mode: CanvasThemeMode,
+): { start: string; end: string } => {
+  if (mode === 'dark') {
+    return {
+      start: 'rgba(17,24,36,0.92)',
+      end: 'rgba(11,15,20,0.96)',
+    }
+  }
+  return {
+    start: 'rgba(255,255,255,0.88)',
+    end: 'rgba(238,242,255,0.92)',
+  }
+}
+
+const removeGridArtifacts = (svg: SVGSVGElement): void => {
+  svg.querySelectorAll('pattern[id="grid-pattern"]').forEach((node) => {
+    node.remove()
+  })
+  svg.querySelectorAll('[fill*="grid-pattern"]').forEach((node) => {
+    node.remove()
+  })
+}
+
+const ensureSvgDefs = (svg: SVGSVGElement): SVGDefsElement => {
+  const existing = svg.querySelector('defs')
+  if (existing instanceof SVGDefsElement) {
+    return existing
+  }
+  const created = document.createElementNS(SVG_NS, 'defs')
+  svg.insertBefore(created, svg.firstChild)
+  return created
+}
+
+const createGradientStop = (
+  offset: string,
+  color: string,
+): SVGStopElement => {
+  const stop = document.createElementNS(SVG_NS, 'stop')
+  stop.setAttribute('offset', offset)
+  stop.setAttribute('stop-color', color)
+  return stop
+}
+
+const prependThemeBackground = (
+  svg: SVGSVGElement,
+  width: number,
+  height: number,
+  mode: CanvasThemeMode,
+): void => {
+  const defs = ensureSvgDefs(svg)
+  const suffix = mode === 'dark' ? 'dark' : 'light'
+  const linearId = `export-bg-linear-${suffix}`
+  const radialPrimaryId = `export-bg-radial-primary-${suffix}`
+  const radialSecondaryId = `export-bg-radial-secondary-${suffix}`
+
+  const linear = document.createElementNS(SVG_NS, 'linearGradient')
+  linear.setAttribute('id', linearId)
+  linear.setAttribute('x1', '0%')
+  linear.setAttribute('y1', '0%')
+  linear.setAttribute('x2', '0%')
+  linear.setAttribute('y2', '100%')
+  const linearStops = resolveThemeLinearStops(mode)
+  linear.appendChild(createGradientStop('0%', linearStops.start))
+  linear.appendChild(createGradientStop('100%', linearStops.end))
+
+  const primaryRadial = document.createElementNS(SVG_NS, 'radialGradient')
+  primaryRadial.setAttribute('id', radialPrimaryId)
+  primaryRadial.setAttribute('cx', mode === 'dark' ? '8%' : '-10%')
+  primaryRadial.setAttribute('cy', mode === 'dark' ? '-18%' : '-30%')
+  primaryRadial.setAttribute('r', mode === 'dark' ? '70%' : '68%')
+  primaryRadial.appendChild(
+    createGradientStop(
+      '0%',
+      mode === 'dark' ? 'rgba(72,166,255,0.16)' : 'rgba(59,130,246,0.18)',
+    ),
+  )
+  primaryRadial.appendChild(createGradientStop('100%', 'rgba(0,0,0,0)'))
+
+  const secondaryRadial = document.createElementNS(SVG_NS, 'radialGradient')
+  secondaryRadial.setAttribute('id', radialSecondaryId)
+  secondaryRadial.setAttribute('cx', mode === 'dark' ? '108%' : '115%')
+  secondaryRadial.setAttribute('cy', mode === 'dark' ? '-4%' : '-10%')
+  secondaryRadial.setAttribute('r', mode === 'dark' ? '66%' : '64%')
+  secondaryRadial.appendChild(
+    createGradientStop(
+      '0%',
+      mode === 'dark' ? 'rgba(51,209,160,0.14)' : 'rgba(16,185,129,0.16)',
+    ),
+  )
+  secondaryRadial.appendChild(createGradientStop('100%', 'rgba(0,0,0,0)'))
+
+  defs.appendChild(linear)
+  defs.appendChild(primaryRadial)
+  defs.appendChild(secondaryRadial)
+
+  const group = document.createElementNS(SVG_NS, 'g')
+  group.setAttribute('data-export-background', 'true')
+  group.setAttribute('pointer-events', 'none')
+
+  const base = document.createElementNS(SVG_NS, 'rect')
+  base.setAttribute('x', '0')
+  base.setAttribute('y', '0')
+  base.setAttribute('width', `${width}`)
+  base.setAttribute('height', `${height}`)
+  base.setAttribute('fill', resolveThemeBaseColor(mode))
+  group.appendChild(base)
+
+  const linearLayer = document.createElementNS(SVG_NS, 'rect')
+  linearLayer.setAttribute('x', '0')
+  linearLayer.setAttribute('y', '0')
+  linearLayer.setAttribute('width', `${width}`)
+  linearLayer.setAttribute('height', `${height}`)
+  linearLayer.setAttribute('fill', `url(#${linearId})`)
+  group.appendChild(linearLayer)
+
+  const radialPrimaryLayer = document.createElementNS(SVG_NS, 'rect')
+  radialPrimaryLayer.setAttribute('x', '0')
+  radialPrimaryLayer.setAttribute('y', '0')
+  radialPrimaryLayer.setAttribute('width', `${width}`)
+  radialPrimaryLayer.setAttribute('height', `${height}`)
+  radialPrimaryLayer.setAttribute('fill', `url(#${radialPrimaryId})`)
+  group.appendChild(radialPrimaryLayer)
+
+  const radialSecondaryLayer = document.createElementNS(SVG_NS, 'rect')
+  radialSecondaryLayer.setAttribute('x', '0')
+  radialSecondaryLayer.setAttribute('y', '0')
+  radialSecondaryLayer.setAttribute('width', `${width}`)
+  radialSecondaryLayer.setAttribute('height', `${height}`)
+  radialSecondaryLayer.setAttribute('fill', `url(#${radialSecondaryId})`)
+  group.appendChild(radialSecondaryLayer)
+
+  const firstElementAfterDefs =
+    defs.nextElementSibling instanceof SVGElement ? defs.nextElementSibling : null
+  svg.insertBefore(group, firstElementAfterDefs)
+}
+
 const serializeStyledSvg = (
   svg: SVGSVGElement,
+  themeMode: CanvasThemeMode,
 ): { xml: string; width: number; height: number } => {
   const clone = cloneSvgWithInlineStyles(svg)
   const { width, height } = resolveSvgDimensions(svg)
+  removeGridArtifacts(clone)
+  prependThemeBackground(clone, width, height, themeMode)
   clone.setAttribute('width', `${width}`)
   clone.setAttribute('height', `${height}`)
   clone.setAttribute('xmlns', SVG_NS)
@@ -192,20 +360,6 @@ const svgXmlToImage = async (
     image.src = url
   })
 
-const resolvePanelBackgroundColor = (
-  canvasPanel?: HTMLElement | null,
-): string => {
-  if (!canvasPanel) {
-    return '#0f172a'
-  }
-  const computed = window.getComputedStyle(canvasPanel)
-  const color = computed.backgroundColor?.trim()
-  if (!color || color === 'rgba(0, 0, 0, 0)' || color === 'transparent') {
-    return '#0f172a'
-  }
-  return color
-}
-
 const createCompositionRenderer = (
   svg: SVGSVGElement,
   canvasPanel?: HTMLElement | null,
@@ -218,12 +372,14 @@ const createCompositionRenderer = (
   if (!context) {
     throw new Error('Falha ao criar contexto para export animado.')
   }
+  const themeMode = resolveThemeMode(svg, canvasPanel)
   return {
     canvas,
     context,
     width,
     height,
-    backgroundColor: resolvePanelBackgroundColor(canvasPanel),
+    themeMode,
+    fallbackColor: resolveThemeBaseColor(themeMode),
     baseImage: null,
   }
 }
@@ -232,7 +388,7 @@ const refreshRendererBaseImage = async (
   renderer: CompositionRenderer,
   svg: SVGSVGElement,
 ): Promise<void> => {
-  const { xml, width, height } = serializeStyledSvg(svg)
+  const { xml, width, height } = serializeStyledSvg(svg, renderer.themeMode)
   renderer.baseImage = await svgXmlToImage(xml, width, height)
 }
 
@@ -240,12 +396,13 @@ const drawCompositionFrame = (
   renderer: CompositionRenderer,
   trailCanvas: HTMLCanvasElement,
 ): void => {
-  const { context, width, height, backgroundColor, baseImage } = renderer
+  const { context, width, height, fallbackColor, baseImage } = renderer
   context.clearRect(0, 0, width, height)
-  context.fillStyle = backgroundColor
-  context.fillRect(0, 0, width, height)
   if (baseImage) {
     context.drawImage(baseImage, 0, 0, width, height)
+  } else {
+    context.fillStyle = fallbackColor
+    context.fillRect(0, 0, width, height)
   }
   context.save()
   context.globalCompositeOperation = 'screen'
@@ -290,6 +447,100 @@ const captureFramesLoop = async ({
     if (elapsed >= durationMs) {
       break
     }
+  }
+}
+
+export const resolveGifPaletteSampleIndices = (
+  frameCount: number,
+  maxSamples = DEFAULT_GIF_PALETTE_SAMPLE_FRAMES,
+): number[] => {
+  const safeFrameCount = Math.max(0, Math.floor(frameCount))
+  const safeMaxSamples = Math.max(1, Math.floor(maxSamples))
+  if (safeFrameCount === 0) {
+    return []
+  }
+  if (safeFrameCount <= safeMaxSamples) {
+    return Array.from({ length: safeFrameCount }, (_, index) => index)
+  }
+  if (safeMaxSamples === 1) {
+    return [0]
+  }
+  const distributed = Array.from({ length: safeMaxSamples }, (_, sampleIndex) =>
+    Math.round((sampleIndex * (safeFrameCount - 1)) / (safeMaxSamples - 1)),
+  )
+  const unique = Array.from(new Set(distributed)).sort((left, right) => left - right)
+  if (unique.length >= safeMaxSamples) {
+    return unique.slice(0, safeMaxSamples)
+  }
+  for (let index = 0; index < safeFrameCount && unique.length < safeMaxSamples; index += 1) {
+    if (!unique.includes(index)) {
+      unique.push(index)
+    }
+  }
+  return unique.sort((left, right) => left - right)
+}
+
+const buildGifPaletteInput = (
+  frames: Uint8Array[],
+  maxSamples = DEFAULT_GIF_PALETTE_SAMPLE_FRAMES,
+): Uint8Array => {
+  if (!frames.length) {
+    return new Uint8Array()
+  }
+  const indices = resolveGifPaletteSampleIndices(frames.length, maxSamples)
+  if (!indices.length) {
+    return new Uint8Array(frames[0])
+  }
+  const frameByteLength = frames[0].byteLength
+  const sampled = new Uint8Array(frameByteLength * indices.length)
+  for (let sampleIndex = 0; sampleIndex < indices.length; sampleIndex += 1) {
+    sampled.set(frames[indices[sampleIndex]], sampleIndex * frameByteLength)
+  }
+  return sampled
+}
+
+export const resolveJourneyLoopTimeline = (
+  stepLengths: number[],
+  travelDurationMs: number,
+  holdDurationMs = STEP_ARRIVAL_HOLD_MS,
+): JourneyLoopTimeline => {
+  const normalizedLengths =
+    stepLengths.length > 0
+      ? stepLengths.map((length) =>
+          Number.isFinite(length) && length > 0 ? length : 1,
+        )
+      : [1]
+  const safeTravelDurationMs = Math.max(MIN_TRAVEL_DURATION_MS, Math.round(travelDurationMs))
+  const safeHoldDurationMs = Math.max(0, Math.round(holdDurationMs))
+  const stepDurationMs = safeTravelDurationMs + safeHoldDurationMs
+  const totalDurationMs = Math.max(stepDurationMs, normalizedLengths.length * stepDurationMs)
+  const totalLength = Math.max(
+    1,
+    normalizedLengths.reduce((accumulator, length) => accumulator + length, 0),
+  )
+  const keyTimes: number[] = [0]
+  const keyPoints: number[] = [0]
+  let elapsedMs = 0
+  let lengthProgress = 0
+
+  for (const length of normalizedLengths) {
+    lengthProgress += length
+    elapsedMs += safeTravelDurationMs
+    keyTimes.push(Number((Math.min(1, elapsedMs / totalDurationMs)).toFixed(6)))
+    keyPoints.push(Number((Math.min(1, lengthProgress / totalLength)).toFixed(6)))
+    if (safeHoldDurationMs > 0) {
+      elapsedMs += safeHoldDurationMs
+      keyTimes.push(Number((Math.min(1, elapsedMs / totalDurationMs)).toFixed(6)))
+      keyPoints.push(Number((Math.min(1, lengthProgress / totalLength)).toFixed(6)))
+    }
+  }
+
+  keyTimes[keyTimes.length - 1] = 1
+  keyPoints[keyPoints.length - 1] = 1
+  return {
+    totalDurationMs,
+    keyTimes,
+    keyPoints,
   }
 }
 
@@ -365,6 +616,17 @@ const resolveCurveFromEdge = (
   }
 }
 
+const resolveSvgPathLength = (pathData: string): number => {
+  const path = document.createElementNS(SVG_NS, 'path')
+  path.setAttribute('d', pathData)
+  try {
+    const length = path.getTotalLength()
+    return Number.isFinite(length) && length > 0 ? length : 1
+  } catch {
+    return 1
+  }
+}
+
 export const exportAnimatedJourneyGif = async ({
   svg,
   trailCanvas,
@@ -375,8 +637,8 @@ export const exportAnimatedJourneyGif = async ({
   fps = DEFAULT_FRAME_RATE_GIF,
 }: ExportAnimatedGifOptions): Promise<void> => {
   const renderer = createCompositionRenderer(svg, canvasPanel)
-  const gif = GIFEncoder()
   const frameDelayMs = Math.max(20, Math.round(1000 / Math.max(1, fps)))
+  const rgbaFrames: Uint8Array[] = []
 
   await captureFramesLoop({
     durationMs,
@@ -387,15 +649,37 @@ export const exportAnimatedJourneyGif = async ({
     resolveBaseKey,
     onFrameCapture: () => {
       const imageData = renderer.context.getImageData(0, 0, renderer.width, renderer.height)
-      const palette = quantize(imageData.data, 256, { format: 'rgb565' })
-      const index = applyPalette(imageData.data, palette, 'rgb565')
-      gif.writeFrame(index, renderer.width, renderer.height, {
-        palette,
-        delay: frameDelayMs,
-        repeat: 0,
-      })
+      rgbaFrames.push(new Uint8Array(imageData.data))
     },
   })
+
+  if (!rgbaFrames.length) {
+    throw new Error('Falha ao capturar frames para o GIF animado.')
+  }
+
+  const paletteInput = buildGifPaletteInput(rgbaFrames)
+  const palette = quantize(paletteInput, 256, { format: 'rgb565' })
+  const gif = GIFEncoder({ auto: false })
+  gif.writeHeader()
+
+  for (let index = 0; index < rgbaFrames.length; index += 1) {
+    const frame = rgbaFrames[index]
+    const colorIndex = applyPalette(frame, palette, 'rgb565')
+    gif.writeFrame(colorIndex, renderer.width, renderer.height, {
+      palette,
+      delay: frameDelayMs,
+      first: index === 0,
+      repeat: index === 0 ? 0 : undefined,
+    })
+  }
+
+  if (rgbaFrames.length > 1) {
+    const loopFrame = applyPalette(rgbaFrames[0], palette, 'rgb565')
+    gif.writeFrame(loopFrame, renderer.width, renderer.height, {
+      palette,
+      delay: frameDelayMs,
+    })
+  }
 
   gif.finish()
   const output = gif.bytesView()
@@ -477,6 +761,9 @@ export const exportAnimatedJourneySvg = ({
 
   const clone = cloneSvgWithInlineStyles(svg)
   const { width, height } = resolveSvgDimensions(svg)
+  const themeMode = resolveThemeMode(svg)
+  removeGridArtifacts(clone)
+  prependThemeBackground(clone, width, height, themeMode)
   clone.setAttribute('width', `${width}`)
   clone.setAttribute('height', `${height}`)
   clone.setAttribute('xmlns', SVG_NS)
@@ -523,7 +810,14 @@ export const exportAnimatedJourneySvg = ({
     overlay.appendChild(path)
   }
 
-  const stepDurationMs = Math.max(MIN_TRAVEL_DURATION_MS, playerSpeedMs) + STEP_ARRIVAL_HOLD_MS
+  const travelDurationMs = Math.max(MIN_TRAVEL_DURATION_MS, playerSpeedMs)
+  const timeline = resolveJourneyLoopTimeline(
+    curves.map((curve) => resolveSvgPathLength(curve.path)),
+    travelDurationMs,
+  )
+  const motionPath = curves.map((curve) => curve.path).join(' ')
+  const keyTimes = timeline.keyTimes.join(';')
+  const keyPoints = timeline.keyPoints.map((value) => value.toFixed(6)).join(';')
   const halo = document.createElementNS(SVG_NS, 'circle')
   halo.setAttribute('r', '11')
   halo.setAttribute('class', 'export-journey-halo')
@@ -531,27 +825,23 @@ export const exportAnimatedJourneySvg = ({
   orb.setAttribute('r', '6.2')
   orb.setAttribute('class', 'export-journey-orb')
 
-  for (let index = 0; index < curves.length; index += 1) {
-    const begin =
-      index === 0
-        ? `0s;export-journey-motion-${curves.length - 1}.end+0.18s`
-        : `export-journey-motion-${index - 1}.end`
+  const orbMotion = document.createElementNS(SVG_NS, 'animateMotion')
+  orbMotion.setAttribute('dur', `${timeline.totalDurationMs}ms`)
+  orbMotion.setAttribute('repeatCount', 'indefinite')
+  orbMotion.setAttribute('calcMode', 'linear')
+  orbMotion.setAttribute('path', motionPath)
+  orbMotion.setAttribute('keyTimes', keyTimes)
+  orbMotion.setAttribute('keyPoints', keyPoints)
+  orb.appendChild(orbMotion)
 
-    const orbMotion = document.createElementNS(SVG_NS, 'animateMotion')
-    orbMotion.setAttribute('id', `export-journey-motion-${index}`)
-    orbMotion.setAttribute('begin', begin)
-    orbMotion.setAttribute('dur', `${stepDurationMs}ms`)
-    orbMotion.setAttribute('fill', 'freeze')
-    orbMotion.setAttribute('path', curves[index].path)
-    orb.appendChild(orbMotion)
-
-    const haloMotion = document.createElementNS(SVG_NS, 'animateMotion')
-    haloMotion.setAttribute('begin', begin)
-    haloMotion.setAttribute('dur', `${stepDurationMs}ms`)
-    haloMotion.setAttribute('fill', 'freeze')
-    haloMotion.setAttribute('path', curves[index].path)
-    halo.appendChild(haloMotion)
-  }
+  const haloMotion = document.createElementNS(SVG_NS, 'animateMotion')
+  haloMotion.setAttribute('dur', `${timeline.totalDurationMs}ms`)
+  haloMotion.setAttribute('repeatCount', 'indefinite')
+  haloMotion.setAttribute('calcMode', 'linear')
+  haloMotion.setAttribute('path', motionPath)
+  haloMotion.setAttribute('keyTimes', keyTimes)
+  haloMotion.setAttribute('keyPoints', keyPoints)
+  halo.appendChild(haloMotion)
 
   const pulse = document.createElementNS(SVG_NS, 'animate')
   pulse.setAttribute('attributeName', 'r')

@@ -425,3 +425,21 @@
 - `npm --workspace @sjv/web run lint`
 - `npm --workspace @sjv/web run test:run`
 - `npm --workspace @sjv/web run build`
+
+
+- Ajuste incremental (`tmp/ai/20260216-0910-export-loop-fix`):
+  - Export GIF ajustado para capturar frames primeiro e codificar depois, evitando perda de trechos da jornada por custo de quantização em tempo real.
+  - GIF agora força loop (`repeat: 0`) e adiciona frame de fechamento para transição contínua no reinício.
+  - Export Animated SVG revisado para percorrer a jornada completa em um ciclo contínuo:
+    - timeline com `keyTimes/keyPoints` por step (travel + hold),
+    - loop infinito preservando pausa curta em cada chegada.
+  - Export Animated SVG/GIF/MP4 agora preserva fundo temático do canvas (`dark/light`) e remove a grade no arquivo final.
+  - Helpers novos de export cobertos por teste:
+    - seleção distribuída de frames para paleta GIF,
+    - timeline de loop da jornada.
+
+### Validação executada (ajuste export-loop-fix)
+
+- `npm --workspace @sjv/web run lint`
+- `npm --workspace @sjv/web run test:run`
+- `npm --workspace @sjv/web run build`

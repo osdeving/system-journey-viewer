@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import {
+  resolveGifPaletteSampleIndices,
   resolveJourneyAnimationDurationMs,
+  resolveJourneyLoopTimeline,
   resolveVideoMimeType,
 } from './animatedExport'
 
@@ -30,5 +32,18 @@ describe('animated export helpers', () => {
   it('returns null when no compatible codec is supported', () => {
     const resolved = resolveVideoMimeType(() => false)
     expect(resolved).toBeNull()
+  })
+
+  it('samples gif palette frames across timeline including first and last frame', () => {
+    expect(resolveGifPaletteSampleIndices(0)).toEqual([])
+    expect(resolveGifPaletteSampleIndices(4, 6)).toEqual([0, 1, 2, 3])
+    expect(resolveGifPaletteSampleIndices(9, 4)).toEqual([0, 3, 5, 8])
+  })
+
+  it('builds journey timeline with per-step travel and hold segments', () => {
+    const timeline = resolveJourneyLoopTimeline([120, 180], 600, 40)
+    expect(timeline.totalDurationMs).toBe(1280)
+    expect(timeline.keyTimes).toEqual([0, 0.46875, 0.5, 0.96875, 1])
+    expect(timeline.keyPoints).toEqual([0, 0.4, 0.4, 1, 1])
   })
 })

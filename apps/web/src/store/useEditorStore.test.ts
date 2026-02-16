@@ -190,6 +190,41 @@ describe('useEditorStore', () => {
     expect(after[1]).toBe(before[0])
   })
 
+  it('reorders journey steps and normalizes numbering', () => {
+    const state = useEditorStore.getState()
+    const journeyId = state.createJourney('Step Order')
+    state.addEdgeToJourney(journeyId, 'e_c_10')
+    state.addEdgeToJourney(journeyId, 'e_c_1')
+    state.addEdgeToJourney(journeyId, 'e_c_11')
+
+    state.reorderJourneyStep(journeyId, 'e_c_11', 'e_c_10')
+    const reordered = useEditorStore.getState().workspace.journeys[journeyId].steps
+      .slice()
+      .sort((left, right) => left.n - right.n)
+
+    expect(reordered.map((step) => step.edgeId)).toEqual(['e_c_11', 'e_c_10', 'e_c_1'])
+    expect(reordered.map((step) => step.n)).toEqual([1, 2, 3])
+  })
+
+  it('creates drilldown view with boundary root and opens it', () => {
+    const state = useEditorStore.getState()
+    expect(state.workspace.nodes.n_worker.drilldownRef).toBeUndefined()
+
+    const createdViewId = state.createDrilldownForNode('n_worker')
+    const updated = useEditorStore.getState()
+
+    expect(createdViewId).toBeTruthy()
+    expect(updated.workspace.nodes.n_worker.drilldownRef).toBe(createdViewId)
+    expect(updated.workspace.nodes.n_worker.kind).toBe('boundary')
+    expect(updated.currentViewId).toBe(createdViewId)
+    const createdView = createdViewId ? updated.workspace.views[createdViewId] : undefined
+    expect(createdView).toBeDefined()
+    expect(createdView?.kind).toBe('component')
+    expect(createdView?.nodeIds.length).toBe(1)
+    const rootNodeId = createdView?.nodeIds[0]
+    expect(rootNodeId ? updated.workspace.nodes[rootNodeId].kind : '').toBe('boundary')
+  })
+
   it('stops player and emits confetti when journey reaches end', () => {
     const state = useEditorStore.getState()
     const beforeEdges = new Set(state.workspace.views.v_container.edgeIds)

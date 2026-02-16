@@ -17,6 +17,8 @@ interface JourneyEdgeProps {
   isSelected: boolean
   isPlayerEdge: boolean
   isFlowAnimated: boolean
+  isInteractive: boolean
+  onEdgePointerStart?: (edgeId: string) => void
   onSelect: () => void
 }
 
@@ -29,6 +31,8 @@ export const JourneyEdge = ({
   isSelected,
   isPlayerEdge,
   isFlowAnimated,
+  isInteractive,
+  onEdgePointerStart,
   onSelect,
 }: JourneyEdgeProps) => {
   const pathId = `${edge.id}_path`
@@ -42,6 +46,9 @@ export const JourneyEdge = ({
       onPointerDown={(event) => {
         event.stopPropagation()
         onSelect()
+        if (isInteractive) {
+          onEdgePointerStart?.(edge.id)
+        }
       }}
     >
       <path

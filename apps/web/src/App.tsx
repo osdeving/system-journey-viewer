@@ -1,5 +1,8 @@
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import type { ChangeEvent, PointerEvent as ReactPointerEvent } from 'react'
+import type {
+  ChangeEvent,
+  PointerEvent as ReactPointerEvent,
+} from 'react'
 import confetti from 'canvas-confetti'
 import type { Monaco } from '@monaco-editor/react'
 import {
@@ -94,6 +97,25 @@ type DockTab = 'inspector' | 'journeys'
 type DockPosition = 'right' | 'bottom'
 type DesktopMenuId = 'file' | 'edit' | 'view' | 'insert'
 type PlayerAnimationPreset = 'cinematic' | 'orb' | 'minimal'
+type FileWriteMode = 'prompt' | 'reuse'
+type StepDragState = { journeyId: string; edgeId: string }
+
+type WorkspaceWritable = {
+  write: (data: Blob | BufferSource | string) => Promise<void>
+  close: () => Promise<void>
+}
+
+type WorkspaceFileHandle = {
+  name?: string
+  getFile: () => Promise<File>
+  createWritable: () => Promise<WorkspaceWritable>
+}
+
+type WorkspaceWindow = Window & {
+  showOpenFilePicker?: (options?: unknown) => Promise<WorkspaceFileHandle[]>
+  showSaveFilePicker?: (options?: unknown) => Promise<WorkspaceFileHandle>
+}
+
 const DESKTOP_MENU_ORDER: DesktopMenuId[] = ['file', 'edit', 'view', 'insert']
 const DEFAULT_DOCK_TAB_ORDER: DockTab[] = ['inspector', 'journeys']
 
@@ -133,6 +155,8 @@ function App() {
   const previousViewIdRef = useRef<string | null>(null)
   const dockTabDragRef = useRef<DockTab | null>(null)
   const journeyDragRef = useRef<string | null>(null)
+  const journeyStepDragRef = useRef<StepDragState | null>(null)
+  const workspaceFileHandleRef = useRef<WorkspaceFileHandle | null>(null)
   const leftResizeRef = useRef<{ pointerId: number; startX: number; startWidth: number } | null>(null)
   const journeyResizeRef = useRef<{
     pointerId: number
@@ -186,6 +210,7 @@ function App() {
   const reorderJourneyInCurrentView = useEditorStore((state) => state.reorderJourneyInCurrentView)
   const addEdgeToJourney = useEditorStore((state) => state.addEdgeToJourney)
   const removeEdgeFromJourney = useEditorStore((state) => state.removeEdgeFromJourney)
+  const reorderJourneyStep = useEditorStore((state) => state.reorderJourneyStep)
   const navigateBack = useEditorStore((state) => state.navigateBack)
   const setPlayerJourney = useEditorStore((state) => state.setPlayerJourney)
   const setPlayerRunning = useEditorStore((state) => state.setPlayerRunning)
@@ -207,6 +232,7 @@ function App() {
   const [dslCodexRunning, setDslCodexRunning] = useState(false)
   const [exportError, setExportError] = useState<string | null>(null)
   const [exportStatus, setExportStatus] = useState<string | null>(null)
+  const [draggedEdgeId, setDraggedEdgeId] = useState<string | null>(null)
   const [animatedExportRunning, setAnimatedExportRunning] = useState(false)
   const [leftSidebarWidth, setLeftSidebarWidth] = useState(DEFAULT_LEFT_SIDEBAR_WIDTH)
   const [journeyHeight, setJourneyHeight] = useState(DEFAULT_JOURNEY_HEIGHT)
@@ -252,6 +278,13 @@ function App() {
     [currentView.journeyIds, workspace.journeys],
   ) as Array<(typeof workspace.journeys)[string]>
   const activeJourney = activeJourneyId ? workspace.journeys[activeJourneyId] : undefined
+  const activeJourneySteps = useMemo(
+    () =>
+      activeJourney
+        ? activeJourney.steps.slice().sort((left, right) => left.n - right.n)
+        : [],
+    [activeJourney],
+  )
   const playerJourney = playerJourneyId ? workspace.journeys[playerJourneyId] : undefined
   const currentViewModeLabel = viewKindLabel[currentView.kind] ?? currentView.kind
   const playerModeLabel = playerIsRunning ? 'Animação' : 'Render'
@@ -446,26 +479,58 @@ function App() {
     [currentViewId, viewport, workspace],
   )
 
-  const saveWorkspaceFile = useCallback(() => {
-    try {
-      const snapshot = buildEditorSnapshot()
-      const payload = serializeWorkspaceSnapshotFile(snapshot)
-      const filename = buildWorkspaceFilename(snapshot.workspace.workspace.name)
-      const blob = new Blob([payload], { type: 'application/json;charset=utf-8' })
-      const objectUrl = URL.createObjectURL(blob)
-      const link = document.createElement('a')
-      link.href = objectUrl
-      link.download = filename
-      document.body.append(link)
-      link.click()
-      link.remove()
-      URL.revokeObjectURL(objectUrl)
-      setExportError(null)
-      setTransientStatus(`Workspace file saved: ${filename}`)
-    } catch (error) {
-      setExportError(error instanceof Error ? error.message : 'Failed to save workspace file.')
-    }
-  }, [buildEditorSnapshot, setTransientStatus])
+  const saveWorkspaceFile = useCallback(
+    async (mode: FileWriteMode = 'reuse') => {
+      try {
+        const snapshot = buildEditorSnapshot()
+        const payload = serializeWorkspaceSnapshotFile(snapshot)
+        const filename = buildWorkspaceFilename(snapshot.workspace.workspace.name)
+        const browserWithFs = window as WorkspaceWindow
+        const canUseFsApi = typeof browserWithFs.showSaveFilePicker === 'function'
+
+        if (canUseFsApi) {
+          let fileHandle = mode === 'reuse' ? workspaceFileHandleRef.current : null
+          if (!fileHandle && browserWithFs.showSaveFilePicker) {
+            fileHandle = await browserWithFs.showSaveFilePicker({
+              suggestedName: filename,
+              types: [
+                {
+                  description: 'System Journey Viewer Workspace',
+                  accept: {
+                    'application/json': ['.sjv.json', '.json'],
+                  },
+                },
+              ],
+            })
+          }
+          if (fileHandle) {
+            const writable = await fileHandle.createWritable()
+            await writable.write(payload)
+            await writable.close()
+            workspaceFileHandleRef.current = fileHandle
+            setExportError(null)
+            setTransientStatus(`Workspace file saved: ${fileHandle.name ?? filename}`)
+            return
+          }
+        }
+
+        const blob = new Blob([payload], { type: 'application/json;charset=utf-8' })
+        const objectUrl = URL.createObjectURL(blob)
+        const link = document.createElement('a')
+        link.href = objectUrl
+        link.download = filename
+        document.body.append(link)
+        link.click()
+        link.remove()
+        URL.revokeObjectURL(objectUrl)
+        setExportError(null)
+        setTransientStatus(`Workspace file saved: ${filename}`)
+      } catch (error) {
+        setExportError(error instanceof Error ? error.message : 'Failed to save workspace file.')
+      }
+    },
+    [buildEditorSnapshot, setTransientStatus],
+  )
 
   const createNewWorkspaceFile = useCallback(() => {
     const shouldCreate = window.confirm(
@@ -477,13 +542,56 @@ function App() {
     const nextWorkspace = createBlankWorkspace()
     replaceWorkspace(nextWorkspace, BLANK_WORKSPACE_VIEW_ID)
     setViewport(DEFAULT_FILE_VIEWPORT)
+    workspaceFileHandleRef.current = null
     setExportError(null)
     setTransientStatus('New workspace created.')
   }, [replaceWorkspace, setViewport, setTransientStatus])
 
-  const openWorkspaceFilePicker = useCallback(() => {
+  const loadWorkspacePayload = useCallback(
+    (payload: string, options?: { fileName?: string; fileHandle?: WorkspaceFileHandle | null }) => {
+      const snapshot = parseWorkspaceSnapshotFile(payload)
+      replaceWorkspace(snapshot.workspace, snapshot.currentViewId)
+      setViewport(snapshot.viewport)
+      workspaceFileHandleRef.current = options?.fileHandle ?? null
+      setExportError(null)
+      setTransientStatus(`Workspace file loaded: ${options?.fileName ?? 'workspace file'}`)
+    },
+    [replaceWorkspace, setViewport, setTransientStatus],
+  )
+
+  const openWorkspaceFilePicker = useCallback(async () => {
+    const browserWithFs = window as WorkspaceWindow
+    if (typeof browserWithFs.showOpenFilePicker === 'function') {
+      try {
+        const [fileHandle] = await browserWithFs.showOpenFilePicker({
+          multiple: false,
+          types: [
+            {
+              description: 'System Journey Viewer Workspace',
+              accept: {
+                'application/json': ['.sjv.json', '.json'],
+              },
+            },
+          ],
+        })
+        if (!fileHandle) {
+          return
+        }
+        const file = await fileHandle.getFile()
+        const payload = await file.text()
+        loadWorkspacePayload(payload, { fileName: file.name, fileHandle })
+        return
+      } catch (error) {
+        // User canceled picker is expected; ignore unless it is a real error.
+        const message = error instanceof Error ? error.message : ''
+        if (message && !message.toLowerCase().includes('abort')) {
+          setExportError(error instanceof Error ? error.message : 'Failed to load workspace file.')
+        }
+        return
+      }
+    }
     snapshotFileInputRef.current?.click()
-  }, [])
+  }, [loadWorkspacePayload])
 
   const onWorkspaceFileInputChange = useCallback(
     async (event: ChangeEvent<HTMLInputElement>) => {
@@ -494,11 +602,7 @@ function App() {
       }
       try {
         const payload = await selectedFile.text()
-        const snapshot = parseWorkspaceSnapshotFile(payload)
-        replaceWorkspace(snapshot.workspace, snapshot.currentViewId)
-        setViewport(snapshot.viewport)
-        setExportError(null)
-        setTransientStatus(`Workspace file loaded: ${selectedFile.name}`)
+        loadWorkspacePayload(payload, { fileName: selectedFile.name, fileHandle: null })
       } catch (error) {
         setExportError(
           error instanceof Error ? error.message : 'Failed to load workspace file.',
@@ -507,7 +611,7 @@ function App() {
         input.value = ''
       }
     },
-    [replaceWorkspace, setViewport, setTransientStatus],
+    [loadWorkspacePayload],
   )
 
   const moveDockToRight = () => {
@@ -570,6 +674,31 @@ function App() {
       return
     }
     reorderJourneyInCurrentView(draggedJourneyId, targetJourneyId)
+  }
+
+  const onJourneyPointerUp = (journeyId: string) => {
+    if (!draggedEdgeId || !workspace.edges[draggedEdgeId]) {
+      return
+    }
+    addEdgeToJourney(journeyId, draggedEdgeId)
+    setActiveJourney(journeyId)
+    activateJourneyPlayback(journeyId)
+    setDraggedEdgeId(null)
+    setExportError(null)
+    setTransientStatus('Edge added to journey.')
+  }
+
+  const onJourneyStepDragStart = (journeyId: string, edgeId: string) => {
+    journeyStepDragRef.current = { journeyId, edgeId }
+  }
+
+  const onJourneyStepDrop = (journeyId: string, targetEdgeId: string) => {
+    const draggedStep = journeyStepDragRef.current
+    journeyStepDragRef.current = null
+    if (!draggedStep || draggedStep.journeyId !== journeyId || draggedStep.edgeId === targetEdgeId) {
+      return
+    }
+    reorderJourneyStep(journeyId, draggedStep.edgeId, targetEdgeId)
   }
 
   const handleDslEditorBeforeMount = (monaco: Monaco): void => {
@@ -758,19 +887,18 @@ function App() {
       }
       if (key === 'o') {
         event.preventDefault()
-        openWorkspaceFilePicker()
+        void openWorkspaceFilePicker()
         return
       }
       if (key === 's' && event.shiftKey) {
         event.preventDefault()
-        saveWorkspaceFile()
+        void saveWorkspaceFile('prompt')
         return
       }
       if (key === 's') {
         event.preventDefault()
         persist()
-        setExportError(null)
-        setTransientStatus('Workspace snapshot saved in browser storage.')
+        void saveWorkspaceFile('reuse')
         return
       }
       if (key === 'r') {
@@ -797,6 +925,20 @@ function App() {
       setOpenDesktopMenu(null)
     }
   }, [immersiveMode])
+
+  useEffect(() => {
+    const clearDraggedEdge = () => {
+      setDraggedEdgeId(null)
+    }
+    window.addEventListener('pointerup', clearDraggedEdge)
+    window.addEventListener('pointercancel', clearDraggedEdge)
+    window.addEventListener('blur', clearDraggedEdge)
+    return () => {
+      window.removeEventListener('pointerup', clearDraggedEdge)
+      window.removeEventListener('pointercancel', clearDraggedEdge)
+      window.removeEventListener('blur', clearDraggedEdge)
+    }
+  }, [])
 
   useEffect(() => {
     if (!presentationMode) {
@@ -1407,14 +1549,24 @@ function App() {
         {viewJourneys.map((journey) => (
           <div
             key={journey.id}
-            className={activeJourneyId === journey.id ? 'journey-item journey-active' : 'journey-item'}
+            className={[
+              'journey-item',
+              activeJourneyId === journey.id ? 'journey-active' : '',
+              draggedEdgeId ? 'journey-item-edge-drop-target' : '',
+            ]
+              .filter(Boolean)
+              .join(' ')}
             draggable
             onDragStart={() => onJourneyDragStart(journey.id)}
             onDragEnd={() => {
               journeyDragRef.current = null
             }}
-            onDragOver={(event) => event.preventDefault()}
+            onDragOver={(event) => {
+              event.preventDefault()
+              event.dataTransfer.dropEffect = 'move'
+            }}
             onDrop={() => onJourneyDrop(journey.id)}
+            onPointerUp={() => onJourneyPointerUp(journey.id)}
             onClick={() => {
               setActiveJourney(journey.id)
               activateJourneyPlayback(journey.id)
@@ -1573,7 +1725,11 @@ function App() {
                   <button
                     type="button"
                     role="menuitem"
-                    onClick={() => runDesktopMenuAction(() => openWorkspaceFilePicker())}
+                    onClick={() =>
+                      runDesktopMenuAction(() => {
+                        void openWorkspaceFilePicker()
+                      })
+                    }
                   >
                     <span>Open File...</span>
                     <kbd>Ctrl+O</kbd>
@@ -1581,14 +1737,29 @@ function App() {
                   <button
                     type="button"
                     role="menuitem"
-                    onClick={() => runDesktopMenuAction(() => saveWorkspaceFile())}
+                    onClick={() =>
+                      runDesktopMenuAction(() => {
+                        void saveWorkspaceFile('reuse')
+                      })
+                    }
                   >
-                    <span>Save File...</span>
+                    <span>Save File</span>
+                    <kbd>Ctrl+S</kbd>
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() =>
+                      runDesktopMenuAction(() => {
+                        void saveWorkspaceFile('prompt')
+                      })
+                    }
+                  >
+                    <span>Save File As...</span>
                     <kbd>Ctrl+Shift+S</kbd>
                   </button>
                   <button type="button" role="menuitem" onClick={() => runDesktopMenuAction(() => persist())}>
                     <span>Save Snapshot</span>
-                    <kbd>Ctrl+S</kbd>
                   </button>
                   <button type="button" role="menuitem" onClick={() => runDesktopMenuAction(() => hydrate())}>
                     <span>Reload Snapshot</span>
@@ -2128,14 +2299,20 @@ function App() {
         ) : null}
         {!presentationMode && currentView.kind === 'container' ? (
           <p className="canvas-hint secondary-hint">
-            Double-click em container com drilldown para abrir Component View.
+            Double-click abre drilldown existente. Ctrl+Alt+double-click cria drilldown novo.
           </p>
         ) : !presentationMode && currentView.kind === 'component' ? (
           <p className="canvas-hint secondary-hint">
-            Double-click em componente com drilldown para abrir Hex View.
+            Double-click abre drilldown existente. Ctrl+Alt+double-click cria drilldown novo.
           </p>
         ) : null}
-        <DiagramCanvas presentationMode={presentationMode} forceGridHidden={presentationMode} />
+        <DiagramCanvas
+          presentationMode={presentationMode}
+          forceGridHidden={presentationMode}
+          onEdgePointerStart={(edgeId) => {
+            setDraggedEdgeId(edgeId)
+          }}
+        />
       </main>
       {rightDockVisible ? <aside className="right-sidebar right-sidebar-dock">{dockPanel}</aside> : null}
       {drawerVisible ? (
@@ -2181,11 +2358,20 @@ function App() {
               </div>
               {activeJourney ? (
                 <ol className="journey-steps">
-                  {activeJourney.steps
-                    .slice()
-                    .sort((a, b) => a.n - b.n)
-                    .map((step) => (
-                      <li key={`${activeJourney.id}:${step.edgeId}`}>
+                  {activeJourneySteps.map((step) => (
+                      <li
+                        key={`${activeJourney.id}:${step.edgeId}`}
+                        draggable
+                        onDragStart={() => onJourneyStepDragStart(activeJourney.id, step.edgeId)}
+                        onDragOver={(event) => {
+                          event.preventDefault()
+                          event.dataTransfer.dropEffect = 'move'
+                        }}
+                        onDrop={() => onJourneyStepDrop(activeJourney.id, step.edgeId)}
+                        onDragEnd={() => {
+                          journeyStepDragRef.current = null
+                        }}
+                      >
                         {step.n}. {workspace.edges[step.edgeId]?.label ?? step.edgeId}
                         <span className="journey-step-actions">
                           <button type="button" onClick={() => removeEdgeFromJourney(activeJourney.id, step.edgeId)}>

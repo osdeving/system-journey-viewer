@@ -54,6 +54,7 @@ interface EditorState {
   selectNode: (nodeId: string | null, options?: SelectOptions) => void
   selectEdge: (edgeId: string | null) => void
   openDrilldown: (nodeId: string) => void
+  createDrilldownForNode: (nodeId: string) => string | null
   navigateBack: () => void
   goToView: (viewId: string) => void
   setActiveTool: (tool: ActiveTool) => void
@@ -88,6 +89,7 @@ interface EditorState {
   reorderJourneyInCurrentView: (journeyId: string, targetJourneyId: string) => void
   addEdgeToJourney: (journeyId: string, edgeId: string) => void
   removeEdgeFromJourney: (journeyId: string, edgeId: string) => void
+  reorderJourneyStep: (journeyId: string, edgeId: string, targetEdgeId: string) => void
   setPlayerJourney: (journeyId: string | null) => void
   setPlayerRunning: (running: boolean) => void
   setPlayerLoop: (loop: boolean) => void
@@ -254,6 +256,42 @@ const nextJourneyStepNumber = (used: number[]): number => {
 const firstJourneyForView = (workspace: WorkspaceModel, viewId: string): string | null =>
   workspace.views[viewId]?.journeyIds[0] ?? null
 
+const normalizeJourneySteps = (
+  steps: Array<{ n: number; edgeId: string }>,
+): Array<{ n: number; edgeId: string }> =>
+  steps.map((step, index) => ({ ...step, n: index + 1 }))
+
+const nextViewKindForDrilldown = (viewKind: WorkspaceModel['views'][string]['kind']) => {
+  if (viewKind === 'system-context') {
+    return 'container'
+  }
+  if (viewKind === 'container') {
+    return 'component'
+  }
+  return 'hex'
+}
+
+const sanitizeIdPart = (value: string): string =>
+  value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/(^-|-$)/g, '')
+
+const resolveUniqueId = (
+  collection: Record<string, unknown>,
+  preferredBase: string,
+  fallbackPrefix: string,
+): string => {
+  const base = sanitizeIdPart(preferredBase) || fallbackPrefix
+  let candidate = base
+  let suffix = 2
+  while (collection[candidate]) {
+    candidate = `${base}-${suffix}`
+    suffix += 1
+  }
+  return candidate
+}
+
 export const useEditorStore = create<EditorState>()(
   immer((set, get) => ({
     ...getDefaultState(),
@@ -390,6 +428,83 @@ export const useEditorStore = create<EditorState>()(
         state.playerStepIndex = 0
         state.playerConfettiNodeId = null
       })
+    },
+    createDrilldownForNode: (nodeId) => {
+      let createdViewId: string | null = null
+      set((state) => {
+        const sourceNode = state.workspace.nodes[nodeId]
+        const currentView = state.workspace.views[state.currentViewId]
+        if (!sourceNode || !currentView) {
+          return
+        }
+
+        let targetViewId =
+          sourceNode.drilldownRef && state.workspace.views[sourceNode.drilldownRef]
+            ? sourceNode.drilldownRef
+            : undefined
+
+        if (!targetViewId) {
+          const nextKind = nextViewKindForDrilldown(currentView.kind)
+          const baseViewId = resolveUniqueId(
+            state.workspace.views,
+            `v-${nextKind}-${sourceNode.name}`,
+            `v-${nextKind}`,
+          )
+          targetViewId = baseViewId
+
+          const boundaryNodeId = resolveUniqueId(
+            state.workspace.nodes,
+            `n-${targetViewId}-boundary`,
+            `n-${targetViewId}`,
+          )
+          const boundaryBounds = {
+            x: 80,
+            y: 80,
+            w: 980,
+            h: 620,
+          }
+
+          state.workspace.nodes[boundaryNodeId] = {
+            id: boundaryNodeId,
+            presetId: 'boundary',
+            kind: 'boundary',
+            name: `${sourceNode.name} Boundary`,
+            tags: ['drilldown-root'],
+            bounds: boundaryBounds,
+            ports: resolveNodePorts(boundaryBounds),
+            children: [],
+          }
+          state.workspace.views[targetViewId] = {
+            id: targetViewId,
+            kind: nextKind,
+            name: `${sourceNode.name} Detail`,
+            nodeIds: [boundaryNodeId],
+            edgeIds: [],
+            journeyIds: [],
+          }
+        }
+
+        sourceNode.drilldownRef = targetViewId
+        sourceNode.kind = 'boundary'
+        sourceNode.presetId = 'boundary'
+
+        const firstJourneyId = firstJourneyForView(state.workspace, targetViewId)
+        state.viewHistory.push(state.currentViewId)
+        state.currentViewId = targetViewId
+        state.selectedNodeId = null
+        state.selectedNodeIds = []
+        state.selectedEdgeId = null
+        state.pendingConnectionFrom = null
+        state.pendingConnectionPortId = null
+        state.activeJourneyId = firstJourneyId
+        state.journeyFilterId = null
+        state.playerJourneyId = firstJourneyId
+        state.playerIsRunning = false
+        state.playerStepIndex = 0
+        state.playerConfettiNodeId = null
+        createdViewId = targetViewId
+      })
+      return createdViewId
     },
     navigateBack: () => {
       set((state) => {
@@ -808,8 +923,11 @@ export const useEditorStore = create<EditorState>()(
         if (exists) {
           return
         }
-        const n = nextJourneyStepNumber(journey.steps.map((step) => step.n))
-        journey.steps.push({ n, edgeId })
+        const ordered = journey.steps
+          .slice()
+          .sort((left, right) => left.n - right.n)
+        ordered.push({ n: nextJourneyStepNumber(ordered.map((step) => step.n)), edgeId })
+        journey.steps = normalizeJourneySteps(ordered)
       })
     },
     removeEdgeFromJourney: (journeyId, edgeId) => {
@@ -818,7 +936,37 @@ export const useEditorStore = create<EditorState>()(
         if (!journey) {
           return
         }
-        journey.steps = journey.steps.filter((step) => step.edgeId !== edgeId)
+        const ordered = journey.steps
+          .slice()
+          .sort((left, right) => left.n - right.n)
+          .filter((step) => step.edgeId !== edgeId)
+        journey.steps = normalizeJourneySteps(ordered)
+        if (state.playerJourneyId === journeyId && state.playerStepIndex >= ordered.length) {
+          state.playerStepIndex = Math.max(0, ordered.length - 1)
+          state.playerIsRunning = false
+        }
+      })
+    },
+    reorderJourneyStep: (journeyId, edgeId, targetEdgeId) => {
+      set((state) => {
+        if (edgeId === targetEdgeId) {
+          return
+        }
+        const journey = state.workspace.journeys[journeyId]
+        if (!journey) {
+          return
+        }
+        const ordered = journey.steps
+          .slice()
+          .sort((left, right) => left.n - right.n)
+        const sourceIndex = ordered.findIndex((step) => step.edgeId === edgeId)
+        const targetIndex = ordered.findIndex((step) => step.edgeId === targetEdgeId)
+        if (sourceIndex < 0 || targetIndex < 0) {
+          return
+        }
+        const [moved] = ordered.splice(sourceIndex, 1)
+        ordered.splice(targetIndex, 0, moved)
+        journey.steps = normalizeJourneySteps(ordered)
       })
     },
     setPlayerJourney: (journeyId) => {

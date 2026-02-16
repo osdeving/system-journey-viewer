@@ -756,10 +756,10 @@ export const DiagramCanvas = () => {
         stepArrivalStartTsRef.current = arrivalState.arrivalStartedAtMs
         shouldAdvanceStep = arrivalState.shouldAdvance
 
-        if (travelProgress > 0) {
-          const orbPoint = cubicPointAt(currentPlayerCurve, travelProgress)
-          orbPositionRef.current = orbPoint
-          if (playerTrailEnabled) {
+        const orbPoint = cubicPointAt(currentPlayerCurve, travelProgress)
+        orbPositionRef.current = orbPoint
+        if (playerTrailEnabled) {
+          if (travelProgress > 0) {
             const lastTrail = lastTrailPositionRef.current
             const minSpacing = TRAIL_MIN_SPACING * inverseSafeZoom
             const trailPoints = buildTrailPoints(lastTrail, orbPoint, minSpacing)
@@ -783,7 +783,6 @@ export const DiagramCanvas = () => {
             lastTrailPositionRef.current = null
           }
         } else {
-          orbPositionRef.current = null
           lastTrailPositionRef.current = null
         }
       } else {

@@ -496,3 +496,16 @@
 - `npm --workspace @sjv/web run lint`
 - `npm --workspace @sjv/web run test:run`
 - `npm --workspace @sjv/web run build`
+
+
+- Ajuste incremental (`tmp/ai/20260216-0945-orb-without-trail`):
+  - Correção do comportamento do toggle `Trail`:
+    - bolinha (orb) agora é renderizada ao longo de todo o progresso do step (`0..1`) mesmo com trilha desativada,
+    - toggle `Trail` passa a controlar apenas partículas/rastro e track de progresso, sem impactar a orb.
+  - Resultado: modo sem rastro mantém a bolinha caminhando no path, como esperado.
+
+### Validação executada (ajuste orb-without-trail)
+
+- `npm --workspace @sjv/web run lint`
+- `npm --workspace @sjv/web run test:run`
+- `npm --workspace @sjv/web run build`

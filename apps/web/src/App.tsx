@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { PointerEvent as ReactPointerEvent } from 'react'
 import confetti from 'canvas-confetti'
 import Editor from '@monaco-editor/react'
@@ -84,6 +84,7 @@ type DrawerTab = 'journeys' | 'dsl' | 'dock'
 type DockTab = 'inspector' | 'journeys'
 type DockPosition = 'right' | 'bottom'
 type DesktopMenuId = 'file' | 'edit' | 'view' | 'insert'
+type PlayerAnimationPreset = 'cinematic' | 'orb' | 'minimal'
 const DESKTOP_MENU_ORDER: DesktopMenuId[] = ['file', 'edit', 'view', 'insert']
 const DEFAULT_DOCK_TAB_ORDER: DockTab[] = ['inspector', 'journeys']
 
@@ -100,6 +101,19 @@ const isTextInputTarget = (target: EventTarget | null): boolean => {
 
 const isHexColor = (value?: string): boolean =>
   /^#[\da-fA-F]{6}$/.test(value ?? '')
+
+const resolvePlayerAnimationPreset = (
+  trailEnabled: boolean,
+  highlightEnabled: boolean,
+): PlayerAnimationPreset => {
+  if (trailEnabled && highlightEnabled) {
+    return 'cinematic'
+  }
+  if (!trailEnabled && highlightEnabled) {
+    return 'orb'
+  }
+  return 'minimal'
+}
 
 function App() {
   const layoutRef = useRef<HTMLDivElement | null>(null)
@@ -144,6 +158,7 @@ function App() {
   const resetWorkspace = useEditorStore((state) => state.resetWorkspace)
   const replaceWorkspace = useEditorStore((state) => state.replaceWorkspace)
   const zoomByFactor = useEditorStore((state) => state.zoomByFactor)
+  const setViewport = useEditorStore((state) => state.setViewport)
   const setActiveTool = useEditorStore((state) => state.setActiveTool)
   const removeNode = useEditorStore((state) => state.removeNode)
   const setNodeName = useEditorStore((state) => state.setNodeName)
@@ -251,10 +266,82 @@ function App() {
     [drawerVisible, immersiveMode, journeyHeight, leftPanelVisible, leftSidebarWidth, rightDockVisible],
   )
 
+  const playerAnimationPreset = useMemo(
+    () => resolvePlayerAnimationPreset(playerTrailEnabled, playerHighlightNodes),
+    [playerHighlightNodes, playerTrailEnabled],
+  )
+
   const activateJourneyPlayback = (journeyId: string | null) => {
     setPlayerJourney(journeyId)
     setPlayerRunning(Boolean(journeyId))
   }
+
+  const applyPlayerAnimationPreset = (preset: PlayerAnimationPreset): void => {
+    if (preset === 'cinematic') {
+      setPlayerTrailEnabled(true)
+      setPlayerHighlightNodes(true)
+      return
+    }
+    if (preset === 'orb') {
+      setPlayerTrailEnabled(false)
+      setPlayerHighlightNodes(true)
+      return
+    }
+    setPlayerTrailEnabled(false)
+    setPlayerHighlightNodes(false)
+  }
+
+  const fitCurrentViewToCanvas = useCallback(() => {
+    const canvasPanel = canvasPanelRef.current
+    if (!canvasPanel) {
+      return
+    }
+    const rect = canvasPanel.getBoundingClientRect()
+    if (rect.width <= 0 || rect.height <= 0) {
+      return
+    }
+
+    const visibleNodes = currentView.nodeIds
+      .map((nodeId) => workspace.nodes[nodeId])
+      .filter((node): node is NonNullable<(typeof workspace.nodes)[string]> => !!node)
+
+    if (!visibleNodes.length) {
+      setViewport({
+        x: rect.width * 0.5 - 120,
+        y: rect.height * 0.5 - 60,
+        zoom: 1,
+      })
+      return
+    }
+
+    const minX = Math.min(...visibleNodes.map((node) => node.bounds.x))
+    const minY = Math.min(...visibleNodes.map((node) => node.bounds.y))
+    const maxX = Math.max(...visibleNodes.map((node) => node.bounds.x + node.bounds.w))
+    const maxY = Math.max(...visibleNodes.map((node) => node.bounds.y + node.bounds.h))
+    const boundsWidth = Math.max(1, maxX - minX)
+    const boundsHeight = Math.max(1, maxY - minY)
+    const padding = Math.max(56, Math.min(rect.width, rect.height) * 0.08)
+    const availableWidth = Math.max(1, rect.width - padding * 2)
+    const availableHeight = Math.max(1, rect.height - padding * 2)
+    const zoom = Math.min(availableWidth / boundsWidth, availableHeight / boundsHeight)
+    const clampedZoom = Math.max(0.35, Math.min(2.2, zoom))
+    const centerX = minX + boundsWidth / 2
+    const centerY = minY + boundsHeight / 2
+
+    setViewport({
+      x: rect.width / 2 - centerX * clampedZoom,
+      y: rect.height / 2 - centerY * clampedZoom,
+      zoom: clampedZoom,
+    })
+  }, [currentView.nodeIds, setViewport, workspace])
+
+  const scheduleFitCurrentView = useCallback(() => {
+    window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(() => {
+        fitCurrentViewToCanvas()
+      })
+    })
+  }, [fitCurrentViewToCanvas])
 
   const getMaxJourneyHeight = (): number => {
     const layoutHeight = layoutRef.current?.getBoundingClientRect().height ?? 0
@@ -300,6 +387,8 @@ function App() {
         setLeftSidebarCollapsed(true)
         setDockCollapsed(true)
         setDrawerCollapsed(true)
+        setOpenDesktopMenu(null)
+        scheduleFitCurrentView()
       } else {
         setLeftSidebarCollapsed(false)
         setDockCollapsed(false)
@@ -582,6 +671,12 @@ function App() {
             setLeftSidebarCollapsed(true)
             setDockCollapsed(true)
             setDrawerCollapsed(true)
+            setOpenDesktopMenu(null)
+            window.requestAnimationFrame(() => {
+              window.requestAnimationFrame(() => {
+                fitCurrentViewToCanvas()
+              })
+            })
           } else {
             setLeftSidebarCollapsed(false)
             setDockCollapsed(false)
@@ -605,7 +700,7 @@ function App() {
 
     window.addEventListener('keydown', onModeShortcut)
     return () => window.removeEventListener('keydown', onModeShortcut)
-  }, [focusMode, presentationMode])
+  }, [fitCurrentViewToCanvas, focusMode, presentationMode])
 
   useEffect(() => {
     if (dockPosition !== 'bottom' && drawerTab === 'dock') {
@@ -1083,6 +1178,14 @@ function App() {
               {journey.name}
             </option>
           ))}
+        </select>
+        <select
+          value={playerAnimationPreset}
+          onChange={(event) => applyPlayerAnimationPreset(event.target.value as PlayerAnimationPreset)}
+        >
+          <option value="cinematic">Animação: Cinematic</option>
+          <option value="orb">Animação: Orb only</option>
+          <option value="minimal">Animação: Minimal</option>
         </select>
         <div className="journey-player-actions journey-player-actions-iconic" role="group" aria-label="Controles do player">
           <button type="button" disabled={!playerJourney} onClick={() => prevPlayerStep()} aria-label="Passo anterior">
@@ -1575,96 +1678,193 @@ function App() {
           </div>
         </div>
         <div className="topbar-actions">
-          <button type="button" onClick={() => navigateBack()} disabled={!viewHistory.length}>
-            Back
-          </button>
-          <button
-            type="button"
-            className={activeTool === 'select' ? 'tool-button tool-active' : 'tool-button'}
-            onClick={() => setActiveTool('select')}
-          >
-            Select
-          </button>
-          <button
-            type="button"
-            className={activeTool === 'connector' ? 'tool-button tool-active' : 'tool-button'}
-            onClick={() => setActiveTool('connector')}
-          >
-            Connector
-          </button>
-          <button type="button" onClick={() => zoomByFactor(1.1)}>
-            Zoom +
-          </button>
-          <button type="button" onClick={() => zoomByFactor(0.9)}>
-            Zoom -
-          </button>
-          <button
-            type="button"
-            className="icon-toggle-button"
-            onClick={() => setGridEnabled(!gridEnabled)}
-            title={gridEnabled ? 'Ocultar grid' : 'Mostrar grid'}
-          >
-            <Dock size={14} />
-            <span>{gridEnabled ? 'Grid on' : 'Grid off'}</span>
-          </button>
-          <button
-            type="button"
-            className="icon-toggle-button"
-            onClick={() => setSnapEnabled(!snapEnabled)}
-            title={snapEnabled ? 'Desabilitar snap' : 'Habilitar snap'}
-          >
-            {snapEnabled ? <Eye size={14} /> : <EyeOff size={14} />}
-            <span>{snapEnabled ? 'Snap on' : 'Snap off'}</span>
-          </button>
-          <button
-            type="button"
-            className="icon-toggle-button"
-            onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-            title={theme === 'dark' ? 'Tema claro' : 'Tema escuro'}
-          >
-            <span>{theme === 'dark' ? 'Dark' : 'Light'}</span>
-          </button>
-          <button
-            type="button"
-            className="icon-toggle-button"
-            onClick={() => toggleLeftSidebar()}
-            title={leftSidebarCollapsed ? 'Mostrar paleta' : 'Ocultar paleta'}
-          >
-            {leftSidebarCollapsed ? <PanelLeftOpen size={15} /> : <PanelLeftClose size={15} />}
-          </button>
-          <button
-            type="button"
-            className="icon-toggle-button"
-            onClick={() => toggleDockPanel()}
-            title={dockCollapsed ? 'Mostrar dock' : 'Ocultar dock'}
-          >
-            {dockPosition === 'bottom' ? (
-              dockCollapsed ? (
-                <PanelBottomOpen size={15} />
-              ) : (
-                <PanelBottomClose size={15} />
-              )
-            ) : dockCollapsed ? (
-              <PanelRightOpen size={15} />
-            ) : (
-              <PanelRightClose size={15} />
-            )}
-          </button>
-          <button
-            type="button"
-            className="icon-toggle-button"
-            onClick={() => toggleWorkbench()}
-            title={drawerCollapsed ? 'Mostrar workbench' : 'Ocultar workbench'}
-          >
-            {drawerCollapsed ? <PanelBottomOpen size={15} /> : <PanelBottomClose size={15} />}
-          </button>
-          <button type="button" className="focus-toggle-button" onClick={() => toggleFocusMode()}>
-            {focusMode ? 'Sair foco' : 'Foco'}
-          </button>
-          <button type="button" className="focus-toggle-button" onClick={() => togglePresentationMode()}>
-            <Presentation size={14} />
-            <span>{presentationMode ? 'Sair apresentação' : 'Presentation mode'}</span>
-          </button>
+          {presentationMode ? (
+            <div className="presentation-toolbar">
+              <select
+                className="presentation-select"
+                value={playerJourneyId ?? ''}
+                onChange={(event) => {
+                  const nextJourneyId = event.target.value || null
+                  activateJourneyPlayback(nextJourneyId)
+                  if (nextJourneyId) {
+                    setActiveJourney(nextJourneyId)
+                  }
+                }}
+              >
+                <option value="">Player: selecione jornada</option>
+                {viewJourneys.map((journey) => (
+                  <option key={journey.id} value={journey.id}>
+                    {journey.name}
+                  </option>
+                ))}
+              </select>
+              <select
+                className="presentation-select"
+                value={playerAnimationPreset}
+                onChange={(event) => applyPlayerAnimationPreset(event.target.value as PlayerAnimationPreset)}
+              >
+                <option value="cinematic">Animação: Cinematic</option>
+                <option value="orb">Animação: Orb only</option>
+                <option value="minimal">Animação: Minimal</option>
+              </select>
+              <div className="journey-player-actions journey-player-actions-iconic" role="group" aria-label="Controles do player">
+                <button type="button" disabled={!playerJourney} onClick={() => prevPlayerStep()} aria-label="Passo anterior">
+                  <SkipBack size={15} />
+                </button>
+                <button
+                  type="button"
+                  disabled={!playerJourney}
+                  onClick={() => setPlayerRunning(!playerIsRunning)}
+                  aria-label={playerIsRunning ? 'Pausar player' : 'Iniciar player'}
+                >
+                  {playerIsRunning ? <Pause size={16} /> : <Play size={16} />}
+                </button>
+                <button type="button" disabled={!playerJourney} onClick={() => stepPlayer()} aria-label="Próximo passo">
+                  <SkipForward size={15} />
+                </button>
+                <button type="button" disabled={!playerJourney} onClick={() => resetPlayer()} aria-label="Resetar player">
+                  <RotateCcw size={15} />
+                </button>
+              </div>
+              <label className="journey-speed-control presentation-speed-control">
+                Speed
+                <input
+                  type="range"
+                  min={120}
+                  max={1800}
+                  step={60}
+                  value={playerSpeedMs}
+                  onChange={(event) => setPlayerSpeedMs(Number(event.target.value))}
+                />
+              </label>
+              <button
+                type="button"
+                className="presentation-export-button"
+                disabled={!playerJourney || animatedExportRunning}
+                onClick={() => {
+                  void exportAnimatedFromCanvas('gif')
+                }}
+              >
+                {animatedExportRunning ? 'Exportando...' : 'Exportar GIF'}
+              </button>
+              <button
+                type="button"
+                className="presentation-export-button"
+                disabled={!playerJourney || animatedExportRunning}
+                onClick={() => {
+                  void exportAnimatedFromCanvas('mp4')
+                }}
+              >
+                {animatedExportRunning ? 'Exportando...' : 'Exportar MP4'}
+              </button>
+              <button
+                type="button"
+                className="presentation-export-button"
+                disabled={!playerJourney || animatedExportRunning}
+                onClick={() => {
+                  void exportAnimatedFromCanvas('svg')
+                }}
+              >
+                {animatedExportRunning ? 'Exportando...' : 'Exportar SVG animado'}
+              </button>
+              <button type="button" className="focus-toggle-button" onClick={() => togglePresentationMode()}>
+                Sair apresentação
+              </button>
+            </div>
+          ) : (
+            <>
+              <button type="button" onClick={() => navigateBack()} disabled={!viewHistory.length}>
+                Back
+              </button>
+              <button
+                type="button"
+                className={activeTool === 'select' ? 'tool-button tool-active' : 'tool-button'}
+                onClick={() => setActiveTool('select')}
+              >
+                Select
+              </button>
+              <button
+                type="button"
+                className={activeTool === 'connector' ? 'tool-button tool-active' : 'tool-button'}
+                onClick={() => setActiveTool('connector')}
+              >
+                Connector
+              </button>
+              <button type="button" onClick={() => zoomByFactor(1.1)}>
+                Zoom +
+              </button>
+              <button type="button" onClick={() => zoomByFactor(0.9)}>
+                Zoom -
+              </button>
+              <button
+                type="button"
+                className="icon-toggle-button"
+                onClick={() => setGridEnabled(!gridEnabled)}
+                title={gridEnabled ? 'Ocultar grid' : 'Mostrar grid'}
+              >
+                <Dock size={14} />
+                <span>{gridEnabled ? 'Grid on' : 'Grid off'}</span>
+              </button>
+              <button
+                type="button"
+                className="icon-toggle-button"
+                onClick={() => setSnapEnabled(!snapEnabled)}
+                title={snapEnabled ? 'Desabilitar snap' : 'Habilitar snap'}
+              >
+                {snapEnabled ? <Eye size={14} /> : <EyeOff size={14} />}
+                <span>{snapEnabled ? 'Snap on' : 'Snap off'}</span>
+              </button>
+              <button
+                type="button"
+                className="icon-toggle-button"
+                onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+                title={theme === 'dark' ? 'Tema claro' : 'Tema escuro'}
+              >
+                <span>{theme === 'dark' ? 'Dark' : 'Light'}</span>
+              </button>
+              <button
+                type="button"
+                className="icon-toggle-button"
+                onClick={() => toggleLeftSidebar()}
+                title={leftSidebarCollapsed ? 'Mostrar paleta' : 'Ocultar paleta'}
+              >
+                {leftSidebarCollapsed ? <PanelLeftOpen size={15} /> : <PanelLeftClose size={15} />}
+              </button>
+              <button
+                type="button"
+                className="icon-toggle-button"
+                onClick={() => toggleDockPanel()}
+                title={dockCollapsed ? 'Mostrar dock' : 'Ocultar dock'}
+              >
+                {dockPosition === 'bottom' ? (
+                  dockCollapsed ? (
+                    <PanelBottomOpen size={15} />
+                  ) : (
+                    <PanelBottomClose size={15} />
+                  )
+                ) : dockCollapsed ? (
+                  <PanelRightOpen size={15} />
+                ) : (
+                  <PanelRightClose size={15} />
+                )}
+              </button>
+              <button
+                type="button"
+                className="icon-toggle-button"
+                onClick={() => toggleWorkbench()}
+                title={drawerCollapsed ? 'Mostrar workbench' : 'Ocultar workbench'}
+              >
+                {drawerCollapsed ? <PanelBottomOpen size={15} /> : <PanelBottomClose size={15} />}
+              </button>
+              <button type="button" className="focus-toggle-button" onClick={() => toggleFocusMode()}>
+                {focusMode ? 'Sair foco' : 'Foco'}
+              </button>
+              <button type="button" className="focus-toggle-button" onClick={() => togglePresentationMode()}>
+                <Presentation size={14} />
+                <span>{presentationMode ? 'Sair apresentação' : 'Presentation mode'}</span>
+              </button>
+            </>
+          )}
         </div>
         {exportError ? <p className="topbar-error">{exportError}</p> : null}
         {!exportError && exportStatus ? <p className="topbar-status">{exportStatus}</p> : null}
@@ -1713,24 +1913,29 @@ function App() {
           ))}
         </aside>
       ) : null}
-      <main className="canvas-panel" ref={canvasPanelRef}>
-        {activeTool === 'connector' ? (
+      <main
+        className={`canvas-panel ${gridEnabled && !presentationMode ? 'canvas-panel-grid-visible' : 'canvas-panel-grid-hidden'} ${
+          presentationMode ? 'canvas-panel-presentation' : ''
+        }`}
+        ref={canvasPanelRef}
+      >
+        {!presentationMode && activeTool === 'connector' ? (
           <p className="canvas-hint">
             {pendingConnectionFrom
               ? `Selecione destino para conectar a partir de ${pendingConnectionFrom}${pendingConnectionPortId ? `:${pendingConnectionPortId}` : ''}`
               : 'Arraste de uma alça para outra alça para criar edge'}
           </p>
         ) : null}
-        {currentView.kind === 'container' ? (
+        {!presentationMode && currentView.kind === 'container' ? (
           <p className="canvas-hint secondary-hint">
             Double-click em container com drilldown para abrir Component View.
           </p>
-        ) : currentView.kind === 'component' ? (
+        ) : !presentationMode && currentView.kind === 'component' ? (
           <p className="canvas-hint secondary-hint">
             Double-click em componente com drilldown para abrir Hex View.
           </p>
         ) : null}
-        <DiagramCanvas />
+        <DiagramCanvas presentationMode={presentationMode} forceGridHidden={presentationMode} />
       </main>
       {rightDockVisible ? <aside className="right-sidebar right-sidebar-dock">{dockPanel}</aside> : null}
       {drawerVisible ? (

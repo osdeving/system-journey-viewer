@@ -108,6 +108,31 @@
 - `npm --workspace @sjv/web run test:run`
 - `npm --workspace @sjv/web run build`
 
+
+- Ajuste incremental (`tmp/ai/20260216-1010-presentation-polish`):
+  - `Presentation mode` agora centraliza/ajusta automaticamente o diagrama ao entrar no modo (auto-fit do viewport para os nodes da view atual).
+  - Canvas em apresentação passou para modo clean:
+    - sem alças/ports/hitareas de resize/reconexão,
+    - sem drag/drop de edição,
+    - sem dicas de connector no overlay.
+  - Grade realmente desligável no painel principal:
+    - pseudo-grade CSS agora depende de classe explícita (`canvas-panel-grid-visible/hidden`),
+    - no modo apresentação a grade é forçada off sem alterar a preferência persistida do workspace.
+  - Topbar em apresentação ganhou barra dedicada de player/export:
+    - seletor de jornada do player,
+    - combobox de preset de animação (`Cinematic`, `Orb only`, `Minimal`),
+    - controles padrão com ícones (prev/play-next/reset),
+    - slider de velocidade e botões de export animado (GIF/MP4/SVG) mais visíveis.
+  - Menu desktop/topbar recebeu reforço visual para comportamento “web desktop”:
+    - fundo menos transparente (superfícies sólidas),
+    - `z-index` elevado para dropdown não “afundar” sob o canvas.
+
+### Validação executada (ajuste presentation-polish)
+
+- `npm --workspace @sjv/web run lint`
+- `npm --workspace @sjv/web run test:run`
+- `npm --workspace @sjv/web run build`
+
 ## 2026-02-13
 
 - Integração do Codex SDK no fluxo do editor DSL via gateway server-side:

@@ -129,6 +129,11 @@ const TRAIL_CANVAS_MAX_PIXEL_RATIO = 1.5
 const TRAIL_MIN_VISIBLE_ALPHA = 0.015
 const FINAL_STEP_ARRIVAL_HOLD_MS = 220
 
+interface DiagramCanvasProps {
+  presentationMode?: boolean
+  forceGridHidden?: boolean
+}
+
 const resolveCurveFromEdge = (
   edge: EdgeModel,
   nodes: Record<string, NodeModel>,
@@ -300,7 +305,10 @@ const hexToRgba = (color: string, alpha: number): string => {
   return `rgba(${red}, ${green}, ${blue}, ${alpha})`
 }
 
-export const DiagramCanvas = () => {
+export const DiagramCanvas = ({
+  presentationMode = false,
+  forceGridHidden = false,
+}: DiagramCanvasProps = {}) => {
   const panStateRef = useRef<PanState | null>(null)
   const nodeDragStateRef = useRef<NodeDragState | null>(null)
   const connectionDragRef = useRef<ConnectionDragState | null>(null)
@@ -360,6 +368,7 @@ export const DiagramCanvas = () => {
 
   const currentView = workspace.views[viewId]
   const gridEnabled = workspace.settings.grid
+  const showGrid = gridEnabled && !forceGridHidden && !presentationMode
   const snapEnabled = workspace.settings.snap
   const nodes = useMemo(
     () =>
@@ -1104,6 +1113,9 @@ export const DiagramCanvas = () => {
     mode: 'move' | 'resize',
     resizeHandle?: ResizeHandle,
   ): void => {
+    if (presentationMode) {
+      return
+    }
     if (event.button !== 0) {
       return
     }
@@ -1265,6 +1277,9 @@ export const DiagramCanvas = () => {
     event: ReactPointerEvent<SVGRectElement>,
     node: NodeModel,
   ): void => {
+    if (presentationMode) {
+      return
+    }
     if (activeTool !== 'select') {
       return
     }
@@ -1277,6 +1292,9 @@ export const DiagramCanvas = () => {
   }
 
   const onNodeBorderPointerLeave = (): void => {
+    if (presentationMode) {
+      return
+    }
     if (!nodeDragStateRef.current) {
       setHoverCursor(null)
     }
@@ -1286,6 +1304,9 @@ export const DiagramCanvas = () => {
     event: ReactPointerEvent<SVGRectElement>,
     node: NodeModel,
   ): void => {
+    if (presentationMode) {
+      return
+    }
     if (activeTool !== 'select') {
       return
     }
@@ -1301,6 +1322,9 @@ export const DiagramCanvas = () => {
     node: NodeModel,
     portId: string,
   ): void => {
+    if (presentationMode) {
+      return
+    }
     if (activeTool !== 'connector' || event.button !== 0) {
       return
     }
@@ -1325,6 +1349,9 @@ export const DiagramCanvas = () => {
     node: NodeModel,
     portId: string,
   ): void => {
+    if (presentationMode) {
+      return
+    }
     if (activeTool !== 'connector') {
       return
     }
@@ -1347,6 +1374,9 @@ export const DiagramCanvas = () => {
     node: NodeModel,
     portId: string,
   ): void => {
+    if (presentationMode) {
+      return
+    }
     if (activeTool !== 'connector') {
       return
     }
@@ -1372,6 +1402,9 @@ export const DiagramCanvas = () => {
     event: ReactPointerEvent<SVGCircleElement>,
     anchor: EdgeAnchorHandle,
   ): void => {
+    if (presentationMode) {
+      return
+    }
     if (activeTool !== 'select' || event.button !== 0 || !anchor.candidates.length) {
       return
     }
@@ -1437,6 +1470,9 @@ export const DiagramCanvas = () => {
   }
 
   const onEdgeAnchorPointerEnter = (anchorKey: string): void => {
+    if (presentationMode) {
+      return
+    }
     if (activeTool !== 'select') {
       return
     }
@@ -1445,6 +1481,9 @@ export const DiagramCanvas = () => {
   }
 
   const onEdgeAnchorPointerLeave = (): void => {
+    if (presentationMode) {
+      return
+    }
     setHoveredAnchorKey((current) => (edgeReconnectRef.current ? current : null))
     if (!edgeReconnectRef.current) {
       setHoverCursor(null)
@@ -1471,6 +1510,9 @@ export const DiagramCanvas = () => {
 
   const onDrop = (event: DragEvent<HTMLDivElement>): void => {
     event.preventDefault()
+    if (presentationMode) {
+      return
+    }
     const presetId = event.dataTransfer.getData('application/x-node-preset-id')
     if (!presetId) {
       return
@@ -1493,7 +1535,8 @@ export const DiagramCanvas = () => {
     event.preventDefault()
   }
 
-  const canvasCursor = dragCursor ?? hoverCursor ?? (activeTool === 'connector' ? 'crosshair' : 'grab')
+  const canvasCursor =
+    dragCursor ?? hoverCursor ?? (presentationMode ? 'grab' : activeTool === 'connector' ? 'crosshair' : 'grab')
 
   return (
     <div className="canvas-shell" ref={canvasRef} onWheel={onWheel} onDrop={onDrop} onDragOver={onDragOver}>
@@ -1505,7 +1548,7 @@ export const DiagramCanvas = () => {
         onPointerUp={onBackgroundPointerUp}
       >
         <defs>
-          {gridEnabled ? (
+          {showGrid ? (
             <pattern
               id="grid-pattern"
               width={DEFAULT_GRID_SIZE}
@@ -1533,7 +1576,7 @@ export const DiagramCanvas = () => {
           </marker>
         </defs>
         <g transform={`translate(${viewport.x}, ${viewport.y}) scale(${viewport.zoom})`}>
-          {gridEnabled ? (
+          {showGrid ? (
             <rect
               x={-10000}
               y={-10000}
@@ -1553,7 +1596,11 @@ export const DiagramCanvas = () => {
               isSelected={edge.id === selectedEdgeId}
               isPlayerEdge={edge.id === currentPlayerEdgeId}
               isFlowAnimated={animatedEdgeIdSet.has(edge.id)}
-              onSelect={() => selectEdge(edge.id)}
+              onSelect={() => {
+                if (!presentationMode) {
+                  selectEdge(edge.id)
+                }
+              }}
             />
           ))}
           {connectionPreview ? (
@@ -1568,7 +1615,7 @@ export const DiagramCanvas = () => {
               className="edge edge-preview"
             />
           ) : null}
-          {activeTool === 'select'
+          {!presentationMode && activeTool === 'select'
             ? edgeAnchorHandles.map((anchor) => {
                 const isSelectedAnchor = anchor.candidates.some(
                   (candidate) => candidate.edgeId === selectedEdgeId,
@@ -1669,7 +1716,7 @@ export const DiagramCanvas = () => {
                     style={nodeFillColor ? { fill: nodeFillColor } : undefined}
                   />
                 )}
-                {activeTool === 'select' ? (
+                {!presentationMode && activeTool === 'select' ? (
                   <rect
                     className="node-border-hitarea"
                     x={0}
@@ -1740,18 +1787,20 @@ export const DiagramCanvas = () => {
                 <text x={16} y={56} className="node-subtitle">
                   {node.tech?.label ?? node.kind}
                 </text>
-                {node.ports.map((port) => (
-                  <circle
-                    key={port.id}
-                    className="node-port"
-                    cx={node.bounds.w * port.x}
-                    cy={node.bounds.h * port.y}
-                    r={3}
-                    onPointerDown={(event) => onPortPointerDown(event, node, port.id)}
-                    onPointerEnter={(event) => onPortPointerEnter(event, node, port.id)}
-                    onPointerUp={(event) => onPortPointerUp(event, node, port.id)}
-                  />
-                ))}
+                {!presentationMode
+                  ? node.ports.map((port) => (
+                      <circle
+                        key={port.id}
+                        className="node-port"
+                        cx={node.bounds.w * port.x}
+                        cy={node.bounds.h * port.y}
+                        r={3}
+                        onPointerDown={(event) => onPortPointerDown(event, node, port.id)}
+                        onPointerEnter={(event) => onPortPointerEnter(event, node, port.id)}
+                        onPointerUp={(event) => onPortPointerUp(event, node, port.id)}
+                      />
+                    ))
+                  : null}
               </g>
             )
           })}

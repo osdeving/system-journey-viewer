@@ -58,7 +58,7 @@
   border-bottom: 1px solid #dce2ef;
   background: #f7f9fd;
   position: relative;
-  z-index: 80;
+  z-index: 180;
   isolation: isolate;
   overflow: visible;
 }
@@ -141,8 +141,8 @@
   padding: 5px;
   border-radius: 14px;
   border: 1px solid #d5deeb;
-  background: rgba(255, 255, 255, 0.96);
-  backdrop-filter: blur(14px);
+  background: #ffffff;
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.12);
 }
 
 .desktop-menu {
@@ -171,7 +171,7 @@
   position: absolute;
   top: calc(100% + 8px);
   left: 0;
-  z-index: 260;
+  z-index: 360;
   min-width: 230px;
   display: grid;
   gap: 4px;
@@ -190,7 +190,7 @@
   max-width: min(520px, 100%);
   border: 1px solid #d5deeb;
   border-radius: 12px;
-  background: rgba(255, 255, 255, 0.96);
+  background: #ffffff;
   box-shadow: 0 8px 20px rgba(15, 23, 42, 0.14);
 }
 
@@ -276,6 +276,42 @@
   flex-wrap: wrap;
   justify-content: flex-end;
   align-items: center;
+  min-width: 0;
+}
+
+.presentation-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: nowrap;
+  max-width: 100%;
+  overflow-x: auto;
+  padding-bottom: 2px;
+}
+
+.presentation-select {
+  border: 1px solid #cbd5e1;
+  background: #fff;
+  border-radius: 8px;
+  padding: 7px 9px;
+  font-size: 12px;
+  min-width: 180px;
+}
+
+.presentation-speed-control {
+  min-width: 140px;
+}
+
+.presentation-speed-control input[type='range'] {
+  width: 100%;
+}
+
+.presentation-export-button {
+  border: 1px solid #0ea5e9;
+  background: linear-gradient(180deg, #f0f9ff, #dbeafe);
+  color: #0c4a6e;
+  font-weight: 700;
+  white-space: nowrap;
 }
 
 .topbar-actions button {
@@ -548,7 +584,19 @@
     linear-gradient(to right, var(--sjv-grid-line) 1px, transparent 1px),
     linear-gradient(to bottom, var(--sjv-grid-line) 1px, transparent 1px);
   background-size: 26px 26px;
+  opacity: 0;
+}
+
+.canvas-panel-grid-visible::before {
   opacity: 0.35;
+}
+
+.canvas-panel-grid-hidden::before {
+  display: none;
+}
+
+.canvas-panel-presentation {
+  isolation: isolate;
 }
 
 .canvas-hint {
@@ -1318,12 +1366,12 @@
 }
 
 .theme-dark .desktop-menu-bar {
-  background: rgba(15, 23, 42, 0.95);
+  background: #0f172a;
   border-color: #334155;
 }
 
 .theme-dark .topbar-dock-strip {
-  background: rgba(15, 23, 42, 0.95);
+  background: #0f172a;
   border-color: #334155;
   box-shadow: 0 10px 22px rgba(2, 6, 23, 0.58);
 }
@@ -1407,6 +1455,10 @@
   opacity: 0.46;
 }
 
+.theme-dark .canvas-panel-grid-visible::before {
+  opacity: 0.46;
+}
+
 .theme-dark .layout-splitter:hover {
   background: rgba(56, 189, 248, 0.3);
 }
@@ -1447,6 +1499,18 @@
   background: #1e293b;
   color: #e2e8f0;
   border-color: #475569;
+}
+
+.theme-dark .presentation-select {
+  background: #1e293b;
+  color: #e2e8f0;
+  border-color: #475569;
+}
+
+.theme-dark .presentation-export-button {
+  border-color: #38bdf8;
+  background: linear-gradient(180deg, #0c4a6e, #075985);
+  color: #e0f2fe;
 }
 
 .theme-dark .topbar-actions button:hover {

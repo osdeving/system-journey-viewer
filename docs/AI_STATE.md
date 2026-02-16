@@ -82,6 +82,13 @@
   - todas as setas seguem tracejadas,
   - animação contínua aplicada só em arestas ativas (player/filtro/jornada ativa/selecionada), reduzindo custo de paint.
 - Layout ganhou preset `Presentation mode` (`P`) + microinterações de abertura/fechamento de painéis (palette, dock, workbench).
+- `Presentation mode` agora executa auto-fit/centralização do viewport ao entrar, ocupando o canvas útil com os nodes da view atual.
+- `Presentation mode` usa render clean no canvas (sem alças/ports/hitareas e sem interações de edição), mantendo pan/zoom + player.
+- Topbar em apresentação ganhou toolbar dedicada com:
+  - seletor de jornada do player,
+  - combobox de preset de animação (`Cinematic`, `Orb only`, `Minimal`),
+  - controles padrão com ícones e export animado em destaque (GIF/MP4/SVG).
+- Grid visual do stage foi corrigido para controle real por classe (`canvas-panel-grid-visible/hidden`), permitindo ocultação forçada no modo apresentação sem alterar preferência persistida.
 - Ports/alças refinados: sem cantos no topo/base, maior densidade de encaixes por tamanho, bolinhas menores e mais discretas.
 - Confete do player ficou mais discreto e local ao componente alvo (raio menor, menos partículas, bursts mais curtos).
 - DSL com assistência do Codex: instrução customizada, execução via endpoint `/api/codex/dsl-assist`, reaproveitamento de `threadId` e ação para limpar contexto do thread.

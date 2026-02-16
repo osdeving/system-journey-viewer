@@ -24,6 +24,7 @@ import { resolveHexConnectorRole } from './hexConnectorRole'
 import { JourneyEdge } from './JourneyEdge'
 import { resolveDbCylinderShape, resolveQueueCylinderShape } from './nodeShapePaths'
 import { curveToSvgPath, cubicPointAt, type EdgeCurvePath } from './edgePresentation'
+import { resolveArrivalAdvance, resolveTravelProgress } from './playerStepTimeline'
 import { buildTrailPoints } from './trailMath'
 
 type PanState = {
@@ -102,9 +103,6 @@ type TrailParticle = {
 }
 
 const ZOOM_SENSITIVITY = 0.0012
-const STEP_NODE_GLOW_DELAY_RATIO = 0.12
-const STEP_TRAVEL_COMPLETE_RATIO = 0.94
-const NODE_HIT_PROGRESS_THRESHOLD = 0.98
 const TRAIL_INITIAL_ALPHA = 0.72
 const TRAIL_FADE_FACTOR = 0.0003
 const TRAIL_PARTICLE_RADIUS = 4.2
@@ -304,6 +302,8 @@ export const DiagramCanvas = () => {
   const nextTrailIdRef = useRef(1)
   const stepKeyRef = useRef<string | null>(null)
   const stepStartTsRef = useRef<number | null>(null)
+  const stepArrivalStartTsRef = useRef<number | null>(null)
+  const stepAdvanceRequestedRef = useRef(false)
   const orbPositionRef = useRef<{ x: number; y: number } | null>(null)
   const lastTrailPositionRef = useRef<{ x: number; y: number } | null>(null)
   const travelProgressRef = useRef(0)
@@ -327,6 +327,7 @@ export const DiagramCanvas = () => {
   const playerSpeedMs = useEditorStore((state) => state.playerSpeedMs)
   const playerHighlightNodes = useEditorStore((state) => state.playerHighlightNodes)
   const playerIsRunning = useEditorStore((state) => state.playerIsRunning)
+  const stepPlayer = useEditorStore((state) => state.stepPlayer)
   const setViewport = useEditorStore((state) => state.setViewport)
   const selectNode = useEditorStore((state) => state.selectNode)
   const selectEdge = useEditorStore((state) => state.selectEdge)
@@ -521,7 +522,7 @@ export const DiagramCanvas = () => {
       return new Set<string>()
     }
     const set = new Set<string>([edge.from.nodeId])
-    if (!playerIsRunning || travelProgressForUi >= NODE_HIT_PROGRESS_THRESHOLD) {
+    if (!playerIsRunning || travelProgressForUi >= 1) {
       set.add(edge.to.nodeId)
     }
     for (const nodeId of currentPlayerStep?.highlightNodes ?? []) {
@@ -563,6 +564,8 @@ export const DiagramCanvas = () => {
     lastTrailPositionRef.current = null
     stepKeyRef.current = null
     stepStartTsRef.current = null
+    stepArrivalStartTsRef.current = null
+    stepAdvanceRequestedRef.current = false
     travelProgressRef.current = 0
     connectionDragRef.current = null
     edgeReconnectRef.current = null
@@ -629,26 +632,26 @@ export const DiagramCanvas = () => {
       if (stepKey !== stepKeyRef.current) {
         stepKeyRef.current = stepKey
         stepStartTsRef.current = timestamp
+        stepArrivalStartTsRef.current = null
+        stepAdvanceRequestedRef.current = false
         orbPositionRef.current = null
         lastTrailPositionRef.current = null
         updateUiProgress(0)
       }
 
       let travelProgress = 0
+      let shouldAdvanceStep = false
       if (playerIsRunning && stepKey && currentPlayerCurve) {
         const elapsed = Math.max(0, timestamp - (stepStartTsRef.current ?? timestamp))
-        const effectiveDuration = Math.max(
-          120,
-          playerSpeedMs * STEP_TRAVEL_COMPLETE_RATIO,
-        )
-        const baseProgress = Math.max(0, Math.min(1, elapsed / effectiveDuration))
-        travelProgress = Math.max(
-          0,
-          Math.min(
-            1,
-            (baseProgress - STEP_NODE_GLOW_DELAY_RATIO) / (1 - STEP_NODE_GLOW_DELAY_RATIO),
-          ),
-        )
+        travelProgress = resolveTravelProgress(elapsed, playerSpeedMs)
+        const arrivalState = resolveArrivalAdvance({
+          travelProgress,
+          nowMs: timestamp,
+          arrivalStartedAtMs: stepArrivalStartTsRef.current,
+          alreadyAdvanced: stepAdvanceRequestedRef.current,
+        })
+        stepArrivalStartTsRef.current = arrivalState.arrivalStartedAtMs
+        shouldAdvanceStep = arrivalState.shouldAdvance
 
         if (travelProgress > 0) {
           const orbPoint = cubicPointAt(currentPlayerCurve, travelProgress)
@@ -679,6 +682,8 @@ export const DiagramCanvas = () => {
       } else {
         orbPositionRef.current = null
         lastTrailPositionRef.current = null
+        stepArrivalStartTsRef.current = null
+        stepAdvanceRequestedRef.current = false
       }
 
       updateUiProgress(travelProgress)
@@ -747,6 +752,11 @@ export const DiagramCanvas = () => {
 
       context.restore()
 
+      if (shouldAdvanceStep) {
+        stepAdvanceRequestedRef.current = true
+        stepPlayer()
+      }
+
       if (playerIsRunning || trailsRef.current.length > 0) {
         rafId = window.requestAnimationFrame(drawFrame)
       } else {
@@ -775,6 +785,7 @@ export const DiagramCanvas = () => {
     playerJourneyId,
     playerSpeedMs,
     playerStepIndex,
+    stepPlayer,
     viewId,
     viewport.x,
     viewport.y,

@@ -464,16 +464,6 @@ function App() {
   }, [workspace, currentViewId, viewport, persist])
 
   useEffect(() => {
-    if (!playerIsRunning) {
-      return
-    }
-    const timer = window.setInterval(() => {
-      stepPlayer()
-    }, playerSpeedMs)
-    return () => window.clearInterval(timer)
-  }, [playerIsRunning, playerSpeedMs, stepPlayer])
-
-  useEffect(() => {
     if (!playerConfettiNonce) {
       return
     }

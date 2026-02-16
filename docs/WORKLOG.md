@@ -347,3 +347,19 @@
 - `npm --workspace @sjv/web run test:run`
 - `npm --workspace @sjv/web run build`
 
+
+- Ajuste incremental (`tmp/ai/20260216-0728-menu-dock-confetti`, continuação):
+  - Lógica de animação do player foi acoplada ao progresso real da bolinha no path (rAF), removendo avanço automático por `setInterval`.
+  - Sequenciamento agora é estrito por step:
+    - bolinha percorre a aresta até o endpoint,
+    - destino só destaca quando o progresso chega em `1.0`,
+    - próxima seta só inicia após o evento de chegada (com hold curto para leitura visual).
+  - Implementação isolada em helper testável (`playerStepTimeline`) para cálculo de progresso e gate de avanço pós-chegada.
+  - Novo teste unitário cobre: clamp de progresso, hold de chegada e garantia de não disparar avanço múltiplo no mesmo step.
+
+### Validação executada (ajuste player-strict-arrival)
+
+- `npm --workspace @sjv/web run lint`
+- `npm --workspace @sjv/web run test:run`
+- `npm --workspace @sjv/web run build`
+

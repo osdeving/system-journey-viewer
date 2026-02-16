@@ -52,6 +52,10 @@
 - Menubar/topbar receberam reforço de hierarquia visual (z-index e opacidade) para dropdown sempre sobre o canvas.
 - Lista de jornadas lateral ganhou reorder por drag-and-drop, mantendo persistência na ordem da view.
 - Player recebeu controle padrão com ícones (retroceder, play/pause, avançar, reset) e suporte a passo anterior no store.
+- Player passou a avançar jornada por chegada visual estrita no canvas (rAF), sem `setInterval` desacoplado:
+  - próxima seta só inicia após a bolinha concluir a curva atual,
+  - highlight do destino só acende ao chegar no endpoint,
+  - avanço ocorre após breve hold de chegada para evitar “corte” visual entre setas.
 - Layout ganhou preset `Presentation mode` (`P`) + microinterações de abertura/fechamento de painéis (palette, dock, workbench).
 - Ports/alças refinados: sem cantos no topo/base, maior densidade de encaixes por tamanho, bolinhas menores e mais discretas.
 - Confete do player ficou mais discreto e local ao componente alvo (raio menor, menos partículas, bursts mais curtos).

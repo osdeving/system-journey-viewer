@@ -10,7 +10,7 @@ describe('resolveNodeConfettiAnchor', () => {
     )
 
     expect(anchor.centerPx).toEqual({ x: 520, y: 190 })
-    expect(anchor.radiusPx).toBe(100)
+    expect(anchor.radiusPx).toBe(72)
   })
 
   it('clamps confetti radius for very small and very large nodes', () => {
@@ -25,8 +25,8 @@ describe('resolveNodeConfettiAnchor', () => {
       { left: 0, top: 0, width: 1200, height: 900 },
     )
 
-    expect(small.radiusPx).toBe(22)
-    expect(large.radiusPx).toBe(120)
+    expect(small.radiusPx).toBe(12)
+    expect(large.radiusPx).toBe(72)
   })
 })
 
@@ -43,7 +43,7 @@ describe('buildNodeConfettiBursts', () => {
       },
     )
 
-    expect(bursts).toHaveLength(7)
+    expect(bursts).toHaveLength(5)
     bursts.forEach((burst) => {
       expect(burst.origin.x).toBeGreaterThanOrEqual(0.02)
       expect(burst.origin.x).toBeLessThanOrEqual(0.98)

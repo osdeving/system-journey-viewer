@@ -319,6 +319,32 @@ function App() {
     setOpenDesktopMenu(null)
   }
 
+  const moveDockToRight = () => {
+    setDockPosition('right')
+    setDockCollapsed(false)
+    if (drawerTab === 'dock') {
+      setDrawerTab('journeys')
+    }
+  }
+
+  const moveDockToBottom = () => {
+    setDockPosition('bottom')
+    setDrawerTab('dock')
+    setDrawerCollapsed(false)
+    setDockCollapsed(false)
+    setJourneyHeight((current) => Math.max(current, MIN_DOCK_HEIGHT))
+  }
+
+  const openDockTab = (tab: DockTab) => {
+    setActiveDockTab(tab)
+    setDockCollapsed(false)
+    if (dockPosition === 'bottom') {
+      setDrawerCollapsed(false)
+      setDrawerTab('dock')
+      setJourneyHeight((current) => Math.max(current, MIN_DOCK_HEIGHT))
+    }
+  }
+
   const handleDockTabDragStart = (tab: DockTab) => {
     dockTabDragRef.current = tab
   }
@@ -458,8 +484,8 @@ function App() {
     const canvasRect = canvasPanelRef.current?.getBoundingClientRect()
     if (!targetNode || !canvasRect) {
       confetti({
-        particleCount: 120,
-        spread: 82,
+        particleCount: 36,
+        spread: 44,
         origin: { y: 0.62 },
       })
       return
@@ -477,8 +503,8 @@ function App() {
     for (const burst of bursts) {
       confetti({
         ...burst,
-        ticks: 220,
-        gravity: 1.04,
+        ticks: 132,
+        gravity: 1.08,
       })
     }
   }, [playerConfettiNonce])
@@ -985,60 +1011,52 @@ function App() {
     </div>
   )
 
+  const dockHeaderBar = (
+    <div className="topbar-dock-strip dock-tab-strip">
+      {dockTabOrder.map((tab) => (
+        <button
+          key={tab}
+          type="button"
+          draggable
+          className={resolvedActiveDockTab === tab ? 'dock-tab dock-tab-active' : 'dock-tab'}
+          onClick={() => openDockTab(tab)}
+          onDragStart={() => handleDockTabDragStart(tab)}
+          onDragOver={(event) => event.preventDefault()}
+          onDrop={() => handleDockTabDrop(tab)}
+          onDragEnd={() => {
+            dockTabDragRef.current = null
+          }}
+        >
+          <GripVertical size={12} />
+          <span>{dockLabelByTab[tab]}</span>
+        </button>
+      ))}
+      <span className="dock-tab-spacer" />
+      <div className="dock-placement-actions">
+        <button
+          type="button"
+          className={dockPosition === 'right' ? 'dock-placement dock-placement-active' : 'dock-placement'}
+          onClick={() => moveDockToRight()}
+          title="Dock à direita"
+          aria-label="Dock à direita"
+        >
+          <PanelRightOpen size={14} />
+        </button>
+        <button
+          type="button"
+          className={dockPosition === 'bottom' ? 'dock-placement dock-placement-active' : 'dock-placement'}
+          onClick={() => moveDockToBottom()}
+          title="Dock embaixo"
+          aria-label="Dock embaixo"
+        >
+          <PanelBottomOpen size={14} />
+        </button>
+      </div>
+    </div>
+  )
+
   const dockPanel = (
     <div className={dockPosition === 'right' ? 'dock-panel dock-panel-right' : 'dock-panel dock-panel-bottom'}>
-      <div className="dock-tab-strip">
-        {dockTabOrder.map((tab) => (
-          <button
-            key={tab}
-            type="button"
-            draggable
-            className={resolvedActiveDockTab === tab ? 'dock-tab dock-tab-active' : 'dock-tab'}
-            onClick={() => setActiveDockTab(tab)}
-            onDragStart={() => handleDockTabDragStart(tab)}
-            onDragOver={(event) => event.preventDefault()}
-            onDrop={() => handleDockTabDrop(tab)}
-            onDragEnd={() => {
-              dockTabDragRef.current = null
-            }}
-          >
-            <GripVertical size={12} />
-            <span>{dockLabelByTab[tab]}</span>
-          </button>
-        ))}
-        <span className="dock-tab-spacer" />
-        <div className="dock-placement-actions">
-          <button
-            type="button"
-            className={dockPosition === 'right' ? 'dock-placement dock-placement-active' : 'dock-placement'}
-            onClick={() => {
-              setDockPosition('right')
-              if (drawerTab === 'dock') {
-                setDrawerTab('journeys')
-              }
-            }}
-            title="Dock à direita"
-            aria-label="Dock à direita"
-          >
-            <PanelRightOpen size={14} />
-          </button>
-          <button
-            type="button"
-            className={dockPosition === 'bottom' ? 'dock-placement dock-placement-active' : 'dock-placement'}
-            onClick={() => {
-              setDockPosition('bottom')
-              setDrawerTab('dock')
-              setDrawerCollapsed(false)
-              setDockCollapsed(false)
-              setJourneyHeight(Math.max(journeyHeight, MIN_DOCK_HEIGHT))
-            }}
-            title="Dock embaixo"
-            aria-label="Dock embaixo"
-          >
-            <PanelBottomOpen size={14} />
-          </button>
-        </div>
-      </div>
       <div className="dock-tab-body">
         {resolvedActiveDockTab === 'inspector' ? inspectorDockContent : journeysDockContent}
       </div>
@@ -1324,11 +1342,7 @@ function App() {
                       runDesktopMenuAction(() => {
                         setFocusMode(false)
                         setPresentationMode(false)
-                        setDockCollapsed(false)
-                        if (dockPosition === 'bottom') {
-                          setDrawerCollapsed(false)
-                          switchDrawerTab('dock')
-                        }
+                        openDockTab(resolvedActiveDockTab)
                       })
                     }
                   >
@@ -1338,6 +1352,7 @@ function App() {
               ) : null}
             </div>
           </nav>
+          {!immersiveMode ? dockHeaderBar : null}
           <div className="mode-indicators">
             <span className={activeTool === 'connector' ? 'mode-pill mode-pill-active' : 'mode-pill'}>
               {activeTool === 'connector' ? 'Modo: Connector' : 'Modo: Select'}

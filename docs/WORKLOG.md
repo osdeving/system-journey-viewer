@@ -325,3 +325,25 @@
 - `npm --workspace @sjv/web run test:run`
 - `npm --workspace @sjv/web run build`
 
+
+- Ajuste incremental (`tmp/ai/20260216-0728-menu-dock-confetti`):
+  - Menubar corrigido para sobreposição consistente acima do canvas:
+    - topbar/menu com z-index reforçado,
+    - dropdown com prioridade visual maior,
+    - redução de transparência para aparência mais sólida/profissional.
+  - Dock refinado para padrão “desktop app” (Photoshop/Gimp-like):
+    - controles de tabs/posição movidos para o header principal da janela,
+    - painel dock ficou focado apenas no conteúdo ativo.
+  - Confete do player ficou mais discreto e local:
+    - raio mínimo/máximo reduzido,
+    - menos bursts e menos partículas,
+    - expansão mantida dentro da área do componente alvo,
+    - duração/energia dos bursts reduzida no disparo.
+  - Testes do helper de confete atualizados para os novos limites e cardinalidade de bursts.
+
+### Validação executada (ajuste menu-dock-confetti)
+
+- `npm --workspace @sjv/web run lint`
+- `npm --workspace @sjv/web run test:run`
+- `npm --workspace @sjv/web run build`
+

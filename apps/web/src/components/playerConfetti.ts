@@ -29,9 +29,9 @@ export interface ConfettiBurstSpec {
   startVelocity: number
 }
 
-const MIN_CONFETTI_RADIUS_PX = 22
-const MAX_CONFETTI_RADIUS_PX = 120
-const RING_ORIGINS = 6
+const MIN_CONFETTI_RADIUS_PX = 12
+const MAX_CONFETTI_RADIUS_PX = 72
+const RING_ORIGINS = 4
 
 const clamp = (value: number, min: number, max: number): number =>
   Math.max(min, Math.min(max, value))
@@ -71,19 +71,19 @@ export const buildNodeConfettiBursts = (
   anchor: NodeConfettiAnchor,
   viewportSize: ViewportSize,
 ): ConfettiBurstSpec[] => {
-  const totalParticles = Math.round(clamp(anchor.radiusPx * 2, 90, 280))
-  const centerParticles = Math.round(totalParticles * 0.34)
+  const totalParticles = Math.round(clamp(anchor.radiusPx * 0.95, 28, 84))
+  const centerParticles = Math.round(totalParticles * 0.5)
   const ringParticles = Math.max(
-    10,
+    4,
     Math.round((totalParticles - centerParticles) / RING_ORIGINS),
   )
-  const ringRadius = anchor.radiusPx * 0.58
+  const ringRadius = anchor.radiusPx * 0.32
   const bursts: ConfettiBurstSpec[] = [
     {
       origin: normalizeOrigin(anchor.centerPx, viewportSize),
       particleCount: centerParticles,
-      spread: 92,
-      startVelocity: 34,
+      spread: 68,
+      startVelocity: 22,
     },
   ]
 
@@ -96,8 +96,8 @@ export const buildNodeConfettiBursts = (
     bursts.push({
       origin: normalizeOrigin(ringPoint, viewportSize),
       particleCount: ringParticles,
-      spread: 46,
-      startVelocity: 27,
+      spread: 34,
+      startVelocity: 16,
     })
   }
 

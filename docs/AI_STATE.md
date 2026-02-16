@@ -69,6 +69,13 @@
 - GitHub templates and CI workflow added under `.github/`.
 - `vercel.json` added for static Vercel deployment of `apps/web`.
 - README now includes embedded product demos (GIF/MP4) and a reproducible Playwright capture script (`scripts/capture-readme-demo.mjs`) to regenerate live UI media.
+- README demo section now includes:
+  - a visible warning that automated robot capture may show temporary UI misalignment;
+  - a static screenshot reference (`docs/print-ui.png`) for layout fidelity.
+- Vercel deployment compatibility updated:
+  - root build now mirrors `apps/web/dist` to repository-level `dist` via `scripts/prepare-root-dist.mjs`;
+  - `vercel.json` now uses `outputDirectory: "dist"` to match Vercel project defaults.
+- Build chunking was improved with lazy-loading of Monaco and manual chunk splitting in Vite config.
 
 ## Suggested Next Increments
 

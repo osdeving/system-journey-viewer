@@ -15,6 +15,14 @@ It supports multi-layer modeling (`Container`, `Component`, `Hex`), animated jou
 
 ## Product Demo
 
+> [!WARNING]
+> The live walkthrough below was captured by an automated robot script.
+> During capture playback, some UI elements may look temporarily misaligned.
+
+### Static UI snapshot (recommended reference)
+
+![System Journey Viewer static UI snapshot](docs/print-ui.png)
+
 ### Live UI walkthrough (captured from a running app)
 
 ![System Journey Viewer live walkthrough](docs/readme-live-demo.gif)
@@ -77,7 +85,7 @@ This repository is preconfigured for Vercel static deployment of the web app.
 - Framework preset: `Vite`
 - Root directory: repository root
 - Build command: `npm run build`
-- Output directory: `apps/web/dist`
+- Output directory: `dist`
 
 A `vercel.json` file is included with SPA rewrite support.
 

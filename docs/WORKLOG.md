@@ -2,6 +2,34 @@
 
 Chronological engineering log. Entries are kept concise and focused on behavior and validation.
 
+## 2026-02-16 - README demo disclaimer and Vercel build/output fixes
+
+### Scope
+
+- Improve README clarity for demo media quality expectations.
+- Add static UI reference image.
+- Fix Vercel output directory mismatch and reduce build chunk warnings.
+
+### Changes
+
+- README updates:
+  - added visible warning that robot-captured demo may show temporary UI misalignment;
+  - added static screenshot section using `docs/print-ui.png`;
+  - updated Vercel output directory instructions to `dist`.
+- Build/deploy pipeline updates:
+  - added `scripts/prepare-root-dist.mjs` to copy `apps/web/dist` to root `dist`;
+  - updated root `build` script to run web build and then mirror output to root `dist`;
+  - updated `vercel.json` to `outputDirectory: \"dist\"`.
+- Bundle/chunk updates:
+  - lazy-loaded Monaco editor in `apps/web/src/App.tsx`;
+  - added manual chunk strategy and raised chunk warning threshold in `apps/web/vite.config.ts`.
+
+### Validation
+
+- `npm run lint`
+- `npm run test:run`
+- `npm run build`
+
 ## 2026-02-16 - README demo media and Playwright capture workflow
 
 ### Scope

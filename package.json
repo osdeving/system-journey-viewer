@@ -9,7 +9,7 @@
   "scripts": {
     "dev": "npm --workspace @sjv/web run dev",
     "dev:gateway": "npm --workspace @sjv/codex-gateway run dev",
-    "build": "npm --workspace @sjv/web run build",
+    "build": "npm --workspace @sjv/web run build && node scripts/prepare-root-dist.mjs",
     "ci": "npm run lint && npm run test:run && npm run test:run:gateway && npm run build",
     "test": "npm --workspace @sjv/web run test",
     "test:run": "npm --workspace @sjv/web run test:run",

@@ -24,7 +24,7 @@ import { resolveHexConnectorRole } from './hexConnectorRole'
 import { JourneyEdge } from './JourneyEdge'
 import {
   resolveDbCylinderShape,
-  resolveDiamondShape,
+  resolveHexagonShape,
   resolveQueueCylinderShape,
 } from './nodeShapePaths'
 import { curveToSvgPath, cubicPointAt, type EdgeCurvePath } from './edgePresentation'
@@ -1736,15 +1736,15 @@ export const DiagramCanvas = ({
               node.kind === 'boundary' ? undefined : node.style?.fillColor
             const dbShape = resolveDbCylinderShape(node.bounds.w, node.bounds.h)
             const queueShape = resolveQueueCylinderShape(node.bounds.w, node.bounds.h)
-            const shouldRenderDiamond =
+            const shouldRenderHexagon =
               node.kind === 'gateway' ||
               node.kind === 'security' ||
               node.kind === 'load-balancer'
-            const diamondShape = shouldRenderDiamond
-              ? resolveDiamondShape(node.bounds.w, node.bounds.h)
+            const hexagonShape = shouldRenderHexagon
+              ? resolveHexagonShape(node.bounds.w, node.bounds.h)
               : null
-            const diamondBorderShape = shouldRenderDiamond
-              ? resolveDiamondShape(node.bounds.w, node.bounds.h, 2.5)
+            const hexagonBorderShape = shouldRenderHexagon
+              ? resolveHexagonShape(node.bounds.w, node.bounds.h, 2.5)
               : null
             const connectorRole =
               currentView.kind === 'hex'
@@ -1793,9 +1793,9 @@ export const DiagramCanvas = ({
                     <path d={queueShape.frontCapPath} className="node-shape-detail" />
                     <path d={queueShape.rearInnerArcPath} className="node-shape-detail" />
                   </g>
-                ) : diamondShape ? (
+                ) : hexagonShape ? (
                   <path
-                    d={diamondShape.shellPath}
+                    d={hexagonShape.shellPath}
                     className={nodeClassName}
                     style={nodeFillColor ? { fill: nodeFillColor } : undefined}
                   />
@@ -1811,10 +1811,10 @@ export const DiagramCanvas = ({
                   />
                 )}
                 {!presentationMode && activeTool === 'select' && !isConnectorMode ? (
-                  diamondBorderShape ? (
+                  hexagonBorderShape ? (
                     <path
                       className="node-border-hitarea"
-                      d={diamondBorderShape.shellPath}
+                      d={hexagonBorderShape.shellPath}
                       onPointerDown={(event) => onNodeBorderPointerDown(event, node)}
                       onPointerMove={(event) => onNodeBorderPointerMove(event, node)}
                       onPointerLeave={onNodeBorderPointerLeave}

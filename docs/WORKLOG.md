@@ -2,6 +2,27 @@
 
 Chronological engineering log. Entries are kept concise and focused on behavior and validation.
 
+## 2026-02-16 - Infra node shape switched from diamond to hexagon
+
+### Scope
+
+- Replace recently introduced diamond infra shape with hexagon shape for routing/security visual nodes.
+
+### Changes
+
+- Updated shape resolver:
+  - replaced `resolveDiamondShape` with `resolveHexagonShape` in `apps/web/src/components/nodeShapePaths.ts`.
+- Updated canvas rendering:
+  - `gateway`, `security`, and `load-balancer` now render as hexagons in `apps/web/src/components/DiagramCanvas.tsx`.
+- Updated shape tests:
+  - migrated expectations in `apps/web/src/components/nodeShapePaths.test.ts` from diamond to hexagon paths.
+
+### Validation
+
+- `npm --workspace @sjv/web run lint`
+- `npm --workspace @sjv/web run test:run -- src/components/nodeShapePaths.test.ts`
+- `npm --workspace @sjv/web run build`
+
 ## 2026-02-16 - Connector UX overhaul and diamond infra nodes
 
 ### Scope

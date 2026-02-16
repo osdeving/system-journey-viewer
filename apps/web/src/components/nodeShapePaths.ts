@@ -34,7 +34,7 @@ export type QueueCylinderShape = {
   rearInnerArcPath: string
 }
 
-export type DiamondShape = {
+export type HexagonShape = {
   shellPath: string
 }
 
@@ -59,11 +59,11 @@ export const resolveQueueCylinderShape = (
   }
 }
 
-export const resolveDiamondShape = (
+export const resolveHexagonShape = (
   width: number,
   height: number,
   inset = 0,
-): DiamondShape => {
+): HexagonShape => {
   const safeWidth = Math.max(1, width)
   const safeHeight = Math.max(1, height)
   const clampedInset = clamp(inset, 0, Math.min(safeWidth, safeHeight) / 2 - 0.5)
@@ -71,10 +71,16 @@ export const resolveDiamondShape = (
   const rightX = safeWidth - clampedInset
   const topY = clampedInset
   const bottomY = safeHeight - clampedInset
-  const centerX = (leftX + rightX) / 2
   const centerY = (topY + bottomY) / 2
+  const horizontalInset = clamp(
+    (rightX - leftX) * 0.25,
+    6,
+    Math.max(6, (rightX - leftX) / 2 - 0.5),
+  )
+  const leftInnerX = leftX + horizontalInset
+  const rightInnerX = rightX - horizontalInset
 
   return {
-    shellPath: `M ${centerX} ${topY} L ${rightX} ${centerY} L ${centerX} ${bottomY} L ${leftX} ${centerY} Z`,
+    shellPath: `M ${leftInnerX} ${topY} L ${rightInnerX} ${topY} L ${rightX} ${centerY} L ${rightInnerX} ${bottomY} L ${leftInnerX} ${bottomY} L ${leftX} ${centerY} Z`,
   }
 }

@@ -1,0 +1,51 @@
+name: Bug report
+description: Report a reproducible bug
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for filing a bug report. Please provide as much detail as possible.
+  - type: input
+    id: summary
+    attributes:
+      label: Summary
+      description: One-line description of the bug
+      placeholder: Player highlights destination before orb arrives
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Provide exact steps
+      placeholder: |
+        1. Open Showcase
+        2. Start journey playback
+        3. Observe step transition timing
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      description: Browser, OS, and version
+      placeholder: Chrome 144 / Windows 11
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs or screenshots
+      description: Paste logs and/or attach images

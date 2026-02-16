@@ -1,37 +1,37 @@
-# DSL LITE Spec (System Journey Viewer)
+# DSL LITE Specification (System Journey Viewer)
 
-Especificacao oficial da DSL LITE usada no editor.
+Official specification for the DSL LITE format used by the editor.
 
-Objetivo:
-- dar um contrato claro para humanos e IAs gerarem DSL valida;
-- documentar a semantica real de hierarquia, drilldown e fronteiras.
+Purpose:
+- provide a clear contract for humans and AI tools to generate valid DSL;
+- document real semantics for hierarchy, drill-down, and boundary grouping.
 
 Status:
-- fonte da verdade: `apps/web/src/dsl-lite/parser.ts` e `apps/web/src/dsl-lite/convert.ts`
-- esta spec descreve o comportamento atual da implementacao.
+- source of truth implementation: `apps/web/src/dsl-lite/parser.ts` and `apps/web/src/dsl-lite/convert.ts`;
+- this document reflects current runtime behavior.
 
-## 1. Visao geral (human readable)
+## 1. Overview (Human-Readable)
 
-A DSL LITE agora suporta **arquivo unico com multiplas views**.
+DSL LITE supports a **single file with multiple views**.
 
-Cada view pode declarar:
+Each view can declare:
 - nodes
 - edges
 - journeys
-- parent/via (hierarquia)
+- parent/via hierarchy
 
-Nodes podem declarar:
-- `drilldown <viewId>` (pai aponta para filho)
-- `contains a,b,c` (fronteira agrupando aliases da mesma view)
+Nodes can declare:
+- `drilldown <viewId>`
+- `contains a,b,c` (group boundary)
 
-Exemplo curto:
+Short example:
 
 ```dsl
-workspace "Pedidos" {
+workspace "Orders" {
   view v_container container {
     boundary core "Core Services" contains api,worker,orders
-    container api "ms-pedidos" tech spring-boot drilldown v_component_api
-    container worker "ms-fulfillment" tech spring-boot
+    container api "orders-api" tech spring-boot drilldown v_component_api
+    container worker "fulfillment-worker" tech spring-boot
     db orders "orders-db" tech postgres
   }
 
@@ -92,86 +92,86 @@ ws1              = ( " " | "\t" ), { " " | "\t" } ;
 ws?              = { " " | "\t" } ;
 ```
 
-## 3. Regras semanticas
+## 3. Semantic Rules
 
-### 3.1 Workspace e views
-- `workspace "..." { ... }` define nome do workspace.
-- Pode haver varias views no mesmo arquivo.
-- Formato recomendado de view:
+### 3.1 Workspace and views
+- `workspace "..." { ... }` defines workspace name.
+- multiple views are allowed in a single file.
+- recommended modern format:
   - `view <viewId> <viewKind> { ... }`
-- Formato legado continua aceito:
+- legacy format is still accepted:
   - `view <viewKind> { ... }`
-  - nesse caso o parser gera `viewId` automaticamente (`v_<kind>`).
+  - parser auto-generates view id (`v_<kind>`).
 
-### 3.2 Escopo por view
-- `alias` de node e local da view.
-- edges e journey steps referenciam aliases da mesma view.
-- edge com alias inexistente e descartada na conversao.
+### 3.2 View scope
+- node aliases are local to each view.
+- edges and journey steps must reference aliases from the same view.
+- edges with unknown aliases are discarded during conversion.
 
 ### 3.3 Nodes
-- Formato:
-  - `<kind> <alias> "Nome" [tech <techId>] [drilldown <viewId>] [contains a,b,c]`
-- `kind` desconhecido: fallback para preset `container`.
-- `techId` desconhecido: nao quebra parse; node pode ficar sem tech resolvida.
+- format:
+  - `<kind> <alias> "Name" [tech <techId>] [drilldown <viewId>] [contains a,b,c]`
+- unknown `kind`: falls back to `container` preset.
+- unknown `techId`: parser keeps node valid; tech may remain unresolved.
 
-### 3.4 Drilldown e hierarquia
-- Existem duas formas de ligar pai/filho:
-  1. no node do pai: `drilldown <viewIdFilha>`
-  2. na view filha: `parent <viewIdPai> via <aliasDoNodePai>`
-- Na conversao para modelo FULL:
-  - a UI usa `node.drilldownRef` para abrir drilldown no double-click;
-  - `parent/via` tambem seta esse `drilldownRef` automaticamente no node do pai.
-- Em conflito entre regras, a implementacao evita sobrescrever `drilldownRef` ja definido para outro alvo.
+### 3.4 Drill-down and hierarchy
+- parent/child links can be declared in two ways:
+  1. node-level: `drilldown <childViewId>`
+  2. child view-level: `parent <parentViewId> via <parentAlias>`
+- full-model conversion behavior:
+  - UI uses `node.drilldownRef` for double-click navigation;
+  - `parent/via` also sets `drilldownRef` in the parent node.
+- in case of conflict, converter avoids overwriting a pre-existing `drilldownRef` targeting another view.
 
-### 3.5 Fronteira por grupo (`contains`)
-- Use em node de `kind boundary`:
+### 3.5 Group boundary (`contains`)
+- use on `boundary` nodes:
   - `boundary core "Core Services" contains api,worker,orders`
-- Efeito no import:
-  - `boundary.children` recebe os nodes listados;
-  - bounds da fronteira sao ajustados para envolver o grupo com padding.
-- Efeito na UI:
-  - fronteira e renderizada como boundary normal, ja envolvendo os filhos.
+- import effect:
+  - `boundary.children` is populated from listed aliases;
+  - boundary bounds are recalculated to wrap children with padding.
+- UI effect:
+  - boundary renders as a grouped container around its children.
 
 ### 3.6 Edges
-- Formato:
+- format:
   - `<fromAlias> -> <toAlias> [: <protocolId> ["Label"]]`
 - defaults:
-  - protocolo = `http`
+  - protocol = `http`
   - label = `request`
 
 ### 3.7 Journeys
-- Formato:
-  - `journey "Nome" [color <token>] { ... }`
-  - passo: `<n>: <fromAlias> -> <toAlias>`
-- `color` default: `#2563eb`
-- passo so e mantido se houver edge correspondente `fromAlias->toAlias`.
+- format:
+  - `journey "Name" [color <token>] { ... }`
+  - step: `<n>: <fromAlias> -> <toAlias>`
+- default color: `#2563eb`
+- a step is kept only when matching edge (`fromAlias -> toAlias`) exists in the same view.
 
-### 3.8 Validacao minima
-- se total de nodes no arquivo for zero:
-  - erro `DSL LITE inválida: nenhum node encontrado.`
+### 3.8 Minimum validation
+- if total node count is zero:
+  - error: `Invalid DSL LITE: no nodes found.`
 
-## 4. Import/export no editor
+## 4. Import/Export in the Editor
 
-- `Exportar workspace completo`:
-  - gera um unico arquivo DSL com todas as views.
-  - inclui `parent ... via ...` quando encontra relacao de drilldown.
-- `Importar DSL`:
-  - reconstrui o workspace FULL com multiplas views.
-  - aplica drilldown e fronteiras de grupo.
-- a sincronizacao continua manual:
-  - editar textarea nao atualiza canvas ate clicar `Importar DSL`.
+- `Export full workspace`:
+  - generates one DSL file containing all views;
+  - includes `parent ... via ...` when drill-down relation exists.
+- `Import DSL`:
+  - reconstructs FULL workspace with multi-view hierarchy;
+  - applies drill-down and grouped boundaries.
+- synchronization remains manual:
+  - editing text does not update canvas until `Import DSL` is executed.
 
-## 5. Regras de tolerancia do parser
+## 5. Parser Tolerance Rules
 
-- linhas vazias sao ignoradas.
-- linhas iniciando com `//` ou `#` sao ignoradas.
-- linhas nao reconhecidas sao ignoradas (nao causam erro por si).
-- se `journey` abrir e nao fechar, ela e fechada implicitamente no fim.
-- se houver declaracoes fora de bloco de view, o parser cria uma view implicita `v_container`.
+- empty lines are ignored.
+- lines starting with `//` or `#` are ignored.
+- unknown lines are ignored (not an error by themselves).
+- unclosed `journey` blocks are implicitly closed at EOF.
+- declarations outside any view create an implicit `v_container` view.
 
-## 6. Catalogo recomendado (valores da UI)
+## 6. Recommended Catalog (UI values)
 
-### 6.1 `kind` de node
+### 6.1 Node `kind`
 - `system`
 - `container`
 - `component`
@@ -215,14 +215,14 @@ ws?              = { " " | "\t" } ;
 - `redis`
 - `elasticsearch`
 
-## 7. Exemplo completo (multi-view + hierarquia + fronteira)
+## 7. Complete Example (Multi-View + Hierarchy + Boundary)
 
 ```dsl
-workspace "Pedidos" {
+workspace "Orders" {
   view v_container container {
     boundary core "Core Services" contains api,worker,orders
-    container api "ms-pedidos" tech spring-boot
-    container worker "ms-fulfillment" tech spring-boot
+    container api "orders-api" tech spring-boot
+    container worker "fulfillment-worker" tech spring-boot
     db orders "orders-db" tech postgres
 
     api -> worker : kafka-event "order.created"
@@ -241,13 +241,13 @@ workspace "Pedidos" {
 }
 ```
 
-## 8. Checklist para IA geradora
+## 8. Checklist for AI DSL Generation
 
-Antes de importar:
-1. Existe `workspace "..." {`.
-2. Toda view tem `viewId` unico (quando usar sintaxe moderna).
-3. Ha pelo menos 1 node no arquivo.
-4. Em cada view, aliases usados em edges existem como nodes.
-5. Steps de journey referenciam edges existentes na mesma view.
-6. `drilldown` e `parent/via` apontam para `viewId`/alias existentes.
-7. Para fronteira de grupo, `contains` usa aliases da mesma view.
+Before importing:
+1. `workspace "..." {` exists.
+2. each modern view has a unique `viewId`.
+3. file contains at least one node.
+4. each edge alias exists as a node in the same view.
+5. journey steps reference existing edges in the same view.
+6. `drilldown` and `parent/via` reference valid view IDs and aliases.
+7. `contains` only lists aliases from the same view.

@@ -4,3 +4,7 @@ dist/
 apps/web/node_modules/
 apps/web/dist/
 apps/web/coverage/
+.vercel/
+tmp/
+temp/
+temp_consulta/

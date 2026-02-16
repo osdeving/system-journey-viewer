@@ -1,140 +1,99 @@
 # System Journey Viewer
 
-Editor visual para modelar arquitetura e fluxos de jornada em múltiplas camadas (`Container`, `Component`, `Hex`), com player de execução, DSL LITE e export.
+System Journey Viewer is an open-source visual editor to model architecture and execution journeys in a single artifact.
 
-## O que este projeto resolve
+It supports multi-layer modeling (`Container`, `Component`, `Hex`), animated journey playback, and textual modeling through `JourneyScript` (DSL LITE).
 
-Se você precisa explicar fluxo de negócio e arquitetura no mesmo artefato, o System Journey Viewer permite:
+## Highlights
 
-- desenhar os componentes e suas comunicações;
-- montar jornadas de usuário (passos sobre edges);
-- executar essas jornadas com animação;
-- detalhar por drill-down entre visões;
-- exportar para `SVG`, `PNG` e `PDF`;
-- editar/importar via DSL LITE quando preferir modo textual.
+- Visual architecture editor with ports, snap/grid, pan/zoom, and drill-down.
+- Journey timeline and player with animated flow playback.
+- `JourneyScript` DSL editor with Monaco-based syntax highlighting.
+- Multi-format export: `SVG`, `PNG`, `PDF`, plus animated `GIF`, `MP4`, and animated `SVG`.
+- Optional Codex-assisted DSL refinement through a secure gateway.
+- Dark/light themes and presentation mode for demos.
 
-## Demo rápida (5 minutos)
+## Repository Structure
 
-1. Suba a aplicação (`npm run dev`).
-2. Abra a UI e clique em `Showcase` para carregar o cenário de demonstração.
-3. Na aba `Journeys`, selecione uma jornada e clique em `Play`.
-4. Faça drill-down com double-click em nodes com referência.
-5. Exporte em `SVG` pela topbar.
+- `apps/web`: React + Vite web editor.
+- `apps/codex-gateway`: Node.js server-side gateway for Codex DSL assistance.
+- `docs`: product and engineering documentation.
 
-## Como rodar localmente
+## Quick Start
 
-Pré-requisitos:
+### Prerequisites
 
-- `Node.js`
-- `npm`
+- Node.js 20+
+- npm 10+
 
-Instalação e execução do frontend:
+### Install and run the web app
 
 ```bash
 npm install
 npm run dev
 ```
 
-## Assistência Codex no painel DSL (opcional)
+Default URL: `http://localhost:5173`
 
-Para habilitar o botão `Refinar com Codex`, rode também o gateway:
+### Optional: run the Codex gateway
 
 ```bash
 npm run dev:gateway
 ```
 
-Variáveis suportadas pelo gateway (`apps/codex-gateway`):
+Default URL: `http://localhost:8787`
 
-- `OPENAI_API_KEY` ou `CODEX_API_KEY`
-- `OPENAI_BASE_URL`
-- `CODEX_MODEL` (exemplo: `gpt-5-codex`)
-- `CODEX_WORKDIR`
-- `CODEX_SANDBOX_MODE` (`read-only`, `workspace-write`, `danger-full-access`)
-- `CODEX_APPROVAL_POLICY` (`never`, `on-request`, `on-failure`, `untrusted`)
-- `CODEX_SKIP_GIT_REPO_CHECK` (`true`/`false`)
-- `CODEX_NETWORK_ACCESS_ENABLED` (`true`/`false`)
-- `CODEX_GATEWAY_PORT` (default: `8787`)
+## Scripts
 
-## Fluxo de uso da UI
+From repository root:
 
-1. Arraste nodes da `Palette` para o canvas.
-2. Use `Connector` para criar comunicação (porta -> porta).
-3. Ajuste nome/tecnologia/cor do node no `Inspector`.
-4. Ajuste label e protocolo da edge no `Inspector`.
-5. Crie uma jornada na aba `Journeys`.
-6. Adicione edges na jornada ativa com `Add to Active Journey`.
-7. Execute no player com `Play/Step/Loop`.
+- `npm run dev`: start web app.
+- `npm run dev:gateway`: start Codex gateway.
+- `npm run lint`: run web lint.
+- `npm run test:run`: run web tests once.
+- `npm run test:run:gateway`: run gateway tests.
+- `npm run build`: build web app.
 
-Guia completo de operação:
+## Deploy to Vercel
 
-- `docs/UI_JOURNEYS_CAPABILITIES.md`
+This repository is preconfigured for Vercel static deployment of the web app.
 
-## DSL: como funciona a sincronização
+### 1. Import repository into Vercel
 
-A sincronização entre canvas e DSL é manual:
+- Framework preset: `Vite`
+- Root directory: repository root
+- Build command: `npm run build`
+- Output directory: `apps/web/dist`
 
-- `Exportar workspace completo`: gera um único DSL com todas as views.
-- `Importar DSL`: aplica o texto DSL no workspace (incluindo hierarquia entre views).
+A `vercel.json` file is included with SPA rewrite support.
 
-Editar a textarea sozinha não atualiza o canvas em tempo real até clicar em `Importar DSL`.
+### 2. Optional environment variables
 
-Spec oficial da DSL LITE:
+If you host the Codex gateway separately, expose it to the browser with:
 
-- `docs/DSL_LITE_SPEC.md`
+- `CODEX_GATEWAY_URL`
 
-## Scripts principais
+If you deploy the gateway in another environment, use variables documented in `.env.example`.
 
-Na raiz do monorepo:
+### 3. Notes
 
-- `npm run dev`: sobe a UI web
-- `npm run dev:gateway`: sobe o gateway Codex
-- `npm run lint`: lint da UI
-- `npm run test:run`: testes da UI
-- `npm run test:run:gateway`: testes do gateway
-- `npm run build`: build da UI
+- The web app can run without the gateway.
+- DSL assist is optional and only used when the user triggers Codex refinement.
 
-## Estrutura do repositório
+## Open Source and Community
 
-- `apps/web`: aplicação React/Vite (editor visual)
-- `apps/codex-gateway`: gateway HTTP para integração com Codex SDK
-- `docs`: documentação técnica e operacional
+- Contribution guide: `CONTRIBUTING.md`
+- Code of conduct: `CODE_OF_CONDUCT.md`
+- Security policy: `SECURITY.md`
+- Support channels: `SUPPORT.md`
+- License: `LICENSE`
 
-## Estado atual e limites conhecidos
+## Documentation Map
 
-Estado funcional atual:
-
-- roadmap M0 -> M9 concluído;
-- showcase pronto para demo ponta-a-ponta;
-- player e drill-down funcionando.
-
-Limites atuais da UI:
-
-- sem remoção isolada de edge pela interface;
-- sem undo/redo;
-- sem multi-seleção/cópia/cola;
-- gestão de jornadas ainda básica (sem excluir/renomear por UI).
-
-Detalhamento dos limites:
-
-- `docs/UI_JOURNEYS_CAPABILITIES.md`
-
-## Documentação complementar
-
-- `docs/UI_JOURNEYS_CAPABILITIES.md`: guia direto para uso da interface
-- `docs/DSL_LITE_SPEC.md`: spec da DSL LITE (EBNF + semantica + limites)
-- `docs/AI_STATE.md`: estado consolidado do produto
-- `docs/WORKLOG.md`: histórico de mudanças por sessão
-- `docs/DECISIONS.md`: decisões arquiteturais
-
-## Histórico de branches do roadmap
-
-- `roadmap/m0-bootstrap`
-- `roadmap/m1-nodes-edges`
-- `roadmap/m2-snap-grid-ports`
-- `roadmap/m3-presets`
-- `roadmap/m4-journeys`
-- `roadmap/m5-player`
-- `roadmap/m6-drilldown`
-- `roadmap/m7-hexview`
-- `roadmap/m8-dsl-lite`
-- `roadmap/m9-export`
+- `docs/UI_JOURNEYS_CAPABILITIES.md`: UI usage guide and current capabilities.
+- `docs/DSL_LITE_SPEC.md`: official DSL LITE grammar and semantics.
+- `docs/DECISIONS.md`: architecture and product decisions.
+- `docs/AI_STATE.md`: current implementation state snapshot.
+- `docs/WORKLOG.md`: chronological engineering change log.
+- `INTRUCTIONS.md`: implementation blueprint and roadmap.
+- `AGENTS.md`: repository working rules for AI agents.

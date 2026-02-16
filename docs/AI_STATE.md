@@ -1,120 +1,77 @@
 # AI_STATE
 
-## Estado atual
+## Current Snapshot
 
-- Roadmap M0→M9 implementado.
-- Branch por etapa criada (`roadmap/m0-*` até `roadmap/m9-*`), com promoção por cherry-pick sem merge commit.
-- Arquitetura adotada: editor SVG custom com adapter interno (sem lock-in), modelo FULL versionado (`schemaVersion: 1.0`) e DSL LITE para import/export textual.
-- Integração Codex adicionada via gateway server-side (`apps/codex-gateway`) para apoiar refinamento da DSL no editor.
+- Roadmap milestones `M0 -> M9` were implemented.
+- Feature branches were promoted without merge commits using cherry-pick flow.
+- Architecture baseline:
+  - custom SVG editor engine (internal adapter, no paid lock-in),
+  - versioned FULL model (`schemaVersion: 1.0`) as source of truth,
+  - DSL LITE (`JourneyScript`) for text import/export.
+- Optional Codex assistance integrated via server-side gateway (`apps/codex-gateway`).
 
-## Fluxos implementados
+## Implemented Product Flows
 
-- Canvas com pan/zoom, grid/snap, nodes/edges, ports/docking.
-- Presets C4/Infra/Hex e catálogo de protocolos.
-- Tema `light/dark` persistido no modelo FULL (`workspace.settings.theme`).
-- Journeys com passos e filtros.
-- Player com controles e animação de fluxo.
-- Drill-down Container → Component → Hex com breadcrumb.
-- DSL LITE ↔ FULL com auto-layout.
-- Export SVG/PNG/PDF.
-- Export animado de jornadas:
-  - GIF animado (frame capture com composição SVG + trilha),
-  - vídeo MP4 quando codec suportado pelo browser (fallback automático para WebM),
-  - SVG animado standalone com orb percorrendo os steps da jornada.
-  - GIF com loop contínuo e encode pós-captura para preservar a jornada completa.
-  - SVG animado com timeline contínua por jornada inteira (travel + hold por step) e loop infinito.
-  - Export animado aplica fundo do tema atual (dark/light) e remove grid no artefato final.
-  - Export usa velocidade dedicada mais lenta para melhorar legibilidade do “caminhar” na seta.
-  - Export foi desacelerado novamente (multiplicador maior) para GIF/MP4/SVG.
-  - Composição GIF/MP4 alinhada ao `trail-canvas` (mesmo frame-space) para evitar rastro fora da linha.
-  - SVG animado passou a priorizar paths reais renderizados do stage, reduzindo deformação estrutural por recomputação geométrica.
-  - Orb/halo do SVG animado agora são anexados ao layer transformado do canvas para manter alinhamento com viewport/zoom.
-- Showcase pronto para demo completa via ação `Showcase` (topbar).
-- Player com bolinha em movimento no path e rastro temporal via canvas overlay (trail com fade/remoção).
-- Player recebeu toggle `Trail` para desativar rastro e manter somente a bolinha em movimento.
-- Bolinha do player agora é posicionada desde o início do step (`t=0`), independente do toggle `Trail` (trilha desligada não oculta a orb).
-- Labels de comunicação com badge circular colorido por jornada (número dentro da bolinha) no início da seta quando há contexto de passo.
-- Render de seta refatorado em componente dedicado (`JourneyEdge`), com badge posicionado por distância fixa da origem e label com tecnologia no formato `Nome (protocolo)`.
-- Confete do player associado ao nó final da jornada (centro do componente + raio proporcional ao tamanho), incluindo disparo em ciclos de loop.
-- Player refinado com chegada visual ao final da seta antes do highlight do destino, sem tremida no componente alvo (somente iluminação) e fluxo tracejado animado na aresta ativa.
-- Inspector permite definir cor de preenchimento para componentes/containers (persistido no modelo).
-- Nós `db` e `queue` renderizados com formas específicas (cilindro vertical/horizontal por paths SVG), mantendo conectores/ports compatíveis e preenchimento alinhado ao contorno.
-- Inspector mostra paleta com últimas 10 cores para seleção rápida de componentes/containers.
-- Showcase inicial colorizado com paleta visual para facilitar demonstração.
-- Nodes Hex exibem ícones de conector: porta fêmea para `port-in/port-out` e plug macho para `adapter-in/adapter-out`.
-- Remoção de componente por teclado (`Delete`/`Backspace`) com confirmação e aviso de impacto em jornadas conectadas.
-- Remoção de node limpa edges conectadas e passos de jornada associados.
-- Preset `boundary` com borda pontilhada e fundo transparente (incluindo tema escuro).
-- Boundary com hit-area restrita à borda (`pointer-events: stroke`) para permitir clique em componentes atrás da área interna.
-- Rastro do player com amostragem interpolada entre frames para aparência contínua (sem “gaps” entre bolinhas em velocidades maiores).
-- Modo Connector com suporte a conexão por alça→alça (port-to-port) via arraste, incluindo preview visual da seta durante o gesto.
-- Conexão por clique em node removida no modo Connector (somente alça→alça).
-- Seleção/filtro de jornada na lista aciona automaticamente o player (autoplay) para a jornada clicada.
-- Troca de view (drilldown/back/goToView) interrompe player ativo e reposiciona jornada do player para a camada atual.
-- Layout com splitters para redimensionar painel inferior (timeline/DSL) e toolbox (largura).
-- Indicadores visuais de modo exibindo ferramenta ativa, camada atual e estado do player (Animação/Render).
-- Painel de Journeys reposicionado para a lateral direita junto ao Inspector, com controles verticais (filtro/player) para melhor responsividade.
-- Drawer inferior com tabs (`Journey Timeline` / `DSL`) para separar leitura de passos da edição de DSL.
-- DSL com ação de maximizar/restaurar painel para edição focada.
-- Modo foco (`F` / `Esc`) adicionado para canvas full-view, ocultando paleta, inspector e painel inferior.
-- Menubar desktop refatorado para estado controlado (sem `details`), com fechamento por clique externo/`Esc`, navegação entre menus por setas e logo do app na topbar.
-- Topbar com ações rápidas reduzidas e restante das operações concentradas no menubar, melhorando legibilidade.
-- Editor DSL recebeu polimento visual (surface dedicada, tipografia mono refinada, foco/contraste e feedbacks mais claros).
-- DSL ganhou nome oficial `JourneyScript` e integração com Monaco (`@monaco-editor/react`) com syntax highlighting custom (Monarch) e tema light/dark dedicado.
-- Painel `Inspector/Journeys` virou dockable window: abas arrastáveis, reposicionamento para direita/baixo e abertura via drawer quando dockado embaixo.
-- Controles do Dock migrados para o header da aplicação (estilo desktop app), mantendo o painel de conteúdo separado.
-- Menubar/topbar receberam reforço de hierarquia visual (z-index e opacidade) para dropdown sempre sobre o canvas.
-- Lista de jornadas lateral ganhou reorder por drag-and-drop, mantendo persistência na ordem da view.
-- Player recebeu controle padrão com ícones (retroceder, play/pause, avançar, reset) e suporte a passo anterior no store.
-- Player passou a avançar jornada por chegada visual estrita no canvas (rAF), sem `setInterval` desacoplado:
-  - próxima seta só inicia após a bolinha concluir a curva atual,
-  - highlight do destino só acende ao chegar no endpoint,
-  - avanço ocorre após breve hold de chegada para evitar “corte” visual entre setas.
-- Loop de render do trail otimizado para menor custo por frame:
-  - resize do canvas movido para `ResizeObserver` + `window.resize` (fora do loop de animação),
-  - limite de `devicePixelRatio` no overlay para reduzir fill-rate em telas HiDPI,
-  - trilhas com trim/compactação in-place (sem `slice/filter` por frame) para reduzir GC.
-- Player UI desacoplada de progresso contínuo:
-  - highlight do destino agora atualiza em transição de chegada (booleano), sem `setState` de progresso a cada frame.
-- Hold de chegada calibrado para leitura visual mais estável entre setas (`STEP_ARRIVAL_HOLD_MS = 90`).
-- Último step da jornada usa hold maior (`220ms`) antes de avanço/confete para evitar disparo visual antecipado no destino final.
-- Animação de dash nas arestas ficou contextual:
-  - todas as setas seguem tracejadas,
-  - animação contínua aplicada só em arestas ativas (player/filtro/jornada ativa/selecionada), reduzindo custo de paint.
-- Layout ganhou preset `Presentation mode` (`P`) + microinterações de abertura/fechamento de painéis (palette, dock, workbench).
-- `Presentation mode` agora executa auto-fit/centralização do viewport ao entrar, ocupando o canvas útil com os nodes da view atual.
-- Auto-fit de `Presentation mode` foi refinado para priorizar nós de conteúdo (ignorando `boundary` no cálculo de bounds), evitando enquadramento deslocado com grande área vazia lateral.
-- `Presentation mode` usa render clean no canvas (sem alças/ports/hitareas e sem interações de edição), mantendo pan/zoom + player.
-- Topbar em apresentação ganhou toolbar dedicada com:
-  - seletor de jornada do player,
-  - combobox de preset de animação (`Cinematic`, `Orb only`, `Minimal`),
-  - controles padrão com ícones e export animado em destaque (GIF/MP4/SVG).
-- Em `Presentation mode`, menu desktop de edição foi ocultado e os indicadores ficaram compactos para liberar largura ao canvas/player e evitar overflow horizontal.
-- Grid visual do stage foi corrigido para controle real por classe (`canvas-panel-grid-visible/hidden`), permitindo ocultação forçada no modo apresentação sem alterar preferência persistida.
-- `Presentation mode` recebeu correção de `gridTemplateAreas` no layout imersivo (`'topbar' 'main'`), removendo colunas implícitas que comprimiam o `main` e deixavam o SVG estreito no lado direito.
-- Export de vídeo MP4 foi endurecido para compatibilidade mobile:
-  - botão MP4 não faz fallback silencioso para WebM,
-  - resolução de MIME prioriza candidatos H.264/`avc1` antes de WebM,
-  - quando MP4/H.264 não é suportado no navegador, retorna erro explícito orientando alternativa (Safari/Edge ou GIF).
-- Ports/alças refinados: sem cantos no topo/base, maior densidade de encaixes por tamanho, bolinhas menores e mais discretas.
-- Confete do player ficou mais discreto e local ao componente alvo (raio menor, menos partículas, bursts mais curtos).
-- DSL com assistência do Codex: instrução customizada, execução via endpoint `/api/codex/dsl-assist`, reaproveitamento de `threadId` e ação para limpar contexto do thread.
-- Vite com proxy `/api/codex` para gateway local (`http://localhost:8787`) durante desenvolvimento.
-- Guia de operação da UI disponível em `docs/UI_JOURNEYS_CAPABILITIES.md` (jornadas de uso, capacidades e limitações atuais).
-- README raiz reestruturado para leitura humana (onboarding rápido, fluxo de uso, limites atuais e mapa de documentação).
-- Spec oficial da DSL LITE disponível em `docs/DSL_LITE_SPEC.md` (EBNF, semântica, catálogo e limites de hierarquia/drilldown).
-- DSL LITE evoluída para arquivo único multi-view com hierarquia (`parent/via`, `drilldown`) e fronteira por grupo (`contains`) aplicada no render via boundary.
-- Canvas com seleção múltipla de componentes (add/remove por modificador), arraste em grupo e remoção em lote via teclado.
-- Resize de node por arraste em qualquer trecho da borda, com cursor contextual por direção de ajuste.
-- Ports dinâmicos por tamanho do node (mais encaixes conforme largura/altura), propagados em criação/import e resize.
-- Manipulação de setas no modo Select: drag de endpoint por encaixe, reconexão para outro encaixe ou body do node (auto-nearest port) e ciclo de desempate quando múltiplas setas compartilham o mesmo encaixe.
-- Topbar com menu desktop (`File/Edit/View/Insert`) além dos botões rápidos existentes.
-- Visual refresh do canvas inspirado na UI de referência em `temp/`: paleta dark azul/verde, fundo com gradientes radiais, setas com arrowhead customizado e rastro do player com glow reforçado (track base + progresso + orb halo).
-- Showcase padrão ajustado para identidade dark (tema default `dark`) e sem cores fixas por node no seed, permitindo que a paleta visual da UI conduza o look inicial.
-- Todas as setas agora usam tracejado animado contínuo (inclusive preview de conexão), com ciclo de dash sem salto perceptível para movimento mais suave.
+- Canvas editing with pan/zoom, grid/snap, nodes/edges, ports, and docking.
+- Preset catalog for C4, infra, and hexagonal architecture semantics.
+- Theme persistence (`light` / `dark`) in workspace settings.
+- Journey creation, filtering, and playback controls.
+- Drill-down navigation (`Container -> Component -> Hex`) with breadcrumb.
+- DSL LITE <-> FULL conversion with auto-layout.
+- Static export (`SVG`, `PNG`, `PDF`).
+- Animated export (`GIF`, `MP4`, animated `SVG`) with journey timeline playback.
+- Presentation mode with clean rendering and export-focused controls.
 
-## Próximos incrementos sugeridos
+## Animation and Player State
 
-- Refinar roteamento ortogonal avançado.
-- Evoluir dock para undock em janela flutuante real (drag livre) e presets salvos de layout por usuário.
-- Otimizar bundle do export PDF (chunk grande por `jspdf`).
+- Strict step sequencing:
+  - edge animation progresses until endpoint,
+  - destination highlight fires on visual arrival,
+  - next step starts only after arrival hold.
+- Optional trail toggle:
+  - keep only orb motion when trail is disabled.
+- Contextual dashed-edge animation:
+  - dashed style for all edges,
+  - animated dash prioritized for active journey context.
+- Reduced confetti radius and intensity for subtle target-local feedback.
+
+## Performance-Oriented Updates
+
+- Trail canvas resize moved out of per-frame loop (`ResizeObserver` + viewport handlers).
+- Device-pixel-ratio cap on trail overlay to reduce HiDPI fill-rate cost.
+- In-place trail trimming/compaction to lower allocations and GC churn.
+- Reduced React state churn from per-frame progress updates.
+
+## UI/UX State
+
+- Desktop-style menubar with controlled open/close behavior.
+- Dockable side panel (`Inspector` / `Journeys`) with tab drag and position switching.
+- Standard player control group with icon-based actions.
+- Monaco-based `JourneyScript` editor with custom highlighting theme.
+- Focus/presentation workflows for demo-friendly screen usage.
+
+## Export State
+
+- GIF export loops continuously and captures full journey playback.
+- MP4 export enforces explicit codec support (no silent downgrade).
+- Animated SVG export uses rendered path geometry when available.
+- Export output applies canvas background theme and omits edit grid.
+
+## Open Source / Delivery Readiness (2026-02-16)
+
+- Documentation normalized to English.
+- Community files added:
+  - `CONTRIBUTING.md`
+  - `CODE_OF_CONDUCT.md`
+  - `SECURITY.md`
+  - `SUPPORT.md`
+  - `LICENSE`
+- GitHub templates and CI workflow added under `.github/`.
+- `vercel.json` added for static Vercel deployment of `apps/web`.
+
+## Suggested Next Increments
+
+- Upgrade edge routing with stronger orthogonal controls.
+- Add full floating undocked windows and saved layout presets.
+- Add undo/redo stack to the public UI workflow.
+- Add integration tests for animated export pipeline and presentation mode regressions.

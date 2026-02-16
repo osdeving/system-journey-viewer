@@ -10,6 +10,7 @@
     "dev": "npm --workspace @sjv/web run dev",
     "dev:gateway": "npm --workspace @sjv/codex-gateway run dev",
     "build": "npm --workspace @sjv/web run build",
+    "ci": "npm run lint && npm run test:run && npm run test:run:gateway && npm run build",
     "test": "npm --workspace @sjv/web run test",
     "test:run": "npm --workspace @sjv/web run test:run",
     "test:run:gateway": "npm --workspace @sjv/codex-gateway run test:run",

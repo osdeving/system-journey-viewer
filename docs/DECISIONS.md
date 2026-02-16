@@ -1,35 +1,41 @@
-# DECISIONS
+# Decisions
 
-## 2026-02-12 — Engine SVG Adapter (Opção A)
+## 2026-02-12 - SVG Engine Adapter (Option A)
 
-- **Contexto**: roadmap exige editor estilo draw.io com controle total de render/animação e sem lock-in pago.
-- **Decisão**: implementar engine próprio em SVG com `DiagramCanvas` + store de domínio (adapter interno).
-- **Consequência**: maior controle para player/journey/drill-down e export, com custo maior de manutenção de interação.
+- Context: the roadmap required a draw.io-like editor with full control over rendering/animation and no paid lock-in.
+- Decision: implement an in-house SVG engine centered on `DiagramCanvas` plus a domain store.
+- Consequence: higher flexibility for journey player, drill-down, and export; higher interaction-maintenance cost.
 
-## 2026-02-12 — FULL como fonte da verdade + DSL LITE derivada
+## 2026-02-12 - FULL Model as Source of Truth + Derived DSL LITE
 
-- **Contexto**: necessidade de persistência de geometria e também edição humana textual.
-- **Decisão**: manter `WorkspaceModel` FULL como estado canônico e converter DSL LITE em runtime.
-- **Consequência**: migração/versionamento mais simples e import/export textual sem acoplamento do engine.
+- Context: the product needs persistent geometry and human-editable text.
+- Decision: keep `WorkspaceModel` (FULL) as canonical state and convert DSL LITE at runtime.
+- Consequence: simpler migration/versioning plus text import/export without coupling the editor core.
 
-## 2026-02-12 — Player integrado ao estado global
+## 2026-02-12 - Journey Player in Global State
 
-- **Contexto**: highlight de edge/node e sincronização com filtros de jornada e drill-down.
-- **Decisão**: player state no `useEditorStore` (journey, step, loop, speed).
-- **Consequência**: render reativo único em canvas e controles desacoplados da camada visual.
+- Context: edge/node highlighting must stay synchronized with journey filters and drill-down navigation.
+- Decision: keep player state in `useEditorStore`.
+- Consequence: single reactive render pipeline with decoupled UI controls.
 
-## 2026-02-13 — Integração Codex via gateway server-side
+## 2026-02-13 - Codex Integration Through Server-Side Gateway
 
-- **Contexto**: o editor DSL precisava de assistência do Codex SDK sem expor credenciais/API key no browser.
-- **Decisão**: introduzir `apps/codex-gateway` (Node.js) como adapter server-side com endpoint HTTP `/api/codex/dsl-assist`, mantendo o frontend apenas como cliente.
-- **Consequência**: integração segura e stateful por `threadId` (continuidade de contexto) com leve aumento de complexidade operacional (dois processos em dev: web + gateway).
+- Context: DSL assist was needed without exposing API keys in the browser.
+- Decision: introduce `apps/codex-gateway` with `/api/codex/dsl-assist`.
+- Consequence: secure and stateful integration (`threadId`) with slight operational overhead (two local processes).
 
-## 2026-02-15 — DSL LITE unificada com hierarquia multi-view
+## 2026-02-15 - Unified Multi-View DSL LITE with Hierarchy
 
-- **Contexto**: a DSL anterior representava uma view por vez, sem vínculo explícito pai/filho e sem agrupamento declarativo de fronteira.
-- **Decisão**: evoluir a DSL para arquivo único multi-view com:
-  - `view <id> <kind>`,
-  - `parent <viewId> via <alias>`,
-  - `drilldown <viewId>` em node,
-  - `contains a,b,c` para boundary de grupo.
-- **Consequência**: import/export textual passa a preservar hierarquia de drilldown e agrupamento de fronteiras, reduzindo perda semântica entre edição visual e edição textual.
+- Context: previous DSL represented one view at a time and did not preserve explicit parent-child links or boundary grouping.
+- Decision: evolve DSL LITE to a single multi-view file with:
+  - `view <id> <kind>`
+  - `parent <viewId> via <alias>`
+  - `drilldown <viewId>` in node declarations
+  - `contains a,b,c` for boundaries
+- Consequence: visual and textual editing now preserve drill-down hierarchy and grouped boundaries with less semantic loss.
+
+## 2026-02-16 - GitHub/Vercel Open-Source Readiness
+
+- Context: project needed publication readiness for GitHub and deployment readiness for Vercel.
+- Decision: add OSS governance docs (`CONTRIBUTING`, `CODE_OF_CONDUCT`, `SECURITY`, `SUPPORT`, `LICENSE`), GitHub templates/workflows, and `vercel.json`.
+- Consequence: clearer community onboarding, CI baseline for pull requests, and a documented deployment path.

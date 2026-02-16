@@ -1,124 +1,117 @@
-# UI Journeys e Capacidades (Estado Atual)
+# UI Journeys and Capabilities (Current State)
 
-Documento de referência rápida para não se perder no que a UI já suporta hoje.
+Quick operational reference for what the UI currently supports.
 
-## 1) Mapa rápido da tela
+## 1) Screen Map
 
 - Topbar:
-  - `Back`, `Select`, `Connector`, `Reload`, `Save`
-  - `Export SVG`, `Export PNG`, `Export PDF`
-  - `Zoom +`, `Zoom -`
-  - toggles `Grid`, `Snap`, `Dark`
-  - `Showcase`, `Reset`
-- Sidebar esquerda (`Palette`):
-  - presets de node por categoria (drag-and-drop para o canvas)
-- Centro (`Canvas`):
-  - edição visual (mover/redimensionar nodes, conectar, selecionar edge/node)
-- Sidebar direita (`Inspector`):
-  - edição de propriedades de node/edge selecionado
-- Drawer inferior:
-  - aba `Journeys`
-  - aba `DSL` (com opção `Maximizar DSL`)
+  - primary controls (`Back`, tools, zoom, grid/snap/theme, presentation)
+  - export controls (`SVG`, `PNG`, `PDF`, animated `GIF`, `MP4`, animated `SVG`)
+- Left sidebar (`Palette`):
+  - node presets by category (drag and drop to canvas)
+- Center (`Canvas`):
+  - visual editing, edge manipulation, playback rendering
+- Right dock (`Inspector` / `Journeys` tabs):
+  - editable properties and journey management
+- Bottom workbench drawer:
+  - `Journey Timeline` and `JourneyScript` tabs
 
-## 2) Jornada principal do usuário (happy path)
+## 2) Primary User Flow
 
-1. Montar estrutura base
-- Arraste presets da `Palette` para o canvas.
-- Em `Select`, mova e redimensione nodes.
-- Edite `Nome`, `Tecnologia` e `Cor` no `Inspector` quando um node estiver selecionado.
+1. Build structure
+- Drag presets from `Palette` into the canvas.
+- Use `Select` to move and resize nodes.
+- Edit name, technology, and color in `Inspector`.
 
-2. Criar comunicações (edges)
-- Troque para `Connector`.
-- Crie edge arrastando de uma alça (porta) para outra alça.
-- Selecione a edge e ajuste `Label` e `Protocolo` no `Inspector`.
+2. Create communications (edges)
+- Switch to `Connector`.
+- Connect handles from source to target.
+- Edit label and protocol in `Inspector`.
 
-3. Criar e montar jornada
-- Na aba `Journeys`, clique em `Criar jornada`.
-- Com a jornada ativa, selecione edges e use `Add to Active Journey` no `Inspector` da edge.
-- Use `Filtrar` para mostrar visualmente uma jornada específica.
+3. Create and assemble journeys
+- Open `Journeys` and create a journey.
+- With a journey active, select edges and use `Add to Active Journey`.
+- Filter to render a specific journey.
 
-4. Executar jornada no player
-- Selecione a jornada no combo `Player: selecione jornada` ou clicando no item da lista.
-- Use `Play`, `Pausar`, `Step`, `Reset Player`.
-- Ajuste `Loop`, `Highlight Nodes` e `Speed`.
+4. Play journey animation
+- Select a journey in player controls.
+- Use `Previous`, `Play/Pause`, `Next`, and `Reset`.
+- Tune `Loop`, `Speed`, and visual options.
 
-5. Navegar entre camadas (drilldown)
-- Faça double-click em node com `drilldown` para descer de camada.
-- Use `Back` para voltar.
+5. Drill down across levels
+- Double-click a node with drill-down reference.
+- Use `Back` to return.
 
-6. Exportar ou usar DSL
-- Exporte o canvas em `SVG/PNG/PDF`.
-- Na aba `DSL`, use `Exportar workspace completo` e `Importar DSL`.
-- Opcional: `Refinar com Codex` para assistência textual da DSL.
+6. Export
+- Export static formats (`SVG`, `PNG`, `PDF`) or animated formats (`GIF`, `MP4`, animated `SVG`).
 
-## 3) O que a UI já permite hoje
+## 3) Supported Capabilities
 
-- Edição visual de diagrama:
-  - criar node por drag-and-drop
-  - mover, redimensionar e selecionar
-  - pan/zoom no canvas
-  - grid e snap configuráveis
-- Conexões:
-  - edge por porta→porta (modo `Connector`)
-  - edição de label e protocolo da edge
+- Visual editing:
+  - drag/drop node creation
+  - move, resize, multi-select, group drag
+  - pan/zoom
+  - optional grid and snap
+- Connections:
+  - handle-to-handle connection (connector mode)
+  - edge re-targeting from endpoints
+  - edge label/protocol editing
 - Journeys:
-  - criar jornada
-  - associar/remover edges da jornada
-  - filtrar jornada
-  - autoplay ao selecionar jornada na lista
+  - create journeys
+  - add/remove edges from journeys
+  - reorder journeys in side panel
+  - journey filter and autoplay on selection
 - Player:
-  - play/pause/step/reset
-  - loop e velocidade
-  - highlight de nós e efeitos visuais de fluxo
-- Drilldown:
-  - container → component → hex (quando há referência)
+  - previous/play-pause/next/reset
+  - loop and speed controls
+  - node highlight and flow effects
+  - optional trail toggle (orb-only mode)
+- Drill-down:
+  - Container -> Component -> Hex navigation
 - DSL:
-  - exportar workspace completo para DSL LITE (arquivo único multi-view)
-  - importar DSL LITE (reconstrói workspace com hierarquia/drilldown)
-  - assistência do Codex via gateway
-- Export:
-  - SVG, PNG e PDF
-- Persistência:
-  - `Save`/`Reload` e persistência local com autosave por debounce
-- Aparência:
-  - tema light/dark
-  - cores por node (inclui paleta de últimas cores)
-  - shapes específicos para `db` e `queue`
+  - full workspace export to DSL LITE
+  - import DSL LITE into full workspace
+  - optional Codex assistance via gateway
+  - Monaco syntax highlighting for `JourneyScript`
+- Persistence:
+  - save/reload and debounced local autosave
+- Presentation mode:
+  - clean render mode for demos (no edit handles/grid)
+  - focused controls for player and animation export
 
-## 4) O que NÃO está disponível (limites atuais)
+## 4) Current Limits
 
-- Não há remoção direta de edge isolada pela UI.
-  - Hoje a remoção de edge ocorre ao remover um node conectado, ou ao remover a edge de uma jornada (sem apagar a edge do diagrama).
-- Não há gestão completa de jornada (ex.: renomear ou excluir jornada) pela UI atual.
-- Não há reordenação manual de passos da jornada por drag-and-drop.
-  - A ordem é baseada no campo `n` dos passos ao adicionar.
-- Não há undo/redo.
-- Não há seleção múltipla/cópia/cola de nodes.
-- Conexão por clique em node (sem alça) não é suportada no modo atual.
-  - Apenas alça→alça no `Connector`.
+- No dedicated edge-delete command from the UI.
+  - Edge removal currently happens through node deletion or journey-step removal.
+- No complete journey administration yet (rename/delete in all flows).
+- No undo/redo stack exposed in UI.
+- No copy/paste workflow for selected nodes.
+- Connector mode is handle-based; body-click connecting is not supported.
 
-## 5) Atalhos e comportamentos importantes
+## 5) Important Behaviors and Shortcuts
 
 - `Delete` / `Backspace`:
-  - remove node selecionado (com confirmação)
-  - também remove edges conectadas e limpa passos de jornadas afetadas
-- Troca de view (drilldown/back):
-  - interrompe player em execução
-  - reposiciona jornada do player para a camada atual
-- `Importar DSL`:
-  - substitui o workspace atual pelo importado
+  - removes selected nodes (with confirmation)
+  - also removes connected edges and affected journey steps
+- View transitions (drill-down/back):
+  - stop active playback
+  - re-align player context for current view
+- `Import DSL`:
+  - replaces current workspace with imported model
+- `P`:
+  - toggles presentation mode
 
-## 6) Referência de uso rápido (checklist)
+## 6) Quick Checklist
 
-- Quero só desenhar arquitetura:
+- Draw architecture:
   - `Select` + `Palette` + `Inspector`
-- Quero ligar componentes:
-  - `Connector` + arraste alça→alça
-- Quero mostrar fluxo de negócio:
-  - `Journeys` + `Add to Active Journey` + `Play`
-- Quero detalhar níveis:
-  - double-click para drilldown + `Back`
-- Quero versão textual:
-  - aba `DSL`
-- Quero compartilhar:
-  - `Export SVG/PNG/PDF`
+- Connect components:
+  - `Connector` + handle-to-handle drag
+- Show business flow:
+  - `Journeys` + `Add to Active Journey` + player controls
+- Explore levels:
+  - double-click drill-down + `Back`
+- Work text-first:
+  - `JourneyScript` tab
+- Share output:
+  - static or animated export actions

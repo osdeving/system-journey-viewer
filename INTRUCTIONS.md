@@ -1,123 +1,95 @@
 # C4 Editor & Journey Player (Web/React)
 
-## 0) Visão
+## 0) Vision
 
-Construir um editor estilo draw.io/Whimsical **com controle total**, focado em:
+Build a draw.io/Whimsical-style editor with full product control, focused on:
 
-* **C4** (System / Container / Component + Boundaries).
-* **Diagrama interno por container** (prioridade: **Hexagonal** com PortIn/PortOut/Adapters).
-* **Jornadas/fluxos** dentro do mesmo diagrama (numeração automática + cores por jornada).
-* **Modo Render/Player**: animação de “energia” nas setas, highlight de nós/edges por passo, confete ao finalizar, loop/velocidade.
-* **Drill-down**: double-click em um container abre sua visão de componentes no padrão C4, com breadcrumb.
-* Persistência: **sempre salvar a DSL FULL** (com geometria). Também suportar uma DSL LITE (humana) que a UI “opina” e transforma em FULL.
+- **C4 modeling** (`System`, `Container`, `Component`, and `Boundary`).
+- **Internal container diagrams**, with **Hexagonal Architecture** as first-class support (`PortIn`, `PortOut`, `AdapterIn`, `AdapterOut`).
+- **Journeys/flows** inside the same diagram (auto step numbering + per-journey color).
+- **Render/Player mode** with edge flow animation, node/edge highlighting, end-of-journey effects, loop, and speed control.
+- **Drill-down**: double-click a container to open its child view with breadcrumb navigation.
+- Persistence strategy:
+  - always save **FULL DSL/model** (with geometry),
+  - support a **LITE DSL** for human/AI editing that is converted to FULL.
 
-### Princípios
+### Core principles
 
-* Engine e modelo desacoplados (UI ↔ Engine ↔ DSL).
-* Undo/redo por Command Stack.
-* Tudo versionado (schemaVersion) e migrável.
-* Sem dependência de libs pagas/fechadas; extensível por plugins.
+- Decouple UI, engine, and DSL layers.
+- Keep schema-versioned data with explicit migrations.
+- Avoid paid/proprietary lock-in.
+- Preserve extensibility by adapter boundaries.
 
 ---
 
-## 1) UX — Layout da Tela (Editor)
+## 1) UX Layout (Editor)
 
-### 1.1 Estrutura visual (padrão)
+### 1.1 Visual structure
 
 1. **Topbar**
+- current workspace/view + breadcrumb
+- actions: save/export, grid/snap/theme, zoom, presentation mode, player controls
 
-* Nome do diagrama / visão atual (C4: Context, Container, Component) + Breadcrumb.
-* Botões: Save/Export, Arrange (auto-layout), Snap/Grid, Player Mode, Zoom.
-
-2. **Left Sidebar: Toolbox/Palette** (estilo draw.io)
-
-* Categorias:
-
-  * C4: System, Container, Component, Boundary.
-  * Infra: DB, Cache, Queue/Stream, API Gateway, Auth/OAuth2/Security, Observability.
-  * Cloud: AKS/Azure boundary, VNET, Subnet (se fizer sentido), ingress.
-  * Hexagonal: Domain, PortIn, PortOut, AdapterIn (REST/gRPC), AdapterOut (DB/Kafka/HTTP), Application Service.
-* Sub-painel de **presets**: tecnologia + ícone (Spring Boot, Node, Kafka, Postgres, Redis, Elasticsearch, NGINX, etc.).
-* Ferramentas: Select, Hand (pan), Connector, Text/Label.
+2. **Left sidebar (Palette/Toolbox)**
+- C4: System, Container, Component, Boundary
+- Infra: DB, Cache, Queue/Stream, API Gateway, Auth/Security, Observability
+- Hex: Domain, Ports, Adapters, Application Service
+- tools: Select, Hand/Pan, Connector, Label
 
 3. **Canvas**
+- infinite canvas with pan/zoom
+- optional grid and snap
+- selection and resize handles
+- edge ports/handles for reliable connection docking
 
-* Infinite canvas com pan/zoom.
-* Grid opcional.
-* Snapping opcional (grid + alinhamento a formas).
-* Multi-select, marquee select.
-* Handles de resize nos retângulos.
-* “Ports” (pontos de conexão) nas bordas (N/E/S/W + intermediários) para encaixe de setas.
+4. **Right sidebar / dock**
+- Inspector and Journeys tabs
+- supports dock repositioning (right/bottom)
 
-4. **Right Sidebar: Inspector/Properties**
+5. **Bottom workbench**
+- timeline and DSL tabs
+- focus/maximize behavior for text workflows
 
-* Propriedades do elemento selecionado:
+### 1.2 Key interactions
 
-  * Tipo (system/container/component/boundary etc.)
-  * Título, descrição, tags
-  * Tecnologia/preset (ícone + label)
-  * Estilo (opcional): cor do cabeçalho, borda, etc.
-  * Para edges: protocolo (HTTP/gRPC/Kafka/etc), label, setas, numeração/jornada.
-
-5. **Bottom/Drawer: Journeys (Fluxos)**
-
-* Lista de jornadas (A, B, C…)
-* Cor da jornada
-* Passos (auto-numeração) — arrastar para reordenar
-* “Gerar passos a partir de seleção”: usuário seleciona edges em ordem e vira journey
-* Toggle: “Mostrar apenas jornada X” (filtrar/ocultar outras)
-
-### 1.2 Interações-chave
-
-* **Drag da toolbox** → solta no canvas → cria node com preset default.
-* **Conector**: clique em node (porta) → arrasta → solta em outro node (porta) → cria edge.
-* Edge criada já vem com:
-
-  * preset de comunicação (HTTP/gRPC/Kafka/event/etc)
-  * label default (editável)
-* **Jornadas**:
-
-  * Ao adicionar edge a uma jornada, ela recebe um stepNumber naquela jornada.
-  * A mesma edge pode participar de múltiplas jornadas (cada jornada com stepNumber/cor próprios).
+- Drag from palette to create nodes.
+- Connect by dragging from source handle to target handle.
+- Edit node/edge metadata in inspector.
+- Add edges to active journeys and control playback from player UI.
 
 ---
 
-## 2) Modo Render / Player
+## 2) Render / Player Mode
 
-### 2.1 Objetivo
+### 2.1 Goal
 
-Executar uma jornada como “animação”, destacando a sequência de mensagens no C4.
+Play a journey as a visual sequence of messages across architecture elements.
 
-### 2.2 Controles
+### 2.2 Controls
 
-* Selecionar jornada
-* Loop on/off
-* Velocidade (ms por passo)
-* Pausar / retomar
-* Step-by-step (avanço manual)
-* Toggle: destacar nós envolvidos
+- journey selector
+- loop on/off
+- speed control
+- play/pause, next/previous, reset
+- node highlight toggle
+- trail on/off (orb-only fallback)
 
-### 2.3 Animações
+### 2.3 Animation behavior
 
-* **Energia na linha**: efeito correndo ao longo do path (stroke-dashoffset / gradiente animado).
-* **Glow nos nós**: ao chegar, aumenta brilho/sombra por X ms.
-* **Confetti**: ao finalizar a jornada.
+- moving orb follows edge path.
+- optional trail and glow effects.
+- destination highlight triggers on visual arrival.
+- confetti/effect runs at journey completion.
 
-### 2.4 Drill-down no Player
+### 2.4 Drill-down with player
 
-* Double-click em container → abre visão de componentes daquele container.
-* Player mantém contexto da jornada:
-
-  * Se a jornada foi definida no nível container, ao entrar no container, pode:
-
-    * (a) Continuar com passos internos (se existirem) ou
-    * (b) Mostrar “sub-jornada” ligada ao container.
+When entering a child view:
+- preserve active context when possible,
+- stop/re-align playback if current journey does not apply to the new view.
 
 ---
 
-## 3) Arquitetura de Software (alto nível)
-
-### 3.1 Diagrama de Componentes (Mermaid)
+## 3) High-Level Software Architecture
 
 ```mermaid
 flowchart LR
@@ -129,11 +101,9 @@ flowchart LR
   Engine -->|events| Store
 
   Engine --> Render[SVG/Canvas Render Layer]
-  Render --> Export[Export: SVG/PNG/PDF]
+  Render --> Export[Export: SVG/PNG/PDF/GIF/MP4/SVG]
 
   Store --> Presets[Preset Catalog]
-  Presets --> IconPack[Icon Pipeline]
-
   Store --> Player[Journey Player]
   Player --> Render
 
@@ -141,404 +111,240 @@ flowchart LR
   Layout --> Engine
 ```
 
-### 3.2 Camadas (responsabilidades)
+### Layer responsibilities
 
-* **UI (React)**: layout, painéis, comandos, atalhos, forms.
-* **Store**: estado de editor + seleção + viewport + histórico.
-* **Engine Wrapper**: API unificada para criar/mover/redimensionar/conectar/selecionar; converte eventos do engine para actions do store.
-* **DSL Layer**:
-
-  * FULL: fonte da verdade (geometria + estilo + view state)
-  * LITE: entrada humana (sem geometria) que vira FULL
-* **Preset Catalog**: biblioteca de formas/tecnologias/protocolos
-* **Layout/Routing**: organizar diagrama e/ou recalcular rotas
-* **Player**: executa jornada em cima do render existente
+- **UI**: layout, forms, hotkeys, and command surfaces.
+- **Store**: editor state, selection, viewport, journeys, playback state.
+- **Engine adapter**: canonical operations for create/move/resize/connect/select.
+- **DSL layer**: FULL canonical model + LITE conversion/parsing.
+- **Presets**: node/tech/protocol catalogs.
+- **Layout/routing**: optional auto-arrangement and edge routing.
+- **Player**: step timeline and animation semantics.
 
 ---
 
-## 4) Escolha do “Engine” (sem lock-in pago)
+## 4) Engine Strategy
 
-### Opção A — Engine SVG modular (recomendação para este caso)
+### Option A: Modular SVG engine (recommended)
 
-**Por quê**: export SVG perfeito, animação fácil, snapping/handles/context pad/palette como plugins, extensível.
+Why:
+- precise SVG export,
+- easier path-driven animation,
+- full control over rendering and UX details.
 
-* Requisitos: canvas SVG, hit-testing, drag, resize, docking, command stack.
+### Option B: full graph engine (draw.io-like)
 
-### Opção B — Engine estilo draw.io (graph engine completo)
+Why:
+- mature graph editing behavior and tooling ecosystem.
 
-**Por quê**: experiência parecida com draw.io e recursos maduros de grafo/edição.
-
-* Bom para: toolbox rica, grupos, conectores, roteamento.
-
-> Estratégia prática: escolher **UMA opção** e construir um `EngineAdapter` para isolar o resto do app.
-
----
-
-## 5) Modelo de Dados (independente do engine)
-
-### 5.1 Entidades
-
-* **Workspace**: metadados, versão, presets usados.
-
-* **View**: cada visão do C4 é um “documento” (SystemContext, ContainerView, ComponentView, HexView…)
-
-* **Node**:
-
-  * `id`, `kind` (system/container/component/boundary/db/queue/gateway/port/adapter…)
-  * `name`, `description`, `tags[]`
-  * `tech`: `{ id, label, iconKey }`
-  * `bounds`: `{ x, y, w, h }`
-  * `ports[]`: posições de encaixe (auto)
-  * `children[]` (para boundaries/grupos)
-  * `drilldownRef`: viewId do próximo nível
-
-* **Edge**:
-
-  * `id`, `from: { nodeId, portId }`, `to: { nodeId, portId }`
-  * `protocolPresetId` (HTTP/gRPC/Kafka/Event/SQL…)
-  * `label`, `description`
-  * `route`: `{ kind: 'auto'|'manual', points[] }`
-  * `style`: setas, dashed, thickness
-
-* **Journey**:
-
-  * `id`, `name`, `colorKey` (ou cor)
-  * `steps[]`: `{ n, edgeId, highlightNodes?: nodeId[] }`
-  * `player`: `{ loop, speedMs, pauseOnStep }`
-
-### 5.2 Regras de C4
-
-* Cada `Container` pode ter `drilldownRef` para uma `ComponentView`.
-* Cada `System` pode ter `drilldownRef` para uma `ContainerView`.
-* Boundaries são nós “container de nós” (grupos) com layout especial.
+Implementation rule:
+- isolate engine behind a strict `EngineAdapter` contract.
 
 ---
 
-## 6) Presets (a parte “opinativa”)
+## 5) Data Model (Engine-Agnostic)
 
-### 6.1 Catálogo de Presets
+### 5.1 Entities
 
-Armazenar em `presets/*.json`:
+- **Workspace**: metadata and settings.
+- **View**: one C4/Hex scope.
+- **Node**:
+  - `id`, `kind`, `name`, `tech`, `bounds`, `ports`, `children`, `drilldownRef`
+- **Edge**:
+  - `id`, `from`, `to`, `protocolPresetId`, `label`, `route`, `style`
+- **Journey**:
+  - `id`, `name`, `color`, `steps[]`, playback settings
 
-* `nodePresets`: C4 e Infra (system/container/component/db/queue/gateway/security/boundary…)
-* `techPresets`: spring-boot, nodejs, kafka, postgres, redis, elasticsearch, oauth2, envoy/nginx, aks…
-* `protocolPresets`: http, https, grpc, kafka-topic, event, sql, oauth2-token, webhook…
+### 5.2 C4 rules
 
-Cada preset define:
-
-* forma base (retângulo, cilindro, fila…)
-* estilos default
-* ícone default
-* template de label/descrição
-
-### 6.2 Numeração automática de Steps
-
-* Ao inserir edge em uma jornada, atribuir o menor inteiro disponível.
-* Ao remover, não renumerar automaticamente (opção), ou renumerar com comando explícito.
+- Containers can point to component views.
+- Systems can point to container views.
+- Boundaries group nodes and can auto-fit bounds.
 
 ---
 
-## 7) DSLs
+## 6) Presets and Opinionated Defaults
 
-### 7.1 DSL FULL (fonte da verdade)
+Catalog files should define:
+- node presets (C4 + infra + hex)
+- technology presets (icons + labels)
+- protocol presets (HTTP/gRPC/Kafka/SQL/etc.)
 
-Formato recomendado: **JSON** (simples de versionar e migrar).
+Each preset should provide:
+- default shape
+- default style
+- optional icon
+- default label behavior
 
-* Contém: `views`, `nodes`, `edges`, `journeys`, `viewport`, `grid`, `snap`, `styles`.
+---
 
-Exemplo (mínimo):
+## 7) DSL Strategy
 
-```json
-{
-  "schemaVersion": "1.0",
-  "workspace": { "name": "Pedidos" },
-  "views": {
-    "container": { "id": "v_container", "nodes": ["api","kafka","db"], "edges": ["e1","e2"], "journeys": ["j1"] }
-  },
-  "nodes": {
-    "api": { "kind": "container", "name": "ms-pedidos", "tech": {"id":"spring-boot"}, "bounds": {"x":120,"y":80,"w":220,"h":120}, "drilldownRef": "v_components_api" }
-  },
-  "edges": {
-    "e1": { "from": {"nodeId":"api"}, "to": {"nodeId":"kafka"}, "protocolPresetId": "kafka-event", "label": "pedido.criado" }
-  },
-  "journeys": {
-    "j1": { "name": "Fluxo A", "colorKey": "blue", "steps": [ {"n":1,"edgeId":"e1"} ] }
-  }
-}
-```
+### 7.1 FULL model
 
-### 7.2 DSL LITE (humana)
+- JSON-based canonical source of truth.
+- includes geometry, style, view hierarchy, journeys, and settings.
 
-Texto “estruturizr-like” (sem coordenadas). A UI resolve layout + presets.
+### 7.2 LITE DSL (human/AI-friendly)
 
-* Objetivo: permitir que alguém escreva o diagrama sem mexer em geometria.
-* A UI faz parse → constrói o modelo semântico → gera FULL com auto-layout.
+- text-based structure for architecture intent.
+- no required geometry.
+- converted to FULL by parser + resolver + layout.
 
-Exemplo (conceitual):
+### 7.3 Conversion flow
+
+- parse LITE into AST
+- resolve stable IDs
+- apply presets
+- compute layout
+- generate FULL model
+
+### 7.4 Schema migration
+
+- require `schemaVersion`
+- keep pure migration functions (`x.y -> x.z`)
+
+---
+
+## 8) Rendering and Export
+
+### 8.1 Rendering layers
+
+- base: nodes and edges
+- interaction: selection and handles
+- player overlay: orb, trail, glow
+
+### 8.2 Export matrix
+
+- static: `SVG`, `PNG`, `PDF`
+- animated: `GIF`, `MP4`, animated `SVG`
+
+### 8.3 Journey animation export requirements
+
+- loop-safe full journey capture
+- consistent speed and arrival timing
+- preserve active theme background
+- omit editing-only visuals (handles, grid)
+
+---
+
+## 9) Internal Hexagonal View
+
+### 9.1 Canonical elements
+
+- Domain core
+- Application services
+- PortIn / PortOut
+- AdapterIn / AdapterOut
+- supporting infra (DB/Kafka/HTTP)
+
+### 9.2 Journey reuse
+
+- journeys can map from container-level steps to internal views where modeled.
+
+---
+
+## 10) Persistence
+
+### 10.1 Local storage
+
+- debounced autosave
+- explicit save on critical operations
+
+### 10.2 File export
+
+- always export canonical FULL model
+- optional generated LITE text export
+
+---
+
+## 11) Suggested Tech Stack
+
+- React + TypeScript + Vite
+- Zustand + Immer
+- Zod validation
+- Monaco editor for DSL
+- Vitest for unit tests
+- Playwright for E2E (recommended future addition)
+
+---
+
+## 12) Suggested Monorepo Layout
 
 ```text
-workspace "Pedidos" {
-  view container {
-    container api "ms-pedidos" tech spring-boot
-    queue kfk "Kafka" tech kafka
-    database db "Orders" tech postgres
-
-    api -> kfk : event "pedido.criado"
-    api -> db  : sql "insert order"
-
-    journey "Fluxo A" color blue {
-      1: api -> kfk
-      2: api -> db
-    }
-  }
-}
-```
-
-### 7.3 Conversão LITE → FULL
-
-* Parse LITE para AST.
-* Resolver IDs estáveis.
-* Aplicar presets + icon mapping.
-* Executar auto-layout.
-* Gerar FULL.
-
-### 7.4 Migração de Schema
-
-* `schemaVersion` obrigatório.
-* `migrations/` com funções puras: `1.0 -> 1.1`.
-
----
-
-## 8) Renderização, Export e Animações
-
-### 8.1 Camadas do Render
-
-* Base layer: shapes + edges
-* Overlay layer: seleção, handles, glow
-* Player overlay: energia nas linhas + highlight
-
-### 8.2 Export
-
-* Export **SVG** (preferencial)
-* PNG via render-to-canvas
-* PDF via pipeline de SVG→PDF (ou headless)
-
-### 8.3 Energia na linha (técnica)
-
-* Se SVG:
-
-  * clonar path do edge com stroke mais grosso, aplicar dasharray/dashoffset animado.
-* Se Canvas:
-
-  * animar dashOffset e re-render a cada frame.
-
-### 8.4 Confetti
-
-* Integrar confetti via canvas overlay e disparar no final.
-
----
-
-## 9) Editor Interno por Container (Hexagonal)
-
-### 9.1 Visões internas
-
-* `HexView(containerId)` com:
-
-  * Domain (centro)
-  * Application Services
-  * Ports In/Out
-  * Adapters In/Out
-  * Infra (DB/Kafka/HTTP)
-
-### 9.2 Presets Hex
-
-* PortIn: semicircle/label
-* PortOut: semicircle invertida
-* AdapterIn: retângulo com ícone (REST/gRPC)
-* AdapterOut: retângulo com ícone (Kafka/DB/HTTP)
-
-### 9.3 Reuso de Jornadas
-
-* Jornada definida no nível container pode “entrar” no HexView.
-* Alternativa: `journeyRef` por container.
-
----
-
-## 10) Persistência e UX de Salvamento
-
-### 10.1 LocalStorage
-
-* Salvar FULL:
-
-  * a cada N segundos (debounced)
-  * e em eventos críticos (drop, resize, connect)
-* Chave: `c4editor:<workspaceId>:<viewId>`
-
-### 10.2 Arquivo exportado
-
-* Sempre exportar FULL (JSON) + opcional LITE gerado (best effort).
-
----
-
-## 11) Stack Tecnológico (sugestão)
-
-* React + TypeScript
-* Vite
-* State: Zustand + Immer
-* Validação: Zod
-* Editor de texto da DSL: Monaco Editor (opcional)
-* Animações: Web Animations API (ou Framer Motion para UI, não para paths)
-* Testes:
-
-  * Unit: Vitest
-  * E2E: Playwright
-
----
-
-## 12) Estrutura de Repositório (sugestão)
-
-### Monorepo (recomendado)
-
-```
 /apps/web
-/packages/engine-adapter
+/apps/codex-gateway
 /packages/model
 /packages/dsl-lite
-/packages/dsl-full
-/packages/presets
 /packages/player
 /packages/export
-/packages/ui-kit
+/packages/presets
 ```
 
-### Pastas críticas
+---
 
-* `packages/model`: tipos, regras C4/Hex, validações
-* `packages/engine-adapter`: wrapper do engine (criar/mover/redimensionar/conectar)
-* `packages/presets`: catálogo e ícones
-* `packages/player`: execução/anim.
+## 13) Milestone Roadmap
+
+- **M0** Bootstrap: app skeleton + state + canvas basics.
+- **M1** Core nodes/edges: create/move/resize/connect.
+- **M2** Grid/snap/ports.
+- **M3** C4 + infra presets.
+- **M4** Journeys and filters.
+- **M5** Player and effects.
+- **M6** C4 drill-down.
+- **M7** Hex view.
+- **M8** DSL LITE pipeline.
+- **M9** Export pipeline.
 
 ---
 
-## 13) Roadmap (passo a passo)
+## 14) Implementation Guidelines
 
-### M0 — Bootstrap
+### 14.1 Contract-first
+1. Define model and schema contracts.
+2. Integrate engine afterwards.
 
-* Vite + TS + Zustand + Zod
-* Modelo FULL minimal + load/save local
-* Canvas com pan/zoom + seleção simples
+### 14.2 Command-based editing
+- model changes should be explicit commands (future undo/redo readiness).
 
-### M1 — Nodes/Edges mínimos
+### 14.3 Stable identifiers
+- deterministic IDs improve diff quality and future collaboration options.
 
-* Drag da toolbox cria retângulo
-* Resize + move
-* Conector cria edge (auto-route simples)
-* Inspector edita name/tech/protocol
+### 14.4 Performance
+- avoid full rerender on pointer move.
+- avoid allocation-heavy per-frame loops.
 
-### M2 — Snapping / Grid / Ports
-
-* Grid overlay
-* Snap to grid + snap to shapes
-* Ports nos retângulos e docking
-
-### M3 — Presets C4 + Infra
-
-* Catálogo C4
-* DB/Queue/Gateway/Security/Boundary
-* Icon pipeline
-
-### M4 — Journeys
-
-* Journey panel
-* Auto-numeração por jornada
-* Edge participa de múltiplas jornadas
-* Filtros por jornada
-
-### M5 — Player
-
-* Energia nas linhas + highlight
-* Controle loop/velocidade
-* Confetti
-
-### M6 — Drill-down C4
-
-* Container → ComponentView
-* Breadcrumb + back
-
-### M7 — HexView
-
-* Presets hex
-* Fluxos internos
-
-### M8 — DSL LITE
-
-* Parser LITE
-* LITE → FULL via auto-layout
-* Editor de texto (Monaco) + sync
-
-### M9 — Export
-
-* SVG/PNG/PDF
+### 14.5 Testing
+- unit: DSL parsing, migrations, journey sequencing.
+- E2E: editing, drill-down, playback, export smoke tests.
 
 ---
 
-## 14) Repositórios para estudar (boas práticas)
+## 15) Risks and Mitigations
 
-* Engine toolkit (SVG modular)
-* Engine draw.io-like (graph)
-* Auto-layout (ports/clusters)
-* Colaboração (CRDT)
-* Confetti / efeitos
-
-> Dica: ler como eles implementam **command stack**, **snapping**, **palette/context pad**, **routing**, **serialization**.
-
----
-
-## 15) Guidelines de Implementação (para IA)
-
-### 15.1 “Contract-first”
-
-1. Defina `model` (types + regras) e `dsl-full` (schema).
-2. Só depois plugar engine.
-
-### 15.2 Command Stack
-
-* Cada ação vira um comando com `do()` e `undo()`.
-* Persistir apenas o modelo FULL, não o estado interno do engine.
-
-### 15.3 IDs estáveis
-
-* IDs determinísticos para facilitar merges (futuro CRDT) e diffs.
-
-### 15.4 Performance
-
-* Render incremental (não re-renderizar tudo em cada mousemove).
-* Debounce save.
-
-### 15.5 Testes
-
-* Unit: parse DSL, migrações, numeração de jornada.
-* E2E: criar nodes, conectar, mudar view, rodar player.
+- Complex edge routing:
+  - start simple and evolve orthogonal routing iteratively.
+- Drill-down plus journeys:
+  - keep strict per-view semantics and explicit fallbacks.
+- Icon licensing:
+  - use open/free icon sets with proper attribution.
 
 ---
 
-## 16) Riscos e Mitigações
+## 16) Immediate Technical Next Step
 
-* **Edge routing** avançado: começar simples (ortogonal básico), evoluir depois.
-* **Drill-down + jornadas**: definir regra clara (journey por view, ou global com sub-journeys).
-* **Licenças de ícones**: tratar como assets externos com atribuição quando necessário.
+Freeze and enforce `EngineAdapter` API:
 
----
+- `createNode(presetId, x, y)`
+- `moveNode(id, dx, dy)`
+- `resizeNode(id, bounds)`
+- `connect(fromPort, toPort, protocolPresetId)`
+- `setEdgeRoute(id, points[])`
+- events:
+  - `onSelection`
+  - `onDrag`
+  - `onConnect`
+  - `onResize`
+  - `onViewportChange`
 
-## 17) Próximo passo (decisão técnica)
-
-Escolher o engine (Opção A ou B) e congelar o contrato do `EngineAdapter`:
-
-* `createNode(presetId, x,y)`
-* `moveNode(id, dx,dy)`
-* `resizeNode(id, bounds)`
-* `connect(fromPort, toPort, protocolPresetId)`
-* `setEdgeRoute(id, points[])`
-* eventos: `onSelection`, `onDrag`, `onConnect`, `onResize`, `onViewportChange`
-
-Com isso, o resto do app (DSL, Journeys, Player) fica estável e evolui independente do engine.
+This keeps DSL, journeys, and player evolution independent from engine internals.

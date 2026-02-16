@@ -24,7 +24,11 @@ import { resolveHexConnectorRole } from './hexConnectorRole'
 import { JourneyEdge } from './JourneyEdge'
 import { resolveDbCylinderShape, resolveQueueCylinderShape } from './nodeShapePaths'
 import { curveToSvgPath, cubicPointAt, type EdgeCurvePath } from './edgePresentation'
-import { resolveArrivalAdvance, resolveTravelProgress } from './playerStepTimeline'
+import {
+  resolveArrivalAdvance,
+  resolveTravelProgress,
+  STEP_ARRIVAL_HOLD_MS,
+} from './playerStepTimeline'
 import {
   buildTrailPoints,
   compactPositiveAlphaInPlace,
@@ -123,6 +127,7 @@ const PLAYER_TRACK_BASE_ALPHA = 0.18
 const PLAYER_TRACK_PROGRESS_ALPHA = 0.88
 const TRAIL_CANVAS_MAX_PIXEL_RATIO = 1.5
 const TRAIL_MIN_VISIBLE_ALPHA = 0.015
+const FINAL_STEP_ARRIVAL_HOLD_MS = 220
 
 const resolveCurveFromEdge = (
   edge: EdgeModel,
@@ -724,11 +729,15 @@ export const DiagramCanvas = () => {
           playerStepArrivedRef.current = hasArrived
           setPlayerStepArrivedForUi(hasArrived)
         }
+        const isFinalStep =
+          sortedPlayerSteps.length > 0 &&
+          playerStepIndex >= sortedPlayerSteps.length - 1
         const arrivalState = resolveArrivalAdvance({
           travelProgress,
           nowMs: timestamp,
           arrivalStartedAtMs: stepArrivalStartTsRef.current,
           alreadyAdvanced: stepAdvanceRequestedRef.current,
+          holdMs: isFinalStep ? FINAL_STEP_ARRIVAL_HOLD_MS : STEP_ARRIVAL_HOLD_MS,
         })
         stepArrivalStartTsRef.current = arrivalState.arrivalStartedAtMs
         shouldAdvanceStep = arrivalState.shouldAdvance
@@ -875,6 +884,7 @@ export const DiagramCanvas = () => {
     playerJourneyId,
     playerSpeedMs,
     playerStepIndex,
+    sortedPlayerSteps.length,
     stepPlayer,
     viewId,
   ])

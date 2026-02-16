@@ -25,6 +25,7 @@
   - SVG animado com timeline contínua por jornada inteira (travel + hold por step) e loop infinito.
   - Export animado aplica fundo do tema atual (dark/light) e remove grid no artefato final.
   - Export usa velocidade dedicada mais lenta para melhorar legibilidade do “caminhar” na seta.
+  - Export foi desacelerado novamente (multiplicador maior) para GIF/MP4/SVG.
   - Composição GIF/MP4 alinhada ao `trail-canvas` (mesmo frame-space) para evitar rastro fora da linha.
 - Showcase pronto para demo completa via ação `Showcase` (topbar).
 - Player com bolinha em movimento no path e rastro temporal via canvas overlay (trail com fade/remoção).
@@ -71,7 +72,8 @@
   - trilhas com trim/compactação in-place (sem `slice/filter` por frame) para reduzir GC.
 - Player UI desacoplada de progresso contínuo:
   - highlight do destino agora atualiza em transição de chegada (booleano), sem `setState` de progresso a cada frame.
-- Hold de chegada reduzido para resposta mais fluida entre setas (`STEP_ARRIVAL_HOLD_MS = 40`).
+- Hold de chegada calibrado para leitura visual mais estável entre setas (`STEP_ARRIVAL_HOLD_MS = 90`).
+- Último step da jornada usa hold maior (`220ms`) antes de avanço/confete para evitar disparo visual antecipado no destino final.
 - Animação de dash nas arestas ficou contextual:
   - todas as setas seguem tracejadas,
   - animação contínua aplicada só em arestas ativas (player/filtro/jornada ativa/selecionada), reduzindo custo de paint.

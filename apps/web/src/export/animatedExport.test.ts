@@ -9,14 +9,14 @@ import {
 
 describe('animated export helpers', () => {
   it('computes journey duration with step speed and arrival hold', () => {
-    expect(resolveJourneyAnimationDurationMs(0, 900)).toBe(940)
-    expect(resolveJourneyAnimationDurationMs(3, 900)).toBe(3140)
-    expect(resolveJourneyAnimationDurationMs(2, 80)).toBe(640)
+    expect(resolveJourneyAnimationDurationMs(0, 900)).toBe(990)
+    expect(resolveJourneyAnimationDurationMs(3, 900)).toBe(3290)
+    expect(resolveJourneyAnimationDurationMs(2, 80)).toBe(740)
   })
 
   it('slows down exported playback speed with safe multiplier', () => {
-    expect(resolveExportPlaybackSpeedMs(900)).toBe(1215)
-    expect(resolveExportPlaybackSpeedMs(80)).toBe(162)
+    expect(resolveExportPlaybackSpeedMs(900)).toBe(1440)
+    expect(resolveExportPlaybackSpeedMs(80)).toBe(192)
     expect(resolveExportPlaybackSpeedMs(600, 0)).toBe(600)
   })
 

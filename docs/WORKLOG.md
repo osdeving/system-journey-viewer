@@ -460,3 +460,21 @@
 - `npm --workspace @sjv/web run lint`
 - `npm --workspace @sjv/web run test:run`
 - `npm --workspace @sjv/web run build`
+
+
+- Ajuste incremental (`tmp/ai/20260216-0920-export-slower-arrival-hold`):
+  - Export animado ficou mais lento para leitura:
+    - multiplicador de velocidade dedicado do export aumentado (`1.6x`) para GIF/MP4/SVG.
+  - Lógica de chegada do player ajustada para evitar avanço/confete prematuro:
+    - hold padrão de chegada aumentado para `90ms`,
+    - último step da jornada com hold específico maior (`220ms`) antes de `stepPlayer`.
+  - Efeito prático:
+    - menor sensação de “já disparou próximo/confete antes de chegar” no trecho final,
+    - destaque/confete com timing mais coerente com a percepção visual do rastro.
+  - Testes atualizados para os novos contratos de duração/velocidade do export.
+
+### Validação executada (ajuste export-slower-arrival-hold)
+
+- `npm --workspace @sjv/web run lint`
+- `npm --workspace @sjv/web run test:run`
+- `npm --workspace @sjv/web run build`

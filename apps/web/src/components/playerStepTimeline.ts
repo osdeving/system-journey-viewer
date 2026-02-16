@@ -1,5 +1,5 @@
 const MIN_TRAVEL_DURATION_MS = 120
-export const STEP_ARRIVAL_HOLD_MS = 40
+export const STEP_ARRIVAL_HOLD_MS = 90
 
 const clamp01 = (value: number): number => Math.max(0, Math.min(1, value))
 

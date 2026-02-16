@@ -24,6 +24,8 @@
   - GIF com loop contínuo e encode pós-captura para preservar a jornada completa.
   - SVG animado com timeline contínua por jornada inteira (travel + hold por step) e loop infinito.
   - Export animado aplica fundo do tema atual (dark/light) e remove grid no artefato final.
+  - Export usa velocidade dedicada mais lenta para melhorar legibilidade do “caminhar” na seta.
+  - Composição GIF/MP4 alinhada ao `trail-canvas` (mesmo frame-space) para evitar rastro fora da linha.
 - Showcase pronto para demo completa via ação `Showcase` (topbar).
 - Player com bolinha em movimento no path e rastro temporal via canvas overlay (trail com fade/remoção).
 - Labels de comunicação com badge circular colorido por jornada (número dentro da bolinha) no início da seta quando há contexto de passo.

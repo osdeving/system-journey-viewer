@@ -9,6 +9,7 @@ const DEFAULT_FRAME_RATE_VIDEO = 24
 const DEFAULT_BASE_REFRESH_INTERVAL_MS = 120
 const DEFAULT_TAIL_PADDING_MS = 320
 const DEFAULT_GIF_PALETTE_SAMPLE_FRAMES = 12
+const DEFAULT_EXPORT_SPEED_MULTIPLIER = 1.35
 const MIN_TRAVEL_DURATION_MS = 120
 const SVG_NS = 'http://www.w3.org/2000/svg'
 const XLINK_NS = 'http://www.w3.org/1999/xlink'
@@ -114,6 +115,16 @@ export const resolveJourneyAnimationDurationMs = (
   return Math.max(stepDurationMs, steps * stepDurationMs + Math.max(0, tailPaddingMs))
 }
 
+export const resolveExportPlaybackSpeedMs = (
+  speedMs: number,
+  multiplier = DEFAULT_EXPORT_SPEED_MULTIPLIER,
+): number => {
+  const safeSpeed = Math.max(MIN_TRAVEL_DURATION_MS, Math.round(speedMs))
+  const safeMultiplier =
+    Number.isFinite(multiplier) && multiplier > 0 ? multiplier : 1
+  return Math.max(MIN_TRAVEL_DURATION_MS, Math.round(safeSpeed * safeMultiplier))
+}
+
 export const resolveVideoMimeType = (
   isSupported: (mimeType: string) => boolean,
 ): VideoMimeSelection | null => {
@@ -141,6 +152,22 @@ const resolveSvgDimensions = (
   const width = Math.max(1, Math.round(rect.width) || widthAttr || 1200)
   const height = Math.max(1, Math.round(rect.height) || heightAttr || 700)
   return { width, height }
+}
+
+const resolveCompositionDimensions = (
+  svg: SVGSVGElement,
+  trailCanvas: HTMLCanvasElement,
+): { width: number; height: number } => {
+  const svgDimensions = resolveSvgDimensions(svg)
+  const trailWidth = Math.max(0, Math.round(trailCanvas.clientWidth))
+  const trailHeight = Math.max(0, Math.round(trailCanvas.clientHeight))
+  if (trailWidth > 0 && trailHeight > 0) {
+    return {
+      width: trailWidth,
+      height: trailHeight,
+    }
+  }
+  return svgDimensions
 }
 
 const cloneSvgWithInlineStyles = (svg: SVGSVGElement): SVGSVGElement => {
@@ -327,9 +354,10 @@ const prependThemeBackground = (
 const serializeStyledSvg = (
   svg: SVGSVGElement,
   themeMode: CanvasThemeMode,
+  dimensions?: { width: number; height: number },
 ): { xml: string; width: number; height: number } => {
   const clone = cloneSvgWithInlineStyles(svg)
-  const { width, height } = resolveSvgDimensions(svg)
+  const { width, height } = dimensions ?? resolveSvgDimensions(svg)
   removeGridArtifacts(clone)
   prependThemeBackground(clone, width, height, themeMode)
   clone.setAttribute('width', `${width}`)
@@ -362,9 +390,10 @@ const svgXmlToImage = async (
 
 const createCompositionRenderer = (
   svg: SVGSVGElement,
+  trailCanvas: HTMLCanvasElement,
   canvasPanel?: HTMLElement | null,
 ): CompositionRenderer => {
-  const { width, height } = resolveSvgDimensions(svg)
+  const { width, height } = resolveCompositionDimensions(svg, trailCanvas)
   const canvas = document.createElement('canvas')
   canvas.width = width
   canvas.height = height
@@ -388,7 +417,10 @@ const refreshRendererBaseImage = async (
   renderer: CompositionRenderer,
   svg: SVGSVGElement,
 ): Promise<void> => {
-  const { xml, width, height } = serializeStyledSvg(svg, renderer.themeMode)
+  const { xml, width, height } = serializeStyledSvg(svg, renderer.themeMode, {
+    width: renderer.width,
+    height: renderer.height,
+  })
   renderer.baseImage = await svgXmlToImage(xml, width, height)
 }
 
@@ -636,7 +668,7 @@ export const exportAnimatedJourneyGif = async ({
   filenameBase,
   fps = DEFAULT_FRAME_RATE_GIF,
 }: ExportAnimatedGifOptions): Promise<void> => {
-  const renderer = createCompositionRenderer(svg, canvasPanel)
+  const renderer = createCompositionRenderer(svg, trailCanvas, canvasPanel)
   const frameDelayMs = Math.max(20, Math.round(1000 / Math.max(1, fps)))
   const rgbaFrames: Uint8Array[] = []
 
@@ -706,7 +738,7 @@ export const exportAnimatedJourneyVideo = async ({
     throw new Error('Navegador sem suporte para codecs de vídeo compatíveis (MP4/WebM).')
   }
 
-  const renderer = createCompositionRenderer(svg, canvasPanel)
+  const renderer = createCompositionRenderer(svg, trailCanvas, canvasPanel)
   const stream = renderer.canvas.captureStream(Math.max(1, fps))
   const chunks: BlobPart[] = []
   const recorder = new MediaRecorder(stream, {

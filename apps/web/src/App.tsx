@@ -43,6 +43,7 @@ import {
   exportAnimatedJourneyGif,
   exportAnimatedJourneySvg,
   exportAnimatedJourneyVideo,
+  resolveExportPlaybackSpeedMs,
   resolveJourneyAnimationDurationMs,
 } from './export/animatedExport'
 import { exportPdf, exportPng, exportSvg } from './export/exporters'
@@ -721,6 +722,7 @@ function App() {
     playerStepIndex: number
     playerIsRunning: boolean
     playerLoop: boolean
+    playerSpeedMs: number
     journeyFilterId: string | null
   }
 
@@ -742,6 +744,7 @@ function App() {
   const restorePlayerAfterAnimatedExport = (snapshot: PlayerExportSnapshot): void => {
     setPlayerRunning(false)
     setPlayerLoop(snapshot.playerLoop)
+    setPlayerSpeedMs(snapshot.playerSpeedMs)
     setJourneyFilter(snapshot.journeyFilterId)
     if (!snapshot.playerJourneyId || !workspace.journeys[snapshot.playerJourneyId]) {
       setPlayerJourney(null)
@@ -787,7 +790,8 @@ function App() {
     }
 
     const filenameBase = `${workspace.workspace.name}-${journey.name}`
-    const durationMs = resolveJourneyAnimationDurationMs(journey.steps.length, playerSpeedMs)
+    const exportSpeedMs = resolveExportPlaybackSpeedMs(playerSpeedMs)
+    const durationMs = resolveJourneyAnimationDurationMs(journey.steps.length, exportSpeedMs)
 
     setExportError(null)
     setAnimatedExportRunning(true)
@@ -799,7 +803,7 @@ function App() {
           svg,
           workspace,
           journey,
-          playerSpeedMs,
+          playerSpeedMs: exportSpeedMs,
           filenameBase,
         })
         setExportStatus('SVG animado exportado.')
@@ -817,16 +821,18 @@ function App() {
       playerStepIndex,
       playerIsRunning,
       playerLoop,
+      playerSpeedMs,
       journeyFilterId,
     }
 
     try {
       setExportStatus('Preparando captura animada...')
       setPlayerLoop(false)
+      setPlayerSpeedMs(exportSpeedMs)
       setPlayerJourney(journeyId)
       resetPlayer()
       setPlayerRunning(true)
-      await waitForCanvasFrames(3)
+      await waitForCanvasFrames(4)
 
       const resolveBaseKey = () => {
         const state = useEditorStore.getState()

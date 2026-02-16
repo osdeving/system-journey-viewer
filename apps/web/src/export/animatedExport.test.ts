@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  resolveExportPlaybackSpeedMs,
   resolveGifPaletteSampleIndices,
   resolveJourneyAnimationDurationMs,
   resolveJourneyLoopTimeline,
@@ -11,6 +12,12 @@ describe('animated export helpers', () => {
     expect(resolveJourneyAnimationDurationMs(0, 900)).toBe(940)
     expect(resolveJourneyAnimationDurationMs(3, 900)).toBe(3140)
     expect(resolveJourneyAnimationDurationMs(2, 80)).toBe(640)
+  })
+
+  it('slows down exported playback speed with safe multiplier', () => {
+    expect(resolveExportPlaybackSpeedMs(900)).toBe(1215)
+    expect(resolveExportPlaybackSpeedMs(80)).toBe(162)
+    expect(resolveExportPlaybackSpeedMs(600, 0)).toBe(600)
   })
 
   it('prefers mp4 when supported', () => {

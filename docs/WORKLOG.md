@@ -443,3 +443,20 @@
 - `npm --workspace @sjv/web run lint`
 - `npm --workspace @sjv/web run test:run`
 - `npm --workspace @sjv/web run build`
+
+
+- Ajuste incremental (`tmp/ai/20260216-0935-export-alignment-speed`):
+  - Export animado desacelerado para leitura visual mais suave:
+    - novo helper `resolveExportPlaybackSpeedMs` aplica fator dedicado no ritmo de caminhada da jornada exportada.
+    - ritmo aplicado para GIF/MP4 (captura do player) e também para SVG animado.
+  - Estado do player durante export passou a restaurar também a velocidade original após conclusão.
+  - Composição de export (GIF/MP4) agora usa as dimensões efetivas do `trail-canvas` para evitar drift/desalinhamento entre rastro e path.
+  - Snapshot do SVG para composição passou a respeitar explicitamente as dimensões do renderer, mantendo base e trilha no mesmo frame-space.
+  - Pequeno ajuste de estabilização antes da captura (`waitForCanvasFrames(4)`), reduzindo artefatos de início.
+  - Teste unitário novo para o cálculo de velocidade de export.
+
+### Validação executada (ajuste export-alignment-speed)
+
+- `npm --workspace @sjv/web run lint`
+- `npm --workspace @sjv/web run test:run`
+- `npm --workspace @sjv/web run build`

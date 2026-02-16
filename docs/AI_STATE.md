@@ -68,6 +68,7 @@
   - `LICENSE`
 - GitHub templates and CI workflow added under `.github/`.
 - `vercel.json` added for static Vercel deployment of `apps/web`.
+- README now includes embedded product demos (GIF/MP4) and a reproducible Playwright capture script (`scripts/capture-readme-demo.mjs`) to regenerate live UI media.
 
 ## Suggested Next Increments
 

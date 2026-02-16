@@ -34,6 +34,10 @@ export type QueueCylinderShape = {
   rearInnerArcPath: string
 }
 
+export type DiamondShape = {
+  shellPath: string
+}
+
 export const resolveQueueCylinderShape = (
   width: number,
   height: number,
@@ -52,5 +56,25 @@ export const resolveQueueCylinderShape = (
     shellPath: `M ${capRx} 0 H ${rightCenterX} A ${capRx} ${capRy} 0 0 1 ${rightCenterX} ${safeHeight} H ${capRx} A ${capRx} ${capRy} 0 0 1 ${capRx} 0 Z`,
     frontCapPath: `M ${rightCenterX} 0 A ${capRx} ${capRy} 0 0 1 ${rightCenterX} ${safeHeight} A ${capRx} ${capRy} 0 0 1 ${rightCenterX} 0`,
     rearInnerArcPath: `M ${capRx} 0 A ${capRx} ${capRy} 0 0 1 ${capRx} ${safeHeight}`,
+  }
+}
+
+export const resolveDiamondShape = (
+  width: number,
+  height: number,
+  inset = 0,
+): DiamondShape => {
+  const safeWidth = Math.max(1, width)
+  const safeHeight = Math.max(1, height)
+  const clampedInset = clamp(inset, 0, Math.min(safeWidth, safeHeight) / 2 - 0.5)
+  const leftX = clampedInset
+  const rightX = safeWidth - clampedInset
+  const topY = clampedInset
+  const bottomY = safeHeight - clampedInset
+  const centerX = (leftX + rightX) / 2
+  const centerY = (topY + bottomY) / 2
+
+  return {
+    shellPath: `M ${centerX} ${topY} L ${rightX} ${centerY} L ${centerX} ${bottomY} L ${leftX} ${centerY} Z`,
   }
 }

@@ -2,6 +2,46 @@
 
 Chronological engineering log. Entries are kept concise and focused on behavior and validation.
 
+## 2026-02-16 - Connector UX overhaul and diamond infra nodes
+
+### Scope
+
+- Improve connector behavior and precision in canvas interactions.
+- Add diamond node shapes for infra routing/security style components.
+
+### Changes
+
+- Connector interaction refinements in `apps/web/src/components/DiagramCanvas.tsx`:
+  - added temporary connector mode while holding `Ctrl`;
+  - in temporary connector mode, dragging from a node no longer moves node/canvas and starts edge preview instead;
+  - connection now resolves on pointer release (no early auto-connect), snapping to best target handle;
+  - target node + target handle highlight added during drag for clearer feedback;
+  - connector mode now supports both node-to-node and handle-to-handle workflows consistently.
+- Store behavior update in `apps/web/src/store/useEditorStore.ts`:
+  - `beginConnection` no longer forces `activeTool = connector`, enabling temporary modifier-based connector flow.
+- Shape system updates:
+  - added `resolveDiamondShape` in `apps/web/src/components/nodeShapePaths.ts`;
+  - rendered `gateway`, `security`, and `load-balancer` as diamonds in canvas.
+- Preset catalog updates:
+  - added `load-balancer` node preset in `apps/web/src/presets/nodePresets.json`;
+  - added `load-balancer` tech preset in `apps/web/src/presets/techPresets.json`;
+  - added `load-balancer` to `NodeKind` union in `apps/web/src/model/types.ts`.
+- Styling updates in `apps/web/src/App.css`:
+  - `.node-connection-target` and `.node-port-highlight` for live connection feedback.
+
+### Tests
+
+- Added/updated tests:
+  - `apps/web/src/components/nodeShapePaths.test.ts` (diamond shape coverage).
+  - `apps/web/src/store/useEditorStore.test.ts` (`beginConnection` does not alter active tool).
+  - `apps/web/src/App.styles.test.ts` (new connector highlight classes present).
+
+### Validation
+
+- `npm --workspace @sjv/web run lint`
+- `npm --workspace @sjv/web run test:run`
+- `npm --workspace @sjv/web run build`
+
 ## 2026-02-16 - Workspace file management (new/open/save)
 
 ### Scope

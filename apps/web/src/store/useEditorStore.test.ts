@@ -78,6 +78,18 @@ describe('useEditorStore', () => {
     expect(edgeId ? updated.workspace.edges[edgeId].to.portId : '').toBe('north')
   })
 
+  it('keeps the active tool unchanged when starting a pending connection', () => {
+    const state = useEditorStore.getState()
+    state.setActiveTool('select')
+
+    state.beginConnection('n_api', 'east')
+    const updated = useEditorStore.getState()
+
+    expect(updated.activeTool).toBe('select')
+    expect(updated.pendingConnectionFrom).toBe('n_api')
+    expect(updated.pendingConnectionPortId).toBe('east')
+  })
+
   it('reconnects selected edge endpoint to another node and port', () => {
     const state = useEditorStore.getState()
     const edgeId = state.workspace.views.v_container.edgeIds[0]

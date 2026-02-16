@@ -38,6 +38,10 @@
   - dashed style for all edges,
   - animated dash prioritized for active journey context.
 - Reduced confetti radius and intensity for subtle target-local feedback.
+- Connector UX now supports:
+  - temporary connect mode while holding `Ctrl`,
+  - target node/port highlight while dragging,
+  - release-to-connect with nearest-handle resolution.
 
 ## Performance-Oriented Updates
 
@@ -52,6 +56,10 @@
 - File menu now separates:
   - local browser snapshot operations (`Save Snapshot`, `Reload Snapshot`),
   - disk file operations (`New/Open/Save File`).
+- Infra visual language includes diamond shapes for:
+  - `gateway`,
+  - `security`,
+  - `load-balancer`.
 - Dockable side panel (`Inspector` / `Journeys`) with tab drag and position switching.
 - Standard player control group with icon-based actions.
 - Monaco-based `JourneyScript` editor with custom highlighting theme.

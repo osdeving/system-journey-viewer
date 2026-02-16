@@ -56,7 +56,7 @@
 - File menu now separates:
   - local browser snapshot operations (`Save Snapshot`, `Reload Snapshot`),
   - disk file operations (`New/Open/Save File`).
-- Infra visual language includes diamond shapes for:
+- Infra visual language includes hexagon shapes for:
   - `gateway`,
   - `security`,
   - `load-balancer`.

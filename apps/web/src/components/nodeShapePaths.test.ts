@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
-  resolveDiamondShape,
   resolveDbCylinderShape,
+  resolveHexagonShape,
   resolveQueueCylinderShape,
 } from './nodeShapePaths'
 
@@ -34,15 +34,15 @@ describe('node shape paths', () => {
     expect(shape.rearInnerArcPath).toContain('0 0 1')
   })
 
-  it('builds a closed diamond path for infra nodes', () => {
-    const shape = resolveDiamondShape(220, 120)
+  it('builds a closed hexagon path for infra nodes', () => {
+    const shape = resolveHexagonShape(220, 120)
 
-    expect(shape.shellPath).toBe('M 110 0 L 220 60 L 110 120 L 0 60 Z')
+    expect(shape.shellPath).toBe('M 55 0 L 165 0 L 220 60 L 165 120 L 55 120 L 0 60 Z')
   })
 
   it('supports inset for interaction overlays', () => {
-    const shape = resolveDiamondShape(200, 100, 6)
+    const shape = resolveHexagonShape(200, 100, 6)
 
-    expect(shape.shellPath).toBe('M 100 6 L 194 50 L 100 94 L 6 50 Z')
+    expect(shape.shellPath).toBe('M 53 6 L 147 6 L 194 50 L 147 94 L 53 94 L 6 50 Z')
   })
 })

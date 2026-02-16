@@ -133,6 +133,24 @@
 - `npm --workspace @sjv/web run test:run`
 - `npm --workspace @sjv/web run build`
 
+
+- Ajuste incremental (`tmp/ai/20260216-1005-presentation-canvas-fit-fix`):
+  - Correção do enquadramento no `Presentation mode`:
+    - auto-fit passou a priorizar nós de conteúdo e ignorar `boundary` no cálculo de bounds (com fallback para todos os nós quando necessário),
+    - isso evita deslocamento para a direita e áreas vazias grandes no lado esquerdo do stage.
+  - Header de apresentação simplificado para eliminar overflow visual:
+    - menu desktop de edição oculto em `Presentation mode`,
+    - indicadores reduzidos para versão compacta de apresentação.
+  - Barra do player em apresentação sem scrollbar horizontal:
+    - removido `overflow-x: auto` da toolbar,
+    - ajustes de dimensões/spacing dos controles para caber no header.
+
+### Validação executada (ajuste presentation-canvas-fit-fix)
+
+- `npm --workspace @sjv/web run lint`
+- `npm --workspace @sjv/web run test:run`
+- `npm --workspace @sjv/web run build`
+
 ## 2026-02-13
 
 - Integração do Codex SDK no fluxo do editor DSL via gateway server-side:

@@ -46,6 +46,28 @@
 
 .app-layout-presentation .topbar {
   box-shadow: 0 8px 20px rgba(2, 6, 23, 0.22);
+  gap: 10px;
+  display: grid;
+  grid-template-columns: minmax(260px, auto) minmax(0, 1fr);
+  align-items: center;
+}
+
+.app-layout-presentation .topbar-meta {
+  gap: 6px 10px;
+  max-width: 460px;
+}
+
+.app-layout-presentation .topbar-actions {
+  justify-content: flex-end;
+  flex-wrap: nowrap;
+}
+
+.app-layout-presentation .app-brand-copy h1 {
+  font-size: 17px;
+}
+
+.app-layout-presentation .app-brand-copy p {
+  max-width: 360px;
 }
 
 .topbar {
@@ -231,6 +253,10 @@
   flex-wrap: wrap;
 }
 
+.mode-indicators-presentation {
+  width: auto;
+}
+
 .mode-pill {
   padding: 3px 8px;
   border-radius: 999px;
@@ -285,8 +311,8 @@
   gap: 8px;
   flex-wrap: nowrap;
   max-width: 100%;
-  overflow-x: auto;
-  padding-bottom: 2px;
+  overflow: visible;
+  min-width: 0;
 }
 
 .presentation-select {
@@ -295,11 +321,11 @@
   border-radius: 8px;
   padding: 7px 9px;
   font-size: 12px;
-  min-width: 180px;
+  min-width: 150px;
 }
 
 .presentation-speed-control {
-  min-width: 140px;
+  min-width: 120px;
 }
 
 .presentation-speed-control input[type='range'] {
@@ -312,6 +338,8 @@
   color: #0c4a6e;
   font-weight: 700;
   white-space: nowrap;
+  padding: 7px 10px;
+  font-size: 12px;
 }
 
 .topbar-actions button {

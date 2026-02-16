@@ -304,8 +304,10 @@ function App() {
     const visibleNodes = currentView.nodeIds
       .map((nodeId) => workspace.nodes[nodeId])
       .filter((node): node is NonNullable<(typeof workspace.nodes)[string]> => !!node)
+    const contentNodes = visibleNodes.filter((node) => node.kind !== 'boundary')
+    const nodesForBounds = contentNodes.length ? contentNodes : visibleNodes
 
-    if (!visibleNodes.length) {
+    if (!nodesForBounds.length) {
       setViewport({
         x: rect.width * 0.5 - 120,
         y: rect.height * 0.5 - 60,
@@ -314,10 +316,10 @@ function App() {
       return
     }
 
-    const minX = Math.min(...visibleNodes.map((node) => node.bounds.x))
-    const minY = Math.min(...visibleNodes.map((node) => node.bounds.y))
-    const maxX = Math.max(...visibleNodes.map((node) => node.bounds.x + node.bounds.w))
-    const maxY = Math.max(...visibleNodes.map((node) => node.bounds.y + node.bounds.h))
+    const minX = Math.min(...nodesForBounds.map((node) => node.bounds.x))
+    const minY = Math.min(...nodesForBounds.map((node) => node.bounds.y))
+    const maxX = Math.max(...nodesForBounds.map((node) => node.bounds.x + node.bounds.w))
+    const maxY = Math.max(...nodesForBounds.map((node) => node.bounds.y + node.bounds.h))
     const boundsWidth = Math.max(1, maxX - minX)
     const boundsHeight = Math.max(1, maxY - minY)
     const padding = Math.max(56, Math.min(rect.width, rect.height) * 0.08)
@@ -650,6 +652,13 @@ function App() {
       setOpenDesktopMenu(null)
     }
   }, [immersiveMode])
+
+  useEffect(() => {
+    if (!presentationMode) {
+      return
+    }
+    scheduleFitCurrentView()
+  }, [currentViewId, presentationMode, scheduleFitCurrentView])
 
   useEffect(() => {
     const onModeShortcut = (event: KeyboardEvent) => {
@@ -1375,7 +1384,8 @@ function App() {
               <p>{breadcrumb.map((viewId) => workspace.views[viewId]?.name ?? viewId).join(' / ')}</p>
             </div>
           </div>
-          <nav className="desktop-menu-bar" aria-label="Menu principal" ref={desktopMenuBarRef}>
+          {!presentationMode ? (
+            <nav className="desktop-menu-bar" aria-label="Menu principal" ref={desktopMenuBarRef}>
             <div
               className={openDesktopMenu === 'file' ? 'desktop-menu desktop-menu-open' : 'desktop-menu'}
               onMouseEnter={() => {
@@ -1662,20 +1672,30 @@ function App() {
                 </div>
               ) : null}
             </div>
-          </nav>
+            </nav>
+          ) : null}
           {!immersiveMode ? dockHeaderBar : null}
-          <div className="mode-indicators">
-            <span className={activeTool === 'connector' ? 'mode-pill mode-pill-active' : 'mode-pill'}>
-              {activeTool === 'connector' ? 'Modo: Connector' : 'Modo: Select'}
-            </span>
-            <span className="mode-pill">Camada: {currentViewModeLabel}</span>
-            <span className={immersiveMode ? 'mode-pill mode-pill-active' : 'mode-pill'}>
-              View: {presentationMode ? 'Presentation' : focusMode ? 'Focus' : 'Studio'}
-            </span>
-            <span className={playerIsRunning ? 'mode-pill mode-pill-playing' : 'mode-pill'}>
-              Player: {playerModeLabel}
-            </span>
-          </div>
+          {!presentationMode ? (
+            <div className="mode-indicators">
+              <span className={activeTool === 'connector' ? 'mode-pill mode-pill-active' : 'mode-pill'}>
+                {activeTool === 'connector' ? 'Modo: Connector' : 'Modo: Select'}
+              </span>
+              <span className="mode-pill">Camada: {currentViewModeLabel}</span>
+              <span className={immersiveMode ? 'mode-pill mode-pill-active' : 'mode-pill'}>
+                View: {presentationMode ? 'Presentation' : focusMode ? 'Focus' : 'Studio'}
+              </span>
+              <span className={playerIsRunning ? 'mode-pill mode-pill-playing' : 'mode-pill'}>
+                Player: {playerModeLabel}
+              </span>
+            </div>
+          ) : (
+            <div className="mode-indicators mode-indicators-presentation">
+              <span className="mode-pill mode-pill-active">View: Presentation</span>
+              <span className={playerIsRunning ? 'mode-pill mode-pill-playing' : 'mode-pill'}>
+                Step {playerStepIndex + 1}/{playerJourney?.steps.length ?? 0}
+              </span>
+            </div>
+          )}
         </div>
         <div className="topbar-actions">
           {presentationMode ? (

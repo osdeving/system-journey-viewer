@@ -15,8 +15,13 @@
 - Canvas editing with pan/zoom, grid/snap, nodes/edges, ports, and docking.
 - Preset catalog for C4, infra, and hexagonal architecture semantics.
 - Theme persistence (`light` / `dark`) in workspace settings.
-- Journey creation, filtering, and playback controls.
+- Journey creation, filtering, playback, and timeline editing controls.
+- Journey authoring from canvas:
+  - drag/release an edge into a journey to append it as the next step;
+  - drag-and-drop timeline steps to reorder with automatic renumbering.
 - Drill-down navigation (`Container -> Component -> Hex`) with breadcrumb.
+- Shortcut-assisted drilldown modeling:
+  - `Ctrl/Cmd+Alt+double-click` converts a node into a drilldown boundary entry and opens its new detail view.
 - DSL LITE <-> FULL conversion with auto-layout.
 - Static export (`SVG`, `PNG`, `PDF`).
 - Animated export (`GIF`, `MP4`, animated `SVG`) with journey timeline playback.
@@ -24,7 +29,7 @@
 - Workspace file lifecycle in-browser UI:
   - `New File` (blank workspace),
   - `Open File` (validated snapshot import),
-  - `Save File` (snapshot download as `.sjv.json`).
+  - `Save File` with File System Access API support (handle reuse on `Ctrl/Cmd+S` and Save As on `Ctrl/Cmd+Shift+S`, with download fallback as `.sjv.json`).
 
 ## Animation and Player State
 

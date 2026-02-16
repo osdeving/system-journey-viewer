@@ -56,6 +56,10 @@
   - próxima seta só inicia após a bolinha concluir a curva atual,
   - highlight do destino só acende ao chegar no endpoint,
   - avanço ocorre após breve hold de chegada para evitar “corte” visual entre setas.
+- Loop de render do trail otimizado para menor custo por frame:
+  - resize do canvas movido para `ResizeObserver` + `window.resize` (fora do loop de animação),
+  - limite de `devicePixelRatio` no overlay para reduzir fill-rate em telas HiDPI,
+  - trilhas com trim/compactação in-place (sem `slice/filter` por frame) para reduzir GC.
 - Layout ganhou preset `Presentation mode` (`P`) + microinterações de abertura/fechamento de painéis (palette, dock, workbench).
 - Ports/alças refinados: sem cantos no topo/base, maior densidade de encaixes por tamanho, bolinhas menores e mais discretas.
 - Confete do player ficou mais discreto e local ao componente alvo (raio menor, menos partículas, bursts mais curtos).

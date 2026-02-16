@@ -363,3 +363,22 @@
 - `npm --workspace @sjv/web run test:run`
 - `npm --workspace @sjv/web run build`
 
+
+- Ajuste incremental (`tmp/ai/20260216-0759-perf-canvas-optimization`):
+  - Loop do `DiagramCanvas` otimizado para reduzir custo de render e GC durante animação contínua.
+  - Overlay do trail passou a usar resize dedicado (`ResizeObserver` + `window.resize`), removendo leitura de layout por frame (`clientWidth/clientHeight`) dentro do `rAF`.
+  - Canvas do trail agora usa `devicePixelRatio` com teto (`1.5`) para equilibrar nitidez e custo em telas HiDPI.
+  - Trilha do player deixou de usar `slice/filter` em cada frame:
+    - trim por limite máximo (`MAX_TRAILS`) agora é in-place,
+    - compactação de partículas expiradas agora é in-place.
+  - Ajustes adicionais no loop:
+    - cálculos de zoom reaproveitados por frame (`inverseSafeZoom`),
+    - partículas quase invisíveis deixam de ser desenhadas,
+    - amostragem do progresso da curva ficou adaptativa ao percentual percorrido.
+  - Helpers novos em `trailMath` com testes unitários (`trimArrayStartInPlace` e `compactPositiveAlphaInPlace`).
+
+### Validação executada (ajuste perf-canvas-optimization)
+
+- `npm --workspace @sjv/web run lint`
+- `npm --workspace @sjv/web run test:run`
+- `npm --workspace @sjv/web run build`

@@ -25,7 +25,11 @@ import { JourneyEdge } from './JourneyEdge'
 import { resolveDbCylinderShape, resolveQueueCylinderShape } from './nodeShapePaths'
 import { curveToSvgPath, cubicPointAt, type EdgeCurvePath } from './edgePresentation'
 import { resolveArrivalAdvance, resolveTravelProgress } from './playerStepTimeline'
-import { buildTrailPoints } from './trailMath'
+import {
+  buildTrailPoints,
+  compactPositiveAlphaInPlace,
+  trimArrayStartInPlace,
+} from './trailMath'
 
 type PanState = {
   pointerId: number
@@ -117,6 +121,8 @@ const EDGE_ANCHOR_CAPTURE_RADIUS = 11
 const EDGE_ANCHOR_RESOLVE_RADIUS = 12
 const PLAYER_TRACK_BASE_ALPHA = 0.18
 const PLAYER_TRACK_PROGRESS_ALPHA = 0.88
+const TRAIL_CANVAS_MAX_PIXEL_RATIO = 1.5
+const TRAIL_MIN_VISIBLE_ALPHA = 0.015
 
 const resolveCurveFromEdge = (
   edge: EdgeModel,
@@ -254,7 +260,7 @@ const drawCurveProgress = (
   if (clampedProgress <= 0) {
     return
   }
-  const steps = 28
+  const steps = Math.max(8, Math.ceil(28 * clampedProgress))
   context.save()
   context.strokeStyle = hexToRgba(options.color, options.alpha)
   context.lineWidth = options.width
@@ -297,6 +303,7 @@ export const DiagramCanvas = () => {
   const edgeAnchorCycleRef = useRef(new Map<string, number>())
   const canvasRef = useRef<HTMLDivElement | null>(null)
   const trailCanvasRef = useRef<HTMLCanvasElement | null>(null)
+  const trailCanvasMetricsRef = useRef({ width: 0, height: 0, pixelRatio: 1 })
   const trailsRef = useRef<TrailParticle[]>([])
   const lastFrameTsRef = useRef<number | null>(null)
   const nextTrailIdRef = useRef(1)
@@ -605,6 +612,56 @@ export const DiagramCanvas = () => {
       return
     }
 
+    const updateCanvasMetrics = () => {
+      const width = Math.max(1, Math.floor(trailCanvas.clientWidth))
+      const height = Math.max(1, Math.floor(trailCanvas.clientHeight))
+      const pixelRatio = Math.max(
+        1,
+        Math.min(window.devicePixelRatio || 1, TRAIL_CANVAS_MAX_PIXEL_RATIO),
+      )
+      const nextWidth = Math.floor(width * pixelRatio)
+      const nextHeight = Math.floor(height * pixelRatio)
+      if (
+        trailCanvas.width === nextWidth &&
+        trailCanvas.height === nextHeight &&
+        trailCanvasMetricsRef.current.pixelRatio === pixelRatio
+      ) {
+        return
+      }
+
+      trailCanvas.width = nextWidth
+      trailCanvas.height = nextHeight
+      trailCanvasMetricsRef.current = { width, height, pixelRatio }
+      context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0)
+      context.clearRect(0, 0, width, height)
+    }
+
+    updateCanvasMetrics()
+    window.addEventListener('resize', updateCanvasMetrics)
+    let observer: ResizeObserver | null = null
+    if (typeof ResizeObserver !== 'undefined') {
+      observer = new ResizeObserver(() => {
+        updateCanvasMetrics()
+      })
+      observer.observe(trailCanvas)
+    }
+
+    return () => {
+      window.removeEventListener('resize', updateCanvasMetrics)
+      observer?.disconnect()
+    }
+  }, [])
+
+  useEffect(() => {
+    const trailCanvas = trailCanvasRef.current
+    if (!trailCanvas) {
+      return
+    }
+    const context = trailCanvas.getContext('2d')
+    if (!context) {
+      return
+    }
+
     const updateUiProgress = (nextProgress: number) => {
       if (Math.abs(nextProgress - travelProgressRef.current) >= 0.02 || nextProgress === 0 || nextProgress === 1) {
         travelProgressRef.current = nextProgress
@@ -614,16 +671,17 @@ export const DiagramCanvas = () => {
 
     let rafId: number | null = null
     const drawFrame = (timestamp: number) => {
-      const width = Math.max(1, Math.floor(trailCanvas.clientWidth))
-      const height = Math.max(1, Math.floor(trailCanvas.clientHeight))
-      if (trailCanvas.width !== width || trailCanvas.height !== height) {
-        trailCanvas.width = width
-        trailCanvas.height = height
+      const metrics = trailCanvasMetricsRef.current
+      if (metrics.width <= 0 || metrics.height <= 0) {
+        rafId = window.requestAnimationFrame(drawFrame)
+        return
       }
 
       const previousTs = lastFrameTsRef.current ?? timestamp
       const dt = Math.max(0, timestamp - previousTs)
       lastFrameTsRef.current = timestamp
+      const safeZoom = Math.max(viewport.zoom, 0.25)
+      const inverseSafeZoom = 1 / safeZoom
 
       const stepKey = currentPlayerEdgeId
         ? `${viewId}:${playerJourneyId ?? ''}:${playerStepIndex}:${currentPlayerEdgeId}`
@@ -657,7 +715,7 @@ export const DiagramCanvas = () => {
           const orbPoint = cubicPointAt(currentPlayerCurve, travelProgress)
           orbPositionRef.current = orbPoint
           const lastTrail = lastTrailPositionRef.current
-          const minSpacing = TRAIL_MIN_SPACING / Math.max(viewport.zoom, 0.25)
+          const minSpacing = TRAIL_MIN_SPACING * inverseSafeZoom
           const trailPoints = buildTrailPoints(lastTrail, orbPoint, minSpacing)
           if (trailPoints.length > 0) {
             for (const point of trailPoints) {
@@ -665,14 +723,14 @@ export const DiagramCanvas = () => {
                 id: nextTrailIdRef.current,
                 color: currentPlayerColor,
                 alpha: TRAIL_INITIAL_ALPHA,
-                radius: TRAIL_PARTICLE_RADIUS / Math.max(viewport.zoom, 0.25),
+                radius: TRAIL_PARTICLE_RADIUS * inverseSafeZoom,
                 position: point,
               })
               nextTrailIdRef.current += 1
             }
             lastTrailPositionRef.current = trailPoints[trailPoints.length - 1]
             if (trailsRef.current.length > MAX_TRAILS) {
-              trailsRef.current = trailsRef.current.slice(-MAX_TRAILS)
+              trimArrayStartInPlace(trailsRef.current, MAX_TRAILS)
             }
           }
         } else {
@@ -688,53 +746,63 @@ export const DiagramCanvas = () => {
 
       updateUiProgress(travelProgress)
 
-      context.setTransform(1, 0, 0, 1, 0, 0)
-      context.clearRect(0, 0, width, height)
+      context.setTransform(metrics.pixelRatio, 0, 0, metrics.pixelRatio, 0, 0)
+      context.clearRect(0, 0, metrics.width, metrics.height)
 
       context.save()
       context.globalCompositeOperation = 'screen'
-      context.setTransform(viewport.zoom, 0, 0, viewport.zoom, viewport.x, viewport.y)
+      context.setTransform(
+        metrics.pixelRatio * viewport.zoom,
+        0,
+        0,
+        metrics.pixelRatio * viewport.zoom,
+        metrics.pixelRatio * viewport.x,
+        metrics.pixelRatio * viewport.y,
+      )
 
       if (playerIsRunning && currentPlayerCurve) {
         drawCurveTrack(context, currentPlayerCurve, {
           color: currentPlayerColor,
           alpha: PLAYER_TRACK_BASE_ALPHA,
-          width: 2.2 / Math.max(viewport.zoom, 0.25),
-          glow: 9 / Math.max(viewport.zoom, 0.25),
+          width: 2.2 * inverseSafeZoom,
+          glow: 9 * inverseSafeZoom,
         })
         drawCurveProgress(context, currentPlayerCurve, travelProgress, {
           color: currentPlayerColor,
           alpha: PLAYER_TRACK_PROGRESS_ALPHA,
-          width: 3.3 / Math.max(viewport.zoom, 0.25),
-          glow: 16 / Math.max(viewport.zoom, 0.25),
+          width: 3.3 * inverseSafeZoom,
+          glow: 16 * inverseSafeZoom,
         })
       }
 
       for (const trail of trailsRef.current) {
+        trail.alpha -= dt * TRAIL_FADE_FACTOR
+        if (trail.alpha <= TRAIL_MIN_VISIBLE_ALPHA) {
+          continue
+        }
         context.beginPath()
         context.arc(trail.position.x, trail.position.y, trail.radius, 0, Math.PI * 2)
         context.fillStyle = hexToRgba(trail.color, trail.alpha)
         context.shadowColor = hexToRgba(trail.color, Math.min(1, trail.alpha + 0.2))
-        context.shadowBlur = TRAIL_PARTICLE_SHADOW_BLUR / Math.max(viewport.zoom, 0.25)
+        context.shadowBlur = TRAIL_PARTICLE_SHADOW_BLUR * inverseSafeZoom
         context.fill()
-        trail.alpha -= dt * TRAIL_FADE_FACTOR
       }
-      trailsRef.current = trailsRef.current.filter((trail) => trail.alpha > 0)
+      compactPositiveAlphaInPlace(trailsRef.current)
 
       if (playerIsRunning && orbPositionRef.current) {
-        const orbRadius = ORB_RADIUS / Math.max(viewport.zoom, 0.25)
+        const orbRadius = ORB_RADIUS * inverseSafeZoom
         context.beginPath()
         context.arc(orbPositionRef.current.x, orbPositionRef.current.y, orbRadius * 1.95, 0, Math.PI * 2)
         context.fillStyle = hexToRgba(currentPlayerColor, 0.22)
         context.shadowColor = hexToRgba(currentPlayerColor, 0.35)
-        context.shadowBlur = (ORB_SHADOW_BLUR * 1.3) / Math.max(viewport.zoom, 0.25)
+        context.shadowBlur = ORB_SHADOW_BLUR * 1.3 * inverseSafeZoom
         context.fill()
 
         context.beginPath()
         context.arc(orbPositionRef.current.x, orbPositionRef.current.y, orbRadius, 0, Math.PI * 2)
         context.fillStyle = hexToRgba(currentPlayerColor, 0.98)
         context.shadowColor = hexToRgba(currentPlayerColor, 0.98)
-        context.shadowBlur = ORB_SHADOW_BLUR / Math.max(viewport.zoom, 0.25)
+        context.shadowBlur = ORB_SHADOW_BLUR * inverseSafeZoom
         context.fill()
 
         context.beginPath()

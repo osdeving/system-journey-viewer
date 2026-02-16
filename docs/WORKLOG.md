@@ -400,3 +400,28 @@
 - `npm --workspace @sjv/web run lint`
 - `npm --workspace @sjv/web run test:run`
 - `npm --workspace @sjv/web run build`
+
+
+- Ajuste incremental (`tmp/ai/20260216-0824-export-animated-journeys`):
+  - Novo pipeline de export animado para jornadas integrado ao menu `File`:
+    - `Export GIF`,
+    - `Export MP4` (com fallback automático para `WebM` quando MP4 não é suportado no browser),
+    - `Export Animated SVG`.
+  - Módulo novo `animatedExport` adiciona captura composta do canvas:
+    - snapshot do SVG com estilos computados inline,
+    - composição com `trail-canvas` em blend `screen` para manter o visual do rastro/orb,
+    - render por frames para GIF e gravação via `MediaRecorder` para vídeo.
+  - Export `Animated SVG` gera arquivo standalone com animação contínua do orb ao longo dos steps da jornada (loop).
+  - Fluxo do App ajustado para:
+    - resolver jornada alvo automaticamente (filtro/player/ativa),
+    - preparar playback para captura,
+    - restaurar estado original do player após export.
+  - Feedback visual de export adicionado no topo (`topbar-status`) e botões de export animado ficam desabilitados durante geração.
+  - Dependência `gifenc` adicionada para encoding GIF no browser.
+  - Testes unitários novos para helpers de export animado (duração total e seleção de codec de vídeo).
+
+### Validação executada (ajuste export-animated-journeys)
+
+- `npm --workspace @sjv/web run lint`
+- `npm --workspace @sjv/web run test:run`
+- `npm --workspace @sjv/web run build`

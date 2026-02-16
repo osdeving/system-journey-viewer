@@ -17,6 +17,10 @@
 - Drill-down Container → Component → Hex com breadcrumb.
 - DSL LITE ↔ FULL com auto-layout.
 - Export SVG/PNG/PDF.
+- Export animado de jornadas:
+  - GIF animado (frame capture com composição SVG + trilha),
+  - vídeo MP4 quando codec suportado pelo browser (fallback automático para WebM),
+  - SVG animado standalone com orb percorrendo os steps da jornada.
 - Showcase pronto para demo completa via ação `Showcase` (topbar).
 - Player com bolinha em movimento no path e rastro temporal via canvas overlay (trail com fade/remoção).
 - Labels de comunicação com badge circular colorido por jornada (número dentro da bolinha) no início da seta quando há contexto de passo.

@@ -39,6 +39,12 @@ import {
   resolveJourneyScriptTheme,
 } from './dsl-lite/monacoJourneyScript'
 import { parseLiteDsl } from './dsl-lite/parser'
+import {
+  exportAnimatedJourneyGif,
+  exportAnimatedJourneySvg,
+  exportAnimatedJourneyVideo,
+  resolveJourneyAnimationDurationMs,
+} from './export/animatedExport'
 import { exportPdf, exportPng, exportSvg } from './export/exporters'
 import { nodePresetsByCategory, protocolPresets, resolveNodePreset } from './presets/catalog'
 import { useEditorStore } from './store/useEditorStore'
@@ -172,6 +178,8 @@ function App() {
   const [dslCodexStatus, setDslCodexStatus] = useState<string | null>(null)
   const [dslCodexRunning, setDslCodexRunning] = useState(false)
   const [exportError, setExportError] = useState<string | null>(null)
+  const [exportStatus, setExportStatus] = useState<string | null>(null)
+  const [animatedExportRunning, setAnimatedExportRunning] = useState(false)
   const [leftSidebarWidth, setLeftSidebarWidth] = useState(DEFAULT_LEFT_SIDEBAR_WIDTH)
   const [journeyHeight, setJourneyHeight] = useState(DEFAULT_JOURNEY_HEIGHT)
   const [drawerTab, setDrawerTab] = useState<DrawerTab>('journeys')
@@ -708,6 +716,164 @@ function App() {
     }
   }
 
+  type PlayerExportSnapshot = {
+    playerJourneyId: string | null
+    playerStepIndex: number
+    playerIsRunning: boolean
+    playerLoop: boolean
+    journeyFilterId: string | null
+  }
+
+  const resolveCurrentExportJourneyId = (): string | null => {
+    const candidates = [journeyFilterId, playerJourneyId, activeJourneyId]
+    for (const candidate of candidates) {
+      if (candidate && workspace.journeys[candidate]) {
+        return candidate
+      }
+    }
+    for (const journeyId of currentView.journeyIds) {
+      if (workspace.journeys[journeyId]) {
+        return journeyId
+      }
+    }
+    return null
+  }
+
+  const restorePlayerAfterAnimatedExport = (snapshot: PlayerExportSnapshot): void => {
+    setPlayerRunning(false)
+    setPlayerLoop(snapshot.playerLoop)
+    setJourneyFilter(snapshot.journeyFilterId)
+    if (!snapshot.playerJourneyId || !workspace.journeys[snapshot.playerJourneyId]) {
+      setPlayerJourney(null)
+      return
+    }
+
+    setPlayerJourney(snapshot.playerJourneyId)
+    resetPlayer()
+    for (let index = 0; index < snapshot.playerStepIndex; index += 1) {
+      stepPlayer()
+    }
+    setPlayerRunning(snapshot.playerIsRunning)
+  }
+
+  const waitForCanvasFrames = async (frames = 2): Promise<void> => {
+    for (let index = 0; index < Math.max(1, frames); index += 1) {
+      await new Promise<void>((resolve) => {
+        window.requestAnimationFrame(() => resolve())
+      })
+    }
+  }
+
+  const exportAnimatedFromCanvas = async (format: 'gif' | 'mp4' | 'svg') => {
+    if (animatedExportRunning) {
+      return
+    }
+    const svg = document.querySelector('.diagram-canvas')
+    const trailCanvas = document.querySelector('.trail-canvas')
+    if (!(svg instanceof SVGSVGElement) || !(trailCanvas instanceof HTMLCanvasElement)) {
+      setExportError('Canvas não encontrado para export animado.')
+      return
+    }
+
+    const journeyId = resolveCurrentExportJourneyId()
+    if (!journeyId) {
+      setExportError('Selecione uma jornada para exportar.')
+      return
+    }
+    const journey = workspace.journeys[journeyId]
+    if (!journey || !journey.steps.length) {
+      setExportError('A jornada selecionada não possui passos para exportação animada.')
+      return
+    }
+
+    const filenameBase = `${workspace.workspace.name}-${journey.name}`
+    const durationMs = resolveJourneyAnimationDurationMs(journey.steps.length, playerSpeedMs)
+
+    setExportError(null)
+    setAnimatedExportRunning(true)
+
+    if (format === 'svg') {
+      try {
+        setExportStatus('Gerando SVG animado...')
+        exportAnimatedJourneySvg({
+          svg,
+          workspace,
+          journey,
+          playerSpeedMs,
+          filenameBase,
+        })
+        setExportStatus('SVG animado exportado.')
+        window.setTimeout(() => setExportStatus(null), 2800)
+      } catch (error) {
+        setExportError(error instanceof Error ? error.message : 'Falha ao exportar SVG animado.')
+      } finally {
+        setAnimatedExportRunning(false)
+      }
+      return
+    }
+
+    const snapshot: PlayerExportSnapshot = {
+      playerJourneyId,
+      playerStepIndex,
+      playerIsRunning,
+      playerLoop,
+      journeyFilterId,
+    }
+
+    try {
+      setExportStatus('Preparando captura animada...')
+      setPlayerLoop(false)
+      setPlayerJourney(journeyId)
+      resetPlayer()
+      setPlayerRunning(true)
+      await waitForCanvasFrames(3)
+
+      const resolveBaseKey = () => {
+        const state = useEditorStore.getState()
+        return [
+          state.playerJourneyId ?? 'none',
+          state.playerStepIndex,
+          state.playerIsRunning ? 1 : 0,
+          state.playerConfettiNonce,
+        ].join(':')
+      }
+
+      if (format === 'gif') {
+        setExportStatus('Renderizando GIF animado...')
+        await exportAnimatedJourneyGif({
+          svg,
+          trailCanvas,
+          canvasPanel: canvasPanelRef.current,
+          durationMs,
+          resolveBaseKey,
+          filenameBase,
+        })
+        setExportStatus('GIF animado exportado.')
+      } else {
+        setExportStatus('Gravando vídeo da jornada...')
+        const video = await exportAnimatedJourneyVideo({
+          svg,
+          trailCanvas,
+          canvasPanel: canvasPanelRef.current,
+          durationMs,
+          resolveBaseKey,
+          filenameBase,
+        })
+        setExportStatus(
+          video.extension === 'mp4'
+            ? 'Vídeo MP4 exportado.'
+            : 'Codec MP4 indisponível no navegador; vídeo exportado em WebM.',
+        )
+      }
+      window.setTimeout(() => setExportStatus(null), 3200)
+    } catch (error) {
+      setExportError(error instanceof Error ? error.message : 'Falha ao exportar jornada animada.')
+    } finally {
+      restorePlayerAfterAnimatedExport(snapshot)
+      setAnimatedExportRunning(false)
+    }
+  }
+
   const runCodexAssistForDsl = async () => {
     const trimmedDsl = dslText.trim()
     if (!trimmedDsl) {
@@ -1152,6 +1318,42 @@ function App() {
                   >
                     <span>Export PDF</span>
                   </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    disabled={animatedExportRunning}
+                    onClick={() =>
+                      runDesktopMenuAction(() => {
+                        void exportAnimatedFromCanvas('gif')
+                      })
+                    }
+                  >
+                    <span>{animatedExportRunning ? 'Exporting...' : 'Export GIF'}</span>
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    disabled={animatedExportRunning}
+                    onClick={() =>
+                      runDesktopMenuAction(() => {
+                        void exportAnimatedFromCanvas('mp4')
+                      })
+                    }
+                  >
+                    <span>{animatedExportRunning ? 'Exporting...' : 'Export MP4'}</span>
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    disabled={animatedExportRunning}
+                    onClick={() =>
+                      runDesktopMenuAction(() => {
+                        void exportAnimatedFromCanvas('svg')
+                      })
+                    }
+                  >
+                    <span>{animatedExportRunning ? 'Exporting...' : 'Export Animated SVG'}</span>
+                  </button>
                   <button type="button" role="menuitem" onClick={() => runDesktopMenuAction(() => resetWorkspace())}>
                     <span>Reset Workspace</span>
                   </button>
@@ -1449,6 +1651,7 @@ function App() {
           </button>
         </div>
         {exportError ? <p className="topbar-error">{exportError}</p> : null}
+        {!exportError && exportStatus ? <p className="topbar-status">{exportStatus}</p> : null}
       </header>
       {!immersiveMode && leftPanelVisible ? (
         <div

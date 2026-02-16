@@ -15,6 +15,7 @@ describe('App boundary styles', () => {
     expect(appCss).toContain('.mode-pill')
     expect(appCss).toContain('.mode-pill-active')
     expect(appCss).toContain('.mode-pill-playing')
+    expect(appCss).toContain('.topbar-status')
     expect(appCss).toContain('.app-layout-focus')
     expect(appCss).toContain('.app-layout-presentation')
     expect(appCss).toContain('.focus-toggle-button')

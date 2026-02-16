@@ -261,6 +261,15 @@
   font-size: 12px;
 }
 
+.topbar-status {
+  position: absolute;
+  left: 20px;
+  bottom: 4px;
+  margin: 0;
+  color: #0f766e;
+  font-size: 12px;
+}
+
 .topbar-actions {
   display: flex;
   gap: 8px;
@@ -1267,6 +1276,10 @@
 .theme-dark .player-step-info,
 .theme-dark .inspector-form label {
   color: #cbd5e1;
+}
+
+.theme-dark .topbar-status {
+  color: #5eead4;
 }
 
 .theme-dark .toggle-inline {

@@ -6,6 +6,7 @@
   { "id": "boundary", "label": "Boundary", "iconKey": "boundary" },
   { "id": "postgres", "label": "PostgreSQL", "iconKey": "postgres" },
   { "id": "kafka", "label": "Kafka", "iconKey": "kafka" },
+  { "id": "load-balancer", "label": "Load Balancer", "iconKey": "gateway" },
   { "id": "nginx", "label": "NGINX", "iconKey": "gateway" },
   { "id": "oauth2", "label": "OAuth2", "iconKey": "security" },
   { "id": "domain", "label": "Domain", "iconKey": "component" },

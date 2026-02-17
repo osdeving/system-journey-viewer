@@ -40,7 +40,29 @@ export interface LiteViewAst {
   parent?: LiteViewParent
 }
 
+export interface LiteUiLayoutNode {
+  alias: string
+  x: number
+  y: number
+  w: number
+  h: number
+}
+
+export interface LiteUiLayoutEdge {
+  fromAlias: string
+  toAlias: string
+  labelPosition: number
+  labelSide?: 'left' | 'right'
+}
+
+export interface LiteUiLayoutView {
+  viewId: string
+  nodes: LiteUiLayoutNode[]
+  edges: LiteUiLayoutEdge[]
+}
+
 export interface LiteWorkspaceAst {
   workspaceName: string
   views: LiteViewAst[]
+  uiLayout: LiteUiLayoutView[]
 }

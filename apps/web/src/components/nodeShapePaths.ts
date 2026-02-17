@@ -34,6 +34,10 @@ export type QueueCylinderShape = {
   rearInnerArcPath: string
 }
 
+export type HexagonShape = {
+  shellPath: string
+}
+
 export const resolveQueueCylinderShape = (
   width: number,
   height: number,
@@ -52,5 +56,31 @@ export const resolveQueueCylinderShape = (
     shellPath: `M ${capRx} 0 H ${rightCenterX} A ${capRx} ${capRy} 0 0 1 ${rightCenterX} ${safeHeight} H ${capRx} A ${capRx} ${capRy} 0 0 1 ${capRx} 0 Z`,
     frontCapPath: `M ${rightCenterX} 0 A ${capRx} ${capRy} 0 0 1 ${rightCenterX} ${safeHeight} A ${capRx} ${capRy} 0 0 1 ${rightCenterX} 0`,
     rearInnerArcPath: `M ${capRx} 0 A ${capRx} ${capRy} 0 0 1 ${capRx} ${safeHeight}`,
+  }
+}
+
+export const resolveHexagonShape = (
+  width: number,
+  height: number,
+  inset = 0,
+): HexagonShape => {
+  const safeWidth = Math.max(1, width)
+  const safeHeight = Math.max(1, height)
+  const clampedInset = clamp(inset, 0, Math.min(safeWidth, safeHeight) / 2 - 0.5)
+  const leftX = clampedInset
+  const rightX = safeWidth - clampedInset
+  const topY = clampedInset
+  const bottomY = safeHeight - clampedInset
+  const centerY = (topY + bottomY) / 2
+  const horizontalInset = clamp(
+    (rightX - leftX) * 0.25,
+    6,
+    Math.max(6, (rightX - leftX) / 2 - 0.5),
+  )
+  const leftInnerX = leftX + horizontalInset
+  const rightInnerX = rightX - horizontalInset
+
+  return {
+    shellPath: `M ${leftInnerX} ${topY} L ${rightInnerX} ${topY} L ${rightX} ${centerY} L ${rightInnerX} ${bottomY} L ${leftInnerX} ${bottomY} L ${leftX} ${centerY} Z`,
   }
 }

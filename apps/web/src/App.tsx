@@ -1,5 +1,8 @@
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import type { PointerEvent as ReactPointerEvent } from 'react'
+import type {
+  ChangeEvent,
+  PointerEvent as ReactPointerEvent,
+} from 'react'
 import confetti from 'canvas-confetti'
 import type { Monaco } from '@monaco-editor/react'
 import {
@@ -46,7 +49,16 @@ import {
   resolveJourneyAnimationDurationMs,
 } from './export/animatedExport'
 import { exportPdf, exportPng, exportSvg } from './export/exporters'
+import {
+  buildWorkspaceFilename,
+  parseWorkspaceSnapshotFile,
+  serializeWorkspaceSnapshotFile,
+} from './file/workspaceFile'
+import { resolveJourneyFocusScope } from './journeys/focus'
+import { BLANK_WORKSPACE_VIEW_ID, createBlankWorkspace } from './model/blankWorkspace'
+import type { EditorSnapshot, ViewportState, WorkspaceModel } from './model/types'
 import { nodePresetsByCategory, protocolPresets, resolveNodePreset } from './presets/catalog'
+import { applyWorkspaceLayout, loadWorkspaceLayout, saveWorkspaceLayout } from './store/layoutPersistence'
 import { useEditorStore } from './store/useEditorStore'
 
 const DEBOUNCE_SAVE_MS = 900
@@ -59,6 +71,7 @@ const MIN_JOURNEY_HEIGHT = 160
 const TOPBAR_HEIGHT = 80
 const MIN_CANVAS_HEIGHT = 220
 const MIN_DOCK_HEIGHT = 260
+const DEFAULT_FILE_VIEWPORT = { x: 100, y: 80, zoom: 1 }
 const DEFAULT_NODE_COLOR_PRESETS = [
   '#ffffff',
   '#dbeafe',
@@ -84,10 +97,80 @@ const viewKindLabel: Record<string, string> = {
 type DrawerTab = 'journeys' | 'dsl' | 'dock'
 type DockTab = 'inspector' | 'journeys'
 type DockPosition = 'right' | 'bottom'
-type DesktopMenuId = 'file' | 'edit' | 'view' | 'insert'
+type DesktopMenuId = 'file' | 'edit' | 'view' | 'journey' | 'insert'
 type PlayerAnimationPreset = 'cinematic' | 'orb' | 'minimal'
-const DESKTOP_MENU_ORDER: DesktopMenuId[] = ['file', 'edit', 'view', 'insert']
+type FileWriteMode = 'prompt' | 'reuse'
+type StepDragState = { journeyId: string; edgeId: string }
+
+type HistoryStoreSnapshot = {
+  workspace: WorkspaceModel
+  currentViewId: string
+  viewHistory: string[]
+  viewport: ViewportState
+  selectedNodeId: string | null
+  selectedNodeIds: string[]
+  selectedEdgeId: string | null
+  activeTool: 'select' | 'connector'
+  pendingConnectionFrom: string | null
+  pendingConnectionPortId: string | null
+  activeJourneyId: string | null
+  journeyFilterId: string | null
+  playerJourneyId: string | null
+  playerIsRunning: boolean
+  playerStepIndex: number
+  playerLoop: boolean
+  playerSpeedMs: number
+  playerHighlightNodes: boolean
+  playerTrailEnabled: boolean
+  playerConfettiNonce: number
+  playerConfettiNodeId: string | null
+}
+
+type HistoryUiSnapshot = {
+  leftSidebarWidth: number
+  journeyHeight: number
+  drawerTab: DrawerTab
+  dslMaximized: boolean
+  focusMode: boolean
+  presentationMode: boolean
+  leftSidebarCollapsed: boolean
+  dockCollapsed: boolean
+  drawerCollapsed: boolean
+  dockPosition: DockPosition
+  dockTabOrder: DockTab[]
+  activeDockTab: DockTab
+  journeyDraftName: string
+}
+
+type HistorySnapshot = {
+  store: HistoryStoreSnapshot
+  ui: HistoryUiSnapshot
+}
+
+type HistoryStacks = {
+  past: HistorySnapshot[]
+  future: HistorySnapshot[]
+}
+
+type WorkspaceWritable = {
+  write: (data: Blob | BufferSource | string) => Promise<void>
+  close: () => Promise<void>
+}
+
+type WorkspaceFileHandle = {
+  name?: string
+  getFile: () => Promise<File>
+  createWritable: () => Promise<WorkspaceWritable>
+}
+
+type WorkspaceWindow = Window & {
+  showOpenFilePicker?: (options?: unknown) => Promise<WorkspaceFileHandle[]>
+  showSaveFilePicker?: (options?: unknown) => Promise<WorkspaceFileHandle>
+}
+
+const DESKTOP_MENU_ORDER: DesktopMenuId[] = ['file', 'edit', 'view', 'journey', 'insert']
 const DEFAULT_DOCK_TAB_ORDER: DockTab[] = ['inspector', 'journeys']
+const HISTORY_LIMIT = 120
 
 const isTextInputTarget = (target: EventTarget | null): boolean => {
   if (!(target instanceof HTMLElement)) {
@@ -102,6 +185,13 @@ const isTextInputTarget = (target: EventTarget | null): boolean => {
 
 const isHexColor = (value?: string): boolean =>
   /^#[\da-fA-F]{6}$/.test(value ?? '')
+
+const cloneSerializable = <T,>(value: T): T => {
+  if (typeof structuredClone === 'function') {
+    return structuredClone(value)
+  }
+  return JSON.parse(JSON.stringify(value)) as T
+}
 
 const resolvePlayerAnimationPreset = (
   trailEnabled: boolean,
@@ -119,11 +209,18 @@ const resolvePlayerAnimationPreset = (
 function App() {
   const layoutRef = useRef<HTMLDivElement | null>(null)
   const desktopMenuBarRef = useRef<HTMLDivElement | null>(null)
+  const snapshotFileInputRef = useRef<HTMLInputElement | null>(null)
   const canvasPanelRef = useRef<HTMLElement | null>(null)
   const dslRestoreHeightRef = useRef<number | null>(null)
   const previousViewIdRef = useRef<string | null>(null)
   const dockTabDragRef = useRef<DockTab | null>(null)
   const journeyDragRef = useRef<string | null>(null)
+  const journeyStepDragRef = useRef<StepDragState | null>(null)
+  const workspaceFileHandleRef = useRef<WorkspaceFileHandle | null>(null)
+  const historyRef = useRef<HistoryStacks>({ past: [], future: [] })
+  const historyApplyingRef = useRef(false)
+  const historyLastCommitAtRef = useRef(0)
+  const historyReleaseTimerRef = useRef<number | null>(null)
   const leftResizeRef = useRef<{ pointerId: number; startX: number; startWidth: number } | null>(null)
   const journeyResizeRef = useRef<{
     pointerId: number
@@ -162,14 +259,20 @@ function App() {
   const setViewport = useEditorStore((state) => state.setViewport)
   const setActiveTool = useEditorStore((state) => state.setActiveTool)
   const removeNode = useEditorStore((state) => state.removeNode)
+  const removeEdge = useEditorStore((state) => state.removeEdge)
+  const duplicateSelection = useEditorStore((state) => state.duplicateSelection)
   const setNodeName = useEditorStore((state) => state.setNodeName)
   const setNodeTech = useEditorStore((state) => state.setNodeTech)
   const setNodeColor = useEditorStore((state) => state.setNodeColor)
   const setEdgeProtocol = useEditorStore((state) => state.setEdgeProtocol)
   const setEdgeLabel = useEditorStore((state) => state.setEdgeLabel)
+  const setEdgeLabelPosition = useEditorStore((state) => state.setEdgeLabelPosition)
+  const setEdgeLabelSide = useEditorStore((state) => state.setEdgeLabelSide)
+  const autoArrangeCurrentView = useEditorStore((state) => state.autoArrangeCurrentView)
   const setGridEnabled = useEditorStore((state) => state.setGridEnabled)
   const setSnapEnabled = useEditorStore((state) => state.setSnapEnabled)
   const setTheme = useEditorStore((state) => state.setTheme)
+  const setJourneyFocusSettings = useEditorStore((state) => state.setJourneyFocusSettings)
   const loadShowcaseWorkspace = useEditorStore((state) => state.loadShowcaseWorkspace)
   const createJourney = useEditorStore((state) => state.createJourney)
   const setActiveJourney = useEditorStore((state) => state.setActiveJourney)
@@ -177,6 +280,7 @@ function App() {
   const reorderJourneyInCurrentView = useEditorStore((state) => state.reorderJourneyInCurrentView)
   const addEdgeToJourney = useEditorStore((state) => state.addEdgeToJourney)
   const removeEdgeFromJourney = useEditorStore((state) => state.removeEdgeFromJourney)
+  const reorderJourneyStep = useEditorStore((state) => state.reorderJourneyStep)
   const navigateBack = useEditorStore((state) => state.navigateBack)
   const setPlayerJourney = useEditorStore((state) => state.setPlayerJourney)
   const setPlayerRunning = useEditorStore((state) => state.setPlayerRunning)
@@ -198,7 +302,9 @@ function App() {
   const [dslCodexRunning, setDslCodexRunning] = useState(false)
   const [exportError, setExportError] = useState<string | null>(null)
   const [exportStatus, setExportStatus] = useState<string | null>(null)
+  const [draggedEdgeId, setDraggedEdgeId] = useState<string | null>(null)
   const [animatedExportRunning, setAnimatedExportRunning] = useState(false)
+  const [exportFocusJourneyId, setExportFocusJourneyId] = useState<string | null>(null)
   const [leftSidebarWidth, setLeftSidebarWidth] = useState(DEFAULT_LEFT_SIDEBAR_WIDTH)
   const [journeyHeight, setJourneyHeight] = useState(DEFAULT_JOURNEY_HEIGHT)
   const [drawerTab, setDrawerTab] = useState<DrawerTab>('journeys')
@@ -212,6 +318,9 @@ function App() {
   const [dockTabOrder, setDockTabOrder] = useState<DockTab[]>(DEFAULT_DOCK_TAB_ORDER)
   const [activeDockTab, setActiveDockTab] = useState<DockTab>('inspector')
   const [openDesktopMenu, setOpenDesktopMenu] = useState<DesktopMenuId | null>(null)
+  const [canUndo, setCanUndo] = useState(false)
+  const [canRedo, setCanRedo] = useState(false)
+  const lastJourneyAutoLayoutKeyRef = useRef<string | null>(null)
 
   const selectedNode = selectedNodeId ? workspace.nodes[selectedNodeId] : undefined
   const selectedEdge = selectedEdgeId ? workspace.edges[selectedEdgeId] : undefined
@@ -233,6 +342,26 @@ function App() {
       ...DEFAULT_NODE_COLOR_PRESETS.filter((color) => !recentUnique.includes(color)),
     ].slice(0, 10)
   }, [workspace.nodes])
+  const resolveEntryViewId = useCallback((workspaceModel: WorkspaceModel): string => {
+    const viewIds = Object.keys(workspaceModel.views)
+    if (!viewIds.length) {
+      return BLANK_WORKSPACE_VIEW_ID
+    }
+    const inboundDrilldowns = new Set(
+      Object.values(workspaceModel.nodes)
+        .map((node) => node.drilldownRef)
+        .filter((viewId): viewId is string => Boolean(viewId && workspaceModel.views[viewId])),
+    )
+    const rootCandidates = viewIds.filter((viewId) => !inboundDrilldowns.has(viewId))
+    const preferredRoot =
+      rootCandidates.find((viewId) => {
+        const kind = workspaceModel.views[viewId]?.kind
+        return kind === 'container' || kind === 'system-context'
+      }) ??
+      rootCandidates[0] ??
+      viewIds[0]
+    return preferredRoot
+  }, [])
   const currentView = workspace.views[currentViewId]
   const breadcrumb = [...viewHistory, currentViewId]
   const viewJourneys = useMemo(
@@ -242,7 +371,27 @@ function App() {
         .filter((journey) => !!journey),
     [currentView.journeyIds, workspace.journeys],
   ) as Array<(typeof workspace.journeys)[string]>
+  const journeyFocusSettings = workspace.settings.journeyFocus
+  const journeyFocusScope = useMemo(
+    () => resolveJourneyFocusScope(workspace, currentViewId, journeyFilterId),
+    [currentViewId, journeyFilterId, workspace],
+  )
+  const journeyFocusNodeIds = useMemo(
+    () => Array.from(journeyFocusScope?.nodeIds ?? []),
+    [journeyFocusScope],
+  )
+  const journeyFocusEdgeIds = useMemo(
+    () => Array.from(journeyFocusScope?.edgeIds ?? []),
+    [journeyFocusScope],
+  )
   const activeJourney = activeJourneyId ? workspace.journeys[activeJourneyId] : undefined
+  const activeJourneySteps = useMemo(
+    () =>
+      activeJourney
+        ? activeJourney.steps.slice().sort((left, right) => left.n - right.n)
+        : [],
+    [activeJourney],
+  )
   const playerJourney = playerJourneyId ? workspace.journeys[playerJourneyId] : undefined
   const currentViewModeLabel = viewKindLabel[currentView.kind] ?? currentView.kind
   const playerModeLabel = playerIsRunning ? 'Animação' : 'Render'
@@ -273,10 +422,10 @@ function App() {
     [playerHighlightNodes, playerTrailEnabled],
   )
 
-  const activateJourneyPlayback = (journeyId: string | null) => {
+  const activateJourneyPlayback = useCallback((journeyId: string | null) => {
     setPlayerJourney(journeyId)
     setPlayerRunning(Boolean(journeyId))
-  }
+  }, [setPlayerJourney, setPlayerRunning])
 
   const applyPlayerAnimationPreset = (preset: PlayerAnimationPreset): void => {
     if (preset === 'cinematic') {
@@ -292,6 +441,59 @@ function App() {
     setPlayerTrailEnabled(false)
     setPlayerHighlightNodes(false)
   }
+
+  const applyJourneyFilter = useCallback(
+    (nextJourneyId: string | null, options?: { activateJourney?: boolean }) => {
+      setJourneyFilter(nextJourneyId)
+      if (nextJourneyId) {
+        if (options?.activateJourney ?? true) {
+          setActiveJourney(nextJourneyId)
+          activateJourneyPlayback(nextJourneyId)
+        }
+      } else {
+        lastJourneyAutoLayoutKeyRef.current = null
+      }
+
+      if (!nextJourneyId) {
+        return
+      }
+
+      if (
+        journeyFocusSettings.autoLayoutMode !== 'always' ||
+        journeyFocusSettings.layoutMode !== 'reflow'
+      ) {
+        return
+      }
+
+      const scopedFocus = resolveJourneyFocusScope(workspace, currentViewId, nextJourneyId)
+      const scopedNodeIds = Array.from(scopedFocus?.nodeIds ?? [])
+      const scopedEdgeIds = Array.from(scopedFocus?.edgeIds ?? [])
+      if (!scopedNodeIds.length || !scopedEdgeIds.length) {
+        return
+      }
+
+      autoArrangeCurrentView({
+        nodeIds: scopedNodeIds,
+        edgeIds: scopedEdgeIds,
+      })
+      lastJourneyAutoLayoutKeyRef.current = [
+        currentViewId,
+        nextJourneyId,
+        scopedNodeIds.join(','),
+        scopedEdgeIds.join(','),
+      ].join('::')
+    },
+    [
+      autoArrangeCurrentView,
+      activateJourneyPlayback,
+      currentViewId,
+      journeyFocusSettings.autoLayoutMode,
+      journeyFocusSettings.layoutMode,
+      setJourneyFilter,
+      setActiveJourney,
+      workspace,
+    ],
+  )
 
   const fitCurrentViewToCanvas = useCallback(() => {
     const canvasPanel = canvasPanelRef.current
@@ -423,6 +625,180 @@ function App() {
     setOpenDesktopMenu(null)
   }
 
+  const setTransientStatus = useCallback((message: string, timeoutMs = 2800) => {
+    setExportStatus(message)
+    window.setTimeout(() => setExportStatus(null), timeoutMs)
+  }, [])
+
+  const buildEditorSnapshot = useCallback(
+    (): EditorSnapshot => ({
+      workspace,
+      currentViewId,
+      viewport,
+    }),
+    [currentViewId, viewport, workspace],
+  )
+
+  const saveWorkspaceFile = useCallback(
+    async (mode: FileWriteMode = 'reuse') => {
+      try {
+        const snapshot = buildEditorSnapshot()
+        const payload = serializeWorkspaceSnapshotFile(snapshot)
+        const filename = buildWorkspaceFilename(snapshot.workspace.workspace.name)
+        const browserWithFs = window as WorkspaceWindow
+        const canUseFsApi = typeof browserWithFs.showSaveFilePicker === 'function'
+
+        if (canUseFsApi) {
+          let fileHandle = mode === 'reuse' ? workspaceFileHandleRef.current : null
+          if (!fileHandle && browserWithFs.showSaveFilePicker) {
+            fileHandle = await browserWithFs.showSaveFilePicker({
+              suggestedName: filename,
+              types: [
+                {
+                  description: 'System Journey Viewer Workspace',
+                  accept: {
+                    'application/json': ['.sjv.json', '.json'],
+                  },
+                },
+              ],
+            })
+          }
+          if (fileHandle) {
+            const writable = await fileHandle.createWritable()
+            await writable.write(payload)
+            await writable.close()
+            workspaceFileHandleRef.current = fileHandle
+            setExportError(null)
+            setTransientStatus(`Workspace file saved: ${fileHandle.name ?? filename}`)
+            return
+          }
+        }
+
+        const blob = new Blob([payload], { type: 'application/json;charset=utf-8' })
+        const objectUrl = URL.createObjectURL(blob)
+        const link = document.createElement('a')
+        link.href = objectUrl
+        link.download = filename
+        document.body.append(link)
+        link.click()
+        link.remove()
+        URL.revokeObjectURL(objectUrl)
+        setExportError(null)
+        setTransientStatus(`Workspace file saved: ${filename}`)
+      } catch (error) {
+        setExportError(error instanceof Error ? error.message : 'Failed to save workspace file.')
+      }
+    },
+    [buildEditorSnapshot, setTransientStatus],
+  )
+
+  const createNewWorkspaceFile = useCallback(() => {
+    const shouldCreate = window.confirm(
+      'Create a new workspace? The current canvas state will be replaced in the editor.',
+    )
+    if (!shouldCreate) {
+      return
+    }
+    const nextWorkspace = createBlankWorkspace()
+    replaceWorkspace(nextWorkspace, BLANK_WORKSPACE_VIEW_ID)
+    setViewport(DEFAULT_FILE_VIEWPORT)
+    workspaceFileHandleRef.current = null
+    setExportError(null)
+    setTransientStatus('New workspace created.')
+  }, [replaceWorkspace, setViewport, setTransientStatus])
+
+  const loadWorkspacePayload = useCallback(
+    (payload: string, options?: { fileName?: string; fileHandle?: WorkspaceFileHandle | null }) => {
+      try {
+        const snapshot = parseWorkspaceSnapshotFile(payload)
+        replaceWorkspace(snapshot.workspace, snapshot.currentViewId)
+        setViewport(snapshot.viewport)
+        workspaceFileHandleRef.current = options?.fileHandle ?? null
+        setExportError(null)
+        setTransientStatus(`Workspace file loaded: ${options?.fileName ?? 'workspace file'}`)
+        return
+      } catch (snapshotError) {
+        try {
+          const ast = parseLiteDsl(payload)
+          const importedWorkspace = liteToFullWorkspace(ast)
+          const restoredLayout = loadWorkspaceLayout(importedWorkspace.workspace.id)
+          const workspaceWithLayout = applyWorkspaceLayout(importedWorkspace, restoredLayout)
+          const entryViewId = resolveEntryViewId(workspaceWithLayout)
+          replaceWorkspace(workspaceWithLayout, entryViewId)
+          setViewport(DEFAULT_FILE_VIEWPORT)
+          workspaceFileHandleRef.current = options?.fileHandle ?? null
+          setDslText(payload)
+          setDslError(null)
+          setExportError(null)
+          setTransientStatus(`DSL loaded: ${options?.fileName ?? 'workspace.dsl'}`)
+          return
+        } catch (dslError) {
+          const snapshotMessage =
+            snapshotError instanceof Error ? snapshotError.message : 'Invalid workspace snapshot payload.'
+          const dslMessage = dslError instanceof Error ? dslError.message : 'Invalid DSL payload.'
+          throw new Error(`${snapshotMessage}\n${dslMessage}`)
+        }
+      }
+    },
+    [replaceWorkspace, resolveEntryViewId, setViewport, setTransientStatus],
+  )
+
+  const openWorkspaceFilePicker = useCallback(async () => {
+    const browserWithFs = window as WorkspaceWindow
+    if (typeof browserWithFs.showOpenFilePicker === 'function') {
+      try {
+        const [fileHandle] = await browserWithFs.showOpenFilePicker({
+          multiple: false,
+          types: [
+            {
+              description: 'System Journey Viewer Workspace',
+              accept: {
+                'application/json': ['.sjv.json', '.json', '.sjv'],
+                'text/plain': ['.dsl', '.txt'],
+              },
+            },
+          ],
+        })
+        if (!fileHandle) {
+          return
+        }
+        const file = await fileHandle.getFile()
+        const payload = await file.text()
+        loadWorkspacePayload(payload, { fileName: file.name, fileHandle })
+        return
+      } catch (error) {
+        // User canceled picker is expected; ignore unless it is a real error.
+        const message = error instanceof Error ? error.message : ''
+        if (message && !message.toLowerCase().includes('abort')) {
+          setExportError(error instanceof Error ? error.message : 'Failed to load workspace file.')
+        }
+        return
+      }
+    }
+    snapshotFileInputRef.current?.click()
+  }, [loadWorkspacePayload])
+
+  const onWorkspaceFileInputChange = useCallback(
+    async (event: ChangeEvent<HTMLInputElement>) => {
+      const input = event.currentTarget
+      const selectedFile = input.files?.[0]
+      if (!selectedFile) {
+        return
+      }
+      try {
+        const payload = await selectedFile.text()
+        loadWorkspacePayload(payload, { fileName: selectedFile.name, fileHandle: null })
+      } catch (error) {
+        setExportError(
+          error instanceof Error ? error.message : 'Failed to load workspace file.',
+        )
+      } finally {
+        input.value = ''
+      }
+    },
+    [loadWorkspacePayload],
+  )
+
   const moveDockToRight = () => {
     setDockPosition('right')
     setDockCollapsed(false)
@@ -484,6 +860,334 @@ function App() {
     }
     reorderJourneyInCurrentView(draggedJourneyId, targetJourneyId)
   }
+
+  const onJourneyPointerUp = (journeyId: string) => {
+    if (!draggedEdgeId || !workspace.edges[draggedEdgeId]) {
+      return
+    }
+    addEdgeToJourney(journeyId, draggedEdgeId)
+    setActiveJourney(journeyId)
+    activateJourneyPlayback(journeyId)
+    setDraggedEdgeId(null)
+    setExportError(null)
+    setTransientStatus('Edge added to journey.')
+  }
+
+  const onJourneyStepDragStart = (journeyId: string, edgeId: string) => {
+    journeyStepDragRef.current = { journeyId, edgeId }
+  }
+
+  const onJourneyStepDrop = (journeyId: string, targetEdgeId: string) => {
+    const draggedStep = journeyStepDragRef.current
+    journeyStepDragRef.current = null
+    if (!draggedStep || draggedStep.journeyId !== journeyId || draggedStep.edgeId === targetEdgeId) {
+      return
+    }
+    reorderJourneyStep(journeyId, draggedStep.edgeId, targetEdgeId)
+  }
+
+  const removeSelectedNodesWithConfirmation = useCallback(() => {
+    if (!selectedNodes.length) {
+      return false
+    }
+
+    const selectedNodeIdSet = new Set(selectedNodes.map((node) => node.id))
+    const connectedEdgeIds = currentView.edgeIds.filter((edgeId) => {
+      const edge = workspace.edges[edgeId]
+      if (!edge) {
+        return false
+      }
+      return selectedNodeIdSet.has(edge.from.nodeId) || selectedNodeIdSet.has(edge.to.nodeId)
+    })
+    const connectedEdgeSet = new Set(connectedEdgeIds)
+    const affectedJourneyNames: string[] = []
+    for (const journeyId of currentView.journeyIds) {
+      const journey = workspace.journeys[journeyId]
+      if (!journey) {
+        continue
+      }
+      if (journey.steps.some((step) => connectedEdgeSet.has(step.edgeId))) {
+        affectedJourneyNames.push(journey.name)
+      }
+    }
+
+    const firstSelected = selectedNodes[0]
+    const messageParts = [
+      selectedNodes.length === 1
+        ? `Remove "${firstSelected.name}" from canvas?`
+        : `Remove ${selectedNodes.length} selected nodes from canvas?`,
+    ]
+    if (connectedEdgeIds.length > 0) {
+      messageParts.push(`This will also remove ${connectedEdgeIds.length} connected edge(s).`)
+    }
+    if (affectedJourneyNames.length > 0) {
+      messageParts.push(
+        `The journeys below will be affected:\n- ${affectedJourneyNames.join('\n- ')}`,
+      )
+    }
+    messageParts.push('Continue?')
+
+    if (!window.confirm(messageParts.join('\n\n'))) {
+      return false
+    }
+
+    selectedNodes.forEach((node) => removeNode(node.id))
+    setTransientStatus(
+      selectedNodes.length === 1 ? 'Node removed.' : `${selectedNodes.length} nodes removed.`,
+    )
+    return true
+  }, [currentView.edgeIds, currentView.journeyIds, removeNode, selectedNodes, setTransientStatus, workspace.edges, workspace.journeys])
+
+  const removeSelectedEdgeWithConfirmation = useCallback(() => {
+    if (!selectedEdge) {
+      return false
+    }
+    const affectedJourneyNames: string[] = []
+    for (const journeyId of currentView.journeyIds) {
+      const journey = workspace.journeys[journeyId]
+      if (!journey) {
+        continue
+      }
+      if (journey.steps.some((step) => step.edgeId === selectedEdge.id)) {
+        affectedJourneyNames.push(journey.name)
+      }
+    }
+    const messageParts = [`Remove edge "${selectedEdge.label || selectedEdge.id}"?`]
+    if (affectedJourneyNames.length > 0) {
+      messageParts.push(
+        `The journeys below will have this step removed:\n- ${affectedJourneyNames.join('\n- ')}`,
+      )
+    }
+    messageParts.push('Continue?')
+
+    if (!window.confirm(messageParts.join('\n\n'))) {
+      return false
+    }
+
+    removeEdge(selectedEdge.id)
+    setTransientStatus('Edge removed.')
+    return true
+  }, [currentView.journeyIds, removeEdge, selectedEdge, setTransientStatus, workspace.journeys])
+
+  const deleteCurrentSelection = useCallback(() => {
+    if (selectedNodes.length > 0) {
+      return removeSelectedNodesWithConfirmation()
+    }
+    if (selectedEdge) {
+      return removeSelectedEdgeWithConfirmation()
+    }
+    return false
+  }, [removeSelectedEdgeWithConfirmation, removeSelectedNodesWithConfirmation, selectedEdge, selectedNodes.length])
+
+  const duplicateCurrentSelection = useCallback(() => {
+    const duplicated = duplicateSelection()
+    if (duplicated.nodeIds.length > 0) {
+      setTransientStatus(
+        duplicated.nodeIds.length === 1
+          ? 'Node duplicated.'
+          : `${duplicated.nodeIds.length} nodes duplicated.`,
+      )
+      return true
+    }
+    if (duplicated.edgeId) {
+      setTransientStatus('Edge duplicated.')
+      return true
+    }
+    return false
+  }, [duplicateSelection, setTransientStatus])
+
+  const runAutoArrange = useCallback(() => {
+    if (
+      journeyFilterId &&
+      journeyFocusSettings.layoutMode === 'reflow' &&
+      journeyFocusNodeIds.length > 0 &&
+      journeyFocusEdgeIds.length > 0
+    ) {
+      autoArrangeCurrentView({
+        nodeIds: journeyFocusNodeIds,
+        edgeIds: journeyFocusEdgeIds,
+      })
+      setTransientStatus('Journey-focused auto layout applied.')
+      setExportError(null)
+      return
+    }
+
+    autoArrangeCurrentView()
+    setTransientStatus('Auto arrange applied to current view.')
+    setExportError(null)
+  }, [
+    autoArrangeCurrentView,
+    journeyFilterId,
+    journeyFocusEdgeIds,
+    journeyFocusNodeIds,
+    journeyFocusSettings.layoutMode,
+    setTransientStatus,
+  ])
+
+  const refreshHistoryAvailability = useCallback(() => {
+    setCanUndo(historyRef.current.past.length > 1)
+    setCanRedo(historyRef.current.future.length > 0)
+  }, [])
+
+  const captureHistorySnapshot = useCallback((): HistorySnapshot => ({
+    store: {
+      workspace: cloneSerializable(workspace),
+      currentViewId,
+      viewHistory: cloneSerializable(viewHistory),
+      viewport: cloneSerializable(viewport),
+      selectedNodeId,
+      selectedNodeIds: cloneSerializable(selectedNodeIds),
+      selectedEdgeId,
+      activeTool,
+      pendingConnectionFrom,
+      pendingConnectionPortId,
+      activeJourneyId,
+      journeyFilterId,
+      playerJourneyId,
+      playerIsRunning,
+      playerStepIndex,
+      playerLoop,
+      playerSpeedMs,
+      playerHighlightNodes,
+      playerTrailEnabled,
+      playerConfettiNonce,
+      playerConfettiNodeId: useEditorStore.getState().playerConfettiNodeId,
+    },
+    ui: {
+      leftSidebarWidth,
+      journeyHeight,
+      drawerTab,
+      dslMaximized,
+      focusMode,
+      presentationMode,
+      leftSidebarCollapsed,
+      dockCollapsed,
+      drawerCollapsed,
+      dockPosition,
+      dockTabOrder: cloneSerializable(dockTabOrder),
+      activeDockTab,
+      journeyDraftName,
+    },
+  }), [
+    workspace,
+    currentViewId,
+    viewHistory,
+    viewport,
+    selectedNodeId,
+    selectedNodeIds,
+    selectedEdgeId,
+    activeTool,
+    pendingConnectionFrom,
+    pendingConnectionPortId,
+    activeJourneyId,
+    journeyFilterId,
+    playerJourneyId,
+    playerIsRunning,
+    playerStepIndex,
+    playerLoop,
+    playerSpeedMs,
+    playerHighlightNodes,
+    playerTrailEnabled,
+    playerConfettiNonce,
+    leftSidebarWidth,
+    journeyHeight,
+    drawerTab,
+    dslMaximized,
+    focusMode,
+    presentationMode,
+    leftSidebarCollapsed,
+    dockCollapsed,
+    drawerCollapsed,
+    dockPosition,
+    dockTabOrder,
+    activeDockTab,
+    journeyDraftName,
+  ])
+
+  const applyHistorySnapshot = useCallback((snapshot: HistorySnapshot) => {
+    if (historyReleaseTimerRef.current !== null) {
+      window.clearTimeout(historyReleaseTimerRef.current)
+      historyReleaseTimerRef.current = null
+    }
+    historyApplyingRef.current = true
+    useEditorStore.setState({
+      workspace: cloneSerializable(snapshot.store.workspace),
+      currentViewId: snapshot.store.currentViewId,
+      viewHistory: cloneSerializable(snapshot.store.viewHistory),
+      viewport: cloneSerializable(snapshot.store.viewport),
+      selectedNodeId: snapshot.store.selectedNodeId,
+      selectedNodeIds: cloneSerializable(snapshot.store.selectedNodeIds),
+      selectedEdgeId: snapshot.store.selectedEdgeId,
+      activeTool: snapshot.store.activeTool,
+      pendingConnectionFrom: snapshot.store.pendingConnectionFrom,
+      pendingConnectionPortId: snapshot.store.pendingConnectionPortId,
+      activeJourneyId: snapshot.store.activeJourneyId,
+      journeyFilterId: snapshot.store.journeyFilterId,
+      playerJourneyId: snapshot.store.playerJourneyId,
+      playerIsRunning: snapshot.store.playerIsRunning,
+      playerStepIndex: snapshot.store.playerStepIndex,
+      playerLoop: snapshot.store.playerLoop,
+      playerSpeedMs: snapshot.store.playerSpeedMs,
+      playerHighlightNodes: snapshot.store.playerHighlightNodes,
+      playerTrailEnabled: snapshot.store.playerTrailEnabled,
+      playerConfettiNonce: snapshot.store.playerConfettiNonce,
+      playerConfettiNodeId: snapshot.store.playerConfettiNodeId,
+    })
+    setLeftSidebarWidth(snapshot.ui.leftSidebarWidth)
+    setJourneyHeight(snapshot.ui.journeyHeight)
+    setDrawerTab(snapshot.ui.drawerTab)
+    setDslMaximized(snapshot.ui.dslMaximized)
+    setFocusMode(snapshot.ui.focusMode)
+    setPresentationMode(snapshot.ui.presentationMode)
+    setLeftSidebarCollapsed(snapshot.ui.leftSidebarCollapsed)
+    setDockCollapsed(snapshot.ui.dockCollapsed)
+    setDrawerCollapsed(snapshot.ui.drawerCollapsed)
+    setDockPosition(snapshot.ui.dockPosition)
+    setDockTabOrder(cloneSerializable(snapshot.ui.dockTabOrder))
+    setActiveDockTab(snapshot.ui.activeDockTab)
+    setJourneyDraftName(snapshot.ui.journeyDraftName)
+    setOpenDesktopMenu(null)
+    historyReleaseTimerRef.current = window.setTimeout(() => {
+      historyApplyingRef.current = false
+      historyReleaseTimerRef.current = null
+    }, 0)
+  }, [])
+
+  const undoHistory = useCallback(() => {
+    const stacks = historyRef.current
+    if (stacks.past.length <= 1) {
+      return false
+    }
+    const currentSnapshot = stacks.past.pop()
+    if (!currentSnapshot) {
+      return false
+    }
+    stacks.future.push(currentSnapshot)
+    const previousSnapshot = stacks.past[stacks.past.length - 1]
+    if (!previousSnapshot) {
+      return false
+    }
+    applyHistorySnapshot(previousSnapshot)
+    refreshHistoryAvailability()
+    setTransientStatus('Undo applied.')
+    return true
+  }, [applyHistorySnapshot, refreshHistoryAvailability, setTransientStatus])
+
+  const redoHistory = useCallback(() => {
+    const stacks = historyRef.current
+    if (!stacks.future.length) {
+      return false
+    }
+    const nextSnapshot = stacks.future.pop()
+    if (!nextSnapshot) {
+      return false
+    }
+    stacks.past.push(nextSnapshot)
+    applyHistorySnapshot(nextSnapshot)
+    refreshHistoryAvailability()
+    setTransientStatus('Redo applied.')
+    return true
+  }, [applyHistorySnapshot, refreshHistoryAvailability, setTransientStatus])
 
   const handleDslEditorBeforeMount = (monaco: Monaco): void => {
     registerJourneyScriptLanguage(monaco)
@@ -568,6 +1272,87 @@ function App() {
   }, [workspace, currentViewId, viewport, persist])
 
   useEffect(() => {
+    const timeout = window.setTimeout(() => {
+      saveWorkspaceLayout(workspace)
+    }, DEBOUNCE_SAVE_MS)
+    return () => window.clearTimeout(timeout)
+  }, [workspace])
+
+  useEffect(() => {
+    if (historyApplyingRef.current) {
+      return
+    }
+    const snapshot = captureHistorySnapshot()
+    const stacks = historyRef.current
+    const now = Date.now()
+    const shouldCoalesce = now - historyLastCommitAtRef.current < 180
+
+    if (!stacks.past.length) {
+      stacks.past.push(snapshot)
+    } else if (shouldCoalesce) {
+      stacks.past[stacks.past.length - 1] = snapshot
+    } else {
+      stacks.past.push(snapshot)
+    }
+    if (stacks.past.length > HISTORY_LIMIT) {
+      stacks.past.splice(0, stacks.past.length - HISTORY_LIMIT)
+    }
+    stacks.future = []
+    historyLastCommitAtRef.current = now
+    refreshHistoryAvailability()
+  }, [captureHistorySnapshot, refreshHistoryAvailability])
+
+  useEffect(
+    () => () => {
+      if (historyReleaseTimerRef.current !== null) {
+        window.clearTimeout(historyReleaseTimerRef.current)
+        historyReleaseTimerRef.current = null
+      }
+    },
+    [],
+  )
+
+  useEffect(() => {
+    if (journeyFocusSettings.autoLayoutMode !== 'always') {
+      lastJourneyAutoLayoutKeyRef.current = null
+      return
+    }
+    if (journeyFocusSettings.layoutMode !== 'reflow') {
+      lastJourneyAutoLayoutKeyRef.current = null
+      return
+    }
+    if (!journeyFilterId || !journeyFocusNodeIds.length || !journeyFocusEdgeIds.length) {
+      lastJourneyAutoLayoutKeyRef.current = null
+      return
+    }
+
+    const key = [
+      currentViewId,
+      journeyFilterId,
+      journeyFocusNodeIds.join(','),
+      journeyFocusEdgeIds.join(','),
+    ].join('::')
+
+    if (lastJourneyAutoLayoutKeyRef.current === key) {
+      return
+    }
+
+    autoArrangeCurrentView({
+      nodeIds: journeyFocusNodeIds,
+      edgeIds: journeyFocusEdgeIds,
+    })
+    lastJourneyAutoLayoutKeyRef.current = key
+  }, [
+    autoArrangeCurrentView,
+    currentViewId,
+    journeyFilterId,
+    journeyFocusEdgeIds,
+    journeyFocusNodeIds,
+    journeyFocusSettings.autoLayoutMode,
+    journeyFocusSettings.layoutMode,
+  ])
+
+  useEffect(() => {
     if (!playerConfettiNonce) {
       return
     }
@@ -650,10 +1435,96 @@ function App() {
   }, [openDesktopMenu])
 
   useEffect(() => {
+    const onFileShortcut = (event: KeyboardEvent) => {
+      if (isTextInputTarget(event.target)) {
+        return
+      }
+      if (event.altKey) {
+        return
+      }
+      const hasCommand = event.ctrlKey || event.metaKey
+      if (!hasCommand) {
+        return
+      }
+
+      const key = event.key.toLowerCase()
+
+      if (key === 'n') {
+        event.preventDefault()
+        createNewWorkspaceFile()
+        return
+      }
+      if (key === 'o') {
+        event.preventDefault()
+        void openWorkspaceFilePicker()
+        return
+      }
+      if (key === 's' && event.shiftKey) {
+        event.preventDefault()
+        void saveWorkspaceFile('prompt')
+        return
+      }
+      if (key === 's') {
+        event.preventDefault()
+        persist()
+        void saveWorkspaceFile('reuse')
+        return
+      }
+      if (key === 'r') {
+        event.preventDefault()
+        hydrate()
+        setExportError(null)
+        setTransientStatus('Workspace reloaded from browser storage.')
+      }
+    }
+
+    window.addEventListener('keydown', onFileShortcut)
+    return () => window.removeEventListener('keydown', onFileShortcut)
+  }, [
+    createNewWorkspaceFile,
+    hydrate,
+    openWorkspaceFilePicker,
+    persist,
+    saveWorkspaceFile,
+    setTransientStatus,
+  ])
+
+  useEffect(() => {
     if (immersiveMode) {
       setOpenDesktopMenu(null)
     }
   }, [immersiveMode])
+
+  useEffect(() => {
+    const clearDraggedEdge = () => {
+      setDraggedEdgeId(null)
+    }
+    window.addEventListener('pointerup', clearDraggedEdge)
+    window.addEventListener('pointercancel', clearDraggedEdge)
+    window.addEventListener('blur', clearDraggedEdge)
+    return () => {
+      window.removeEventListener('pointerup', clearDraggedEdge)
+      window.removeEventListener('pointercancel', clearDraggedEdge)
+      window.removeEventListener('blur', clearDraggedEdge)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (activeTool === 'connector' || pendingConnectionFrom) {
+      setDraggedEdgeId(null)
+    }
+  }, [activeTool, pendingConnectionFrom])
+
+  useEffect(() => {
+    if (!draggedEdgeId) {
+      return
+    }
+    const previousCursor = document.body.style.cursor
+    document.body.style.cursor = 'copy'
+    return () => {
+      document.body.style.cursor = previousCursor
+    }
+  }, [draggedEdgeId])
 
   useEffect(() => {
     if (!presentationMode) {
@@ -738,72 +1609,50 @@ function App() {
   }, [currentViewId, currentView.journeyIds, playerJourneyId, setPlayerJourney, setPlayerRunning])
 
   useEffect(() => {
-    const onDeleteKey = (event: KeyboardEvent) => {
-      if (event.key !== 'Delete' && event.key !== 'Backspace') {
-        return
-      }
+    const onEntityShortcut = (event: KeyboardEvent) => {
       if (isTextInputTarget(event.target)) {
         return
       }
-      if (!selectedNodes.length) {
+      const key = event.key.toLowerCase()
+      const hasCommand = event.ctrlKey || event.metaKey
+
+      if (hasCommand && !event.altKey && key === 'z') {
+        event.preventDefault()
+        if (event.shiftKey) {
+          redoHistory()
+        } else {
+          undoHistory()
+        }
         return
       }
-      event.preventDefault()
 
-      const selectedNodeIdSet = new Set(selectedNodes.map((node) => node.id))
-      const connectedEdgeIds = currentView.edgeIds.filter((edgeId) => {
-        const edge = workspace.edges[edgeId]
-        if (!edge) {
-          return false
-        }
-        return selectedNodeIdSet.has(edge.from.nodeId) || selectedNodeIdSet.has(edge.to.nodeId)
-      })
-      const connectedEdgeSet = new Set(connectedEdgeIds)
-      const affectedJourneyNames: string[] = []
-      for (const journeyId of currentView.journeyIds) {
-        const journey = workspace.journeys[journeyId]
-        if (!journey) {
-          continue
-        }
-        if (journey.steps.some((step) => connectedEdgeSet.has(step.edgeId))) {
-          affectedJourneyNames.push(journey.name)
-        }
-      }
-
-      const firstSelected = selectedNodes[0]
-      const messageParts = [
-        selectedNodes.length === 1
-          ? `Remover "${firstSelected.name}" do stage?`
-          : `Remover ${selectedNodes.length} componentes selecionados do stage?`,
-      ]
-      if (connectedEdgeIds.length > 0) {
-        messageParts.push(
-          `Isso também removerá ${connectedEdgeIds.length} comunicação(ões) conectada(s) ao componente.`,
-        )
-      }
-      if (affectedJourneyNames.length > 0) {
-        messageParts.push(
-          `As jornadas abaixo serão desconectadas desse componente:\n- ${affectedJourneyNames.join('\n- ')}`,
-        )
-      }
-      messageParts.push('Deseja continuar?')
-
-      if (!window.confirm(messageParts.join('\n\n'))) {
+      if (hasCommand && !event.altKey && key === 'y') {
+        event.preventDefault()
+        redoHistory()
         return
       }
-      selectedNodes.forEach((node) => removeNode(node.id))
+
+      if ((event.key === 'Delete' || event.key === 'Backspace') && !hasCommand) {
+        event.preventDefault()
+        deleteCurrentSelection()
+        return
+      }
+
+      if (hasCommand && !event.altKey && key === 'd') {
+        event.preventDefault()
+        duplicateCurrentSelection()
+        return
+      }
+
+      if (hasCommand && event.shiftKey && !event.altKey && key === 'l') {
+        event.preventDefault()
+        runAutoArrange()
+      }
     }
 
-    window.addEventListener('keydown', onDeleteKey)
-    return () => window.removeEventListener('keydown', onDeleteKey)
-  }, [
-    currentView.edgeIds,
-    currentView.journeyIds,
-    removeNode,
-    selectedNodes,
-    workspace.edges,
-    workspace.journeys,
-  ])
+    window.addEventListener('keydown', onEntityShortcut)
+    return () => window.removeEventListener('keydown', onEntityShortcut)
+  }, [deleteCurrentSelection, duplicateCurrentSelection, redoHistory, runAutoArrange, undoHistory])
 
   const exportFromCanvas = async (format: 'svg' | 'png' | 'pdf') => {
     const svg = document.querySelector('.diagram-canvas')
@@ -903,6 +1752,8 @@ function App() {
 
     setExportError(null)
     setAnimatedExportRunning(true)
+    setExportFocusJourneyId(journeyId)
+    await waitForCanvasFrames(3)
 
     if (format === 'svg') {
       try {
@@ -919,6 +1770,7 @@ function App() {
       } catch (error) {
         setExportError(error instanceof Error ? error.message : 'Falha ao exportar SVG animado.')
       } finally {
+        setExportFocusJourneyId(null)
         setAnimatedExportRunning(false)
       }
       return
@@ -986,6 +1838,7 @@ function App() {
       setExportError(error instanceof Error ? error.message : 'Falha ao exportar jornada animada.')
     } finally {
       restorePlayerAfterAnimatedExport(snapshot)
+      setExportFocusJourneyId(null)
       setAnimatedExportRunning(false)
     }
   }
@@ -1099,6 +1952,14 @@ function App() {
               </div>
             </>
           ) : null}
+          <div className="inspector-actions">
+            <button type="button" onClick={() => duplicateCurrentSelection()}>
+              Duplicate
+            </button>
+            <button type="button" onClick={() => deleteCurrentSelection()}>
+              Delete
+            </button>
+          </div>
         </div>
       ) : null}
       {selectedEdge ? (
@@ -1123,6 +1984,38 @@ function App() {
               </option>
             ))}
           </select>
+          <label htmlFor="edge-label-position">Label Position</label>
+          <input
+            id="edge-label-position"
+            type="range"
+            min={0.08}
+            max={0.92}
+            step={0.01}
+            value={selectedEdge.style.labelPosition ?? 0.5}
+            onChange={(event) => setEdgeLabelPosition(selectedEdge.id, Number(event.target.value))}
+          />
+          <span className="edge-label-position-value">
+            {Math.round((selectedEdge.style.labelPosition ?? 0.5) * 100)}%
+          </span>
+          <label htmlFor="edge-label-side">Label Side</label>
+          <select
+            id="edge-label-side"
+            value={selectedEdge.style.labelSide ?? 'left'}
+            onChange={(event) =>
+              setEdgeLabelSide(selectedEdge.id, event.target.value as 'left' | 'right')
+            }
+          >
+            <option value="left">Left / Top</option>
+            <option value="right">Right / Bottom</option>
+          </select>
+          <div className="inspector-actions">
+            <button type="button" onClick={() => duplicateCurrentSelection()}>
+              Duplicate
+            </button>
+            <button type="button" onClick={() => deleteCurrentSelection()}>
+              Delete
+            </button>
+          </div>
           <button
             type="button"
             onClick={() => {
@@ -1142,160 +2035,228 @@ function App() {
   const journeysDockContent = (
     <div className="dock-content-section">
       <h2>Journeys</h2>
-      <div className="journey-side-create">
-        <input
-          placeholder="Nova jornada"
-          value={journeyDraftName}
-          onChange={(event) => setJourneyDraftName(event.target.value)}
-        />
-        <button
-          type="button"
-          onClick={() => {
-            const journeyId = createJourney(journeyDraftName)
-            setJourneyDraftName('')
-            setActiveJourney(journeyId)
-            activateJourneyPlayback(journeyId)
-          }}
-        >
-          Criar jornada
-        </button>
-      </div>
-      <div className="journey-side-filter">
-        <select
-          value={journeyFilterId ?? ''}
-          onChange={(event) => {
-            const nextJourneyId = event.target.value || null
-            setJourneyFilter(nextJourneyId)
-            if (nextJourneyId) {
-              setActiveJourney(nextJourneyId)
-              activateJourneyPlayback(nextJourneyId)
-            }
-          }}
-        >
-          <option value="">Filtro: todas jornadas</option>
-          {viewJourneys.map((journey) => (
-            <option key={journey.id} value={journey.id}>
-              {journey.name}
-            </option>
-          ))}
-        </select>
-        <button type="button" onClick={() => setJourneyFilter(null)}>
-          Limpar filtro
-        </button>
-      </div>
-      <div className="journey-side-player">
-        <select value={playerJourneyId ?? ''} onChange={(event) => activateJourneyPlayback(event.target.value || null)}>
-          <option value="">Player: selecione jornada</option>
-          {viewJourneys.map((journey) => (
-            <option key={journey.id} value={journey.id}>
-              {journey.name}
-            </option>
-          ))}
-        </select>
-        <select
-          value={playerAnimationPreset}
-          onChange={(event) => applyPlayerAnimationPreset(event.target.value as PlayerAnimationPreset)}
-        >
-          <option value="cinematic">Animação: Cinematic</option>
-          <option value="orb">Animação: Orb only</option>
-          <option value="minimal">Animação: Minimal</option>
-        </select>
-        <div className="journey-player-actions journey-player-actions-iconic" role="group" aria-label="Controles do player">
-          <button type="button" disabled={!playerJourney} onClick={() => prevPlayerStep()} aria-label="Passo anterior">
-            <SkipBack size={15} />
-          </button>
+      <section className="journey-side-group">
+        <h3>Creation</h3>
+        <div className="journey-side-create">
+          <input
+            placeholder="Nova jornada"
+            value={journeyDraftName}
+            onChange={(event) => setJourneyDraftName(event.target.value)}
+          />
           <button
             type="button"
-            disabled={!playerJourney}
-            onClick={() => setPlayerRunning(!playerIsRunning)}
-            aria-label={playerIsRunning ? 'Pausar player' : 'Iniciar player'}
-          >
-            {playerIsRunning ? <Pause size={16} /> : <Play size={16} />}
-          </button>
-          <button type="button" disabled={!playerJourney} onClick={() => stepPlayer()} aria-label="Próximo passo">
-            <SkipForward size={15} />
-          </button>
-          <button type="button" disabled={!playerJourney} onClick={() => resetPlayer()} aria-label="Resetar player">
-            <RotateCcw size={15} />
-          </button>
-        </div>
-        <div className="journey-player-toggles">
-          <label className="toggle-inline">
-            <input
-              type="checkbox"
-              checked={playerLoop}
-              onChange={(event) => setPlayerLoop(event.target.checked)}
-            />
-            Loop
-          </label>
-          <label className="toggle-inline">
-            <input
-              type="checkbox"
-              checked={playerHighlightNodes}
-              onChange={(event) => setPlayerHighlightNodes(event.target.checked)}
-            />
-            Highlight
-          </label>
-          <label className="toggle-inline">
-            <input
-              type="checkbox"
-              checked={playerTrailEnabled}
-              onChange={(event) => setPlayerTrailEnabled(event.target.checked)}
-            />
-            Trail
-          </label>
-        </div>
-        <label className="journey-speed-control">
-          Speed
-          <input
-            type="range"
-            min={120}
-            max={1800}
-            step={60}
-            value={playerSpeedMs}
-            onChange={(event) => setPlayerSpeedMs(Number(event.target.value))}
-          />
-        </label>
-        <span className="player-step-info">
-          Step {playerStepIndex + 1}/{playerJourney?.steps.length ?? 0}
-        </span>
-      </div>
-      <div className="journey-list journey-list-sidebar">
-        {viewJourneys.map((journey) => (
-          <div
-            key={journey.id}
-            className={activeJourneyId === journey.id ? 'journey-item journey-active' : 'journey-item'}
-            draggable
-            onDragStart={() => onJourneyDragStart(journey.id)}
-            onDragEnd={() => {
-              journeyDragRef.current = null
-            }}
-            onDragOver={(event) => event.preventDefault()}
-            onDrop={() => onJourneyDrop(journey.id)}
             onClick={() => {
-              setActiveJourney(journey.id)
-              activateJourneyPlayback(journey.id)
+              const journeyId = createJourney(journeyDraftName)
+              setJourneyDraftName('')
+              setActiveJourney(journeyId)
+              activateJourneyPlayback(journeyId)
             }}
           >
-            <span className="journey-drag-handle" aria-hidden="true">
-              <GripVertical size={13} />
-            </span>
-            <span className="journey-color-dot" style={{ background: journey.colorKey }} />
-            <span>{journey.name}</span>
+            Criar jornada
+          </button>
+        </div>
+      </section>
+      <section className="journey-side-group">
+        <h3>Filter & Layout</h3>
+        <div className="journey-side-filter">
+          <select
+            value={journeyFilterId ?? ''}
+            onChange={(event) => {
+              const nextJourneyId = event.target.value || null
+              applyJourneyFilter(nextJourneyId, { activateJourney: true })
+            }}
+          >
+            <option value="">Filtro: todas jornadas</option>
+            {viewJourneys.map((journey) => (
+              <option key={journey.id} value={journey.id}>
+                {journey.name}
+              </option>
+            ))}
+          </select>
+          <button type="button" onClick={() => applyJourneyFilter(null, { activateJourney: false })}>
+            Limpar filtro
+          </button>
+          <select
+            value={journeyFocusSettings.offscopeRenderMode}
+            onChange={(event) =>
+              setJourneyFocusSettings({
+                offscopeRenderMode: event.target.value as typeof journeyFocusSettings.offscopeRenderMode,
+              })
+            }
+          >
+            <option value="show">Foco: mostrar tudo</option>
+            <option value="dim">Foco: cinza fora da jornada</option>
+            <option value="hide">Foco: ocultar fora da jornada</option>
+          </select>
+          <select
+            value={journeyFocusSettings.layoutMode}
+            onChange={(event) =>
+              setJourneyFocusSettings({
+                layoutMode: event.target.value as typeof journeyFocusSettings.layoutMode,
+              })
+            }
+          >
+            <option value="preserve">Layout filtro: preservar posições</option>
+            <option value="reflow">Layout filtro: reflow da jornada</option>
+          </select>
+          <select
+            value={journeyFocusSettings.autoLayoutMode}
+            onChange={(event) =>
+              setJourneyFocusSettings({
+                autoLayoutMode: event.target.value as typeof journeyFocusSettings.autoLayoutMode,
+              })
+            }
+          >
+            <option value="manual">Auto-layout: aplicar manual</option>
+            <option value="always">Auto-layout: sempre no filtro</option>
+          </select>
+          <button
+            type="button"
+            onClick={() => runAutoArrange()}
+            disabled={
+              journeyFocusSettings.layoutMode !== 'reflow' ||
+              !journeyFilterId ||
+              !journeyFocusNodeIds.length
+            }
+          >
+            Apply layout now
+          </button>
+        </div>
+      </section>
+      <section className="journey-side-group">
+        <h3>Player</h3>
+        <div className="journey-side-player">
+          <select value={playerJourneyId ?? ''} onChange={(event) => activateJourneyPlayback(event.target.value || null)}>
+            <option value="">Player: selecione jornada</option>
+            {viewJourneys.map((journey) => (
+              <option key={journey.id} value={journey.id}>
+                {journey.name}
+              </option>
+            ))}
+          </select>
+          <select
+            value={playerAnimationPreset}
+            onChange={(event) => applyPlayerAnimationPreset(event.target.value as PlayerAnimationPreset)}
+          >
+            <option value="cinematic">Animação: Cinematic</option>
+            <option value="orb">Animação: Orb only</option>
+            <option value="minimal">Animação: Minimal</option>
+          </select>
+          <div className="journey-player-actions journey-player-actions-iconic" role="group" aria-label="Controles do player">
+            <button type="button" disabled={!playerJourney} onClick={() => prevPlayerStep()} aria-label="Passo anterior">
+              <SkipBack size={15} />
+            </button>
             <button
               type="button"
-              onClick={(event) => {
-                event.stopPropagation()
-                setJourneyFilter(journeyFilterId === journey.id ? null : journey.id)
+              disabled={!playerJourney}
+              onClick={() => setPlayerRunning(!playerIsRunning)}
+              aria-label={playerIsRunning ? 'Pausar player' : 'Iniciar player'}
+            >
+              {playerIsRunning ? <Pause size={16} /> : <Play size={16} />}
+            </button>
+            <button type="button" disabled={!playerJourney} onClick={() => stepPlayer()} aria-label="Próximo passo">
+              <SkipForward size={15} />
+            </button>
+            <button type="button" disabled={!playerJourney} onClick={() => resetPlayer()} aria-label="Resetar player">
+              <RotateCcw size={15} />
+            </button>
+          </div>
+          <div className="journey-player-toggles">
+            <label className="toggle-inline">
+              <input
+                type="checkbox"
+                checked={playerLoop}
+                onChange={(event) => setPlayerLoop(event.target.checked)}
+              />
+              Loop
+            </label>
+            <label className="toggle-inline">
+              <input
+                type="checkbox"
+                checked={playerHighlightNodes}
+                onChange={(event) => setPlayerHighlightNodes(event.target.checked)}
+              />
+              Highlight
+            </label>
+            <label className="toggle-inline">
+              <input
+                type="checkbox"
+                checked={playerTrailEnabled}
+                onChange={(event) => setPlayerTrailEnabled(event.target.checked)}
+              />
+              Trail
+            </label>
+          </div>
+          <label className="journey-speed-control">
+            Speed
+            <input
+              type="range"
+              min={120}
+              max={1800}
+              step={60}
+              value={playerSpeedMs}
+              onChange={(event) => setPlayerSpeedMs(Number(event.target.value))}
+            />
+          </label>
+          <span className="player-step-info">
+            Step {playerStepIndex + 1}/{playerJourney?.steps.length ?? 0}
+          </span>
+        </div>
+      </section>
+      <section className="journey-side-group">
+        <h3>Journeys</h3>
+        <div className="journey-list journey-list-sidebar">
+          {viewJourneys.map((journey) => (
+            <div
+              key={journey.id}
+              className={[
+                'journey-item',
+                activeJourneyId === journey.id ? 'journey-active' : '',
+                draggedEdgeId ? 'journey-item-edge-drop-target' : '',
+              ]
+                .filter(Boolean)
+                .join(' ')}
+              draggable
+              onDragStart={() => onJourneyDragStart(journey.id)}
+              onDragEnd={() => {
+                journeyDragRef.current = null
+              }}
+              onDragOver={(event) => {
+                event.preventDefault()
+                event.dataTransfer.dropEffect = 'move'
+              }}
+              onDrop={() => onJourneyDrop(journey.id)}
+              onPointerUp={() => onJourneyPointerUp(journey.id)}
+              onClick={() => {
                 setActiveJourney(journey.id)
                 activateJourneyPlayback(journey.id)
               }}
             >
-              {journeyFilterId === journey.id ? 'Filtrando' : 'Filtrar'}
-            </button>
-          </div>
-        ))}
-      </div>
+              <span className="journey-drag-handle" aria-hidden="true">
+                <GripVertical size={13} />
+              </span>
+              <span className="journey-color-dot" style={{ background: journey.colorKey }} />
+              <span>{journey.name}</span>
+              <button
+                type="button"
+                onClick={(event) => {
+                  event.stopPropagation()
+                  const nextJourneyFilter = journeyFilterId === journey.id ? null : journey.id
+                  applyJourneyFilter(nextJourneyFilter, {
+                    activateJourney: nextJourneyFilter !== null,
+                  })
+                  if (!nextJourneyFilter) {
+                    setActiveJourney(journey.id)
+                    activateJourneyPlayback(journey.id)
+                  }
+                }}
+              >
+                {journeyFilterId === journey.id ? 'Filtrando' : 'Filtrar'}
+              </button>
+            </div>
+          ))}
+        </div>
+      </section>
     </div>
   )
 
@@ -1359,6 +2320,15 @@ function App() {
       } ${theme === 'dark' ? 'theme-dark' : 'theme-light'}`}
       style={layoutStyle}
     >
+      <input
+        ref={snapshotFileInputRef}
+        type="file"
+        accept=".json,.sjv,.sjv.json,.dsl,.txt,application/json,text/plain"
+        hidden
+        onChange={(event) => {
+          void onWorkspaceFileInputChange(event)
+        }}
+      />
       <header className="topbar">
         <div className="topbar-meta">
           <div className="topbar-brand-row">
@@ -1410,12 +2380,55 @@ function App() {
               </button>
               {openDesktopMenu === 'file' ? (
                 <div id="desktop-menu-file" className="desktop-menu-list" role="menu" aria-label="File menu">
-                  <button type="button" role="menuitem" onClick={() => runDesktopMenuAction(() => persist())}>
-                    <span>Save</span>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => runDesktopMenuAction(() => createNewWorkspaceFile())}
+                  >
+                    <span>New File</span>
+                    <kbd>Ctrl+N</kbd>
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() =>
+                      runDesktopMenuAction(() => {
+                        void openWorkspaceFilePicker()
+                      })
+                    }
+                  >
+                    <span>Open File...</span>
+                    <kbd>Ctrl+O</kbd>
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() =>
+                      runDesktopMenuAction(() => {
+                        void saveWorkspaceFile('reuse')
+                      })
+                    }
+                  >
+                    <span>Save File</span>
                     <kbd>Ctrl+S</kbd>
                   </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() =>
+                      runDesktopMenuAction(() => {
+                        void saveWorkspaceFile('prompt')
+                      })
+                    }
+                  >
+                    <span>Save File As...</span>
+                    <kbd>Ctrl+Shift+S</kbd>
+                  </button>
+                  <button type="button" role="menuitem" onClick={() => runDesktopMenuAction(() => persist())}>
+                    <span>Save Snapshot</span>
+                  </button>
                   <button type="button" role="menuitem" onClick={() => runDesktopMenuAction(() => hydrate())}>
-                    <span>Reload</span>
+                    <span>Reload Snapshot</span>
                     <kbd>Ctrl+R</kbd>
                   </button>
                   <button
@@ -1513,6 +2526,24 @@ function App() {
               </button>
               {openDesktopMenu === 'edit' ? (
                 <div id="desktop-menu-edit" className="desktop-menu-list" role="menu" aria-label="Edit menu">
+                  <button
+                    type="button"
+                    role="menuitem"
+                    disabled={!canUndo}
+                    onClick={() => runDesktopMenuAction(() => undoHistory())}
+                  >
+                    <span>Undo</span>
+                    <kbd>Ctrl+Z</kbd>
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    disabled={!canRedo}
+                    onClick={() => runDesktopMenuAction(() => redoHistory())}
+                  >
+                    <span>Redo</span>
+                    <kbd>Ctrl+Shift+Z</kbd>
+                  </button>
                   <button type="button" role="menuitem" onClick={() => runDesktopMenuAction(() => navigateBack())}>
                     <span>Back</span>
                     <kbd>Alt+←</kbd>
@@ -1532,6 +2563,24 @@ function App() {
                   >
                     <span>Connector Tool</span>
                     <kbd>C</kbd>
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    disabled={!selectedNodes.length && !selectedEdge}
+                    onClick={() => runDesktopMenuAction(() => duplicateCurrentSelection())}
+                  >
+                    <span>Duplicate Selection</span>
+                    <kbd>Ctrl+D</kbd>
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    disabled={!selectedNodes.length && !selectedEdge}
+                    onClick={() => runDesktopMenuAction(() => deleteCurrentSelection())}
+                  >
+                    <span>Delete Selection</span>
+                    <kbd>Del</kbd>
                   </button>
                 </div>
               ) : null}
@@ -1567,6 +2616,14 @@ function App() {
                   <button
                     type="button"
                     role="menuitem"
+                    onClick={() => runDesktopMenuAction(() => runAutoArrange())}
+                  >
+                    <span>Auto Arrange</span>
+                    <kbd>Ctrl+Shift+L</kbd>
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
                     onClick={() => runDesktopMenuAction(() => setGridEnabled(!gridEnabled))}
                   >
                     <span>{gridEnabled ? 'Hide Grid' : 'Show Grid'}</span>
@@ -1596,6 +2653,273 @@ function App() {
                   >
                     <span>{presentationMode ? 'Exit Presentation' : 'Presentation Mode'}</span>
                     <kbd>P</kbd>
+                  </button>
+                </div>
+              ) : null}
+            </div>
+            <div
+              className={openDesktopMenu === 'journey' ? 'desktop-menu desktop-menu-open' : 'desktop-menu'}
+              onMouseEnter={() => {
+                if (openDesktopMenu) {
+                  setOpenDesktopMenu('journey')
+                }
+              }}
+            >
+              <button
+                type="button"
+                className="desktop-menu-trigger"
+                aria-haspopup="menu"
+                aria-expanded={openDesktopMenu === 'journey'}
+                aria-controls="desktop-menu-journey"
+                onClick={() => toggleDesktopMenu('journey')}
+              >
+                Journey
+              </button>
+              {openDesktopMenu === 'journey' ? (
+                <div id="desktop-menu-journey" className="desktop-menu-list" role="menu" aria-label="Journey menu">
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() =>
+                      runDesktopMenuAction(() => {
+                        const createdJourneyId = createJourney(journeyDraftName || undefined)
+                        setJourneyDraftName('')
+                        setActiveJourney(createdJourneyId)
+                        activateJourneyPlayback(createdJourneyId)
+                      })
+                    }
+                  >
+                    <span>Create Journey</span>
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() =>
+                      runDesktopMenuAction(() => {
+                        applyJourneyFilter(null, { activateJourney: false })
+                      })
+                    }
+                  >
+                    <span>Clear Journey Filter</span>
+                  </button>
+                  {viewJourneys.length ? (
+                    <>
+                      {viewJourneys.map((journey) => (
+                        <button
+                          key={`menu-filter-${journey.id}`}
+                          type="button"
+                          role="menuitem"
+                          onClick={() =>
+                            runDesktopMenuAction(() => {
+                              applyJourneyFilter(journey.id, { activateJourney: true })
+                            })
+                          }
+                        >
+                          <span>
+                            {journeyFilterId === journey.id ? 'Filtering: ' : 'Filter: '}
+                            {journey.name}
+                          </span>
+                        </button>
+                      ))}
+                    </>
+                  ) : null}
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() =>
+                      runDesktopMenuAction(() =>
+                        setJourneyFocusSettings({
+                          offscopeRenderMode: 'show',
+                        }),
+                      )
+                    }
+                  >
+                    <span>
+                      Focus: Show{journeyFocusSettings.offscopeRenderMode === 'show' ? ' (active)' : ''}
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() =>
+                      runDesktopMenuAction(() =>
+                        setJourneyFocusSettings({
+                          offscopeRenderMode: 'dim',
+                        }),
+                      )
+                    }
+                  >
+                    <span>
+                      Focus: Dim{journeyFocusSettings.offscopeRenderMode === 'dim' ? ' (active)' : ''}
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() =>
+                      runDesktopMenuAction(() =>
+                        setJourneyFocusSettings({
+                          offscopeRenderMode: 'hide',
+                        }),
+                      )
+                    }
+                  >
+                    <span>
+                      Focus: Hide{journeyFocusSettings.offscopeRenderMode === 'hide' ? ' (active)' : ''}
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() =>
+                      runDesktopMenuAction(() =>
+                        setJourneyFocusSettings({
+                          layoutMode: 'preserve',
+                        }),
+                      )
+                    }
+                  >
+                    <span>
+                      Filter Layout: Preserve
+                      {journeyFocusSettings.layoutMode === 'preserve' ? ' (active)' : ''}
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() =>
+                      runDesktopMenuAction(() =>
+                        setJourneyFocusSettings({
+                          layoutMode: 'reflow',
+                        }),
+                      )
+                    }
+                  >
+                    <span>
+                      Filter Layout: Reflow
+                      {journeyFocusSettings.layoutMode === 'reflow' ? ' (active)' : ''}
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() =>
+                      runDesktopMenuAction(() =>
+                        setJourneyFocusSettings({
+                          autoLayoutMode: 'manual',
+                        }),
+                      )
+                    }
+                  >
+                    <span>
+                      Auto-layout: Manual
+                      {journeyFocusSettings.autoLayoutMode === 'manual' ? ' (active)' : ''}
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() =>
+                      runDesktopMenuAction(() =>
+                        setJourneyFocusSettings({
+                          autoLayoutMode: 'always',
+                        }),
+                      )
+                    }
+                  >
+                    <span>
+                      Auto-layout: Always
+                      {journeyFocusSettings.autoLayoutMode === 'always' ? ' (active)' : ''}
+                    </span>
+                  </button>
+                  <button type="button" role="menuitem" onClick={() => runDesktopMenuAction(() => runAutoArrange())}>
+                    <span>Apply Layout Now</span>
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() =>
+                      runDesktopMenuAction(() =>
+                        applyPlayerAnimationPreset('cinematic'),
+                      )
+                    }
+                  >
+                    <span>Animation: Cinematic</span>
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() =>
+                      runDesktopMenuAction(() =>
+                        applyPlayerAnimationPreset('orb'),
+                      )
+                    }
+                  >
+                    <span>Animation: Orb only</span>
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() =>
+                      runDesktopMenuAction(() =>
+                        applyPlayerAnimationPreset('minimal'),
+                      )
+                    }
+                  >
+                    <span>Animation: Minimal</span>
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    disabled={!playerJourney}
+                    onClick={() => runDesktopMenuAction(() => prevPlayerStep())}
+                  >
+                    <span>Player: Previous Step</span>
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    disabled={!playerJourney}
+                    onClick={() => runDesktopMenuAction(() => setPlayerRunning(!playerIsRunning))}
+                  >
+                    <span>{playerIsRunning ? 'Player: Pause' : 'Player: Play'}</span>
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    disabled={!playerJourney}
+                    onClick={() => runDesktopMenuAction(() => stepPlayer())}
+                  >
+                    <span>Player: Next Step</span>
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    disabled={!playerJourney}
+                    onClick={() => runDesktopMenuAction(() => resetPlayer())}
+                  >
+                    <span>Player: Reset</span>
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => runDesktopMenuAction(() => setPlayerLoop(!playerLoop))}
+                  >
+                    <span>{playerLoop ? 'Loop: On' : 'Loop: Off'}</span>
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => runDesktopMenuAction(() => setPlayerHighlightNodes(!playerHighlightNodes))}
+                  >
+                    <span>{playerHighlightNodes ? 'Highlight: On' : 'Highlight: Off'}</span>
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => runDesktopMenuAction(() => setPlayerTrailEnabled(!playerTrailEnabled))}
+                  >
+                    <span>{playerTrailEnabled ? 'Trail: On' : 'Trail: Off'}</span>
                   </button>
                 </div>
               ) : null}
@@ -1820,6 +3144,9 @@ function App() {
               <button type="button" onClick={() => zoomByFactor(0.9)}>
                 Zoom -
               </button>
+              <button type="button" onClick={() => runAutoArrange()}>
+                Auto layout
+              </button>
               <button
                 type="button"
                 className="icon-toggle-button"
@@ -1952,14 +3279,31 @@ function App() {
         ) : null}
         {!presentationMode && currentView.kind === 'container' ? (
           <p className="canvas-hint secondary-hint">
-            Double-click em container com drilldown para abrir Component View.
+            Double-click abre drilldown existente. Ctrl+Alt+double-click cria drilldown novo.
           </p>
         ) : !presentationMode && currentView.kind === 'component' ? (
           <p className="canvas-hint secondary-hint">
-            Double-click em componente com drilldown para abrir Hex View.
+            Double-click abre drilldown existente. Ctrl+Alt+double-click cria drilldown novo.
           </p>
         ) : null}
-        <DiagramCanvas presentationMode={presentationMode} forceGridHidden={presentationMode} />
+        <DiagramCanvas
+          presentationMode={presentationMode}
+          forceGridHidden={presentationMode}
+          exportFocusJourneyId={exportFocusJourneyId}
+          onEdgePointerStart={(edgeId, event) => {
+            if (
+              event.ctrlKey ||
+              event.metaKey ||
+              event.altKey ||
+              activeTool === 'connector' ||
+              Boolean(pendingConnectionFrom)
+            ) {
+              setDraggedEdgeId(null)
+              return
+            }
+            setDraggedEdgeId(edgeId)
+          }}
+        />
       </main>
       {rightDockVisible ? <aside className="right-sidebar right-sidebar-dock">{dockPanel}</aside> : null}
       {drawerVisible ? (
@@ -2005,11 +3349,20 @@ function App() {
               </div>
               {activeJourney ? (
                 <ol className="journey-steps">
-                  {activeJourney.steps
-                    .slice()
-                    .sort((a, b) => a.n - b.n)
-                    .map((step) => (
-                      <li key={`${activeJourney.id}:${step.edgeId}`}>
+                  {activeJourneySteps.map((step) => (
+                      <li
+                        key={`${activeJourney.id}:${step.edgeId}`}
+                        draggable
+                        onDragStart={() => onJourneyStepDragStart(activeJourney.id, step.edgeId)}
+                        onDragOver={(event) => {
+                          event.preventDefault()
+                          event.dataTransfer.dropEffect = 'move'
+                        }}
+                        onDrop={() => onJourneyStepDrop(activeJourney.id, step.edgeId)}
+                        onDragEnd={() => {
+                          journeyStepDragRef.current = null
+                        }}
+                      >
                         {step.n}. {workspace.edges[step.edgeId]?.label ?? step.edgeId}
                         <span className="journey-step-actions">
                           <button type="button" onClick={() => removeEdgeFromJourney(activeJourney.id, step.edgeId)}>
@@ -2042,8 +3395,10 @@ function App() {
                   try {
                     const ast = parseLiteDsl(dslText)
                     const imported = liteToFullWorkspace(ast)
-                    const nextViewId = Object.keys(imported.views)[0]
-                    replaceWorkspace(imported, nextViewId)
+                    const restoredLayout = loadWorkspaceLayout(imported.workspace.id)
+                    const workspaceWithLayout = applyWorkspaceLayout(imported, restoredLayout)
+                    const nextViewId = resolveEntryViewId(workspaceWithLayout)
+                    replaceWorkspace(workspaceWithLayout, nextViewId)
                     setDslError(null)
                   } catch (error) {
                     setDslError(error instanceof Error ? error.message : 'Falha ao importar DSL.')

@@ -33,6 +33,11 @@ describe('workspaceSchema', () => {
     expect(parsed.success).toBe(true)
     if (parsed.success) {
       expect(parsed.data.settings.theme).toBe('light')
+      expect(parsed.data.settings.journeyFocus).toEqual({
+        offscopeRenderMode: 'dim',
+        layoutMode: 'preserve',
+        autoLayoutMode: 'manual',
+      })
     }
   })
 
@@ -54,6 +59,28 @@ describe('workspaceSchema', () => {
     expect(parsed.success).toBe(true)
     if (parsed.success) {
       expect(parsed.data.nodes.n_api.style?.fillColor).toBe('#22c55e')
+    }
+  })
+
+  it('accepts optional edge label side style', () => {
+    const workspace = createDefaultWorkspace()
+    const parsed = workspaceSchema.safeParse({
+      ...workspace,
+      edges: {
+        ...workspace.edges,
+        e_c_1: {
+          ...workspace.edges.e_c_1,
+          style: {
+            ...workspace.edges.e_c_1.style,
+            labelSide: 'right',
+          },
+        },
+      },
+    })
+
+    expect(parsed.success).toBe(true)
+    if (parsed.success) {
+      expect(parsed.data.edges.e_c_1.style.labelSide).toBe('right')
     }
   })
 })

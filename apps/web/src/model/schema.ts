@@ -57,6 +57,8 @@ export const edgeSchema = z.object({
     dashed: z.boolean(),
     thickness: z.number().positive(),
     arrow: z.boolean(),
+    labelPosition: z.number().min(0).max(1).optional(),
+    labelSide: z.enum(['left', 'right']).optional(),
   }),
 })
 
@@ -101,6 +103,17 @@ export const workspaceSchema = z.object({
     grid: z.boolean(),
     snap: z.boolean(),
     theme: z.enum(['light', 'dark']).default('light'),
+    journeyFocus: z
+      .object({
+        offscopeRenderMode: z.enum(['show', 'hide', 'dim']).default('dim'),
+        layoutMode: z.enum(['preserve', 'reflow']).default('preserve'),
+        autoLayoutMode: z.enum(['manual', 'always']).default('manual'),
+      })
+      .default({
+        offscopeRenderMode: 'dim',
+        layoutMode: 'preserve',
+        autoLayoutMode: 'manual',
+      }),
   }),
 })
 

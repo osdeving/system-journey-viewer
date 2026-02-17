@@ -34,8 +34,12 @@ describe('App boundary styles', () => {
     expect(appCss).toContain('.dock-tab')
     expect(appCss).toContain('.dock-placement')
     expect(appCss).toContain('.journey-side-player')
+    expect(appCss).toContain('.journey-side-group')
     expect(appCss).toContain('.journey-list-sidebar')
     expect(appCss).toContain('.journey-timeline-toolbar')
+    expect(appCss).toContain('.journey-item-edge-drop-target')
+    expect(appCss).toContain('.inspector-actions')
+    expect(appCss).toContain('.edge-label-position-value')
     expect(appCss).toContain('.dsl-monaco-editor')
     expect(appCss).toContain('.dsl-panel-maximized .dsl-monaco-editor')
     expect(appCss).toContain('.dsl-codex-instruction')
@@ -64,6 +68,9 @@ describe('App boundary styles', () => {
     expect(appCss).toContain('.node-color-presets')
     expect(appCss).toContain('.node-color-chip')
     expect(appCss).toContain('.journey-drag-handle')
+    expect(appCss).toContain('.node-journey-dimmed')
+    expect(appCss).toContain('.edge-dimmed')
+    expect(appCss).toContain('.edge-label-dimmed')
   })
 
   it('includes desktop menu and advanced canvas interaction styles', () => {
@@ -73,8 +80,13 @@ describe('App boundary styles', () => {
     expect(appCss).toContain('.app-logo-badge')
     expect(appCss).toContain('.desktop-menu-list')
     expect(appCss).toContain('.node-border-hitarea')
+    expect(appCss).toContain('.node-connection-target')
+    expect(appCss).toContain('.node-port-highlight')
     expect(appCss).toContain('.edge-anchor-handle')
     expect(appCss).toContain('.edge-anchor-handle-active')
+    expect(appCss).toContain('.edge-label-draggable')
+    expect(appCss).toContain('.edge-label-vertical')
+    expect(appCss).toContain('.edge-selected-indicator')
   })
 
   it('applies the imported dark palette and arrow styling tokens', () => {

@@ -12,6 +12,7 @@ import {
   snapBounds,
 } from '../engine/geometry'
 import type { EdgeModel, NodeModel } from '../model/types'
+import { resolveJourneyFocusScope } from '../journeys/focus'
 import { protocolPresets } from '../presets/catalog'
 import { iconForKey } from '../presets/iconPipeline'
 import { useEditorStore } from '../store/useEditorStore'
@@ -22,8 +23,12 @@ import {
 } from './edgeJourneyBadge'
 import { resolveHexConnectorRole } from './hexConnectorRole'
 import { JourneyEdge } from './JourneyEdge'
-import { resolveDbCylinderShape, resolveQueueCylinderShape } from './nodeShapePaths'
-import { curveToSvgPath, cubicPointAt, type EdgeCurvePath } from './edgePresentation'
+import {
+  resolveDbCylinderShape,
+  resolveHexagonShape,
+  resolveQueueCylinderShape,
+} from './nodeShapePaths'
+import { curveToSvgPath, cubicPointAt, cubicTangentAt, type EdgeCurvePath } from './edgePresentation'
 import {
   resolveArrivalAdvance,
   resolveTravelProgress,
@@ -58,6 +63,11 @@ type ConnectionDragState = {
   pointerId: number
   sourceNodeId: string
   sourcePortId: string
+}
+
+type EdgeLabelDragState = {
+  pointerId: number
+  edgeId: string
 }
 
 type ResizeHandle = 'n' | 's' | 'e' | 'w' | 'ne' | 'nw' | 'se' | 'sw'
@@ -110,6 +120,11 @@ type TrailParticle = {
   position: { x: number; y: number }
 }
 
+type ConnectionTarget = {
+  nodeId: string
+  portId: string
+}
+
 const ZOOM_SENSITIVITY = 0.0012
 const TRAIL_INITIAL_ALPHA = 0.72
 const TRAIL_FADE_FACTOR = 0.0003
@@ -123,6 +138,7 @@ const MIN_NODE_SIZE = 80
 const RESIZE_BORDER_HIT_SIZE = 10
 const EDGE_ANCHOR_CAPTURE_RADIUS = 11
 const EDGE_ANCHOR_RESOLVE_RADIUS = 12
+const CONNECTION_TARGET_HOVER_RADIUS = 18
 const PLAYER_TRACK_BASE_ALPHA = 0.18
 const PLAYER_TRACK_PROGRESS_ALPHA = 0.88
 const TRAIL_CANVAS_MAX_PIXEL_RATIO = 1.5
@@ -132,6 +148,11 @@ const FINAL_STEP_ARRIVAL_HOLD_MS = 220
 interface DiagramCanvasProps {
   presentationMode?: boolean
   forceGridHidden?: boolean
+  exportFocusJourneyId?: string | null
+  onEdgePointerStart?: (
+    edgeId: string,
+    event: ReactPointerEvent<SVGGElement>,
+  ) => void
 }
 
 const resolveCurveFromEdge = (
@@ -158,6 +179,40 @@ const resolveCurveFromEdge = (
     fromPortId,
     toPortId,
   }
+}
+
+const resolveNearestCurveProgress = (
+  curve: EdgeCurvePath,
+  point: { x: number; y: number },
+  segments = 80,
+): number => {
+  const safeSegments = Math.max(20, segments)
+  let bestProgress = 0
+  let minDistance = Number.POSITIVE_INFINITY
+  for (let index = 0; index <= safeSegments; index += 1) {
+    const progress = index / safeSegments
+    const curvePoint = cubicPointAt(curve, progress)
+    const distance = Math.hypot(curvePoint.x - point.x, curvePoint.y - point.y)
+    if (distance < minDistance) {
+      minDistance = distance
+      bestProgress = progress
+    }
+  }
+  return bestProgress
+}
+
+const resolveLabelSideForPointer = (
+  curve: EdgeCurvePath,
+  progress: number,
+  pointer: { x: number; y: number },
+): 'left' | 'right' => {
+  const anchor = cubicPointAt(curve, progress)
+  const tangent = cubicTangentAt(curve, progress)
+  const isVertical = Math.abs(tangent.y) > Math.abs(tangent.x) * 1.18
+  if (isVertical) {
+    return pointer.x <= anchor.x ? 'left' : 'right'
+  }
+  return pointer.y <= anchor.y ? 'left' : 'right'
 }
 
 const resolveResizeHandleCursor = (handle: ResizeHandle): string => {
@@ -308,11 +363,14 @@ const hexToRgba = (color: string, alpha: number): string => {
 export const DiagramCanvas = ({
   presentationMode = false,
   forceGridHidden = false,
+  exportFocusJourneyId = null,
+  onEdgePointerStart,
 }: DiagramCanvasProps = {}) => {
   const panStateRef = useRef<PanState | null>(null)
   const nodeDragStateRef = useRef<NodeDragState | null>(null)
   const connectionDragRef = useRef<ConnectionDragState | null>(null)
   const edgeReconnectRef = useRef<EdgeReconnectState | null>(null)
+  const edgeLabelDragRef = useRef<EdgeLabelDragState | null>(null)
   const edgeAnchorCycleRef = useRef(new Map<string, number>())
   const canvasRef = useRef<HTMLDivElement | null>(null)
   const trailCanvasRef = useRef<HTMLCanvasElement | null>(null)
@@ -331,6 +389,8 @@ export const DiagramCanvas = ({
   const [connectionPreview, setConnectionPreview] = useState<DragPreviewState>(null)
   const [hoverCursor, setHoverCursor] = useState<string | null>(null)
   const [dragCursor, setDragCursor] = useState<string | null>(null)
+  const [isCtrlConnectorActive, setIsCtrlConnectorActive] = useState(false)
+  const [hoveredConnectionTarget, setHoveredConnectionTarget] = useState<ConnectionTarget | null>(null)
   const [hoveredAnchorKey, setHoveredAnchorKey] = useState<string | null>(null)
   const [playerStepArrivedForUi, setPlayerStepArrivedForUi] = useState(false)
 
@@ -354,6 +414,7 @@ export const DiagramCanvas = ({
   const selectNode = useEditorStore((state) => state.selectNode)
   const selectEdge = useEditorStore((state) => state.selectEdge)
   const openDrilldown = useEditorStore((state) => state.openDrilldown)
+  const createDrilldownForNode = useEditorStore((state) => state.createDrilldownForNode)
   const setNodeBounds = useEditorStore((state) => state.setNodeBounds)
   const setNodesBounds = useEditorStore((state) => state.setNodesBounds)
   const addNode = useEditorStore((state) => state.addNode)
@@ -361,15 +422,58 @@ export const DiagramCanvas = ({
   const connectPendingTo = useEditorStore((state) => state.connectPendingTo)
   const cancelPendingConnection = useEditorStore((state) => state.cancelPendingConnection)
   const reconnectEdgeEndpoint = useEditorStore((state) => state.reconnectEdgeEndpoint)
+  const setEdgeLabelPosition = useEditorStore((state) => state.setEdgeLabelPosition)
+  const setEdgeLabelSide = useEditorStore((state) => state.setEdgeLabelSide)
+  const isConnectorMode = activeTool === 'connector' || isCtrlConnectorActive
 
   useEffect(() => {
     viewportRef.current = viewport
   }, [viewport])
 
+  useEffect(() => {
+    const syncCtrlConnectorMode = (event: KeyboardEvent) => {
+      const enableConnector = event.ctrlKey && !event.altKey && !event.metaKey
+      setIsCtrlConnectorActive(enableConnector)
+    }
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (presentationMode) {
+        return
+      }
+      syncCtrlConnectorMode(event)
+    }
+
+    const onKeyUp = (event: KeyboardEvent) => {
+      syncCtrlConnectorMode(event)
+    }
+
+    const onWindowBlur = () => {
+      setIsCtrlConnectorActive(false)
+    }
+
+    window.addEventListener('keydown', onKeyDown)
+    window.addEventListener('keyup', onKeyUp)
+    window.addEventListener('blur', onWindowBlur)
+    return () => {
+      window.removeEventListener('keydown', onKeyDown)
+      window.removeEventListener('keyup', onKeyUp)
+      window.removeEventListener('blur', onWindowBlur)
+    }
+  }, [presentationMode])
+
   const currentView = workspace.views[viewId]
   const gridEnabled = workspace.settings.grid
   const showGrid = gridEnabled && !forceGridHidden && !presentationMode
   const snapEnabled = workspace.settings.snap
+  const journeyFocusSettings = workspace.settings.journeyFocus
+  const effectiveJourneyFilterId = exportFocusJourneyId ?? journeyFilterId
+  const effectiveOffscopeRenderMode =
+    effectiveJourneyFilterId === null
+      ? 'show'
+      : exportFocusJourneyId
+        ? 'hide'
+        : journeyFocusSettings.offscopeRenderMode
+
   const nodes = useMemo(
     () =>
       currentView.nodeIds
@@ -384,6 +488,12 @@ export const DiagramCanvas = ({
         .filter((edge): edge is EdgeModel => !!edge),
     [currentView.edgeIds, workspace.edges],
   )
+  const journeyFocusScope = useMemo(
+    () => resolveJourneyFocusScope(workspace, viewId, effectiveJourneyFilterId),
+    [effectiveJourneyFilterId, viewId, workspace],
+  )
+  const focusedEdgeIdSet = journeyFocusScope?.edgeIds ?? null
+  const focusedNodeIdSet = journeyFocusScope?.nodeIds ?? null
 
   const edgeJourneyMarkers = useMemo(() => {
     const markers: Record<string, EdgeJourneyMarker[]> = {}
@@ -411,7 +521,7 @@ export const DiagramCanvas = ({
     for (const edge of edges) {
       const markers = edgeJourneyMarkers[edge.id] ?? []
       const badge = resolveEdgeJourneyBadge(markers, {
-        journeyFilterId,
+        journeyFilterId: effectiveJourneyFilterId,
         activeJourneyId,
         playerJourneyId,
       })
@@ -420,7 +530,7 @@ export const DiagramCanvas = ({
       }
     }
     return badges
-  }, [activeJourneyId, edgeJourneyMarkers, edges, journeyFilterId, playerJourneyId])
+  }, [activeJourneyId, edgeJourneyMarkers, edges, effectiveJourneyFilterId, playerJourneyId])
   const protocolLabelById = useMemo(
     () =>
       Object.fromEntries(
@@ -430,16 +540,17 @@ export const DiagramCanvas = ({
   )
 
   const visibleEdges = useMemo(() => {
-    if (!journeyFilterId) {
+    if (!focusedEdgeIdSet || effectiveOffscopeRenderMode !== 'hide') {
       return edges
     }
-    const journey = workspace.journeys[journeyFilterId]
-    if (!journey) {
-      return edges
+    return edges.filter((edge) => focusedEdgeIdSet.has(edge.id))
+  }, [edges, effectiveOffscopeRenderMode, focusedEdgeIdSet])
+  const visibleNodes = useMemo(() => {
+    if (!focusedNodeIdSet || effectiveOffscopeRenderMode !== 'hide') {
+      return nodes
     }
-    const edgeSet = new Set(journey.steps.map((step) => step.edgeId))
-    return edges.filter((edge) => edgeSet.has(edge.id))
-  }, [edges, journeyFilterId, workspace.journeys])
+    return nodes.filter((node) => focusedNodeIdSet.has(node.id))
+  }, [effectiveOffscopeRenderMode, focusedNodeIdSet, nodes])
   const selectedNodeIdSet = useMemo(() => new Set(selectedNodeIds), [selectedNodeIds])
   const edgeRenderItems = useMemo(
     () =>
@@ -457,6 +568,10 @@ export const DiagramCanvas = ({
         })
         .filter((item): item is EdgeRenderItem => !!item),
     [visibleEdges, workspace.nodes],
+  )
+  const edgeCurveById = useMemo(
+    () => new Map(edgeRenderItems.map((item) => [item.edge.id, item.curve])),
+    [edgeRenderItems],
   )
   const edgeAnchorHandles = useMemo(() => {
     const handlesByKey = new Map<string, EdgeAnchorHandle>()
@@ -547,7 +662,7 @@ export const DiagramCanvas = ({
     if (currentPlayerEdgeId) {
       ids.add(currentPlayerEdgeId)
     }
-    const contextJourneyId = journeyFilterId ?? activeJourneyId
+    const contextJourneyId = effectiveJourneyFilterId ?? activeJourneyId
     if (contextJourneyId) {
       const journey = workspace.journeys[contextJourneyId]
       for (const step of journey?.steps ?? []) {
@@ -555,7 +670,7 @@ export const DiagramCanvas = ({
       }
     }
     return ids
-  }, [activeJourneyId, currentPlayerEdgeId, journeyFilterId, selectedEdgeId, workspace.journeys])
+  }, [activeJourneyId, currentPlayerEdgeId, effectiveJourneyFilterId, selectedEdgeId, workspace.journeys])
 
   const highlightedNodeIds = useMemo(() => {
     if (!playerHighlightNodes || !currentPlayerEdgeId) {
@@ -585,13 +700,15 @@ export const DiagramCanvas = ({
   useEffect(() => {
     connectionDragRef.current = null
     edgeReconnectRef.current = null
+    edgeLabelDragRef.current = null
     let resetPreviewFrame = window.requestAnimationFrame(() => {
       setConnectionPreview(null)
+      setHoveredConnectionTarget(null)
     })
     let resetCursorFrame = window.requestAnimationFrame(() => {
       setDragCursor(null)
     })
-    if (activeTool !== 'connector') {
+    if (!isConnectorMode) {
       cancelPendingConnection()
     }
     return () => {
@@ -600,7 +717,7 @@ export const DiagramCanvas = ({
       window.cancelAnimationFrame(resetCursorFrame)
       resetCursorFrame = 0
     }
-  }, [activeTool, cancelPendingConnection])
+  }, [cancelPendingConnection, isConnectorMode])
 
   useEffect(() => {
     trailsRef.current = []
@@ -613,6 +730,7 @@ export const DiagramCanvas = ({
     stepAdvanceRequestedRef.current = false
     connectionDragRef.current = null
     edgeReconnectRef.current = null
+    edgeLabelDragRef.current = null
     let resetPreviewFrame = window.requestAnimationFrame(() => {
       setConnectionPreview(null)
     })
@@ -622,6 +740,7 @@ export const DiagramCanvas = ({
     let resetCursorFrame = window.requestAnimationFrame(() => {
       setHoverCursor(null)
       setDragCursor(null)
+      setHoveredConnectionTarget(null)
       setHoveredAnchorKey(null)
     })
     const trailCanvas = trailCanvasRef.current
@@ -933,8 +1052,8 @@ export const DiagramCanvas = ({
   }
 
   const resolveNodeAtPoint = (point: { x: number; y: number }): NodeModel | null => {
-    for (let index = nodes.length - 1; index >= 0; index -= 1) {
-      const node = nodes[index]
+    for (let index = visibleNodes.length - 1; index >= 0; index -= 1) {
+      const node = visibleNodes[index]
       if (
         point.x >= node.bounds.x &&
         point.x <= node.bounds.x + node.bounds.w &&
@@ -949,14 +1068,20 @@ export const DiagramCanvas = ({
 
   const resolveClosestPortTarget = (
     point: { x: number; y: number },
+    options?: { maxDistance?: number; excludeNodeId?: string },
   ): { nodeId: string; portId: string } | null => {
+    const maxDistance = options?.maxDistance ?? EDGE_ANCHOR_RESOLVE_RADIUS
+    const excludeNodeId = options?.excludeNodeId
     let best: { nodeId: string; portId: string; distance: number } | null = null
-    for (const node of nodes) {
+    for (const node of visibleNodes) {
+      if (excludeNodeId && node.id === excludeNodeId) {
+        continue
+      }
       for (const port of node.ports) {
         const px = node.bounds.x + node.bounds.w * port.x
         const py = node.bounds.y + node.bounds.h * port.y
         const distance = Math.hypot(point.x - px, point.y - py)
-        if (distance > EDGE_ANCHOR_RESOLVE_RADIUS) {
+        if (distance > maxDistance) {
           continue
         }
         if (!best || distance < best.distance) {
@@ -968,6 +1093,31 @@ export const DiagramCanvas = ({
       return null
     }
     return { nodeId: best.nodeId, portId: best.portId }
+  }
+
+  const resolveConnectionTargetAtPoint = (
+    point: { x: number; y: number },
+    sourceNodeId: string,
+  ): ConnectionTarget | null => {
+    const exactPort = resolveClosestPortTarget(point, {
+      maxDistance: CONNECTION_TARGET_HOVER_RADIUS,
+      excludeNodeId: sourceNodeId,
+    })
+    if (exactPort) {
+      return exactPort
+    }
+    const targetNode = resolveNodeAtPoint(point)
+    if (!targetNode || targetNode.id === sourceNodeId) {
+      return null
+    }
+    const nearestPort = nearestPortId(targetNode, point) ?? targetNode.ports[0]?.id
+    if (!nearestPort) {
+      return null
+    }
+    return {
+      nodeId: targetNode.id,
+      portId: nearestPort,
+    }
   }
 
   const resolveReconnectTarget = (
@@ -988,9 +1138,35 @@ export const DiagramCanvas = ({
     }
   }
 
+  const startConnectionDrag = (
+    pointerId: number,
+    sourceNodeId: string,
+    sourcePortId: string,
+    svgElement: SVGSVGElement | null,
+  ): void => {
+    const sourceNode = workspace.nodes[sourceNodeId]
+    if (!sourceNode) {
+      return
+    }
+    const start = portWorldPosition(sourceNode, sourcePortId)
+    beginConnection(sourceNodeId, sourcePortId)
+    connectionDragRef.current = {
+      pointerId,
+      sourceNodeId,
+      sourcePortId,
+    }
+    setHoveredConnectionTarget(null)
+    setConnectionPreview({
+      from: start,
+      to: start,
+    })
+    setDragCursor('crosshair')
+    svgElement?.setPointerCapture(pointerId)
+  }
+
   const resolveResizeHandleAtPointer = (
     node: NodeModel,
-    event: ReactPointerEvent<SVGRectElement>,
+    event: ReactPointerEvent<SVGElement>,
   ): ResizeHandle | null => {
     const world = clientToWorld(event.clientX, event.clientY)
     if (!world) {
@@ -1003,6 +1179,10 @@ export const DiagramCanvas = ({
 
   const onBackgroundPointerDown = (event: ReactPointerEvent<SVGSVGElement>): void => {
     if (event.button !== 0) {
+      return
+    }
+    event.preventDefault()
+    if (isConnectorMode) {
       return
     }
     panStateRef.current = {
@@ -1020,6 +1200,21 @@ export const DiagramCanvas = ({
   }
 
   const onBackgroundPointerMove = (event: ReactPointerEvent<SVGSVGElement>): void => {
+    const labelDrag = edgeLabelDragRef.current
+    if (labelDrag && labelDrag.pointerId === event.pointerId) {
+      const currentWorld = clientToWorld(event.clientX, event.clientY)
+      if (currentWorld) {
+        const curve = edgeCurveById.get(labelDrag.edgeId)
+        if (curve) {
+          const nextPosition = resolveNearestCurveProgress(curve, currentWorld)
+          const nextSide = resolveLabelSideForPointer(curve, nextPosition, currentWorld)
+          setEdgeLabelPosition(labelDrag.edgeId, nextPosition)
+          setEdgeLabelSide(labelDrag.edgeId, nextSide)
+        }
+      }
+      return
+    }
+
     const edgeReconnect = edgeReconnectRef.current
     if (edgeReconnect && edgeReconnect.pointerId === event.pointerId) {
       const currentWorld = clientToWorld(event.clientX, event.clientY)
@@ -1043,15 +1238,26 @@ export const DiagramCanvas = ({
     if (connectionDrag && connectionDrag.pointerId === event.pointerId) {
       const currentWorld = clientToWorld(event.clientX, event.clientY)
       if (currentWorld) {
-        setConnectionPreview((previous) => {
-          if (!previous) {
-            return previous
-          }
-          return {
-            ...previous,
-            to: currentWorld,
-          }
-        })
+        const hoveredTarget = resolveConnectionTargetAtPoint(
+          currentWorld,
+          connectionDrag.sourceNodeId,
+        )
+        setHoveredConnectionTarget(hoveredTarget)
+        const targetNode = hoveredTarget ? workspace.nodes[hoveredTarget.nodeId] : undefined
+        const previewPoint =
+          hoveredTarget && targetNode
+            ? portWorldPosition(targetNode, hoveredTarget.portId)
+            : currentWorld
+        setConnectionPreview((previous) =>
+          previous
+            ? {
+                ...previous,
+                to: previewPoint,
+              }
+            : previous,
+        )
+      } else {
+        setHoveredConnectionTarget(null)
       }
       return
     }
@@ -1066,6 +1272,16 @@ export const DiagramCanvas = ({
   }
 
   const onBackgroundPointerUp = (event: ReactPointerEvent<SVGSVGElement>): void => {
+    const labelDrag = edgeLabelDragRef.current
+    if (labelDrag?.pointerId === event.pointerId) {
+      edgeLabelDragRef.current = null
+      setDragCursor(null)
+      if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+        event.currentTarget.releasePointerCapture(event.pointerId)
+      }
+      return
+    }
+
     const reconnectDrag = edgeReconnectRef.current
     if (reconnectDrag?.pointerId === event.pointerId) {
       const world = clientToWorld(event.clientX, event.clientY)
@@ -1082,6 +1298,7 @@ export const DiagramCanvas = ({
       }
       edgeReconnectRef.current = null
       setConnectionPreview(null)
+      setHoveredConnectionTarget(null)
       setDragCursor(null)
       if (event.currentTarget.hasPointerCapture(event.pointerId)) {
         event.currentTarget.releasePointerCapture(event.pointerId)
@@ -1089,10 +1306,22 @@ export const DiagramCanvas = ({
       return
     }
 
-    if (connectionDragRef.current?.pointerId === event.pointerId) {
+    const connectionDrag = connectionDragRef.current
+    if (connectionDrag?.pointerId === event.pointerId) {
+      const world = clientToWorld(event.clientX, event.clientY)
+      if (world) {
+        const target = resolveConnectionTargetAtPoint(world, connectionDrag.sourceNodeId)
+        if (target) {
+          connectPendingTo(target.nodeId, target.portId)
+        } else {
+          cancelPendingConnection()
+        }
+      } else {
+        cancelPendingConnection()
+      }
       connectionDragRef.current = null
       setConnectionPreview(null)
-      cancelPendingConnection()
+      setHoveredConnectionTarget(null)
       setDragCursor(null)
       if (event.currentTarget.hasPointerCapture(event.pointerId)) {
         event.currentTarget.releasePointerCapture(event.pointerId)
@@ -1119,13 +1348,26 @@ export const DiagramCanvas = ({
     if (event.button !== 0) {
       return
     }
+    event.preventDefault()
     event.stopPropagation()
-    if (activeTool === 'connector') {
-      selectNode(node.id)
+    if (isConnectorMode) {
+      const worldPoint = clientToWorld(event.clientX, event.clientY)
+      const sourcePortId =
+        (worldPoint ? nearestPortId(node, worldPoint) : nearestPortId(node, nodeCenter(node))) ??
+        node.ports[0]?.id
+      if (!sourcePortId) {
+        return
+      }
+      startConnectionDrag(
+        event.pointerId,
+        node.id,
+        sourcePortId,
+        event.currentTarget.ownerSVGElement,
+      )
       return
     }
 
-    if (mode === 'move' && (event.shiftKey || event.metaKey || event.ctrlKey)) {
+    if (mode === 'move' && (event.shiftKey || event.metaKey)) {
       selectNode(node.id, { additive: true })
       return
     }
@@ -1274,13 +1516,13 @@ export const DiagramCanvas = ({
   }
 
   const onNodeBorderPointerMove = (
-    event: ReactPointerEvent<SVGRectElement>,
+    event: ReactPointerEvent<SVGElement>,
     node: NodeModel,
   ): void => {
     if (presentationMode) {
       return
     }
-    if (activeTool !== 'select') {
+    if (activeTool !== 'select' || isConnectorMode) {
       return
     }
     const drag = nodeDragStateRef.current
@@ -1301,13 +1543,13 @@ export const DiagramCanvas = ({
   }
 
   const onNodeBorderPointerDown = (
-    event: ReactPointerEvent<SVGRectElement>,
+    event: ReactPointerEvent<SVGElement>,
     node: NodeModel,
   ): void => {
     if (presentationMode) {
       return
     }
-    if (activeTool !== 'select') {
+    if (activeTool !== 'select' || isConnectorMode) {
       return
     }
     const resizeHandle = resolveResizeHandleAtPointer(node, event)
@@ -1325,77 +1567,30 @@ export const DiagramCanvas = ({
     if (presentationMode) {
       return
     }
-    if (activeTool !== 'connector' || event.button !== 0) {
+    if (!isConnectorMode || event.button !== 0) {
       return
     }
+    event.preventDefault()
     event.stopPropagation()
-    const start = portWorldPosition(node, portId)
-    beginConnection(node.id, portId)
-    connectionDragRef.current = {
+    startConnectionDrag(event.pointerId, node.id, portId, event.currentTarget.ownerSVGElement)
+  }
+
+  const onEdgeLabelPointerDown = (
+    edgeId: string,
+    event: ReactPointerEvent<SVGTextElement>,
+  ): void => {
+    if (presentationMode) {
+      return
+    }
+    if (isConnectorMode) {
+      return
+    }
+    edgeLabelDragRef.current = {
       pointerId: event.pointerId,
-      sourceNodeId: node.id,
-      sourcePortId: portId,
+      edgeId,
     }
-    setConnectionPreview({
-      from: start,
-      to: start,
-    })
-    setDragCursor('crosshair')
+    setDragCursor('move')
     event.currentTarget.ownerSVGElement?.setPointerCapture(event.pointerId)
-  }
-
-  const onPortPointerEnter = (
-    event: ReactPointerEvent<SVGCircleElement>,
-    node: NodeModel,
-    portId: string,
-  ): void => {
-    if (presentationMode) {
-      return
-    }
-    if (activeTool !== 'connector') {
-      return
-    }
-    const drag = connectionDragRef.current
-    if (!drag || drag.pointerId !== event.pointerId || (event.buttons & 1) === 0) {
-      return
-    }
-    if (drag.sourceNodeId === node.id) {
-      return
-    }
-    event.stopPropagation()
-    connectPendingTo(node.id, portId)
-    connectionDragRef.current = null
-    setConnectionPreview(null)
-    setDragCursor(null)
-  }
-
-  const onPortPointerUp = (
-    event: ReactPointerEvent<SVGCircleElement>,
-    node: NodeModel,
-    portId: string,
-  ): void => {
-    if (presentationMode) {
-      return
-    }
-    if (activeTool !== 'connector') {
-      return
-    }
-    const drag = connectionDragRef.current
-    if (!drag || drag.pointerId !== event.pointerId) {
-      return
-    }
-    if (drag.sourceNodeId === node.id) {
-      connectionDragRef.current = null
-      setConnectionPreview(null)
-      cancelPendingConnection()
-      setDragCursor(null)
-      return
-    }
-    event.stopPropagation()
-    connectPendingTo(node.id, portId)
-    connectionDragRef.current = null
-    setConnectionPreview(null)
-    setDragCursor(null)
   }
 
   const onEdgeAnchorPointerDown = (
@@ -1408,6 +1603,7 @@ export const DiagramCanvas = ({
     if (activeTool !== 'select' || event.button !== 0 || !anchor.candidates.length) {
       return
     }
+    event.preventDefault()
     event.stopPropagation()
 
     const world = clientToWorld(event.clientX, event.clientY) ?? { x: anchor.x, y: anchor.y }
@@ -1473,7 +1669,7 @@ export const DiagramCanvas = ({
     if (presentationMode) {
       return
     }
-    if (activeTool !== 'select') {
+    if (activeTool !== 'select' || isConnectorMode) {
       return
     }
     setHoveredAnchorKey(anchorKey)
@@ -1536,7 +1732,7 @@ export const DiagramCanvas = ({
   }
 
   const canvasCursor =
-    dragCursor ?? hoverCursor ?? (presentationMode ? 'grab' : activeTool === 'connector' ? 'crosshair' : 'grab')
+    dragCursor ?? hoverCursor ?? (presentationMode ? 'grab' : isConnectorMode ? 'crosshair' : 'grab')
 
   return (
     <div className="canvas-shell" ref={canvasRef} onWheel={onWheel} onDrop={onDrop} onDragOver={onDragOver}>
@@ -1596,6 +1792,14 @@ export const DiagramCanvas = ({
               isSelected={edge.id === selectedEdgeId}
               isPlayerEdge={edge.id === currentPlayerEdgeId}
               isFlowAnimated={animatedEdgeIdSet.has(edge.id)}
+              isDimmed={
+                effectiveJourneyFilterId !== null &&
+                effectiveOffscopeRenderMode === 'dim' &&
+                !(focusedEdgeIdSet?.has(edge.id) ?? false)
+              }
+              isInteractive={!presentationMode}
+              onEdgePointerStart={onEdgePointerStart}
+              onEdgeLabelPointerDown={onEdgeLabelPointerDown}
               onSelect={() => {
                 if (!presentationMode) {
                   selectEdge(edge.id)
@@ -1615,7 +1819,7 @@ export const DiagramCanvas = ({
               className="edge edge-preview"
             />
           ) : null}
-          {!presentationMode && activeTool === 'select'
+          {!presentationMode && activeTool === 'select' && !isConnectorMode
             ? edgeAnchorHandles.map((anchor) => {
                 const isSelectedAnchor = anchor.candidates.some(
                   (candidate) => candidate.edgeId === selectedEdgeId,
@@ -1640,17 +1844,26 @@ export const DiagramCanvas = ({
               })
             : null}
 
-          {nodes.map((node) => {
+          {visibleNodes.map((node) => {
             const isSelected = selectedNodeIdSet.has(node.id)
             const isPendingConnection = node.id === pendingConnectionFrom
+            const isConnectionTarget =
+              hoveredConnectionTarget?.nodeId === node.id && Boolean(pendingConnectionFrom)
             const isPlayerHighlighted = highlightedNodeIds.has(node.id)
+            const isJourneyFocused = focusedNodeIdSet?.has(node.id) ?? true
+            const isDimmedByJourney =
+              effectiveJourneyFilterId !== null &&
+              effectiveOffscopeRenderMode === 'dim' &&
+              !isJourneyFocused
             const nodeClassName = [
               'node',
               node.kind === 'boundary' ? 'node-boundary' : '',
               isPendingConnection ? 'node-pending' : '',
+              isConnectionTarget ? 'node-connection-target' : '',
               isSelected ? 'node-selected' : '',
               node.drilldownRef ? 'node-drilldown' : '',
               isPlayerHighlighted ? 'node-player-highlight' : '',
+              isDimmedByJourney ? 'node-journey-dimmed' : '',
             ]
               .filter(Boolean)
               .join(' ')
@@ -1658,6 +1871,16 @@ export const DiagramCanvas = ({
               node.kind === 'boundary' ? undefined : node.style?.fillColor
             const dbShape = resolveDbCylinderShape(node.bounds.w, node.bounds.h)
             const queueShape = resolveQueueCylinderShape(node.bounds.w, node.bounds.h)
+            const shouldRenderHexagon =
+              node.kind === 'gateway' ||
+              node.kind === 'security' ||
+              node.kind === 'load-balancer'
+            const hexagonShape = shouldRenderHexagon
+              ? resolveHexagonShape(node.bounds.w, node.bounds.h)
+              : null
+            const hexagonBorderShape = shouldRenderHexagon
+              ? resolveHexagonShape(node.bounds.w, node.bounds.h, 2.5)
+              : null
             const connectorRole =
               currentView.kind === 'hex'
                 ? resolveHexConnectorRole(node.kind)
@@ -1676,7 +1899,12 @@ export const DiagramCanvas = ({
                     setHoverCursor(null)
                   }
                 }}
-                onDoubleClick={() => {
+                onDoubleClick={(event) => {
+                  const modifiersPressed = (event.ctrlKey || event.metaKey) && event.altKey
+                  if (!presentationMode && modifiersPressed) {
+                    createDrilldownForNode(node.id)
+                    return
+                  }
                   if (node.drilldownRef) {
                     openDrilldown(node.id)
                   }
@@ -1705,6 +1933,12 @@ export const DiagramCanvas = ({
                     <path d={queueShape.frontCapPath} className="node-shape-detail" />
                     <path d={queueShape.rearInnerArcPath} className="node-shape-detail" />
                   </g>
+                ) : hexagonShape ? (
+                  <path
+                    d={hexagonShape.shellPath}
+                    className={nodeClassName}
+                    style={nodeFillColor ? { fill: nodeFillColor } : undefined}
+                  />
                 ) : (
                   <rect
                     x={0}
@@ -1716,18 +1950,28 @@ export const DiagramCanvas = ({
                     style={nodeFillColor ? { fill: nodeFillColor } : undefined}
                   />
                 )}
-                {!presentationMode && activeTool === 'select' ? (
-                  <rect
-                    className="node-border-hitarea"
-                    x={0}
-                    y={0}
-                    width={node.bounds.w}
-                    height={node.bounds.h}
-                    rx={12}
-                    onPointerDown={(event) => onNodeBorderPointerDown(event, node)}
-                    onPointerMove={(event) => onNodeBorderPointerMove(event, node)}
-                    onPointerLeave={onNodeBorderPointerLeave}
-                  />
+                {!presentationMode && activeTool === 'select' && !isConnectorMode ? (
+                  hexagonBorderShape ? (
+                    <path
+                      className="node-border-hitarea"
+                      d={hexagonBorderShape.shellPath}
+                      onPointerDown={(event) => onNodeBorderPointerDown(event, node)}
+                      onPointerMove={(event) => onNodeBorderPointerMove(event, node)}
+                      onPointerLeave={onNodeBorderPointerLeave}
+                    />
+                  ) : (
+                    <rect
+                      className="node-border-hitarea"
+                      x={0}
+                      y={0}
+                      width={node.bounds.w}
+                      height={node.bounds.h}
+                      rx={12}
+                      onPointerDown={(event) => onNodeBorderPointerDown(event, node)}
+                      onPointerMove={(event) => onNodeBorderPointerMove(event, node)}
+                      onPointerLeave={onNodeBorderPointerLeave}
+                    />
+                  )
                 ) : null}
                 {connectorRole === 'female' ? (
                   <g className="node-connector-icon node-connector-female">
@@ -1791,13 +2035,16 @@ export const DiagramCanvas = ({
                   ? node.ports.map((port) => (
                       <circle
                         key={port.id}
-                        className="node-port"
+                        className={
+                          hoveredConnectionTarget?.nodeId === node.id &&
+                          hoveredConnectionTarget.portId === port.id
+                            ? 'node-port node-port-highlight'
+                            : 'node-port'
+                        }
                         cx={node.bounds.w * port.x}
                         cy={node.bounds.h * port.y}
                         r={3}
                         onPointerDown={(event) => onPortPointerDown(event, node, port.id)}
-                        onPointerEnter={(event) => onPortPointerEnter(event, node, port.id)}
-                        onPointerUp={(event) => onPortPointerUp(event, node, port.id)}
                       />
                     ))
                   : null}

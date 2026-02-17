@@ -590,5 +590,10 @@ export const createDefaultWorkspace = (): WorkspaceModel =>
     grid: true,
     snap: true,
     theme: 'dark',
+    journeyFocus: {
+      offscopeRenderMode: 'dim',
+      layoutMode: 'preserve',
+      autoLayoutMode: 'manual',
+    },
   },
   })

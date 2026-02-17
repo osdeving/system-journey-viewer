@@ -2,12 +2,16 @@ import { create } from 'zustand'
 import { immer } from 'zustand/middleware/immer'
 import { nearestPortId, nodeCenter } from '../engine/geometry'
 import { journeyColorByIndex } from '../journeys/colors'
+import { autoArrangeView } from '../layout/autoArrange'
 import { createDefaultWorkspace } from '../model/defaultWorkspace'
 import { normalizeWorkspaceNodePorts, resolveNodePorts } from '../model/nodePorts'
 import { resolveNodePreset, resolveTechPreset } from '../presets/catalog'
 import type {
   EdgeEndpoint,
   EditorSnapshot,
+  JourneyFilterAutoLayoutMode,
+  JourneyFilterLayoutMode,
+  JourneyFilterOffscopeRenderMode,
   NodeBounds,
   NodeModel,
   ViewportState,
@@ -54,6 +58,7 @@ interface EditorState {
   selectNode: (nodeId: string | null, options?: SelectOptions) => void
   selectEdge: (edgeId: string | null) => void
   openDrilldown: (nodeId: string) => void
+  createDrilldownForNode: (nodeId: string) => string | null
   navigateBack: () => void
   goToView: (viewId: string) => void
   setActiveTool: (tool: ActiveTool) => void
@@ -61,6 +66,7 @@ interface EditorState {
   zoomByFactor: (factor: number) => void
   addNode: (presetId: string, x: number, y: number) => string
   removeNode: (nodeId: string) => void
+  removeEdge: (edgeId: string) => void
   setNodeBounds: (nodeId: string, bounds: NodeBounds) => void
   setNodesBounds: (updates: Array<{ nodeId: string; bounds: NodeBounds }>) => void
   moveNode: (nodeId: string, dx: number, dy: number) => void
@@ -78,9 +84,21 @@ interface EditorState {
   ) => void
   setEdgeProtocol: (edgeId: string, protocolPresetId: string) => void
   setEdgeLabel: (edgeId: string, label: string) => void
+  setEdgeLabelPosition: (edgeId: string, position: number) => void
+  setEdgeLabelSide: (edgeId: string, side: 'left' | 'right') => void
+  duplicateSelection: (offset?: { dx: number; dy: number }) => {
+    nodeIds: string[]
+    edgeId: string | null
+  }
+  autoArrangeCurrentView: (scope?: { nodeIds?: string[]; edgeIds?: string[] }) => void
   setGridEnabled: (enabled: boolean) => void
   setSnapEnabled: (enabled: boolean) => void
   setTheme: (theme: WorkspaceModel['settings']['theme']) => void
+  setJourneyFocusSettings: (settings: Partial<{
+    offscopeRenderMode: JourneyFilterOffscopeRenderMode
+    layoutMode: JourneyFilterLayoutMode
+    autoLayoutMode: JourneyFilterAutoLayoutMode
+  }>) => void
   loadShowcaseWorkspace: () => void
   createJourney: (name?: string) => string
   setActiveJourney: (journeyId: string | null) => void
@@ -88,6 +106,7 @@ interface EditorState {
   reorderJourneyInCurrentView: (journeyId: string, targetJourneyId: string) => void
   addEdgeToJourney: (journeyId: string, edgeId: string) => void
   removeEdgeFromJourney: (journeyId: string, edgeId: string) => void
+  reorderJourneyStep: (journeyId: string, edgeId: string, targetEdgeId: string) => void
   setPlayerJourney: (journeyId: string | null) => void
   setPlayerRunning: (running: boolean) => void
   setPlayerLoop: (loop: boolean) => void
@@ -254,6 +273,117 @@ const nextJourneyStepNumber = (used: number[]): number => {
 const firstJourneyForView = (workspace: WorkspaceModel, viewId: string): string | null =>
   workspace.views[viewId]?.journeyIds[0] ?? null
 
+const MIN_EDGE_LABEL_POSITION = 0.08
+const MAX_EDGE_LABEL_POSITION = 0.92
+
+const clampEdgeLabelPosition = (position: number): number =>
+  Math.min(MAX_EDGE_LABEL_POSITION, Math.max(MIN_EDGE_LABEL_POSITION, position))
+
+const resolveEdgeLabelSide = (side?: string): 'left' | 'right' =>
+  side === 'right' ? 'right' : 'left'
+
+const normalizeJourneySteps = (
+  steps: Array<{ n: number; edgeId: string }>,
+): Array<{ n: number; edgeId: string }> =>
+  steps.map((step, index) => ({ ...step, n: index + 1 }))
+
+const nextViewKindForDrilldown = (viewKind: WorkspaceModel['views'][string]['kind']) => {
+  if (viewKind === 'system-context') {
+    return 'container'
+  }
+  if (viewKind === 'container') {
+    return 'component'
+  }
+  return 'hex'
+}
+
+const sanitizeIdPart = (value: string): string =>
+  value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/(^-|-$)/g, '')
+
+const resolveUniqueId = (
+  collection: Record<string, unknown>,
+  preferredBase: string,
+  fallbackPrefix: string,
+): string => {
+  const base = sanitizeIdPart(preferredBase) || fallbackPrefix
+  let candidate = base
+  let suffix = 2
+  while (collection[candidate]) {
+    candidate = `${base}-${suffix}`
+    suffix += 1
+  }
+  return candidate
+}
+
+const syncPlayerForJourneySteps = (
+  state: Pick<
+    EditorState,
+    'workspace' | 'playerJourneyId' | 'playerStepIndex' | 'playerIsRunning' | 'playerConfettiNodeId'
+  >,
+) => {
+  if (!state.playerJourneyId) {
+    state.playerIsRunning = false
+    state.playerStepIndex = 0
+    state.playerConfettiNodeId = null
+    return
+  }
+  const activePlayerJourney = state.workspace.journeys[state.playerJourneyId]
+  const sortedSteps =
+    activePlayerJourney?.steps.slice().sort((left, right) => left.n - right.n) ?? []
+  if (!sortedSteps.length) {
+    state.playerIsRunning = false
+    state.playerStepIndex = 0
+    state.playerConfettiNodeId = null
+    return
+  }
+  if (state.playerStepIndex >= sortedSteps.length) {
+    state.playerStepIndex = sortedSteps.length - 1
+    state.playerIsRunning = false
+  }
+}
+
+const removeEdgeFromWorkspaceState = (
+  state: Pick<
+    EditorState,
+    | 'workspace'
+    | 'selectedEdgeId'
+    | 'playerJourneyId'
+    | 'playerStepIndex'
+    | 'playerIsRunning'
+    | 'playerConfettiNodeId'
+  >,
+  edgeId: string,
+): boolean => {
+  if (!state.workspace.edges[edgeId]) {
+    return false
+  }
+  delete state.workspace.edges[edgeId]
+
+  for (const view of Object.values(state.workspace.views)) {
+    view.edgeIds = view.edgeIds.filter((candidate) => candidate !== edgeId)
+  }
+
+  for (const journey of Object.values(state.workspace.journeys)) {
+    if (!journey.steps.some((step) => step.edgeId === edgeId)) {
+      continue
+    }
+    const ordered = journey.steps
+      .slice()
+      .sort((left, right) => left.n - right.n)
+      .filter((step) => step.edgeId !== edgeId)
+    journey.steps = normalizeJourneySteps(ordered)
+  }
+
+  if (state.selectedEdgeId === edgeId) {
+    state.selectedEdgeId = null
+  }
+  syncPlayerForJourneySteps(state)
+  return true
+}
+
 export const useEditorStore = create<EditorState>()(
   immer((set, get) => ({
     ...getDefaultState(),
@@ -391,6 +521,83 @@ export const useEditorStore = create<EditorState>()(
         state.playerConfettiNodeId = null
       })
     },
+    createDrilldownForNode: (nodeId) => {
+      let createdViewId: string | null = null
+      set((state) => {
+        const sourceNode = state.workspace.nodes[nodeId]
+        const currentView = state.workspace.views[state.currentViewId]
+        if (!sourceNode || !currentView) {
+          return
+        }
+
+        let targetViewId =
+          sourceNode.drilldownRef && state.workspace.views[sourceNode.drilldownRef]
+            ? sourceNode.drilldownRef
+            : undefined
+
+        if (!targetViewId) {
+          const nextKind = nextViewKindForDrilldown(currentView.kind)
+          const baseViewId = resolveUniqueId(
+            state.workspace.views,
+            `v-${nextKind}-${sourceNode.name}`,
+            `v-${nextKind}`,
+          )
+          targetViewId = baseViewId
+
+          const boundaryNodeId = resolveUniqueId(
+            state.workspace.nodes,
+            `n-${targetViewId}-boundary`,
+            `n-${targetViewId}`,
+          )
+          const boundaryBounds = {
+            x: 80,
+            y: 80,
+            w: 980,
+            h: 620,
+          }
+
+          state.workspace.nodes[boundaryNodeId] = {
+            id: boundaryNodeId,
+            presetId: 'boundary',
+            kind: 'boundary',
+            name: `${sourceNode.name} Boundary`,
+            tags: ['drilldown-root'],
+            bounds: boundaryBounds,
+            ports: resolveNodePorts(boundaryBounds),
+            children: [],
+          }
+          state.workspace.views[targetViewId] = {
+            id: targetViewId,
+            kind: nextKind,
+            name: `${sourceNode.name} Detail`,
+            nodeIds: [boundaryNodeId],
+            edgeIds: [],
+            journeyIds: [],
+          }
+        }
+
+        sourceNode.drilldownRef = targetViewId
+        sourceNode.kind = 'boundary'
+        sourceNode.presetId = 'boundary'
+
+        const firstJourneyId = firstJourneyForView(state.workspace, targetViewId)
+        state.viewHistory.push(state.currentViewId)
+        state.currentViewId = targetViewId
+        state.selectedNodeId = null
+        state.selectedNodeIds = []
+        state.selectedEdgeId = null
+        state.pendingConnectionFrom = null
+        state.pendingConnectionPortId = null
+        state.activeJourneyId = firstJourneyId
+        state.journeyFilterId = null
+        state.playerJourneyId = firstJourneyId
+        state.playerIsRunning = false
+        state.playerStepIndex = 0
+        state.playerConfettiNodeId = null
+        createdViewId = targetViewId
+      })
+      return createdViewId
+    },
     navigateBack: () => {
       set((state) => {
         const previousViewId = state.viewHistory.pop()
@@ -472,26 +679,19 @@ export const useEditorStore = create<EditorState>()(
           return
         }
 
-        const removedEdgeIds = new Set<string>()
+        const connectedEdgeIds: string[] = []
         for (const [edgeId, edge] of Object.entries(state.workspace.edges)) {
           if (edge.from.nodeId === nodeId || edge.to.nodeId === nodeId) {
-            removedEdgeIds.add(edgeId)
+            connectedEdgeIds.push(edgeId)
           }
         }
 
         for (const view of Object.values(state.workspace.views)) {
           view.nodeIds = view.nodeIds.filter((candidate) => candidate !== nodeId)
-          if (removedEdgeIds.size > 0) {
-            view.edgeIds = view.edgeIds.filter((edgeId) => !removedEdgeIds.has(edgeId))
-          }
         }
 
-        for (const edgeId of removedEdgeIds) {
-          delete state.workspace.edges[edgeId]
-        }
-
-        for (const journey of Object.values(state.workspace.journeys)) {
-          journey.steps = journey.steps.filter((step) => !removedEdgeIds.has(step.edgeId))
+        for (const edgeId of connectedEdgeIds) {
+          removeEdgeFromWorkspaceState(state, edgeId)
         }
 
         delete state.workspace.nodes[nodeId]
@@ -508,28 +708,12 @@ export const useEditorStore = create<EditorState>()(
             state.selectedNodeId = state.selectedNodeIds[state.selectedNodeIds.length - 1] ?? null
           }
         }
-        if (state.selectedEdgeId && removedEdgeIds.has(state.selectedEdgeId)) {
-          state.selectedEdgeId = null
-        }
-
-        if (!state.playerJourneyId) {
-          state.playerIsRunning = false
-          state.playerStepIndex = 0
-          return
-        }
-
-        const activePlayerJourney = state.workspace.journeys[state.playerJourneyId]
-        const sortedSteps =
-          activePlayerJourney?.steps.slice().sort((left, right) => left.n - right.n) ?? []
-        if (!sortedSteps.length) {
-          state.playerIsRunning = false
-          state.playerStepIndex = 0
-          return
-        }
-        if (state.playerStepIndex >= sortedSteps.length) {
-          state.playerStepIndex = sortedSteps.length - 1
-          state.playerIsRunning = false
-        }
+        syncPlayerForJourneySteps(state)
+      })
+    },
+    removeEdge: (edgeId) => {
+      set((state) => {
+        removeEdgeFromWorkspaceState(state, edgeId)
       })
     },
     setNodeBounds: (nodeId, bounds) => {
@@ -603,7 +787,6 @@ export const useEditorStore = create<EditorState>()(
       set((state) => {
         state.pendingConnectionFrom = nodeId
         state.pendingConnectionPortId = portId ?? null
-        state.activeTool = 'connector'
       })
     },
     connectPendingTo: (targetNodeId, targetPortId) => {
@@ -633,7 +816,7 @@ export const useEditorStore = create<EditorState>()(
           protocolPresetId: 'http',
           label: 'request',
           route: { kind: 'auto', points: [] },
-          style: { arrow: true, dashed: false, thickness: 2 },
+          style: { arrow: true, dashed: false, thickness: 2, labelPosition: 0.5, labelSide: 'left' },
         }
         view.edgeIds.push(edgeId)
         state.selectedEdgeId = edgeId
@@ -702,6 +885,201 @@ export const useEditorStore = create<EditorState>()(
         edge.label = label
       })
     },
+    setEdgeLabelPosition: (edgeId, position) => {
+      set((state) => {
+        const edge = state.workspace.edges[edgeId]
+        if (!edge) {
+          return
+        }
+        edge.style = {
+          ...edge.style,
+          labelPosition: clampEdgeLabelPosition(position),
+        }
+      })
+    },
+    setEdgeLabelSide: (edgeId, side) => {
+      set((state) => {
+        const edge = state.workspace.edges[edgeId]
+        if (!edge) {
+          return
+        }
+        edge.style = {
+          ...edge.style,
+          labelSide: resolveEdgeLabelSide(side),
+        }
+      })
+    },
+    duplicateSelection: (offset) => {
+      const resolvedOffset = {
+        dx: offset?.dx ?? 36,
+        dy: offset?.dy ?? 24,
+      }
+      const result: { nodeIds: string[]; edgeId: string | null } = {
+        nodeIds: [],
+        edgeId: null,
+      }
+
+      set((state) => {
+        const view = state.workspace.views[state.currentViewId]
+        if (!view) {
+          return
+        }
+
+        const selectedNodeIds = state.selectedNodeIds.filter(
+          (nodeId) => view.nodeIds.includes(nodeId) && Boolean(state.workspace.nodes[nodeId]),
+        )
+        if (selectedNodeIds.length > 0) {
+          const selectedNodeSet = new Set(selectedNodeIds)
+          const sourceToCloneNodeId = new Map<string, string>()
+          const duplicatedNodeIds: string[] = []
+
+          for (const nodeId of selectedNodeIds) {
+            const sourceNode = state.workspace.nodes[nodeId]
+            if (!sourceNode) {
+              continue
+            }
+            const clonedNodeId = nextNumericId(state.workspace.nodes, 'n')
+            const clonedBounds = {
+              ...sourceNode.bounds,
+              x: sourceNode.bounds.x + resolvedOffset.dx,
+              y: sourceNode.bounds.y + resolvedOffset.dy,
+            }
+            state.workspace.nodes[clonedNodeId] = {
+              ...sourceNode,
+              id: clonedNodeId,
+              name: `${sourceNode.name} Copy`,
+              bounds: clonedBounds,
+              ports: resolveNodePorts(clonedBounds),
+              children: [],
+              drilldownRef: undefined,
+            }
+            view.nodeIds.push(clonedNodeId)
+            sourceToCloneNodeId.set(nodeId, clonedNodeId)
+            duplicatedNodeIds.push(clonedNodeId)
+          }
+
+          for (const edgeId of view.edgeIds.slice()) {
+            const edge = state.workspace.edges[edgeId]
+            if (!edge) {
+              continue
+            }
+            if (!selectedNodeSet.has(edge.from.nodeId) || !selectedNodeSet.has(edge.to.nodeId)) {
+              continue
+            }
+            const fromNodeId = sourceToCloneNodeId.get(edge.from.nodeId)
+            const toNodeId = sourceToCloneNodeId.get(edge.to.nodeId)
+            if (!fromNodeId || !toNodeId) {
+              continue
+            }
+            const clonedEdgeId = nextNumericId(state.workspace.edges, 'e')
+            state.workspace.edges[clonedEdgeId] = {
+              ...edge,
+              id: clonedEdgeId,
+              from: {
+                nodeId: fromNodeId,
+                portId: edge.from.portId,
+              },
+              to: {
+                nodeId: toNodeId,
+                portId: edge.to.portId,
+              },
+              route: {
+                kind: edge.route.kind,
+                points: edge.route.points.map((point) => ({
+                  x: point.x + resolvedOffset.dx,
+                  y: point.y + resolvedOffset.dy,
+                })),
+              },
+              style: {
+                ...edge.style,
+                labelPosition: clampEdgeLabelPosition(edge.style.labelPosition ?? 0.5),
+                labelSide: resolveEdgeLabelSide(edge.style.labelSide),
+              },
+            }
+            view.edgeIds.push(clonedEdgeId)
+          }
+
+          state.selectedNodeId = duplicatedNodeIds[duplicatedNodeIds.length - 1] ?? null
+          state.selectedNodeIds = duplicatedNodeIds
+          state.selectedEdgeId = null
+          result.nodeIds = duplicatedNodeIds
+          return
+        }
+
+        if (!state.selectedEdgeId) {
+          return
+        }
+        const sourceEdge = state.workspace.edges[state.selectedEdgeId]
+        if (!sourceEdge || !view.edgeIds.includes(sourceEdge.id)) {
+          return
+        }
+
+        const clonedEdgeId = nextNumericId(state.workspace.edges, 'e')
+        const routeOffset = 18
+        state.workspace.edges[clonedEdgeId] = {
+          ...sourceEdge,
+          id: clonedEdgeId,
+          route: {
+            kind: sourceEdge.route.kind,
+            points: sourceEdge.route.points.map((point) => ({
+              x: point.x + routeOffset,
+              y: point.y + routeOffset,
+            })),
+          },
+          style: {
+            ...sourceEdge.style,
+            labelPosition: clampEdgeLabelPosition((sourceEdge.style.labelPosition ?? 0.5) + 0.04),
+            labelSide: resolveEdgeLabelSide(sourceEdge.style.labelSide),
+          },
+        }
+        view.edgeIds.push(clonedEdgeId)
+        state.selectedNodeId = null
+        state.selectedNodeIds = []
+        state.selectedEdgeId = clonedEdgeId
+        result.edgeId = clonedEdgeId
+      })
+
+      return result
+    },
+    autoArrangeCurrentView: (scope) => {
+      set((state) => {
+        const result = autoArrangeView(state.workspace, state.currentViewId, scope)
+        if (!result) {
+          return
+        }
+
+        for (const [nodeId, bounds] of Object.entries(result.nodeBoundsById)) {
+          const node = state.workspace.nodes[nodeId]
+          if (!node) {
+            continue
+          }
+          node.bounds = bounds
+          node.ports = resolveNodePorts(bounds)
+        }
+
+        for (const [edgeId, labelPosition] of Object.entries(result.edgeLabelPositionById)) {
+          const edge = state.workspace.edges[edgeId]
+          if (!edge) {
+            continue
+          }
+          edge.style = {
+            ...edge.style,
+            labelPosition,
+          }
+        }
+
+        for (const [edgeId, labelSide] of Object.entries(result.edgeLabelSideById)) {
+          const edge = state.workspace.edges[edgeId]
+          if (!edge) {
+            continue
+          }
+          edge.style = {
+            ...edge.style,
+            labelSide: resolveEdgeLabelSide(labelSide),
+          }
+        }
+      })
+    },
     setGridEnabled: (enabled) => {
       set((state) => {
         state.workspace.settings.grid = enabled
@@ -715,6 +1093,14 @@ export const useEditorStore = create<EditorState>()(
     setTheme: (theme) => {
       set((state) => {
         state.workspace.settings.theme = theme
+      })
+    },
+    setJourneyFocusSettings: (settings) => {
+      set((state) => {
+        state.workspace.settings.journeyFocus = {
+          ...state.workspace.settings.journeyFocus,
+          ...settings,
+        }
       })
     },
     loadShowcaseWorkspace: () => {
@@ -809,8 +1195,11 @@ export const useEditorStore = create<EditorState>()(
         if (exists) {
           return
         }
-        const n = nextJourneyStepNumber(journey.steps.map((step) => step.n))
-        journey.steps.push({ n, edgeId })
+        const ordered = journey.steps
+          .slice()
+          .sort((left, right) => left.n - right.n)
+        ordered.push({ n: nextJourneyStepNumber(ordered.map((step) => step.n)), edgeId })
+        journey.steps = normalizeJourneySteps(ordered)
       })
     },
     removeEdgeFromJourney: (journeyId, edgeId) => {
@@ -819,7 +1208,37 @@ export const useEditorStore = create<EditorState>()(
         if (!journey) {
           return
         }
-        journey.steps = journey.steps.filter((step) => step.edgeId !== edgeId)
+        const ordered = journey.steps
+          .slice()
+          .sort((left, right) => left.n - right.n)
+          .filter((step) => step.edgeId !== edgeId)
+        journey.steps = normalizeJourneySteps(ordered)
+        if (state.playerJourneyId === journeyId && state.playerStepIndex >= ordered.length) {
+          state.playerStepIndex = Math.max(0, ordered.length - 1)
+          state.playerIsRunning = false
+        }
+      })
+    },
+    reorderJourneyStep: (journeyId, edgeId, targetEdgeId) => {
+      set((state) => {
+        if (edgeId === targetEdgeId) {
+          return
+        }
+        const journey = state.workspace.journeys[journeyId]
+        if (!journey) {
+          return
+        }
+        const ordered = journey.steps
+          .slice()
+          .sort((left, right) => left.n - right.n)
+        const sourceIndex = ordered.findIndex((step) => step.edgeId === edgeId)
+        const targetIndex = ordered.findIndex((step) => step.edgeId === targetEdgeId)
+        if (sourceIndex < 0 || targetIndex < 0) {
+          return
+        }
+        const [moved] = ordered.splice(sourceIndex, 1)
+        ordered.splice(targetIndex, 0, moved)
+        journey.steps = normalizeJourneySteps(ordered)
       })
     },
     setPlayerJourney: (journeyId) => {

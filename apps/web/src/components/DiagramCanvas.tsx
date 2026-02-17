@@ -64,6 +64,11 @@ type ConnectionDragState = {
   sourcePortId: string
 }
 
+type EdgeLabelDragState = {
+  pointerId: number
+  edgeId: string
+}
+
 type ResizeHandle = 'n' | 's' | 'e' | 'w' | 'ne' | 'nw' | 'se' | 'sw'
 
 type DragPreviewState = {
@@ -142,7 +147,10 @@ const FINAL_STEP_ARRIVAL_HOLD_MS = 220
 interface DiagramCanvasProps {
   presentationMode?: boolean
   forceGridHidden?: boolean
-  onEdgePointerStart?: (edgeId: string) => void
+  onEdgePointerStart?: (
+    edgeId: string,
+    event: ReactPointerEvent<SVGGElement>,
+  ) => void
 }
 
 const resolveCurveFromEdge = (
@@ -169,6 +177,26 @@ const resolveCurveFromEdge = (
     fromPortId,
     toPortId,
   }
+}
+
+const resolveNearestCurveProgress = (
+  curve: EdgeCurvePath,
+  point: { x: number; y: number },
+  segments = 80,
+): number => {
+  const safeSegments = Math.max(20, segments)
+  let bestProgress = 0
+  let minDistance = Number.POSITIVE_INFINITY
+  for (let index = 0; index <= safeSegments; index += 1) {
+    const progress = index / safeSegments
+    const curvePoint = cubicPointAt(curve, progress)
+    const distance = Math.hypot(curvePoint.x - point.x, curvePoint.y - point.y)
+    if (distance < minDistance) {
+      minDistance = distance
+      bestProgress = progress
+    }
+  }
+  return bestProgress
 }
 
 const resolveResizeHandleCursor = (handle: ResizeHandle): string => {
@@ -325,6 +353,7 @@ export const DiagramCanvas = ({
   const nodeDragStateRef = useRef<NodeDragState | null>(null)
   const connectionDragRef = useRef<ConnectionDragState | null>(null)
   const edgeReconnectRef = useRef<EdgeReconnectState | null>(null)
+  const edgeLabelDragRef = useRef<EdgeLabelDragState | null>(null)
   const edgeAnchorCycleRef = useRef(new Map<string, number>())
   const canvasRef = useRef<HTMLDivElement | null>(null)
   const trailCanvasRef = useRef<HTMLCanvasElement | null>(null)
@@ -376,6 +405,7 @@ export const DiagramCanvas = ({
   const connectPendingTo = useEditorStore((state) => state.connectPendingTo)
   const cancelPendingConnection = useEditorStore((state) => state.cancelPendingConnection)
   const reconnectEdgeEndpoint = useEditorStore((state) => state.reconnectEdgeEndpoint)
+  const setEdgeLabelPosition = useEditorStore((state) => state.setEdgeLabelPosition)
   const isConnectorMode = activeTool === 'connector' || isCtrlConnectorActive
 
   useEffect(() => {
@@ -383,19 +413,20 @@ export const DiagramCanvas = ({
   }, [viewport])
 
   useEffect(() => {
+    const syncCtrlConnectorMode = (event: KeyboardEvent) => {
+      const enableConnector = event.ctrlKey && !event.altKey && !event.metaKey
+      setIsCtrlConnectorActive(enableConnector)
+    }
+
     const onKeyDown = (event: KeyboardEvent) => {
       if (presentationMode) {
         return
       }
-      if (event.ctrlKey || event.key === 'Control') {
-        setIsCtrlConnectorActive(true)
-      }
+      syncCtrlConnectorMode(event)
     }
 
     const onKeyUp = (event: KeyboardEvent) => {
-      if (event.key === 'Control' || !event.ctrlKey) {
-        setIsCtrlConnectorActive(false)
-      }
+      syncCtrlConnectorMode(event)
     }
 
     const onWindowBlur = () => {
@@ -503,6 +534,10 @@ export const DiagramCanvas = ({
         })
         .filter((item): item is EdgeRenderItem => !!item),
     [visibleEdges, workspace.nodes],
+  )
+  const edgeCurveById = useMemo(
+    () => new Map(edgeRenderItems.map((item) => [item.edge.id, item.curve])),
+    [edgeRenderItems],
   )
   const edgeAnchorHandles = useMemo(() => {
     const handlesByKey = new Map<string, EdgeAnchorHandle>()
@@ -631,6 +666,7 @@ export const DiagramCanvas = ({
   useEffect(() => {
     connectionDragRef.current = null
     edgeReconnectRef.current = null
+    edgeLabelDragRef.current = null
     let resetPreviewFrame = window.requestAnimationFrame(() => {
       setConnectionPreview(null)
       setHoveredConnectionTarget(null)
@@ -660,6 +696,7 @@ export const DiagramCanvas = ({
     stepAdvanceRequestedRef.current = false
     connectionDragRef.current = null
     edgeReconnectRef.current = null
+    edgeLabelDragRef.current = null
     let resetPreviewFrame = window.requestAnimationFrame(() => {
       setConnectionPreview(null)
     })
@@ -1110,6 +1147,7 @@ export const DiagramCanvas = ({
     if (event.button !== 0) {
       return
     }
+    event.preventDefault()
     if (isConnectorMode) {
       return
     }
@@ -1128,6 +1166,18 @@ export const DiagramCanvas = ({
   }
 
   const onBackgroundPointerMove = (event: ReactPointerEvent<SVGSVGElement>): void => {
+    const labelDrag = edgeLabelDragRef.current
+    if (labelDrag && labelDrag.pointerId === event.pointerId) {
+      const currentWorld = clientToWorld(event.clientX, event.clientY)
+      if (currentWorld) {
+        const curve = edgeCurveById.get(labelDrag.edgeId)
+        if (curve) {
+          setEdgeLabelPosition(labelDrag.edgeId, resolveNearestCurveProgress(curve, currentWorld))
+        }
+      }
+      return
+    }
+
     const edgeReconnect = edgeReconnectRef.current
     if (edgeReconnect && edgeReconnect.pointerId === event.pointerId) {
       const currentWorld = clientToWorld(event.clientX, event.clientY)
@@ -1185,6 +1235,16 @@ export const DiagramCanvas = ({
   }
 
   const onBackgroundPointerUp = (event: ReactPointerEvent<SVGSVGElement>): void => {
+    const labelDrag = edgeLabelDragRef.current
+    if (labelDrag?.pointerId === event.pointerId) {
+      edgeLabelDragRef.current = null
+      setDragCursor(null)
+      if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+        event.currentTarget.releasePointerCapture(event.pointerId)
+      }
+      return
+    }
+
     const reconnectDrag = edgeReconnectRef.current
     if (reconnectDrag?.pointerId === event.pointerId) {
       const world = clientToWorld(event.clientX, event.clientY)
@@ -1251,6 +1311,7 @@ export const DiagramCanvas = ({
     if (event.button !== 0) {
       return
     }
+    event.preventDefault()
     event.stopPropagation()
     if (isConnectorMode) {
       const worldPoint = clientToWorld(event.clientX, event.clientY)
@@ -1472,8 +1533,27 @@ export const DiagramCanvas = ({
     if (!isConnectorMode || event.button !== 0) {
       return
     }
+    event.preventDefault()
     event.stopPropagation()
     startConnectionDrag(event.pointerId, node.id, portId, event.currentTarget.ownerSVGElement)
+  }
+
+  const onEdgeLabelPointerDown = (
+    edgeId: string,
+    event: ReactPointerEvent<SVGTextElement>,
+  ): void => {
+    if (presentationMode) {
+      return
+    }
+    if (isConnectorMode) {
+      return
+    }
+    edgeLabelDragRef.current = {
+      pointerId: event.pointerId,
+      edgeId,
+    }
+    setDragCursor('ew-resize')
+    event.currentTarget.ownerSVGElement?.setPointerCapture(event.pointerId)
   }
 
   const onEdgeAnchorPointerDown = (
@@ -1486,6 +1566,7 @@ export const DiagramCanvas = ({
     if (activeTool !== 'select' || event.button !== 0 || !anchor.candidates.length) {
       return
     }
+    event.preventDefault()
     event.stopPropagation()
 
     const world = clientToWorld(event.clientX, event.clientY) ?? { x: anchor.x, y: anchor.y }
@@ -1676,6 +1757,7 @@ export const DiagramCanvas = ({
               isFlowAnimated={animatedEdgeIdSet.has(edge.id)}
               isInteractive={!presentationMode}
               onEdgePointerStart={onEdgePointerStart}
+              onEdgeLabelPointerDown={onEdgeLabelPointerDown}
               onSelect={() => {
                 if (!presentationMode) {
                   selectEdge(edge.id)

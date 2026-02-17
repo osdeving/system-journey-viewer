@@ -9,6 +9,9 @@ import { resolveNodePreset, resolveTechPreset } from '../presets/catalog'
 import type {
   EdgeEndpoint,
   EditorSnapshot,
+  JourneyFilterAutoLayoutMode,
+  JourneyFilterLayoutMode,
+  JourneyFilterOffscopeRenderMode,
   NodeBounds,
   NodeModel,
   ViewportState,
@@ -86,10 +89,15 @@ interface EditorState {
     nodeIds: string[]
     edgeId: string | null
   }
-  autoArrangeCurrentView: () => void
+  autoArrangeCurrentView: (scope?: { nodeIds?: string[]; edgeIds?: string[] }) => void
   setGridEnabled: (enabled: boolean) => void
   setSnapEnabled: (enabled: boolean) => void
   setTheme: (theme: WorkspaceModel['settings']['theme']) => void
+  setJourneyFocusSettings: (settings: Partial<{
+    offscopeRenderMode: JourneyFilterOffscopeRenderMode
+    layoutMode: JourneyFilterLayoutMode
+    autoLayoutMode: JourneyFilterAutoLayoutMode
+  }>) => void
   loadShowcaseWorkspace: () => void
   createJourney: (name?: string) => string
   setActiveJourney: (journeyId: string | null) => void
@@ -1015,9 +1023,9 @@ export const useEditorStore = create<EditorState>()(
 
       return result
     },
-    autoArrangeCurrentView: () => {
+    autoArrangeCurrentView: (scope) => {
       set((state) => {
-        const result = autoArrangeView(state.workspace, state.currentViewId)
+        const result = autoArrangeView(state.workspace, state.currentViewId, scope)
         if (!result) {
           return
         }
@@ -1056,6 +1064,14 @@ export const useEditorStore = create<EditorState>()(
     setTheme: (theme) => {
       set((state) => {
         state.workspace.settings.theme = theme
+      })
+    },
+    setJourneyFocusSettings: (settings) => {
+      set((state) => {
+        state.workspace.settings.journeyFocus = {
+          ...state.workspace.settings.journeyFocus,
+          ...settings,
+        }
       })
     },
     loadShowcaseWorkspace: () => {

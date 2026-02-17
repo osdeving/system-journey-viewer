@@ -4,6 +4,10 @@ import { fallbackAliasFromNodeId, toEdgeLineText, toJourneyStepText, toNodeLineT
 import type { LiteViewAst, LiteWorkspaceAst } from './types'
 import type { WorkspaceModel } from '../model/types'
 
+const MIN_NODE_SIZE = 80
+const MIN_EDGE_LABEL_POSITION = 0.08
+const MAX_EDGE_LABEL_POSITION = 0.92
+
 const slugify = (text: string): string =>
   text
     .toLowerCase()
@@ -68,6 +72,17 @@ const resolveAliasToken = (value: string, fallback: string): string => {
     .replace(/[^A-Za-z0-9_-]+/g, '-')
     .replace(/(^-|-$)/g, '')
   return normalized || fallback
+}
+
+const clampEdgeLabelPosition = (position: number): number =>
+  Math.min(MAX_EDGE_LABEL_POSITION, Math.max(MIN_EDGE_LABEL_POSITION, position))
+
+const toDslNumber = (value: number): string => {
+  if (Number.isInteger(value)) {
+    return String(value)
+  }
+  const rounded = Number(value.toFixed(2))
+  return Number.isInteger(rounded) ? String(rounded) : String(rounded)
 }
 
 const aliasFromNodeIdForView = (nodeId: string, viewId: string): string => {
@@ -205,6 +220,67 @@ const buildViewBlock = (
   ]
     .filter((line): line is string => line !== null)
     .join('\n')
+}
+
+const buildUiLayoutMetadataBlock = (
+  workspace: WorkspaceModel,
+  aliasByView: Record<string, Map<string, string>>,
+  options?: { viewIds?: string[] },
+): string | null => {
+  const scopedViewIds = options?.viewIds?.length
+    ? options.viewIds
+    : Object.keys(workspace.views)
+
+  const viewBlocks = scopedViewIds
+    .map((viewId) => workspace.views[viewId])
+    .filter((view): view is WorkspaceModel['views'][string] => !!view)
+    .map((view) => {
+      const nodeAliasById = aliasByView[view.id] ?? new Map<string, string>()
+      const nodeLines = view.nodeIds
+        .map((nodeId) => workspace.nodes[nodeId])
+        .filter((node): node is WorkspaceModel['nodes'][string] => !!node)
+        .map((node) => {
+          const alias = nodeAliasById.get(node.id)
+          if (!alias) {
+            return null
+          }
+          return `      node ${alias} at ${toDslNumber(node.bounds.x)} ${toDslNumber(node.bounds.y)} size ${toDslNumber(node.bounds.w)} ${toDslNumber(node.bounds.h)}`
+        })
+        .filter((line): line is string => !!line)
+
+      const edgeLines = view.edgeIds
+        .map((edgeId) => workspace.edges[edgeId])
+        .filter((edge): edge is WorkspaceModel['edges'][string] => !!edge)
+        .map((edge) => {
+          const fromAlias = nodeAliasById.get(edge.from.nodeId)
+          const toAlias = nodeAliasById.get(edge.to.nodeId)
+          if (!fromAlias || !toAlias) {
+            return null
+          }
+          return `      edge ${fromAlias} -> ${toAlias} label ${toDslNumber(
+            clampEdgeLabelPosition(edge.style.labelPosition ?? 0.5),
+          )}`
+        })
+        .filter((line): line is string => !!line)
+
+      if (!nodeLines.length && !edgeLines.length) {
+        return null
+      }
+
+      return [
+        `    view ${view.id} {`,
+        ...nodeLines,
+        ...edgeLines,
+        '    }',
+      ].join('\n')
+    })
+    .filter((block): block is string => !!block)
+
+  if (!viewBlocks.length) {
+    return null
+  }
+
+  return ['  metadata ui-layout {', ...viewBlocks, '  }'].join('\n')
 }
 
 export const liteToFullWorkspace = (ast: LiteWorkspaceAst): WorkspaceModel => {
@@ -423,6 +499,49 @@ export const liteToFullWorkspace = (ast: LiteWorkspaceAst): WorkspaceModel => {
     boundary.ports = resolveNodePorts(boundary.bounds)
   }
 
+  for (const layoutView of ast.uiLayout ?? []) {
+    const resolvedLayoutViewId = resolveViewRef(layoutView.viewId)
+    if (!resolvedLayoutViewId || !views[resolvedLayoutViewId]) {
+      continue
+    }
+    const view = views[resolvedLayoutViewId]
+    const aliasMap = aliasToNodeIdByView.get(resolvedLayoutViewId)
+    const edgeLookup = edgeLookupByView.get(resolvedLayoutViewId)
+
+    for (const nodeLayout of layoutView.nodes) {
+      const nodeId = aliasMap?.get(nodeLayout.alias)
+      if (!nodeId || !view.nodeIds.includes(nodeId)) {
+        continue
+      }
+      const node = nodes[nodeId]
+      if (!node) {
+        continue
+      }
+      node.bounds = {
+        x: nodeLayout.x,
+        y: nodeLayout.y,
+        w: Math.max(MIN_NODE_SIZE, nodeLayout.w),
+        h: Math.max(MIN_NODE_SIZE, nodeLayout.h),
+      }
+      node.ports = resolveNodePorts(node.bounds)
+    }
+
+    for (const edgeLayout of layoutView.edges) {
+      const edgeId = edgeLookup?.get(`${edgeLayout.fromAlias}->${edgeLayout.toAlias}`)
+      if (!edgeId || !view.edgeIds.includes(edgeId)) {
+        continue
+      }
+      const edge = edges[edgeId]
+      if (!edge) {
+        continue
+      }
+      edge.style = {
+        ...edge.style,
+        labelPosition: clampEdgeLabelPosition(edgeLayout.labelPosition),
+      }
+    }
+  }
+
   return {
     schemaVersion: '1.0',
     workspace: { id: workspaceId, name: ast.workspaceName },
@@ -434,6 +553,11 @@ export const liteToFullWorkspace = (ast: LiteWorkspaceAst): WorkspaceModel => {
       grid: false,
       snap: false,
       theme: 'light',
+      journeyFocus: {
+        offscopeRenderMode: 'dim',
+        layoutMode: 'preserve',
+        autoLayoutMode: 'manual',
+      },
     },
   }
 }
@@ -449,8 +573,10 @@ export const fullWorkspaceToLiteDsl = (workspace: WorkspaceModel): string => {
     .map((viewId) => workspace.views[viewId])
     .filter((view) => !!view)
     .map((view) => buildViewBlock(workspace, view, aliasByView))
+  const uiLayoutBlock = buildUiLayoutMetadataBlock(workspace, aliasByView, { viewIds })
+  const sections = uiLayoutBlock ? [...viewBlocks, uiLayoutBlock] : viewBlocks
 
-  return [`workspace "${workspace.workspace.name}" {`, ...viewBlocks, '}'].join('\n\n')
+  return [`workspace "${workspace.workspace.name}" {`, ...sections, '}'].join('\n\n')
 }
 
 export const fullViewToLiteDsl = (workspace: WorkspaceModel, viewId: string): string => {
@@ -460,5 +586,8 @@ export const fullViewToLiteDsl = (workspace: WorkspaceModel, viewId: string): st
   }
   const aliasByView = buildAliasMapByView(workspace)
   const viewBlock = buildViewBlock(workspace, view, aliasByView)
-  return [`workspace "${workspace.workspace.name}" {`, viewBlock, '}'].join('\n\n')
+  const uiLayoutBlock = buildUiLayoutMetadataBlock(workspace, aliasByView, { viewIds: [viewId] })
+  return [`workspace "${workspace.workspace.name}" {`, viewBlock, uiLayoutBlock, '}']
+    .filter((line): line is string => !!line)
+    .join('\n\n')
 }

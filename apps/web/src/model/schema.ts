@@ -102,6 +102,17 @@ export const workspaceSchema = z.object({
     grid: z.boolean(),
     snap: z.boolean(),
     theme: z.enum(['light', 'dark']).default('light'),
+    journeyFocus: z
+      .object({
+        offscopeRenderMode: z.enum(['show', 'hide', 'dim']).default('dim'),
+        layoutMode: z.enum(['preserve', 'reflow']).default('preserve'),
+        autoLayoutMode: z.enum(['manual', 'always']).default('manual'),
+      })
+      .default({
+        offscopeRenderMode: 'dim',
+        layoutMode: 'preserve',
+        autoLayoutMode: 'manual',
+      }),
   }),
 })
 

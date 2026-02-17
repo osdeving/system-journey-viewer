@@ -33,6 +33,11 @@ describe('workspaceSchema', () => {
     expect(parsed.success).toBe(true)
     if (parsed.success) {
       expect(parsed.data.settings.theme).toBe('light')
+      expect(parsed.data.settings.journeyFocus).toEqual({
+        offscopeRenderMode: 'dim',
+        layoutMode: 'preserve',
+        autoLayoutMode: 'manual',
+      })
     }
   })
 

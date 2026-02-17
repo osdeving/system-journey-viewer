@@ -1,5 +1,9 @@
 export type ViewKind = 'system-context' | 'container' | 'component' | 'hex'
 
+export type JourneyFilterOffscopeRenderMode = 'show' | 'hide' | 'dim'
+export type JourneyFilterLayoutMode = 'preserve' | 'reflow'
+export type JourneyFilterAutoLayoutMode = 'manual' | 'always'
+
 export type NodeKind =
   | 'system'
   | 'container'
@@ -122,6 +126,11 @@ export interface WorkspaceModel {
     grid: boolean
     snap: boolean
     theme: 'light' | 'dark'
+    journeyFocus: {
+      offscopeRenderMode: JourneyFilterOffscopeRenderMode
+      layoutMode: JourneyFilterLayoutMode
+      autoLayoutMode: JourneyFilterAutoLayoutMode
+    }
   }
 }
 

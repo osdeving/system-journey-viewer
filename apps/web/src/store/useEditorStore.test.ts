@@ -218,6 +218,22 @@ describe('useEditorStore', () => {
     expect(updated.workspace.edges.e_c_1.style.labelPosition).toBeCloseTo(0.92, 5)
   })
 
+  it('updates journey focus rendering/layout settings', () => {
+    const state = useEditorStore.getState()
+    state.setJourneyFocusSettings({
+      offscopeRenderMode: 'hide',
+      layoutMode: 'reflow',
+      autoLayoutMode: 'always',
+    })
+
+    const updated = useEditorStore.getState()
+    expect(updated.workspace.settings.journeyFocus).toEqual({
+      offscopeRenderMode: 'hide',
+      layoutMode: 'reflow',
+      autoLayoutMode: 'always',
+    })
+  })
+
   it('auto-arranges current view with best-effort spacing and label updates', () => {
     const state = useEditorStore.getState()
     state.setNodeBounds('n_frontend', {
@@ -266,6 +282,21 @@ describe('useEditorStore', () => {
     expect(updated.workspace.nodes.n_frontend.bounds.w).toBeGreaterThanOrEqual(120)
     expect(updated.workspace.edges.e_c_1.style.labelPosition ?? 0).toBeGreaterThanOrEqual(0.08)
     expect(updated.workspace.edges.e_c_1.style.labelPosition ?? 1).toBeLessThanOrEqual(0.92)
+  })
+
+  it('supports scoped auto-arrange without moving out-of-scope nodes', () => {
+    const state = useEditorStore.getState()
+    const dbBefore = { ...state.workspace.nodes.n_db.bounds }
+    const frontendBefore = { ...state.workspace.nodes.n_frontend.bounds }
+
+    state.autoArrangeCurrentView({
+      nodeIds: ['n_frontend', 'n_gateway'],
+      edgeIds: ['e_c_1'],
+    })
+    const updated = useEditorStore.getState()
+
+    expect(updated.workspace.nodes.n_db.bounds).toEqual(dbBefore)
+    expect(updated.workspace.nodes.n_frontend.bounds.x).not.toBe(frontendBefore.x)
   })
 
   it('allows one edge in multiple journeys with independent numbering', () => {

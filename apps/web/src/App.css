@@ -729,6 +729,11 @@
   filter: drop-shadow(0 0 8px color-mix(in srgb, var(--sjv-node-highlight) 45%, transparent));
 }
 
+.node-journey-dimmed {
+  opacity: 0.28;
+  filter: saturate(0.5);
+}
+
 .node-title {
   fill: #0f172a;
   font-size: 14px;
@@ -820,6 +825,11 @@
   filter: drop-shadow(0 0 10px color-mix(in srgb, var(--sjv-edge-player) 50%, transparent));
 }
 
+.edge-dimmed {
+  opacity: 0.24;
+  filter: drop-shadow(0 0 1px color-mix(in srgb, var(--sjv-edge) 18%, transparent));
+}
+
 .edge-flowing {
   stroke-dasharray: 6 6;
 }
@@ -855,6 +865,10 @@
 
 .edge-label-draggable {
   cursor: ew-resize;
+}
+
+.edge-label-dimmed {
+  opacity: 0.36;
 }
 
 .edge-selected-indicator {

@@ -35,6 +35,11 @@ export type AutoArrangeResult = {
   edgeLabelPositionById: Record<string, number>
 }
 
+export type AutoArrangeScope = {
+  nodeIds?: string[]
+  edgeIds?: string[]
+}
+
 const clamp = (value: number, min: number, max: number): number =>
   Math.min(max, Math.max(min, value))
 
@@ -152,13 +157,25 @@ const resolveEntryRankDirection = (kind: WorkspaceModel['views'][string]['kind']
 export const autoArrangeView = (
   workspace: WorkspaceModel,
   viewId: string,
+  scope?: AutoArrangeScope,
 ): AutoArrangeResult | null => {
   const view = workspace.views[viewId]
   if (!view) {
     return null
   }
 
-  const viewNodeIds = view.nodeIds.filter((nodeId) => Boolean(workspace.nodes[nodeId]))
+  const scopedNodeSet = scope?.nodeIds?.length ? new Set(scope.nodeIds) : null
+  const scopedEdgeSet = scope?.edgeIds?.length ? new Set(scope.edgeIds) : null
+
+  const viewNodeIds = view.nodeIds.filter((nodeId) => {
+    if (!workspace.nodes[nodeId]) {
+      return false
+    }
+    if (!scopedNodeSet) {
+      return true
+    }
+    return scopedNodeSet.has(nodeId)
+  })
   if (!viewNodeIds.length) {
     return null
   }
@@ -166,7 +183,10 @@ export const autoArrangeView = (
   const groupedBoundaryIds = new Set(
     viewNodeIds.filter((nodeId) => {
       const node = workspace.nodes[nodeId]
-      return node?.kind === 'boundary' && node.children.some((childId) => viewNodeIds.includes(childId))
+      return (
+        node?.kind === 'boundary' &&
+        node.children.some((childId) => viewNodeIds.includes(childId))
+      )
     }),
   )
 
@@ -191,6 +211,9 @@ export const autoArrangeView = (
   }
 
   for (const edgeId of view.edgeIds) {
+    if (scopedEdgeSet && !scopedEdgeSet.has(edgeId)) {
+      continue
+    }
     const edge = workspace.edges[edgeId]
     if (!edge) {
       continue
@@ -276,6 +299,9 @@ export const autoArrangeView = (
   const edgeLabelPositionById: Record<string, number> = {}
   const placedLabels: LabelRect[] = []
   for (const edgeId of view.edgeIds) {
+    if (scopedEdgeSet && !scopedEdgeSet.has(edgeId)) {
+      continue
+    }
     const edge = workspace.edges[edgeId]
     if (!edge) {
       continue
@@ -289,11 +315,14 @@ export const autoArrangeView = (
     const candidates = Array.from(
       new Set([
         preferredPosition,
+        0.16,
+        0.24,
+        0.34,
         0.34,
         0.5,
         0.66,
-        0.24,
         0.76,
+        0.84,
       ].map((value) => clampLabelPosition(value))),
     )
     const labelText = edge.protocolPresetId
@@ -318,13 +347,13 @@ export const autoArrangeView = (
       for (const placed of placedLabels) {
         const overlapArea = resolveOverlapArea(rect, placed)
         if (overlapArea > 0) {
-          score += 220 + overlapArea * 0.06
+          score += 280 + overlapArea * 0.08
         }
       }
       for (const nodeBounds of Object.values(nodeBoundsById)) {
         const overlapArea = resolveOverlapArea(rect, nodeBounds)
         if (overlapArea > 0) {
-          score += 120 + overlapArea * 0.04
+          score += 160 + overlapArea * 0.05
         }
       }
 

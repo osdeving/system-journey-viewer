@@ -54,9 +54,11 @@ import {
   parseWorkspaceSnapshotFile,
   serializeWorkspaceSnapshotFile,
 } from './file/workspaceFile'
+import { resolveJourneyFocusScope } from './journeys/focus'
 import { BLANK_WORKSPACE_VIEW_ID, createBlankWorkspace } from './model/blankWorkspace'
 import type { EditorSnapshot, WorkspaceModel } from './model/types'
 import { nodePresetsByCategory, protocolPresets, resolveNodePreset } from './presets/catalog'
+import { applyWorkspaceLayout, loadWorkspaceLayout, saveWorkspaceLayout } from './store/layoutPersistence'
 import { useEditorStore } from './store/useEditorStore'
 
 const DEBOUNCE_SAVE_MS = 900
@@ -207,6 +209,7 @@ function App() {
   const setGridEnabled = useEditorStore((state) => state.setGridEnabled)
   const setSnapEnabled = useEditorStore((state) => state.setSnapEnabled)
   const setTheme = useEditorStore((state) => state.setTheme)
+  const setJourneyFocusSettings = useEditorStore((state) => state.setJourneyFocusSettings)
   const loadShowcaseWorkspace = useEditorStore((state) => state.loadShowcaseWorkspace)
   const createJourney = useEditorStore((state) => state.createJourney)
   const setActiveJourney = useEditorStore((state) => state.setActiveJourney)
@@ -238,6 +241,7 @@ function App() {
   const [exportStatus, setExportStatus] = useState<string | null>(null)
   const [draggedEdgeId, setDraggedEdgeId] = useState<string | null>(null)
   const [animatedExportRunning, setAnimatedExportRunning] = useState(false)
+  const [exportFocusJourneyId, setExportFocusJourneyId] = useState<string | null>(null)
   const [leftSidebarWidth, setLeftSidebarWidth] = useState(DEFAULT_LEFT_SIDEBAR_WIDTH)
   const [journeyHeight, setJourneyHeight] = useState(DEFAULT_JOURNEY_HEIGHT)
   const [drawerTab, setDrawerTab] = useState<DrawerTab>('journeys')
@@ -251,6 +255,7 @@ function App() {
   const [dockTabOrder, setDockTabOrder] = useState<DockTab[]>(DEFAULT_DOCK_TAB_ORDER)
   const [activeDockTab, setActiveDockTab] = useState<DockTab>('inspector')
   const [openDesktopMenu, setOpenDesktopMenu] = useState<DesktopMenuId | null>(null)
+  const lastJourneyAutoLayoutKeyRef = useRef<string | null>(null)
 
   const selectedNode = selectedNodeId ? workspace.nodes[selectedNodeId] : undefined
   const selectedEdge = selectedEdgeId ? workspace.edges[selectedEdgeId] : undefined
@@ -301,6 +306,19 @@ function App() {
         .filter((journey) => !!journey),
     [currentView.journeyIds, workspace.journeys],
   ) as Array<(typeof workspace.journeys)[string]>
+  const journeyFocusSettings = workspace.settings.journeyFocus
+  const journeyFocusScope = useMemo(
+    () => resolveJourneyFocusScope(workspace, currentViewId, journeyFilterId),
+    [currentViewId, journeyFilterId, workspace],
+  )
+  const journeyFocusNodeIds = useMemo(
+    () => Array.from(journeyFocusScope?.nodeIds ?? []),
+    [journeyFocusScope],
+  )
+  const journeyFocusEdgeIds = useMemo(
+    () => Array.from(journeyFocusScope?.edgeIds ?? []),
+    [journeyFocusScope],
+  )
   const activeJourney = activeJourneyId ? workspace.journeys[activeJourneyId] : undefined
   const activeJourneySteps = useMemo(
     () =>
@@ -585,8 +603,10 @@ function App() {
         try {
           const ast = parseLiteDsl(payload)
           const importedWorkspace = liteToFullWorkspace(ast)
-          const entryViewId = resolveEntryViewId(importedWorkspace)
-          replaceWorkspace(importedWorkspace, entryViewId)
+          const restoredLayout = loadWorkspaceLayout(importedWorkspace.workspace.id)
+          const workspaceWithLayout = applyWorkspaceLayout(importedWorkspace, restoredLayout)
+          const entryViewId = resolveEntryViewId(workspaceWithLayout)
+          replaceWorkspace(workspaceWithLayout, entryViewId)
           setViewport(DEFAULT_FILE_VIEWPORT)
           workspaceFileHandleRef.current = options?.fileHandle ?? null
           setDslText(payload)
@@ -859,10 +879,32 @@ function App() {
   }, [duplicateSelection, setTransientStatus])
 
   const runAutoArrange = useCallback(() => {
+    if (
+      journeyFilterId &&
+      journeyFocusSettings.layoutMode === 'reflow' &&
+      journeyFocusNodeIds.length > 0 &&
+      journeyFocusEdgeIds.length > 0
+    ) {
+      autoArrangeCurrentView({
+        nodeIds: journeyFocusNodeIds,
+        edgeIds: journeyFocusEdgeIds,
+      })
+      setTransientStatus('Journey-focused auto layout applied.')
+      setExportError(null)
+      return
+    }
+
     autoArrangeCurrentView()
     setTransientStatus('Auto arrange applied to current view.')
     setExportError(null)
-  }, [autoArrangeCurrentView, setTransientStatus])
+  }, [
+    autoArrangeCurrentView,
+    journeyFilterId,
+    journeyFocusEdgeIds,
+    journeyFocusNodeIds,
+    journeyFocusSettings.layoutMode,
+    setTransientStatus,
+  ])
 
   const handleDslEditorBeforeMount = (monaco: Monaco): void => {
     registerJourneyScriptLanguage(monaco)
@@ -945,6 +987,53 @@ function App() {
     const timeout = window.setTimeout(() => persist(), DEBOUNCE_SAVE_MS)
     return () => window.clearTimeout(timeout)
   }, [workspace, currentViewId, viewport, persist])
+
+  useEffect(() => {
+    const timeout = window.setTimeout(() => {
+      saveWorkspaceLayout(workspace)
+    }, DEBOUNCE_SAVE_MS)
+    return () => window.clearTimeout(timeout)
+  }, [workspace])
+
+  useEffect(() => {
+    if (journeyFocusSettings.autoLayoutMode !== 'always') {
+      lastJourneyAutoLayoutKeyRef.current = null
+      return
+    }
+    if (journeyFocusSettings.layoutMode !== 'reflow') {
+      lastJourneyAutoLayoutKeyRef.current = null
+      return
+    }
+    if (!journeyFilterId || !journeyFocusNodeIds.length || !journeyFocusEdgeIds.length) {
+      lastJourneyAutoLayoutKeyRef.current = null
+      return
+    }
+
+    const key = [
+      currentViewId,
+      journeyFilterId,
+      journeyFocusNodeIds.join(','),
+      journeyFocusEdgeIds.join(','),
+    ].join('::')
+
+    if (lastJourneyAutoLayoutKeyRef.current === key) {
+      return
+    }
+
+    autoArrangeCurrentView({
+      nodeIds: journeyFocusNodeIds,
+      edgeIds: journeyFocusEdgeIds,
+    })
+    lastJourneyAutoLayoutKeyRef.current = key
+  }, [
+    autoArrangeCurrentView,
+    currentViewId,
+    journeyFilterId,
+    journeyFocusEdgeIds,
+    journeyFocusNodeIds,
+    journeyFocusSettings.autoLayoutMode,
+    journeyFocusSettings.layoutMode,
+  ])
 
   useEffect(() => {
     if (!playerConfettiNonce) {
@@ -1330,6 +1419,8 @@ function App() {
 
     setExportError(null)
     setAnimatedExportRunning(true)
+    setExportFocusJourneyId(journeyId)
+    await waitForCanvasFrames(3)
 
     if (format === 'svg') {
       try {
@@ -1346,6 +1437,7 @@ function App() {
       } catch (error) {
         setExportError(error instanceof Error ? error.message : 'Falha ao exportar SVG animado.')
       } finally {
+        setExportFocusJourneyId(null)
         setAnimatedExportRunning(false)
       }
       return
@@ -1413,6 +1505,7 @@ function App() {
       setExportError(error instanceof Error ? error.message : 'Falha ao exportar jornada animada.')
     } finally {
       restorePlayerAfterAnimatedExport(snapshot)
+      setExportFocusJourneyId(null)
       setAnimatedExportRunning(false)
     }
   }
@@ -1637,6 +1730,51 @@ function App() {
         </select>
         <button type="button" onClick={() => setJourneyFilter(null)}>
           Limpar filtro
+        </button>
+        <select
+          value={journeyFocusSettings.offscopeRenderMode}
+          onChange={(event) =>
+            setJourneyFocusSettings({
+              offscopeRenderMode: event.target.value as typeof journeyFocusSettings.offscopeRenderMode,
+            })
+          }
+        >
+          <option value="show">Foco: mostrar tudo</option>
+          <option value="dim">Foco: cinza fora da jornada</option>
+          <option value="hide">Foco: ocultar fora da jornada</option>
+        </select>
+        <select
+          value={journeyFocusSettings.layoutMode}
+          onChange={(event) =>
+            setJourneyFocusSettings({
+              layoutMode: event.target.value as typeof journeyFocusSettings.layoutMode,
+            })
+          }
+        >
+          <option value="preserve">Layout filtro: preservar posições</option>
+          <option value="reflow">Layout filtro: reflow da jornada</option>
+        </select>
+        <select
+          value={journeyFocusSettings.autoLayoutMode}
+          onChange={(event) =>
+            setJourneyFocusSettings({
+              autoLayoutMode: event.target.value as typeof journeyFocusSettings.autoLayoutMode,
+            })
+          }
+        >
+          <option value="manual">Auto-layout: aplicar manual</option>
+          <option value="always">Auto-layout: sempre no filtro</option>
+        </select>
+        <button
+          type="button"
+          onClick={() => runAutoArrange()}
+          disabled={
+            journeyFocusSettings.layoutMode !== 'reflow' ||
+            !journeyFilterId ||
+            !journeyFocusNodeIds.length
+          }
+        >
+          Apply layout now
         </button>
       </div>
       <div className="journey-side-player">
@@ -2509,6 +2647,7 @@ function App() {
         <DiagramCanvas
           presentationMode={presentationMode}
           forceGridHidden={presentationMode}
+          exportFocusJourneyId={exportFocusJourneyId}
           onEdgePointerStart={(edgeId, event) => {
             if (
               event.ctrlKey ||
@@ -2614,8 +2753,10 @@ function App() {
                   try {
                     const ast = parseLiteDsl(dslText)
                     const imported = liteToFullWorkspace(ast)
-                    const nextViewId = resolveEntryViewId(imported)
-                    replaceWorkspace(imported, nextViewId)
+                    const restoredLayout = loadWorkspaceLayout(imported.workspace.id)
+                    const workspaceWithLayout = applyWorkspaceLayout(imported, restoredLayout)
+                    const nextViewId = resolveEntryViewId(workspaceWithLayout)
+                    replaceWorkspace(workspaceWithLayout, nextViewId)
                     setDslError(null)
                   } catch (error) {
                     setDslError(error instanceof Error ? error.message : 'Falha ao importar DSL.')

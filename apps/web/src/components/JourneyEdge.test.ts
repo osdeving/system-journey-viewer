@@ -8,6 +8,7 @@ describe('resolveJourneyEdgeClassName', () => {
         isSelected: false,
         isPlayerEdge: false,
         isFlowAnimated: false,
+        isDimmed: false,
       }),
     ).toBe(
       'edge edge-flowing',
@@ -20,7 +21,19 @@ describe('resolveJourneyEdgeClassName', () => {
         isSelected: true,
         isPlayerEdge: true,
         isFlowAnimated: true,
+        isDimmed: false,
       }),
     ).toBe('edge edge-selected edge-player-active edge-flowing edge-flowing-animated')
+  })
+
+  it('applies dimmed class for off-scope edges in journey focus mode', () => {
+    expect(
+      resolveJourneyEdgeClassName({
+        isSelected: false,
+        isPlayerEdge: false,
+        isFlowAnimated: false,
+        isDimmed: true,
+      }),
+    ).toBe('edge edge-dimmed edge-flowing')
   })
 })

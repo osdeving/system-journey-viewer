@@ -82,6 +82,7 @@ export interface EdgeModel {
     thickness: number
     arrow: boolean
     labelPosition?: number
+    labelSide?: 'left' | 'right'
   }
 }
 

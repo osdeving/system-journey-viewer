@@ -28,7 +28,7 @@ import {
   resolveHexagonShape,
   resolveQueueCylinderShape,
 } from './nodeShapePaths'
-import { curveToSvgPath, cubicPointAt, type EdgeCurvePath } from './edgePresentation'
+import { curveToSvgPath, cubicPointAt, cubicTangentAt, type EdgeCurvePath } from './edgePresentation'
 import {
   resolveArrivalAdvance,
   resolveTravelProgress,
@@ -199,6 +199,20 @@ const resolveNearestCurveProgress = (
     }
   }
   return bestProgress
+}
+
+const resolveLabelSideForPointer = (
+  curve: EdgeCurvePath,
+  progress: number,
+  pointer: { x: number; y: number },
+): 'left' | 'right' => {
+  const anchor = cubicPointAt(curve, progress)
+  const tangent = cubicTangentAt(curve, progress)
+  const isVertical = Math.abs(tangent.y) > Math.abs(tangent.x) * 1.18
+  if (isVertical) {
+    return pointer.x <= anchor.x ? 'left' : 'right'
+  }
+  return pointer.y <= anchor.y ? 'left' : 'right'
 }
 
 const resolveResizeHandleCursor = (handle: ResizeHandle): string => {
@@ -409,6 +423,7 @@ export const DiagramCanvas = ({
   const cancelPendingConnection = useEditorStore((state) => state.cancelPendingConnection)
   const reconnectEdgeEndpoint = useEditorStore((state) => state.reconnectEdgeEndpoint)
   const setEdgeLabelPosition = useEditorStore((state) => state.setEdgeLabelPosition)
+  const setEdgeLabelSide = useEditorStore((state) => state.setEdgeLabelSide)
   const isConnectorMode = activeTool === 'connector' || isCtrlConnectorActive
 
   useEffect(() => {
@@ -1191,7 +1206,10 @@ export const DiagramCanvas = ({
       if (currentWorld) {
         const curve = edgeCurveById.get(labelDrag.edgeId)
         if (curve) {
-          setEdgeLabelPosition(labelDrag.edgeId, resolveNearestCurveProgress(curve, currentWorld))
+          const nextPosition = resolveNearestCurveProgress(curve, currentWorld)
+          const nextSide = resolveLabelSideForPointer(curve, nextPosition, currentWorld)
+          setEdgeLabelPosition(labelDrag.edgeId, nextPosition)
+          setEdgeLabelSide(labelDrag.edgeId, nextSide)
         }
       }
       return
@@ -1571,7 +1589,7 @@ export const DiagramCanvas = ({
       pointerId: event.pointerId,
       edgeId,
     }
-    setDragCursor('ew-resize')
+    setDragCursor('move')
     event.currentTarget.ownerSVGElement?.setPointerCapture(event.pointerId)
   }
 

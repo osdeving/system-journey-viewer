@@ -15,6 +15,13 @@ const HORIZONTAL_TEXT_PADDING = 60
 const BOUNDARY_PADDING_X = 64
 const BOUNDARY_PADDING_TOP = 64
 const BOUNDARY_PADDING_BOTTOM = 44
+const EDGE_LABEL_FONT_SIZE = 11
+const EDGE_LABEL_HEIGHT = 20
+const EDGE_LABEL_PADDING_X = 20
+const EDGE_LABEL_OFFSET = 15
+const EDGE_LABEL_MIN_GAP = 14
+const EDGE_LABEL_NODE_MIN_GAP = 12
+const EDGE_LABEL_END_MARGIN_PX = 34
 
 type LabelRect = {
   x: number
@@ -33,6 +40,7 @@ type EdgeCurve = {
 export type AutoArrangeResult = {
   nodeBoundsById: Record<string, NodeBounds>
   edgeLabelPositionById: Record<string, number>
+  edgeLabelSideById: Record<string, 'left' | 'right'>
 }
 
 export type AutoArrangeScope = {
@@ -120,10 +128,129 @@ const cubicPointAt = (
   }
 }
 
+const cubicTangentAt = (
+  curve: EdgeCurve,
+  progress: number,
+): { x: number; y: number } => {
+  const p = clamp(progress, 0, 1)
+  const inverse = 1 - p
+  return {
+    x:
+      3 * inverse ** 2 * (curve.control1.x - curve.start.x) +
+      6 * inverse * p * (curve.control2.x - curve.control1.x) +
+      3 * p ** 2 * (curve.end.x - curve.control2.x),
+    y:
+      3 * inverse ** 2 * (curve.control1.y - curve.start.y) +
+      6 * inverse * p * (curve.control2.y - curve.control1.y) +
+      3 * p ** 2 * (curve.end.y - curve.control2.y),
+  }
+}
+
+const estimateCurveLength = (
+  curve: EdgeCurve,
+  segments = 28,
+): number => {
+  const safeSegments = Math.max(10, segments)
+  let previous = cubicPointAt(curve, 0)
+  let length = 0
+  for (let index = 1; index <= safeSegments; index += 1) {
+    const point = cubicPointAt(curve, index / safeSegments)
+    length += Math.hypot(point.x - previous.x, point.y - previous.y)
+    previous = point
+  }
+  return length
+}
+
+const normalizeVector = (vector: { x: number; y: number }): { x: number; y: number } => {
+  const length = Math.hypot(vector.x, vector.y)
+  if (length <= 0.0001) {
+    return { x: 1, y: 0 }
+  }
+  return {
+    x: vector.x / length,
+    y: vector.y / length,
+  }
+}
+
+const resolveEdgeLabelSide = (side?: string): 'left' | 'right' =>
+  side === 'right' ? 'right' : 'left'
+
+const resolveReadableDirection = (
+  tangent: { x: number; y: number },
+): { direction: { x: number; y: number }; angleDeg: number; isVertical: boolean } => {
+  const normalized = normalizeVector(tangent)
+  const isVertical = Math.abs(normalized.y) > Math.abs(normalized.x) * 1.18
+  if (isVertical) {
+    return {
+      direction: { x: 0, y: -1 },
+      angleDeg: -90,
+      isVertical: true,
+    }
+  }
+  const readable =
+    normalized.x < 0
+      ? {
+          x: -normalized.x,
+          y: -normalized.y,
+        }
+      : normalized
+  return {
+    direction: readable,
+    angleDeg: (Math.atan2(readable.y, readable.x) * 180) / Math.PI,
+    isVertical: false,
+  }
+}
+
+const resolveLabelRect = (
+  curve: EdgeCurve,
+  position: number,
+  side: 'left' | 'right',
+  labelWidth: number,
+  labelHeight: number,
+): LabelRect => {
+  const anchor = cubicPointAt(curve, position)
+  const tangent = cubicTangentAt(curve, position)
+  const readable = resolveReadableDirection(tangent)
+
+  let leftOffset: { x: number; y: number }
+  if (readable.isVertical) {
+    leftOffset = { x: -1, y: 0 }
+  } else if (Math.abs(readable.direction.x) >= Math.abs(readable.direction.y)) {
+    leftOffset = { x: 0, y: -1 }
+  } else {
+    leftOffset = normalizeVector({
+      x: -readable.direction.y,
+      y: readable.direction.x,
+    })
+  }
+
+  const sideFactor = side === 'left' ? 1 : -1
+  const centerX = anchor.x + leftOffset.x * sideFactor * EDGE_LABEL_OFFSET
+  const centerY = anchor.y + leftOffset.y * sideFactor * EDGE_LABEL_OFFSET
+  const radians = Math.abs((readable.angleDeg * Math.PI) / 180)
+  const cos = Math.abs(Math.cos(radians))
+  const sin = Math.abs(Math.sin(radians))
+  const rotatedWidth = labelWidth * cos + labelHeight * sin
+  const rotatedHeight = labelWidth * sin + labelHeight * cos
+
+  return {
+    x: centerX - rotatedWidth / 2,
+    y: centerY - rotatedHeight / 2,
+    w: rotatedWidth,
+    h: rotatedHeight,
+  }
+}
+
 const resolveOverlapArea = (left: LabelRect, right: LabelRect): number => {
   const overlapX = Math.max(0, Math.min(left.x + left.w, right.x + right.w) - Math.max(left.x, right.x))
   const overlapY = Math.max(0, Math.min(left.y + left.h, right.y + right.h) - Math.max(left.y, right.y))
   return overlapX * overlapY
+}
+
+const resolveRectGap = (left: LabelRect, right: LabelRect): number => {
+  const horizontalGap = Math.max(0, Math.max(left.x, right.x) - Math.min(left.x + left.w, right.x + right.w))
+  const verticalGap = Math.max(0, Math.max(left.y, right.y) - Math.min(left.y + left.h, right.y + right.h))
+  return Math.hypot(horizontalGap, verticalGap)
 }
 
 const resolveBoundaryBoundsFromChildren = (
@@ -221,8 +348,13 @@ export const autoArrangeView = (
     if (!graphNodeIds.includes(edge.from.nodeId) || !graphNodeIds.includes(edge.to.nodeId)) {
       continue
     }
+    const labelText = edge.protocolPresetId
+      ? `${edge.label} (${edge.protocolPresetId})`
+      : edge.label
+    const labelWidth = Math.max(48, estimateTextWidth(labelText, EDGE_LABEL_FONT_SIZE) + EDGE_LABEL_PADDING_X)
+    const minLengthByLabel = Math.ceil(labelWidth / 130)
     graph.setEdge(edge.from.nodeId, edge.to.nodeId, {
-      minlen: clamp(Math.ceil(edge.label.length / 28), 1, 4),
+      minlen: clamp(Math.max(Math.ceil(edge.label.length / 28), minLengthByLabel), 1, 6),
       weight: 2,
     })
   }
@@ -297,6 +429,7 @@ export const autoArrangeView = (
   }
 
   const edgeLabelPositionById: Record<string, number> = {}
+  const edgeLabelSideById: Record<string, 'left' | 'right'> = {}
   const placedLabels: LabelRect[] = []
   for (const edgeId of view.edgeIds) {
     if (scopedEdgeSet && !scopedEdgeSet.has(edgeId)) {
@@ -312,59 +445,89 @@ export const autoArrangeView = (
     }
 
     const preferredPosition = clampLabelPosition(edge.style.labelPosition ?? 0.5)
-    const candidates = Array.from(
-      new Set([
-        preferredPosition,
-        0.16,
-        0.24,
-        0.34,
-        0.34,
-        0.5,
-        0.66,
-        0.76,
-        0.84,
-      ].map((value) => clampLabelPosition(value))),
-    )
+    const preferredSide = resolveEdgeLabelSide(edge.style.labelSide)
     const labelText = edge.protocolPresetId
       ? `${edge.label} (${edge.protocolPresetId})`
       : edge.label
-    const labelWidth = Math.max(42, estimateTextWidth(labelText, 11) + 18)
-    const labelHeight = 20
+    const labelWidth = Math.max(42, estimateTextWidth(labelText, EDGE_LABEL_FONT_SIZE) + EDGE_LABEL_PADDING_X)
+    const labelHeight = EDGE_LABEL_HEIGHT
+    const curveLength = Math.max(1, estimateCurveLength(curve))
+    const curveProgressPadding = (labelWidth / 2 + EDGE_LABEL_END_MARGIN_PX) / curveLength
+    let minProgress = clampLabelPosition(curveProgressPadding)
+    let maxProgress = clampLabelPosition(1 - curveProgressPadding)
+    if (minProgress >= maxProgress) {
+      minProgress = MIN_LABEL_POSITION
+      maxProgress = MAX_LABEL_POSITION
+    }
+    const candidates = Array.from(
+      new Set(
+        [
+          preferredPosition,
+          preferredPosition - 0.16,
+          preferredPosition - 0.08,
+          preferredPosition - 0.04,
+          preferredPosition + 0.04,
+          preferredPosition + 0.08,
+          preferredPosition + 0.16,
+          0.2,
+          0.35,
+          0.5,
+          0.65,
+          0.8,
+        ].map((value) => clamp(value, minProgress, maxProgress)),
+      ),
+    )
+    const sideCandidates: Array<'left' | 'right'> =
+      preferredSide === 'left' ? ['left', 'right'] : ['right', 'left']
 
     let bestPosition = preferredPosition
+    let bestSide = preferredSide
     let bestRect: LabelRect | null = null
     let bestScore = Number.POSITIVE_INFINITY
 
     for (const candidate of candidates) {
-      const point = cubicPointAt(curve, candidate)
-      const rect = {
-        x: point.x - labelWidth / 2,
-        y: point.y - labelHeight / 2,
-        w: labelWidth,
-        h: labelHeight,
-      }
-      let score = Math.abs(candidate - preferredPosition) * 60
-      for (const placed of placedLabels) {
-        const overlapArea = resolveOverlapArea(rect, placed)
-        if (overlapArea > 0) {
-          score += 280 + overlapArea * 0.08
+      for (const side of sideCandidates) {
+        const rect = resolveLabelRect(curve, candidate, side, labelWidth, labelHeight)
+        let score = Math.abs(candidate - preferredPosition) * 70
+        if (side !== preferredSide) {
+          score += 28
         }
-      }
-      for (const nodeBounds of Object.values(nodeBoundsById)) {
-        const overlapArea = resolveOverlapArea(rect, nodeBounds)
-        if (overlapArea > 0) {
-          score += 160 + overlapArea * 0.05
-        }
-      }
 
-      if (score < bestScore) {
-        bestScore = score
-        bestPosition = candidate
-        bestRect = rect
+        for (const placed of placedLabels) {
+          const overlapArea = resolveOverlapArea(rect, placed)
+          if (overlapArea > 0) {
+            score += 540 + overlapArea * 0.18
+            continue
+          }
+          const gap = resolveRectGap(rect, placed)
+          if (gap < EDGE_LABEL_MIN_GAP) {
+            score += (EDGE_LABEL_MIN_GAP - gap) * 24
+          }
+        }
+
+        for (const nodeBounds of Object.values(nodeBoundsById)) {
+          const overlapArea = resolveOverlapArea(rect, nodeBounds)
+          if (overlapArea > 0) {
+            score += 320 + overlapArea * 0.09
+            continue
+          }
+          const gap = resolveRectGap(rect, nodeBounds)
+          if (gap < EDGE_LABEL_NODE_MIN_GAP) {
+            score += (EDGE_LABEL_NODE_MIN_GAP - gap) * 16
+          }
+        }
+
+        if (score < bestScore) {
+          bestScore = score
+          bestPosition = candidate
+          bestSide = side
+          bestRect = rect
+        }
       }
     }
 
     edgeLabelPositionById[edgeId] = bestPosition
+    edgeLabelSideById[edgeId] = bestSide
     if (bestRect) {
       placedLabels.push(bestRect)
     }
@@ -373,5 +536,6 @@ export const autoArrangeView = (
   return {
     nodeBoundsById,
     edgeLabelPositionById,
+    edgeLabelSideById,
   }
 }

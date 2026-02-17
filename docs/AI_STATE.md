@@ -16,6 +16,7 @@
 - Preset catalog for C4, infra, and hexagonal architecture semantics.
 - Theme persistence (`light` / `dark`) in workspace settings.
 - Journey creation, filtering, playback, and timeline editing controls.
+- Global undo/redo history for workspace and major UI layout state (`Ctrl/Cmd+Z`, `Ctrl/Cmd+Shift+Z`, `Ctrl/Cmd+Y`).
 - Journey filter focus modes:
   - off-scope render strategy: `show`, `dim`, `hide`,
   - optional journey-only reflow layout while filtering.
@@ -32,6 +33,7 @@
 - DSL LITE <-> FULL conversion with auto-layout.
 - DSL LITE now supports optional UI-only geometry metadata:
   - `metadata ui-layout` for node bounds and edge label positions.
+  - edge metadata now supports label side (`left|right`) in addition to label progress.
 - Static export (`SVG`, `PNG`, `PDF`).
 - Animated export (`GIF`, `MP4`, animated `SVG`) with journey timeline playback.
 - Presentation mode with clean rendering and export-focused controls.
@@ -87,10 +89,13 @@
   - `layoutMode` (`preserve|reflow`),
   - `autoLayoutMode` (`manual|always`),
   - `Apply layout now` for manual scoped reflow.
+- Top desktop menu now includes a dedicated `Journey` menu with parity actions for filtering/layout/player controls.
 - Stronger edge editing UX:
   - selected edge marker rendered directly on path,
   - edge label isolation styling,
-  - draggable edge label position (plus inspector slider).
+  - draggable edge label position (plus inspector slider),
+  - draggable label side flip (left/right side of edge),
+  - readable label orientation (avoids upside-down text, vertical-safe orientation).
 - Monaco-based `JourneyScript` editor with custom highlighting theme.
 - Focus/presentation workflows for demo-friendly screen usage.
 
@@ -133,5 +138,4 @@
 
 - Upgrade edge routing with stronger orthogonal controls.
 - Add full floating undocked windows and saved layout presets.
-- Add undo/redo stack to the public UI workflow.
 - Add integration tests for animated export pipeline and presentation mode regressions.

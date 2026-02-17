@@ -25,11 +25,13 @@ const createInMemoryStorage = (): InMemoryStorage => {
 describe('layoutPersistence', () => {
   it('builds per-view layout snapshots with node bounds and edge labels', () => {
     const workspace = createDefaultWorkspace()
+    workspace.edges.e_c_1.style.labelSide = 'right'
     const snapshot = buildWorkspaceLayoutSnapshot(workspace)
 
     expect(snapshot.workspaceId).toBe(workspace.workspace.id)
     expect(snapshot.views.v_container.nodes.n_api).toEqual(workspace.nodes.n_api.bounds)
     expect(snapshot.views.v_container.edgeLabelPositions.e_c_1).toBeCloseTo(0.5, 5)
+    expect(snapshot.views.v_container.edgeLabelSides.e_c_1).toBe('right')
   })
 
   it('saves and loads layout snapshot from storage', () => {
@@ -49,9 +51,11 @@ describe('layoutPersistence', () => {
     const snapshot = buildWorkspaceLayoutSnapshot(workspace)
     snapshot.views.v_container.nodes.n_api = { x: 999, y: 888, w: 330, h: 210 }
     snapshot.views.v_container.edgeLabelPositions.e_c_1 = 3
+    snapshot.views.v_container.edgeLabelSides.e_c_1 = 'right'
 
     const updated = applyWorkspaceLayout(workspace, snapshot)
     expect(updated.nodes.n_api.bounds).toEqual({ x: 999, y: 888, w: 330, h: 210 })
     expect(updated.edges.e_c_1.style.labelPosition).toBeCloseTo(0.92, 5)
+    expect(updated.edges.e_c_1.style.labelSide).toBe('right')
   })
 })

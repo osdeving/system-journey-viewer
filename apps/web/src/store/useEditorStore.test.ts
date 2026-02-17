@@ -218,6 +218,17 @@ describe('useEditorStore', () => {
     expect(updated.workspace.edges.e_c_1.style.labelPosition).toBeCloseTo(0.92, 5)
   })
 
+  it('updates edge label side with normalized value', () => {
+    const state = useEditorStore.getState()
+    state.setEdgeLabelSide('e_c_1', 'right')
+    let updated = useEditorStore.getState()
+    expect(updated.workspace.edges.e_c_1.style.labelSide).toBe('right')
+
+    state.setEdgeLabelSide('e_c_1', 'left')
+    updated = useEditorStore.getState()
+    expect(updated.workspace.edges.e_c_1.style.labelSide).toBe('left')
+  })
+
   it('updates journey focus rendering/layout settings', () => {
     const state = useEditorStore.getState()
     state.setJourneyFocusSettings({

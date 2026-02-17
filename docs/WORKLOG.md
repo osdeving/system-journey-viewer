@@ -2,6 +2,108 @@
 
 Chronological engineering log. Entries are kept concise and focused on behavior and validation.
 
+## 2026-02-17 - Replace default Vite favicon with app logo
+
+### Scope
+
+- Replace browser tab icon from default Vite logo to System Journey Viewer brand logo.
+
+### Changes
+
+- Updated favicon link:
+  - `apps/web/index.html`
+    - `href="/vite.svg"` -> `href="/sjv-logo.svg"`
+- Added branded SVG favicon:
+  - `apps/web/public/sjv-logo.svg`
+    - same visual identity used in the app topbar logo badge.
+
+### Validation
+
+- `npm --workspace @sjv/web run build`
+
+## 2026-02-17 - Edge-label readability, smarter journey reflow, and global undo/redo
+
+### Scope
+
+- Improve auto-layout edge label legibility and collision avoidance.
+- Add two-axis label editing (along edge + side flip) and prevent upside-down edge text.
+- Ensure journey filter reflow applies consistently from both dropdown and journey quick-filter button.
+- Introduce robust undo/redo across workspace + major UI layout states.
+- Expose journey controls in the top desktop menu and reorganize dock journey controls.
+
+### Changes
+
+- Edge label model/schema/persistence:
+  - Added optional `edge.style.labelSide` (`left | right`) in:
+    - `apps/web/src/model/types.ts`
+    - `apps/web/src/model/schema.ts`
+  - Extended layout persistence to save/restore side + position:
+    - `apps/web/src/store/layoutPersistence.ts`
+- DSL metadata support:
+  - `metadata ui-layout` edge lines now support optional side:
+    - `edge <from> -> <to> label <position> side <left|right>`
+  - Implemented parse/export/import wiring in:
+    - `apps/web/src/dsl-lite/types.ts`
+    - `apps/web/src/dsl-lite/parser.ts`
+    - `apps/web/src/dsl-lite/convert.ts`
+- Edge label rendering and interaction:
+  - Replaced `textPath`-bound labels with explicit positioned/rotated `<text>` labels to enforce readable orientation.
+  - Added vertical readability normalization and side offsets.
+  - Label drag now updates both:
+    - `labelPosition` (along the edge),
+    - `labelSide` (opposite side of the edge when crossing the normal axis).
+  - Files:
+    - `apps/web/src/components/edgePresentation.ts`
+    - `apps/web/src/components/JourneyEdge.tsx`
+    - `apps/web/src/components/DiagramCanvas.tsx`
+    - `apps/web/src/App.css`
+- Auto-layout improvements:
+  - Added stronger edge-length heuristics based on rendered label width.
+  - Added explicit penalties for:
+    - label-label overlap,
+    - label-label minimum gap violations,
+    - label-node overlap,
+    - label-node minimum gap violations.
+  - Added side candidate selection (`left/right`) during label placement.
+  - File:
+    - `apps/web/src/layout/autoArrange.ts`
+- Journey filter consistency:
+  - Added unified `applyJourneyFilter(...)` path used by both filter dropdown and per-journey filter button.
+  - Ensures immediate scoped reflow when policy is `always + reflow`.
+  - File:
+    - `apps/web/src/App.tsx`
+- Undo/redo:
+  - Added bounded history stack with coalescing for high-frequency edits.
+  - Includes workspace + view/selection/player state and key dock/panel UI state.
+  - Added shortcuts:
+    - `Ctrl/Cmd+Z` undo
+    - `Ctrl/Cmd+Shift+Z` and `Ctrl/Cmd+Y` redo
+  - Added Edit menu entries with disabled-state behavior.
+  - File:
+    - `apps/web/src/App.tsx`
+- Menu and journey panel organization:
+  - Added new `Journey` top menu containing filter/layout/player actions previously scattered across side controls.
+  - Reorganized journey dock panel into grouped sections: `Creation`, `Filter & Layout`, `Player`, `Journeys`.
+  - File:
+    - `apps/web/src/App.tsx`
+    - `apps/web/src/App.css`
+
+### Tests
+
+- Updated:
+  - `apps/web/src/model/schema.test.ts`
+  - `apps/web/src/store/layoutPersistence.test.ts`
+  - `apps/web/src/dsl-lite/parser.test.ts`
+  - `apps/web/src/components/edgePresentation.test.ts`
+  - `apps/web/src/store/useEditorStore.test.ts`
+  - `apps/web/src/App.styles.test.ts`
+
+### Validation
+
+- `npm --workspace @sjv/web run lint`
+- `npm --workspace @sjv/web run test:run`
+- `npm --workspace @sjv/web run build`
+
 ## 2026-02-17 - Journey-focused layout modes, compact export, and DSL UI metadata
 
 ### Scope

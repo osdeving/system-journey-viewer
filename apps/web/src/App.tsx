@@ -195,11 +195,14 @@ function App() {
   const setViewport = useEditorStore((state) => state.setViewport)
   const setActiveTool = useEditorStore((state) => state.setActiveTool)
   const removeNode = useEditorStore((state) => state.removeNode)
+  const removeEdge = useEditorStore((state) => state.removeEdge)
+  const duplicateSelection = useEditorStore((state) => state.duplicateSelection)
   const setNodeName = useEditorStore((state) => state.setNodeName)
   const setNodeTech = useEditorStore((state) => state.setNodeTech)
   const setNodeColor = useEditorStore((state) => state.setNodeColor)
   const setEdgeProtocol = useEditorStore((state) => state.setEdgeProtocol)
   const setEdgeLabel = useEditorStore((state) => state.setEdgeLabel)
+  const setEdgeLabelPosition = useEditorStore((state) => state.setEdgeLabelPosition)
   const setGridEnabled = useEditorStore((state) => state.setGridEnabled)
   const setSnapEnabled = useEditorStore((state) => state.setSnapEnabled)
   const setTheme = useEditorStore((state) => state.setTheme)
@@ -701,6 +704,116 @@ function App() {
     reorderJourneyStep(journeyId, draggedStep.edgeId, targetEdgeId)
   }
 
+  const removeSelectedNodesWithConfirmation = useCallback(() => {
+    if (!selectedNodes.length) {
+      return false
+    }
+
+    const selectedNodeIdSet = new Set(selectedNodes.map((node) => node.id))
+    const connectedEdgeIds = currentView.edgeIds.filter((edgeId) => {
+      const edge = workspace.edges[edgeId]
+      if (!edge) {
+        return false
+      }
+      return selectedNodeIdSet.has(edge.from.nodeId) || selectedNodeIdSet.has(edge.to.nodeId)
+    })
+    const connectedEdgeSet = new Set(connectedEdgeIds)
+    const affectedJourneyNames: string[] = []
+    for (const journeyId of currentView.journeyIds) {
+      const journey = workspace.journeys[journeyId]
+      if (!journey) {
+        continue
+      }
+      if (journey.steps.some((step) => connectedEdgeSet.has(step.edgeId))) {
+        affectedJourneyNames.push(journey.name)
+      }
+    }
+
+    const firstSelected = selectedNodes[0]
+    const messageParts = [
+      selectedNodes.length === 1
+        ? `Remove "${firstSelected.name}" from canvas?`
+        : `Remove ${selectedNodes.length} selected nodes from canvas?`,
+    ]
+    if (connectedEdgeIds.length > 0) {
+      messageParts.push(`This will also remove ${connectedEdgeIds.length} connected edge(s).`)
+    }
+    if (affectedJourneyNames.length > 0) {
+      messageParts.push(
+        `The journeys below will be affected:\n- ${affectedJourneyNames.join('\n- ')}`,
+      )
+    }
+    messageParts.push('Continue?')
+
+    if (!window.confirm(messageParts.join('\n\n'))) {
+      return false
+    }
+
+    selectedNodes.forEach((node) => removeNode(node.id))
+    setTransientStatus(
+      selectedNodes.length === 1 ? 'Node removed.' : `${selectedNodes.length} nodes removed.`,
+    )
+    return true
+  }, [currentView.edgeIds, currentView.journeyIds, removeNode, selectedNodes, setTransientStatus, workspace.edges, workspace.journeys])
+
+  const removeSelectedEdgeWithConfirmation = useCallback(() => {
+    if (!selectedEdge) {
+      return false
+    }
+    const affectedJourneyNames: string[] = []
+    for (const journeyId of currentView.journeyIds) {
+      const journey = workspace.journeys[journeyId]
+      if (!journey) {
+        continue
+      }
+      if (journey.steps.some((step) => step.edgeId === selectedEdge.id)) {
+        affectedJourneyNames.push(journey.name)
+      }
+    }
+    const messageParts = [`Remove edge "${selectedEdge.label || selectedEdge.id}"?`]
+    if (affectedJourneyNames.length > 0) {
+      messageParts.push(
+        `The journeys below will have this step removed:\n- ${affectedJourneyNames.join('\n- ')}`,
+      )
+    }
+    messageParts.push('Continue?')
+
+    if (!window.confirm(messageParts.join('\n\n'))) {
+      return false
+    }
+
+    removeEdge(selectedEdge.id)
+    setTransientStatus('Edge removed.')
+    return true
+  }, [currentView.journeyIds, removeEdge, selectedEdge, setTransientStatus, workspace.journeys])
+
+  const deleteCurrentSelection = useCallback(() => {
+    if (selectedNodes.length > 0) {
+      return removeSelectedNodesWithConfirmation()
+    }
+    if (selectedEdge) {
+      return removeSelectedEdgeWithConfirmation()
+    }
+    return false
+  }, [removeSelectedEdgeWithConfirmation, removeSelectedNodesWithConfirmation, selectedEdge, selectedNodes.length])
+
+  const duplicateCurrentSelection = useCallback(() => {
+    const duplicated = duplicateSelection()
+    if (duplicated.nodeIds.length > 0) {
+      setTransientStatus(
+        duplicated.nodeIds.length === 1
+          ? 'Node duplicated.'
+          : `${duplicated.nodeIds.length} nodes duplicated.`,
+      )
+      return true
+    }
+    if (duplicated.edgeId) {
+      setTransientStatus('Edge duplicated.')
+      return true
+    }
+    return false
+  }, [duplicateSelection, setTransientStatus])
+
   const handleDslEditorBeforeMount = (monaco: Monaco): void => {
     registerJourneyScriptLanguage(monaco)
   }
@@ -941,6 +1054,23 @@ function App() {
   }, [])
 
   useEffect(() => {
+    if (activeTool === 'connector' || pendingConnectionFrom) {
+      setDraggedEdgeId(null)
+    }
+  }, [activeTool, pendingConnectionFrom])
+
+  useEffect(() => {
+    if (!draggedEdgeId) {
+      return
+    }
+    const previousCursor = document.body.style.cursor
+    document.body.style.cursor = 'copy'
+    return () => {
+      document.body.style.cursor = previousCursor
+    }
+  }, [draggedEdgeId])
+
+  useEffect(() => {
     if (!presentationMode) {
       return
     }
@@ -1023,72 +1153,28 @@ function App() {
   }, [currentViewId, currentView.journeyIds, playerJourneyId, setPlayerJourney, setPlayerRunning])
 
   useEffect(() => {
-    const onDeleteKey = (event: KeyboardEvent) => {
-      if (event.key !== 'Delete' && event.key !== 'Backspace') {
-        return
-      }
+    const onEntityShortcut = (event: KeyboardEvent) => {
       if (isTextInputTarget(event.target)) {
         return
       }
-      if (!selectedNodes.length) {
+      const key = event.key.toLowerCase()
+      const hasCommand = event.ctrlKey || event.metaKey
+
+      if ((event.key === 'Delete' || event.key === 'Backspace') && !hasCommand) {
+        event.preventDefault()
+        deleteCurrentSelection()
         return
       }
-      event.preventDefault()
 
-      const selectedNodeIdSet = new Set(selectedNodes.map((node) => node.id))
-      const connectedEdgeIds = currentView.edgeIds.filter((edgeId) => {
-        const edge = workspace.edges[edgeId]
-        if (!edge) {
-          return false
-        }
-        return selectedNodeIdSet.has(edge.from.nodeId) || selectedNodeIdSet.has(edge.to.nodeId)
-      })
-      const connectedEdgeSet = new Set(connectedEdgeIds)
-      const affectedJourneyNames: string[] = []
-      for (const journeyId of currentView.journeyIds) {
-        const journey = workspace.journeys[journeyId]
-        if (!journey) {
-          continue
-        }
-        if (journey.steps.some((step) => connectedEdgeSet.has(step.edgeId))) {
-          affectedJourneyNames.push(journey.name)
-        }
+      if (hasCommand && !event.altKey && key === 'd') {
+        event.preventDefault()
+        duplicateCurrentSelection()
       }
-
-      const firstSelected = selectedNodes[0]
-      const messageParts = [
-        selectedNodes.length === 1
-          ? `Remover "${firstSelected.name}" do stage?`
-          : `Remover ${selectedNodes.length} componentes selecionados do stage?`,
-      ]
-      if (connectedEdgeIds.length > 0) {
-        messageParts.push(
-          `Isso também removerá ${connectedEdgeIds.length} comunicação(ões) conectada(s) ao componente.`,
-        )
-      }
-      if (affectedJourneyNames.length > 0) {
-        messageParts.push(
-          `As jornadas abaixo serão desconectadas desse componente:\n- ${affectedJourneyNames.join('\n- ')}`,
-        )
-      }
-      messageParts.push('Deseja continuar?')
-
-      if (!window.confirm(messageParts.join('\n\n'))) {
-        return
-      }
-      selectedNodes.forEach((node) => removeNode(node.id))
     }
 
-    window.addEventListener('keydown', onDeleteKey)
-    return () => window.removeEventListener('keydown', onDeleteKey)
-  }, [
-    currentView.edgeIds,
-    currentView.journeyIds,
-    removeNode,
-    selectedNodes,
-    workspace.edges,
-    workspace.journeys,
-  ])
+    window.addEventListener('keydown', onEntityShortcut)
+    return () => window.removeEventListener('keydown', onEntityShortcut)
+  }, [deleteCurrentSelection, duplicateCurrentSelection])
 
   const exportFromCanvas = async (format: 'svg' | 'png' | 'pdf') => {
     const svg = document.querySelector('.diagram-canvas')
@@ -1384,6 +1470,14 @@ function App() {
               </div>
             </>
           ) : null}
+          <div className="inspector-actions">
+            <button type="button" onClick={() => duplicateCurrentSelection()}>
+              Duplicate
+            </button>
+            <button type="button" onClick={() => deleteCurrentSelection()}>
+              Delete
+            </button>
+          </div>
         </div>
       ) : null}
       {selectedEdge ? (
@@ -1408,6 +1502,27 @@ function App() {
               </option>
             ))}
           </select>
+          <label htmlFor="edge-label-position">Label Position</label>
+          <input
+            id="edge-label-position"
+            type="range"
+            min={0.08}
+            max={0.92}
+            step={0.01}
+            value={selectedEdge.style.labelPosition ?? 0.5}
+            onChange={(event) => setEdgeLabelPosition(selectedEdge.id, Number(event.target.value))}
+          />
+          <span className="edge-label-position-value">
+            {Math.round((selectedEdge.style.labelPosition ?? 0.5) * 100)}%
+          </span>
+          <div className="inspector-actions">
+            <button type="button" onClick={() => duplicateCurrentSelection()}>
+              Duplicate
+            </button>
+            <button type="button" onClick={() => deleteCurrentSelection()}>
+              Delete
+            </button>
+          </div>
           <button
             type="button"
             onClick={() => {
@@ -1880,6 +1995,24 @@ function App() {
                     <span>Connector Tool</span>
                     <kbd>C</kbd>
                   </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    disabled={!selectedNodes.length && !selectedEdge}
+                    onClick={() => runDesktopMenuAction(() => duplicateCurrentSelection())}
+                  >
+                    <span>Duplicate Selection</span>
+                    <kbd>Ctrl+D</kbd>
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    disabled={!selectedNodes.length && !selectedEdge}
+                    onClick={() => runDesktopMenuAction(() => deleteCurrentSelection())}
+                  >
+                    <span>Delete Selection</span>
+                    <kbd>Del</kbd>
+                  </button>
                 </div>
               ) : null}
             </div>
@@ -2309,7 +2442,17 @@ function App() {
         <DiagramCanvas
           presentationMode={presentationMode}
           forceGridHidden={presentationMode}
-          onEdgePointerStart={(edgeId) => {
+          onEdgePointerStart={(edgeId, event) => {
+            if (
+              event.ctrlKey ||
+              event.metaKey ||
+              event.altKey ||
+              activeTool === 'connector' ||
+              Boolean(pendingConnectionFrom)
+            ) {
+              setDraggedEdgeId(null)
+              return
+            }
             setDraggedEdgeId(edgeId)
           }}
         />

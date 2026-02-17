@@ -336,7 +336,7 @@ export const liteToFullWorkspace = (ast: LiteWorkspaceAst): WorkspaceModel => {
         protocolPresetId: edge.protocol,
         label: edge.label,
         route: { kind: 'auto', points: [] },
-        style: { arrow: true, dashed: false, thickness: 2 },
+        style: { arrow: true, dashed: false, thickness: 2, labelPosition: 0.5 },
       }
       views[view.id].edgeIds.push(edgeId)
       edgeLookup.set(`${edge.fromAlias}->${edge.toAlias}`, edgeId)

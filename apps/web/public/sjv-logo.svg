@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <linearGradient id="sjvLogoGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#38bdf8" />
+      <stop offset="100%" stop-color="#22c55e" />
+    </linearGradient>
+  </defs>
+  <rect x="6" y="6" width="52" height="52" rx="14" fill="url(#sjvLogoGradient)" opacity="0.18" />
+  <path
+    d="M17 20 H29 M35 20 H47 M17 44 H29 M35 44 H47 M23 20 V44 M41 20 V44"
+    stroke="url(#sjvLogoGradient)"
+    stroke-width="3.2"
+    stroke-linecap="round"
+  />
+  <circle cx="23" cy="20" r="4.2" fill="#38bdf8" />
+  <circle cx="41" cy="20" r="4.2" fill="#22c55e" />
+  <circle cx="23" cy="44" r="4.2" fill="#22c55e" />
+  <circle cx="41" cy="44" r="4.2" fill="#38bdf8" />
+</svg>

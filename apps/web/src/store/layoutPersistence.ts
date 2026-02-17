@@ -8,6 +8,7 @@ const MAX_EDGE_LABEL_POSITION = 0.92
 type LayoutViewSnapshot = {
   nodes: Record<string, NodeBounds>
   edgeLabelPositions: Record<string, number>
+  edgeLabelSides: Record<string, 'left' | 'right'>
 }
 
 type WorkspaceLayoutSnapshot = {
@@ -26,6 +27,9 @@ const clampLabelPosition = (position: number): number =>
 
 const isFiniteNumber = (value: unknown): value is number =>
   typeof value === 'number' && Number.isFinite(value)
+
+const resolveLabelSide = (value: unknown): 'left' | 'right' =>
+  value === 'right' ? 'right' : 'left'
 
 const safeParseLayoutSnapshot = (payload: string): WorkspaceLayoutSnapshot | null => {
   try {
@@ -51,6 +55,7 @@ export const buildWorkspaceLayoutSnapshot = (
   for (const view of Object.values(workspace.views)) {
     const nodes: Record<string, NodeBounds> = {}
     const edgeLabelPositions: Record<string, number> = {}
+    const edgeLabelSides: Record<string, 'left' | 'right'> = {}
 
     for (const nodeId of view.nodeIds) {
       const node = workspace.nodes[nodeId]
@@ -66,11 +71,13 @@ export const buildWorkspaceLayoutSnapshot = (
         continue
       }
       edgeLabelPositions[edgeId] = clampLabelPosition(edge.style.labelPosition ?? 0.5)
+      edgeLabelSides[edgeId] = resolveLabelSide(edge.style.labelSide)
     }
 
     views[view.id] = {
       nodes,
       edgeLabelPositions,
+      edgeLabelSides,
     }
   }
 
@@ -179,6 +186,7 @@ export const applyWorkspaceLayout = (
         style: {
           ...edge.style,
           labelPosition: clampLabelPosition(labelPosition),
+          labelSide: resolveLabelSide(viewLayout.edgeLabelSides?.[edgeId]),
         },
       }
     }

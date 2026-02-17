@@ -77,6 +77,9 @@ const resolveAliasToken = (value: string, fallback: string): string => {
 const clampEdgeLabelPosition = (position: number): number =>
   Math.min(MAX_EDGE_LABEL_POSITION, Math.max(MIN_EDGE_LABEL_POSITION, position))
 
+const resolveLabelSide = (side?: string): 'left' | 'right' =>
+  side === 'right' ? 'right' : 'left'
+
 const toDslNumber = (value: number): string => {
   if (Number.isInteger(value)) {
     return String(value)
@@ -259,7 +262,7 @@ const buildUiLayoutMetadataBlock = (
           }
           return `      edge ${fromAlias} -> ${toAlias} label ${toDslNumber(
             clampEdgeLabelPosition(edge.style.labelPosition ?? 0.5),
-          )}`
+          )} side ${resolveLabelSide(edge.style.labelSide)}`
         })
         .filter((line): line is string => !!line)
 
@@ -412,7 +415,7 @@ export const liteToFullWorkspace = (ast: LiteWorkspaceAst): WorkspaceModel => {
         protocolPresetId: edge.protocol,
         label: edge.label,
         route: { kind: 'auto', points: [] },
-        style: { arrow: true, dashed: false, thickness: 2, labelPosition: 0.5 },
+        style: { arrow: true, dashed: false, thickness: 2, labelPosition: 0.5, labelSide: 'left' },
       }
       views[view.id].edgeIds.push(edgeId)
       edgeLookup.set(`${edge.fromAlias}->${edge.toAlias}`, edgeId)
@@ -538,6 +541,7 @@ export const liteToFullWorkspace = (ast: LiteWorkspaceAst): WorkspaceModel => {
       edge.style = {
         ...edge.style,
         labelPosition: clampEdgeLabelPosition(edgeLayout.labelPosition),
+        labelSide: resolveLabelSide(edgeLayout.labelSide),
       }
     }
   }

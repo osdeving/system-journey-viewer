@@ -85,6 +85,7 @@ interface EditorState {
   setEdgeProtocol: (edgeId: string, protocolPresetId: string) => void
   setEdgeLabel: (edgeId: string, label: string) => void
   setEdgeLabelPosition: (edgeId: string, position: number) => void
+  setEdgeLabelSide: (edgeId: string, side: 'left' | 'right') => void
   duplicateSelection: (offset?: { dx: number; dy: number }) => {
     nodeIds: string[]
     edgeId: string | null
@@ -277,6 +278,9 @@ const MAX_EDGE_LABEL_POSITION = 0.92
 
 const clampEdgeLabelPosition = (position: number): number =>
   Math.min(MAX_EDGE_LABEL_POSITION, Math.max(MIN_EDGE_LABEL_POSITION, position))
+
+const resolveEdgeLabelSide = (side?: string): 'left' | 'right' =>
+  side === 'right' ? 'right' : 'left'
 
 const normalizeJourneySteps = (
   steps: Array<{ n: number; edgeId: string }>,
@@ -812,7 +816,7 @@ export const useEditorStore = create<EditorState>()(
           protocolPresetId: 'http',
           label: 'request',
           route: { kind: 'auto', points: [] },
-          style: { arrow: true, dashed: false, thickness: 2, labelPosition: 0.5 },
+          style: { arrow: true, dashed: false, thickness: 2, labelPosition: 0.5, labelSide: 'left' },
         }
         view.edgeIds.push(edgeId)
         state.selectedEdgeId = edgeId
@@ -890,6 +894,18 @@ export const useEditorStore = create<EditorState>()(
         edge.style = {
           ...edge.style,
           labelPosition: clampEdgeLabelPosition(position),
+        }
+      })
+    },
+    setEdgeLabelSide: (edgeId, side) => {
+      set((state) => {
+        const edge = state.workspace.edges[edgeId]
+        if (!edge) {
+          return
+        }
+        edge.style = {
+          ...edge.style,
+          labelSide: resolveEdgeLabelSide(side),
         }
       })
     },
@@ -977,6 +993,7 @@ export const useEditorStore = create<EditorState>()(
               style: {
                 ...edge.style,
                 labelPosition: clampEdgeLabelPosition(edge.style.labelPosition ?? 0.5),
+                labelSide: resolveEdgeLabelSide(edge.style.labelSide),
               },
             }
             view.edgeIds.push(clonedEdgeId)
@@ -1012,6 +1029,7 @@ export const useEditorStore = create<EditorState>()(
           style: {
             ...sourceEdge.style,
             labelPosition: clampEdgeLabelPosition((sourceEdge.style.labelPosition ?? 0.5) + 0.04),
+            labelSide: resolveEdgeLabelSide(sourceEdge.style.labelSide),
           },
         }
         view.edgeIds.push(clonedEdgeId)
@@ -1047,6 +1065,17 @@ export const useEditorStore = create<EditorState>()(
           edge.style = {
             ...edge.style,
             labelPosition,
+          }
+        }
+
+        for (const [edgeId, labelSide] of Object.entries(result.edgeLabelSideById)) {
+          const edge = state.workspace.edges[edgeId]
+          if (!edge) {
+            continue
+          }
+          edge.style = {
+            ...edge.style,
+            labelSide: resolveEdgeLabelSide(labelSide),
           }
         }
       })

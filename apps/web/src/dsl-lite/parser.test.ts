@@ -58,7 +58,7 @@ workspace "Layout Metadata" {
     view v_main {
       node app at 140 220 size 280 120
       node api at 560 220 size 300 130
-      edge app -> api label 0.72
+      edge app -> api label 0.72 side right
     }
   }
 }
@@ -204,10 +204,11 @@ describe('DSL Lite parser and conversion', () => {
     expect(appNodeId ? workspace.nodes[appNodeId].bounds.x : 0).toBe(140)
     expect(apiNodeId ? workspace.nodes[apiNodeId].bounds.w : 0).toBe(300)
     expect(workspace.edges[edgeId].style.labelPosition).toBeCloseTo(0.72, 5)
+    expect(workspace.edges[edgeId].style.labelSide).toBe('right')
 
     const exported = fullWorkspaceToLiteDsl(workspace)
     expect(exported).toContain('metadata ui-layout')
     expect(exported).toContain('node app at 140 220 size 280 120')
-    expect(exported).toContain('edge app -> api label 0.72')
+    expect(exported).toContain('edge app -> api label 0.72 side right')
   })
 })

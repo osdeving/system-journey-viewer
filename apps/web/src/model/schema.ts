@@ -58,6 +58,7 @@ export const edgeSchema = z.object({
     thickness: z.number().positive(),
     arrow: z.boolean(),
     labelPosition: z.number().min(0).max(1).optional(),
+    labelSide: z.enum(['left', 'right']).optional(),
   }),
 })
 

@@ -56,7 +56,7 @@ import {
 } from './file/workspaceFile'
 import { resolveJourneyFocusScope } from './journeys/focus'
 import { BLANK_WORKSPACE_VIEW_ID, createBlankWorkspace } from './model/blankWorkspace'
-import type { EditorSnapshot, WorkspaceModel } from './model/types'
+import type { EditorSnapshot, ViewportState, WorkspaceModel } from './model/types'
 import { nodePresetsByCategory, protocolPresets, resolveNodePreset } from './presets/catalog'
 import { applyWorkspaceLayout, loadWorkspaceLayout, saveWorkspaceLayout } from './store/layoutPersistence'
 import { useEditorStore } from './store/useEditorStore'
@@ -97,10 +97,60 @@ const viewKindLabel: Record<string, string> = {
 type DrawerTab = 'journeys' | 'dsl' | 'dock'
 type DockTab = 'inspector' | 'journeys'
 type DockPosition = 'right' | 'bottom'
-type DesktopMenuId = 'file' | 'edit' | 'view' | 'insert'
+type DesktopMenuId = 'file' | 'edit' | 'view' | 'journey' | 'insert'
 type PlayerAnimationPreset = 'cinematic' | 'orb' | 'minimal'
 type FileWriteMode = 'prompt' | 'reuse'
 type StepDragState = { journeyId: string; edgeId: string }
+
+type HistoryStoreSnapshot = {
+  workspace: WorkspaceModel
+  currentViewId: string
+  viewHistory: string[]
+  viewport: ViewportState
+  selectedNodeId: string | null
+  selectedNodeIds: string[]
+  selectedEdgeId: string | null
+  activeTool: 'select' | 'connector'
+  pendingConnectionFrom: string | null
+  pendingConnectionPortId: string | null
+  activeJourneyId: string | null
+  journeyFilterId: string | null
+  playerJourneyId: string | null
+  playerIsRunning: boolean
+  playerStepIndex: number
+  playerLoop: boolean
+  playerSpeedMs: number
+  playerHighlightNodes: boolean
+  playerTrailEnabled: boolean
+  playerConfettiNonce: number
+  playerConfettiNodeId: string | null
+}
+
+type HistoryUiSnapshot = {
+  leftSidebarWidth: number
+  journeyHeight: number
+  drawerTab: DrawerTab
+  dslMaximized: boolean
+  focusMode: boolean
+  presentationMode: boolean
+  leftSidebarCollapsed: boolean
+  dockCollapsed: boolean
+  drawerCollapsed: boolean
+  dockPosition: DockPosition
+  dockTabOrder: DockTab[]
+  activeDockTab: DockTab
+  journeyDraftName: string
+}
+
+type HistorySnapshot = {
+  store: HistoryStoreSnapshot
+  ui: HistoryUiSnapshot
+}
+
+type HistoryStacks = {
+  past: HistorySnapshot[]
+  future: HistorySnapshot[]
+}
 
 type WorkspaceWritable = {
   write: (data: Blob | BufferSource | string) => Promise<void>
@@ -118,8 +168,9 @@ type WorkspaceWindow = Window & {
   showSaveFilePicker?: (options?: unknown) => Promise<WorkspaceFileHandle>
 }
 
-const DESKTOP_MENU_ORDER: DesktopMenuId[] = ['file', 'edit', 'view', 'insert']
+const DESKTOP_MENU_ORDER: DesktopMenuId[] = ['file', 'edit', 'view', 'journey', 'insert']
 const DEFAULT_DOCK_TAB_ORDER: DockTab[] = ['inspector', 'journeys']
+const HISTORY_LIMIT = 120
 
 const isTextInputTarget = (target: EventTarget | null): boolean => {
   if (!(target instanceof HTMLElement)) {
@@ -134,6 +185,13 @@ const isTextInputTarget = (target: EventTarget | null): boolean => {
 
 const isHexColor = (value?: string): boolean =>
   /^#[\da-fA-F]{6}$/.test(value ?? '')
+
+const cloneSerializable = <T,>(value: T): T => {
+  if (typeof structuredClone === 'function') {
+    return structuredClone(value)
+  }
+  return JSON.parse(JSON.stringify(value)) as T
+}
 
 const resolvePlayerAnimationPreset = (
   trailEnabled: boolean,
@@ -159,6 +217,10 @@ function App() {
   const journeyDragRef = useRef<string | null>(null)
   const journeyStepDragRef = useRef<StepDragState | null>(null)
   const workspaceFileHandleRef = useRef<WorkspaceFileHandle | null>(null)
+  const historyRef = useRef<HistoryStacks>({ past: [], future: [] })
+  const historyApplyingRef = useRef(false)
+  const historyLastCommitAtRef = useRef(0)
+  const historyReleaseTimerRef = useRef<number | null>(null)
   const leftResizeRef = useRef<{ pointerId: number; startX: number; startWidth: number } | null>(null)
   const journeyResizeRef = useRef<{
     pointerId: number
@@ -205,6 +267,7 @@ function App() {
   const setEdgeProtocol = useEditorStore((state) => state.setEdgeProtocol)
   const setEdgeLabel = useEditorStore((state) => state.setEdgeLabel)
   const setEdgeLabelPosition = useEditorStore((state) => state.setEdgeLabelPosition)
+  const setEdgeLabelSide = useEditorStore((state) => state.setEdgeLabelSide)
   const autoArrangeCurrentView = useEditorStore((state) => state.autoArrangeCurrentView)
   const setGridEnabled = useEditorStore((state) => state.setGridEnabled)
   const setSnapEnabled = useEditorStore((state) => state.setSnapEnabled)
@@ -255,6 +318,8 @@ function App() {
   const [dockTabOrder, setDockTabOrder] = useState<DockTab[]>(DEFAULT_DOCK_TAB_ORDER)
   const [activeDockTab, setActiveDockTab] = useState<DockTab>('inspector')
   const [openDesktopMenu, setOpenDesktopMenu] = useState<DesktopMenuId | null>(null)
+  const [canUndo, setCanUndo] = useState(false)
+  const [canRedo, setCanRedo] = useState(false)
   const lastJourneyAutoLayoutKeyRef = useRef<string | null>(null)
 
   const selectedNode = selectedNodeId ? workspace.nodes[selectedNodeId] : undefined
@@ -357,10 +422,10 @@ function App() {
     [playerHighlightNodes, playerTrailEnabled],
   )
 
-  const activateJourneyPlayback = (journeyId: string | null) => {
+  const activateJourneyPlayback = useCallback((journeyId: string | null) => {
     setPlayerJourney(journeyId)
     setPlayerRunning(Boolean(journeyId))
-  }
+  }, [setPlayerJourney, setPlayerRunning])
 
   const applyPlayerAnimationPreset = (preset: PlayerAnimationPreset): void => {
     if (preset === 'cinematic') {
@@ -376,6 +441,59 @@ function App() {
     setPlayerTrailEnabled(false)
     setPlayerHighlightNodes(false)
   }
+
+  const applyJourneyFilter = useCallback(
+    (nextJourneyId: string | null, options?: { activateJourney?: boolean }) => {
+      setJourneyFilter(nextJourneyId)
+      if (nextJourneyId) {
+        if (options?.activateJourney ?? true) {
+          setActiveJourney(nextJourneyId)
+          activateJourneyPlayback(nextJourneyId)
+        }
+      } else {
+        lastJourneyAutoLayoutKeyRef.current = null
+      }
+
+      if (!nextJourneyId) {
+        return
+      }
+
+      if (
+        journeyFocusSettings.autoLayoutMode !== 'always' ||
+        journeyFocusSettings.layoutMode !== 'reflow'
+      ) {
+        return
+      }
+
+      const scopedFocus = resolveJourneyFocusScope(workspace, currentViewId, nextJourneyId)
+      const scopedNodeIds = Array.from(scopedFocus?.nodeIds ?? [])
+      const scopedEdgeIds = Array.from(scopedFocus?.edgeIds ?? [])
+      if (!scopedNodeIds.length || !scopedEdgeIds.length) {
+        return
+      }
+
+      autoArrangeCurrentView({
+        nodeIds: scopedNodeIds,
+        edgeIds: scopedEdgeIds,
+      })
+      lastJourneyAutoLayoutKeyRef.current = [
+        currentViewId,
+        nextJourneyId,
+        scopedNodeIds.join(','),
+        scopedEdgeIds.join(','),
+      ].join('::')
+    },
+    [
+      autoArrangeCurrentView,
+      activateJourneyPlayback,
+      currentViewId,
+      journeyFocusSettings.autoLayoutMode,
+      journeyFocusSettings.layoutMode,
+      setJourneyFilter,
+      setActiveJourney,
+      workspace,
+    ],
+  )
 
   const fitCurrentViewToCanvas = useCallback(() => {
     const canvasPanel = canvasPanelRef.current
@@ -906,6 +1024,171 @@ function App() {
     setTransientStatus,
   ])
 
+  const refreshHistoryAvailability = useCallback(() => {
+    setCanUndo(historyRef.current.past.length > 1)
+    setCanRedo(historyRef.current.future.length > 0)
+  }, [])
+
+  const captureHistorySnapshot = useCallback((): HistorySnapshot => ({
+    store: {
+      workspace: cloneSerializable(workspace),
+      currentViewId,
+      viewHistory: cloneSerializable(viewHistory),
+      viewport: cloneSerializable(viewport),
+      selectedNodeId,
+      selectedNodeIds: cloneSerializable(selectedNodeIds),
+      selectedEdgeId,
+      activeTool,
+      pendingConnectionFrom,
+      pendingConnectionPortId,
+      activeJourneyId,
+      journeyFilterId,
+      playerJourneyId,
+      playerIsRunning,
+      playerStepIndex,
+      playerLoop,
+      playerSpeedMs,
+      playerHighlightNodes,
+      playerTrailEnabled,
+      playerConfettiNonce,
+      playerConfettiNodeId: useEditorStore.getState().playerConfettiNodeId,
+    },
+    ui: {
+      leftSidebarWidth,
+      journeyHeight,
+      drawerTab,
+      dslMaximized,
+      focusMode,
+      presentationMode,
+      leftSidebarCollapsed,
+      dockCollapsed,
+      drawerCollapsed,
+      dockPosition,
+      dockTabOrder: cloneSerializable(dockTabOrder),
+      activeDockTab,
+      journeyDraftName,
+    },
+  }), [
+    workspace,
+    currentViewId,
+    viewHistory,
+    viewport,
+    selectedNodeId,
+    selectedNodeIds,
+    selectedEdgeId,
+    activeTool,
+    pendingConnectionFrom,
+    pendingConnectionPortId,
+    activeJourneyId,
+    journeyFilterId,
+    playerJourneyId,
+    playerIsRunning,
+    playerStepIndex,
+    playerLoop,
+    playerSpeedMs,
+    playerHighlightNodes,
+    playerTrailEnabled,
+    playerConfettiNonce,
+    leftSidebarWidth,
+    journeyHeight,
+    drawerTab,
+    dslMaximized,
+    focusMode,
+    presentationMode,
+    leftSidebarCollapsed,
+    dockCollapsed,
+    drawerCollapsed,
+    dockPosition,
+    dockTabOrder,
+    activeDockTab,
+    journeyDraftName,
+  ])
+
+  const applyHistorySnapshot = useCallback((snapshot: HistorySnapshot) => {
+    if (historyReleaseTimerRef.current !== null) {
+      window.clearTimeout(historyReleaseTimerRef.current)
+      historyReleaseTimerRef.current = null
+    }
+    historyApplyingRef.current = true
+    useEditorStore.setState({
+      workspace: cloneSerializable(snapshot.store.workspace),
+      currentViewId: snapshot.store.currentViewId,
+      viewHistory: cloneSerializable(snapshot.store.viewHistory),
+      viewport: cloneSerializable(snapshot.store.viewport),
+      selectedNodeId: snapshot.store.selectedNodeId,
+      selectedNodeIds: cloneSerializable(snapshot.store.selectedNodeIds),
+      selectedEdgeId: snapshot.store.selectedEdgeId,
+      activeTool: snapshot.store.activeTool,
+      pendingConnectionFrom: snapshot.store.pendingConnectionFrom,
+      pendingConnectionPortId: snapshot.store.pendingConnectionPortId,
+      activeJourneyId: snapshot.store.activeJourneyId,
+      journeyFilterId: snapshot.store.journeyFilterId,
+      playerJourneyId: snapshot.store.playerJourneyId,
+      playerIsRunning: snapshot.store.playerIsRunning,
+      playerStepIndex: snapshot.store.playerStepIndex,
+      playerLoop: snapshot.store.playerLoop,
+      playerSpeedMs: snapshot.store.playerSpeedMs,
+      playerHighlightNodes: snapshot.store.playerHighlightNodes,
+      playerTrailEnabled: snapshot.store.playerTrailEnabled,
+      playerConfettiNonce: snapshot.store.playerConfettiNonce,
+      playerConfettiNodeId: snapshot.store.playerConfettiNodeId,
+    })
+    setLeftSidebarWidth(snapshot.ui.leftSidebarWidth)
+    setJourneyHeight(snapshot.ui.journeyHeight)
+    setDrawerTab(snapshot.ui.drawerTab)
+    setDslMaximized(snapshot.ui.dslMaximized)
+    setFocusMode(snapshot.ui.focusMode)
+    setPresentationMode(snapshot.ui.presentationMode)
+    setLeftSidebarCollapsed(snapshot.ui.leftSidebarCollapsed)
+    setDockCollapsed(snapshot.ui.dockCollapsed)
+    setDrawerCollapsed(snapshot.ui.drawerCollapsed)
+    setDockPosition(snapshot.ui.dockPosition)
+    setDockTabOrder(cloneSerializable(snapshot.ui.dockTabOrder))
+    setActiveDockTab(snapshot.ui.activeDockTab)
+    setJourneyDraftName(snapshot.ui.journeyDraftName)
+    setOpenDesktopMenu(null)
+    historyReleaseTimerRef.current = window.setTimeout(() => {
+      historyApplyingRef.current = false
+      historyReleaseTimerRef.current = null
+    }, 0)
+  }, [])
+
+  const undoHistory = useCallback(() => {
+    const stacks = historyRef.current
+    if (stacks.past.length <= 1) {
+      return false
+    }
+    const currentSnapshot = stacks.past.pop()
+    if (!currentSnapshot) {
+      return false
+    }
+    stacks.future.push(currentSnapshot)
+    const previousSnapshot = stacks.past[stacks.past.length - 1]
+    if (!previousSnapshot) {
+      return false
+    }
+    applyHistorySnapshot(previousSnapshot)
+    refreshHistoryAvailability()
+    setTransientStatus('Undo applied.')
+    return true
+  }, [applyHistorySnapshot, refreshHistoryAvailability, setTransientStatus])
+
+  const redoHistory = useCallback(() => {
+    const stacks = historyRef.current
+    if (!stacks.future.length) {
+      return false
+    }
+    const nextSnapshot = stacks.future.pop()
+    if (!nextSnapshot) {
+      return false
+    }
+    stacks.past.push(nextSnapshot)
+    applyHistorySnapshot(nextSnapshot)
+    refreshHistoryAvailability()
+    setTransientStatus('Redo applied.')
+    return true
+  }, [applyHistorySnapshot, refreshHistoryAvailability, setTransientStatus])
+
   const handleDslEditorBeforeMount = (monaco: Monaco): void => {
     registerJourneyScriptLanguage(monaco)
   }
@@ -994,6 +1277,40 @@ function App() {
     }, DEBOUNCE_SAVE_MS)
     return () => window.clearTimeout(timeout)
   }, [workspace])
+
+  useEffect(() => {
+    if (historyApplyingRef.current) {
+      return
+    }
+    const snapshot = captureHistorySnapshot()
+    const stacks = historyRef.current
+    const now = Date.now()
+    const shouldCoalesce = now - historyLastCommitAtRef.current < 180
+
+    if (!stacks.past.length) {
+      stacks.past.push(snapshot)
+    } else if (shouldCoalesce) {
+      stacks.past[stacks.past.length - 1] = snapshot
+    } else {
+      stacks.past.push(snapshot)
+    }
+    if (stacks.past.length > HISTORY_LIMIT) {
+      stacks.past.splice(0, stacks.past.length - HISTORY_LIMIT)
+    }
+    stacks.future = []
+    historyLastCommitAtRef.current = now
+    refreshHistoryAvailability()
+  }, [captureHistorySnapshot, refreshHistoryAvailability])
+
+  useEffect(
+    () => () => {
+      if (historyReleaseTimerRef.current !== null) {
+        window.clearTimeout(historyReleaseTimerRef.current)
+        historyReleaseTimerRef.current = null
+      }
+    },
+    [],
+  )
 
   useEffect(() => {
     if (journeyFocusSettings.autoLayoutMode !== 'always') {
@@ -1299,6 +1616,22 @@ function App() {
       const key = event.key.toLowerCase()
       const hasCommand = event.ctrlKey || event.metaKey
 
+      if (hasCommand && !event.altKey && key === 'z') {
+        event.preventDefault()
+        if (event.shiftKey) {
+          redoHistory()
+        } else {
+          undoHistory()
+        }
+        return
+      }
+
+      if (hasCommand && !event.altKey && key === 'y') {
+        event.preventDefault()
+        redoHistory()
+        return
+      }
+
       if ((event.key === 'Delete' || event.key === 'Backspace') && !hasCommand) {
         event.preventDefault()
         deleteCurrentSelection()
@@ -1319,7 +1652,7 @@ function App() {
 
     window.addEventListener('keydown', onEntityShortcut)
     return () => window.removeEventListener('keydown', onEntityShortcut)
-  }, [deleteCurrentSelection, duplicateCurrentSelection, runAutoArrange])
+  }, [deleteCurrentSelection, duplicateCurrentSelection, redoHistory, runAutoArrange, undoHistory])
 
   const exportFromCanvas = async (format: 'svg' | 'png' | 'pdf') => {
     const svg = document.querySelector('.diagram-canvas')
@@ -1664,6 +1997,17 @@ function App() {
           <span className="edge-label-position-value">
             {Math.round((selectedEdge.style.labelPosition ?? 0.5) * 100)}%
           </span>
+          <label htmlFor="edge-label-side">Label Side</label>
+          <select
+            id="edge-label-side"
+            value={selectedEdge.style.labelSide ?? 'left'}
+            onChange={(event) =>
+              setEdgeLabelSide(selectedEdge.id, event.target.value as 'left' | 'right')
+            }
+          >
+            <option value="left">Left / Top</option>
+            <option value="right">Right / Bottom</option>
+          </select>
           <div className="inspector-actions">
             <button type="button" onClick={() => duplicateCurrentSelection()}>
               Duplicate
@@ -1691,215 +2035,228 @@ function App() {
   const journeysDockContent = (
     <div className="dock-content-section">
       <h2>Journeys</h2>
-      <div className="journey-side-create">
-        <input
-          placeholder="Nova jornada"
-          value={journeyDraftName}
-          onChange={(event) => setJourneyDraftName(event.target.value)}
-        />
-        <button
-          type="button"
-          onClick={() => {
-            const journeyId = createJourney(journeyDraftName)
-            setJourneyDraftName('')
-            setActiveJourney(journeyId)
-            activateJourneyPlayback(journeyId)
-          }}
-        >
-          Criar jornada
-        </button>
-      </div>
-      <div className="journey-side-filter">
-        <select
-          value={journeyFilterId ?? ''}
-          onChange={(event) => {
-            const nextJourneyId = event.target.value || null
-            setJourneyFilter(nextJourneyId)
-            if (nextJourneyId) {
-              setActiveJourney(nextJourneyId)
-              activateJourneyPlayback(nextJourneyId)
-            }
-          }}
-        >
-          <option value="">Filtro: todas jornadas</option>
-          {viewJourneys.map((journey) => (
-            <option key={journey.id} value={journey.id}>
-              {journey.name}
-            </option>
-          ))}
-        </select>
-        <button type="button" onClick={() => setJourneyFilter(null)}>
-          Limpar filtro
-        </button>
-        <select
-          value={journeyFocusSettings.offscopeRenderMode}
-          onChange={(event) =>
-            setJourneyFocusSettings({
-              offscopeRenderMode: event.target.value as typeof journeyFocusSettings.offscopeRenderMode,
-            })
-          }
-        >
-          <option value="show">Foco: mostrar tudo</option>
-          <option value="dim">Foco: cinza fora da jornada</option>
-          <option value="hide">Foco: ocultar fora da jornada</option>
-        </select>
-        <select
-          value={journeyFocusSettings.layoutMode}
-          onChange={(event) =>
-            setJourneyFocusSettings({
-              layoutMode: event.target.value as typeof journeyFocusSettings.layoutMode,
-            })
-          }
-        >
-          <option value="preserve">Layout filtro: preservar posições</option>
-          <option value="reflow">Layout filtro: reflow da jornada</option>
-        </select>
-        <select
-          value={journeyFocusSettings.autoLayoutMode}
-          onChange={(event) =>
-            setJourneyFocusSettings({
-              autoLayoutMode: event.target.value as typeof journeyFocusSettings.autoLayoutMode,
-            })
-          }
-        >
-          <option value="manual">Auto-layout: aplicar manual</option>
-          <option value="always">Auto-layout: sempre no filtro</option>
-        </select>
-        <button
-          type="button"
-          onClick={() => runAutoArrange()}
-          disabled={
-            journeyFocusSettings.layoutMode !== 'reflow' ||
-            !journeyFilterId ||
-            !journeyFocusNodeIds.length
-          }
-        >
-          Apply layout now
-        </button>
-      </div>
-      <div className="journey-side-player">
-        <select value={playerJourneyId ?? ''} onChange={(event) => activateJourneyPlayback(event.target.value || null)}>
-          <option value="">Player: selecione jornada</option>
-          {viewJourneys.map((journey) => (
-            <option key={journey.id} value={journey.id}>
-              {journey.name}
-            </option>
-          ))}
-        </select>
-        <select
-          value={playerAnimationPreset}
-          onChange={(event) => applyPlayerAnimationPreset(event.target.value as PlayerAnimationPreset)}
-        >
-          <option value="cinematic">Animação: Cinematic</option>
-          <option value="orb">Animação: Orb only</option>
-          <option value="minimal">Animação: Minimal</option>
-        </select>
-        <div className="journey-player-actions journey-player-actions-iconic" role="group" aria-label="Controles do player">
-          <button type="button" disabled={!playerJourney} onClick={() => prevPlayerStep()} aria-label="Passo anterior">
-            <SkipBack size={15} />
-          </button>
+      <section className="journey-side-group">
+        <h3>Creation</h3>
+        <div className="journey-side-create">
+          <input
+            placeholder="Nova jornada"
+            value={journeyDraftName}
+            onChange={(event) => setJourneyDraftName(event.target.value)}
+          />
           <button
             type="button"
-            disabled={!playerJourney}
-            onClick={() => setPlayerRunning(!playerIsRunning)}
-            aria-label={playerIsRunning ? 'Pausar player' : 'Iniciar player'}
-          >
-            {playerIsRunning ? <Pause size={16} /> : <Play size={16} />}
-          </button>
-          <button type="button" disabled={!playerJourney} onClick={() => stepPlayer()} aria-label="Próximo passo">
-            <SkipForward size={15} />
-          </button>
-          <button type="button" disabled={!playerJourney} onClick={() => resetPlayer()} aria-label="Resetar player">
-            <RotateCcw size={15} />
-          </button>
-        </div>
-        <div className="journey-player-toggles">
-          <label className="toggle-inline">
-            <input
-              type="checkbox"
-              checked={playerLoop}
-              onChange={(event) => setPlayerLoop(event.target.checked)}
-            />
-            Loop
-          </label>
-          <label className="toggle-inline">
-            <input
-              type="checkbox"
-              checked={playerHighlightNodes}
-              onChange={(event) => setPlayerHighlightNodes(event.target.checked)}
-            />
-            Highlight
-          </label>
-          <label className="toggle-inline">
-            <input
-              type="checkbox"
-              checked={playerTrailEnabled}
-              onChange={(event) => setPlayerTrailEnabled(event.target.checked)}
-            />
-            Trail
-          </label>
-        </div>
-        <label className="journey-speed-control">
-          Speed
-          <input
-            type="range"
-            min={120}
-            max={1800}
-            step={60}
-            value={playerSpeedMs}
-            onChange={(event) => setPlayerSpeedMs(Number(event.target.value))}
-          />
-        </label>
-        <span className="player-step-info">
-          Step {playerStepIndex + 1}/{playerJourney?.steps.length ?? 0}
-        </span>
-      </div>
-      <div className="journey-list journey-list-sidebar">
-        {viewJourneys.map((journey) => (
-          <div
-            key={journey.id}
-            className={[
-              'journey-item',
-              activeJourneyId === journey.id ? 'journey-active' : '',
-              draggedEdgeId ? 'journey-item-edge-drop-target' : '',
-            ]
-              .filter(Boolean)
-              .join(' ')}
-            draggable
-            onDragStart={() => onJourneyDragStart(journey.id)}
-            onDragEnd={() => {
-              journeyDragRef.current = null
-            }}
-            onDragOver={(event) => {
-              event.preventDefault()
-              event.dataTransfer.dropEffect = 'move'
-            }}
-            onDrop={() => onJourneyDrop(journey.id)}
-            onPointerUp={() => onJourneyPointerUp(journey.id)}
             onClick={() => {
-              setActiveJourney(journey.id)
-              activateJourneyPlayback(journey.id)
+              const journeyId = createJourney(journeyDraftName)
+              setJourneyDraftName('')
+              setActiveJourney(journeyId)
+              activateJourneyPlayback(journeyId)
             }}
           >
-            <span className="journey-drag-handle" aria-hidden="true">
-              <GripVertical size={13} />
-            </span>
-            <span className="journey-color-dot" style={{ background: journey.colorKey }} />
-            <span>{journey.name}</span>
+            Criar jornada
+          </button>
+        </div>
+      </section>
+      <section className="journey-side-group">
+        <h3>Filter & Layout</h3>
+        <div className="journey-side-filter">
+          <select
+            value={journeyFilterId ?? ''}
+            onChange={(event) => {
+              const nextJourneyId = event.target.value || null
+              applyJourneyFilter(nextJourneyId, { activateJourney: true })
+            }}
+          >
+            <option value="">Filtro: todas jornadas</option>
+            {viewJourneys.map((journey) => (
+              <option key={journey.id} value={journey.id}>
+                {journey.name}
+              </option>
+            ))}
+          </select>
+          <button type="button" onClick={() => applyJourneyFilter(null, { activateJourney: false })}>
+            Limpar filtro
+          </button>
+          <select
+            value={journeyFocusSettings.offscopeRenderMode}
+            onChange={(event) =>
+              setJourneyFocusSettings({
+                offscopeRenderMode: event.target.value as typeof journeyFocusSettings.offscopeRenderMode,
+              })
+            }
+          >
+            <option value="show">Foco: mostrar tudo</option>
+            <option value="dim">Foco: cinza fora da jornada</option>
+            <option value="hide">Foco: ocultar fora da jornada</option>
+          </select>
+          <select
+            value={journeyFocusSettings.layoutMode}
+            onChange={(event) =>
+              setJourneyFocusSettings({
+                layoutMode: event.target.value as typeof journeyFocusSettings.layoutMode,
+              })
+            }
+          >
+            <option value="preserve">Layout filtro: preservar posições</option>
+            <option value="reflow">Layout filtro: reflow da jornada</option>
+          </select>
+          <select
+            value={journeyFocusSettings.autoLayoutMode}
+            onChange={(event) =>
+              setJourneyFocusSettings({
+                autoLayoutMode: event.target.value as typeof journeyFocusSettings.autoLayoutMode,
+              })
+            }
+          >
+            <option value="manual">Auto-layout: aplicar manual</option>
+            <option value="always">Auto-layout: sempre no filtro</option>
+          </select>
+          <button
+            type="button"
+            onClick={() => runAutoArrange()}
+            disabled={
+              journeyFocusSettings.layoutMode !== 'reflow' ||
+              !journeyFilterId ||
+              !journeyFocusNodeIds.length
+            }
+          >
+            Apply layout now
+          </button>
+        </div>
+      </section>
+      <section className="journey-side-group">
+        <h3>Player</h3>
+        <div className="journey-side-player">
+          <select value={playerJourneyId ?? ''} onChange={(event) => activateJourneyPlayback(event.target.value || null)}>
+            <option value="">Player: selecione jornada</option>
+            {viewJourneys.map((journey) => (
+              <option key={journey.id} value={journey.id}>
+                {journey.name}
+              </option>
+            ))}
+          </select>
+          <select
+            value={playerAnimationPreset}
+            onChange={(event) => applyPlayerAnimationPreset(event.target.value as PlayerAnimationPreset)}
+          >
+            <option value="cinematic">Animação: Cinematic</option>
+            <option value="orb">Animação: Orb only</option>
+            <option value="minimal">Animação: Minimal</option>
+          </select>
+          <div className="journey-player-actions journey-player-actions-iconic" role="group" aria-label="Controles do player">
+            <button type="button" disabled={!playerJourney} onClick={() => prevPlayerStep()} aria-label="Passo anterior">
+              <SkipBack size={15} />
+            </button>
             <button
               type="button"
-              onClick={(event) => {
-                event.stopPropagation()
-                setJourneyFilter(journeyFilterId === journey.id ? null : journey.id)
+              disabled={!playerJourney}
+              onClick={() => setPlayerRunning(!playerIsRunning)}
+              aria-label={playerIsRunning ? 'Pausar player' : 'Iniciar player'}
+            >
+              {playerIsRunning ? <Pause size={16} /> : <Play size={16} />}
+            </button>
+            <button type="button" disabled={!playerJourney} onClick={() => stepPlayer()} aria-label="Próximo passo">
+              <SkipForward size={15} />
+            </button>
+            <button type="button" disabled={!playerJourney} onClick={() => resetPlayer()} aria-label="Resetar player">
+              <RotateCcw size={15} />
+            </button>
+          </div>
+          <div className="journey-player-toggles">
+            <label className="toggle-inline">
+              <input
+                type="checkbox"
+                checked={playerLoop}
+                onChange={(event) => setPlayerLoop(event.target.checked)}
+              />
+              Loop
+            </label>
+            <label className="toggle-inline">
+              <input
+                type="checkbox"
+                checked={playerHighlightNodes}
+                onChange={(event) => setPlayerHighlightNodes(event.target.checked)}
+              />
+              Highlight
+            </label>
+            <label className="toggle-inline">
+              <input
+                type="checkbox"
+                checked={playerTrailEnabled}
+                onChange={(event) => setPlayerTrailEnabled(event.target.checked)}
+              />
+              Trail
+            </label>
+          </div>
+          <label className="journey-speed-control">
+            Speed
+            <input
+              type="range"
+              min={120}
+              max={1800}
+              step={60}
+              value={playerSpeedMs}
+              onChange={(event) => setPlayerSpeedMs(Number(event.target.value))}
+            />
+          </label>
+          <span className="player-step-info">
+            Step {playerStepIndex + 1}/{playerJourney?.steps.length ?? 0}
+          </span>
+        </div>
+      </section>
+      <section className="journey-side-group">
+        <h3>Journeys</h3>
+        <div className="journey-list journey-list-sidebar">
+          {viewJourneys.map((journey) => (
+            <div
+              key={journey.id}
+              className={[
+                'journey-item',
+                activeJourneyId === journey.id ? 'journey-active' : '',
+                draggedEdgeId ? 'journey-item-edge-drop-target' : '',
+              ]
+                .filter(Boolean)
+                .join(' ')}
+              draggable
+              onDragStart={() => onJourneyDragStart(journey.id)}
+              onDragEnd={() => {
+                journeyDragRef.current = null
+              }}
+              onDragOver={(event) => {
+                event.preventDefault()
+                event.dataTransfer.dropEffect = 'move'
+              }}
+              onDrop={() => onJourneyDrop(journey.id)}
+              onPointerUp={() => onJourneyPointerUp(journey.id)}
+              onClick={() => {
                 setActiveJourney(journey.id)
                 activateJourneyPlayback(journey.id)
               }}
             >
-              {journeyFilterId === journey.id ? 'Filtrando' : 'Filtrar'}
-            </button>
-          </div>
-        ))}
-      </div>
+              <span className="journey-drag-handle" aria-hidden="true">
+                <GripVertical size={13} />
+              </span>
+              <span className="journey-color-dot" style={{ background: journey.colorKey }} />
+              <span>{journey.name}</span>
+              <button
+                type="button"
+                onClick={(event) => {
+                  event.stopPropagation()
+                  const nextJourneyFilter = journeyFilterId === journey.id ? null : journey.id
+                  applyJourneyFilter(nextJourneyFilter, {
+                    activateJourney: nextJourneyFilter !== null,
+                  })
+                  if (!nextJourneyFilter) {
+                    setActiveJourney(journey.id)
+                    activateJourneyPlayback(journey.id)
+                  }
+                }}
+              >
+                {journeyFilterId === journey.id ? 'Filtrando' : 'Filtrar'}
+              </button>
+            </div>
+          ))}
+        </div>
+      </section>
     </div>
   )
 
@@ -2169,6 +2526,24 @@ function App() {
               </button>
               {openDesktopMenu === 'edit' ? (
                 <div id="desktop-menu-edit" className="desktop-menu-list" role="menu" aria-label="Edit menu">
+                  <button
+                    type="button"
+                    role="menuitem"
+                    disabled={!canUndo}
+                    onClick={() => runDesktopMenuAction(() => undoHistory())}
+                  >
+                    <span>Undo</span>
+                    <kbd>Ctrl+Z</kbd>
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    disabled={!canRedo}
+                    onClick={() => runDesktopMenuAction(() => redoHistory())}
+                  >
+                    <span>Redo</span>
+                    <kbd>Ctrl+Shift+Z</kbd>
+                  </button>
                   <button type="button" role="menuitem" onClick={() => runDesktopMenuAction(() => navigateBack())}>
                     <span>Back</span>
                     <kbd>Alt+←</kbd>
@@ -2278,6 +2653,273 @@ function App() {
                   >
                     <span>{presentationMode ? 'Exit Presentation' : 'Presentation Mode'}</span>
                     <kbd>P</kbd>
+                  </button>
+                </div>
+              ) : null}
+            </div>
+            <div
+              className={openDesktopMenu === 'journey' ? 'desktop-menu desktop-menu-open' : 'desktop-menu'}
+              onMouseEnter={() => {
+                if (openDesktopMenu) {
+                  setOpenDesktopMenu('journey')
+                }
+              }}
+            >
+              <button
+                type="button"
+                className="desktop-menu-trigger"
+                aria-haspopup="menu"
+                aria-expanded={openDesktopMenu === 'journey'}
+                aria-controls="desktop-menu-journey"
+                onClick={() => toggleDesktopMenu('journey')}
+              >
+                Journey
+              </button>
+              {openDesktopMenu === 'journey' ? (
+                <div id="desktop-menu-journey" className="desktop-menu-list" role="menu" aria-label="Journey menu">
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() =>
+                      runDesktopMenuAction(() => {
+                        const createdJourneyId = createJourney(journeyDraftName || undefined)
+                        setJourneyDraftName('')
+                        setActiveJourney(createdJourneyId)
+                        activateJourneyPlayback(createdJourneyId)
+                      })
+                    }
+                  >
+                    <span>Create Journey</span>
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() =>
+                      runDesktopMenuAction(() => {
+                        applyJourneyFilter(null, { activateJourney: false })
+                      })
+                    }
+                  >
+                    <span>Clear Journey Filter</span>
+                  </button>
+                  {viewJourneys.length ? (
+                    <>
+                      {viewJourneys.map((journey) => (
+                        <button
+                          key={`menu-filter-${journey.id}`}
+                          type="button"
+                          role="menuitem"
+                          onClick={() =>
+                            runDesktopMenuAction(() => {
+                              applyJourneyFilter(journey.id, { activateJourney: true })
+                            })
+                          }
+                        >
+                          <span>
+                            {journeyFilterId === journey.id ? 'Filtering: ' : 'Filter: '}
+                            {journey.name}
+                          </span>
+                        </button>
+                      ))}
+                    </>
+                  ) : null}
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() =>
+                      runDesktopMenuAction(() =>
+                        setJourneyFocusSettings({
+                          offscopeRenderMode: 'show',
+                        }),
+                      )
+                    }
+                  >
+                    <span>
+                      Focus: Show{journeyFocusSettings.offscopeRenderMode === 'show' ? ' (active)' : ''}
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() =>
+                      runDesktopMenuAction(() =>
+                        setJourneyFocusSettings({
+                          offscopeRenderMode: 'dim',
+                        }),
+                      )
+                    }
+                  >
+                    <span>
+                      Focus: Dim{journeyFocusSettings.offscopeRenderMode === 'dim' ? ' (active)' : ''}
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() =>
+                      runDesktopMenuAction(() =>
+                        setJourneyFocusSettings({
+                          offscopeRenderMode: 'hide',
+                        }),
+                      )
+                    }
+                  >
+                    <span>
+                      Focus: Hide{journeyFocusSettings.offscopeRenderMode === 'hide' ? ' (active)' : ''}
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() =>
+                      runDesktopMenuAction(() =>
+                        setJourneyFocusSettings({
+                          layoutMode: 'preserve',
+                        }),
+                      )
+                    }
+                  >
+                    <span>
+                      Filter Layout: Preserve
+                      {journeyFocusSettings.layoutMode === 'preserve' ? ' (active)' : ''}
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() =>
+                      runDesktopMenuAction(() =>
+                        setJourneyFocusSettings({
+                          layoutMode: 'reflow',
+                        }),
+                      )
+                    }
+                  >
+                    <span>
+                      Filter Layout: Reflow
+                      {journeyFocusSettings.layoutMode === 'reflow' ? ' (active)' : ''}
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() =>
+                      runDesktopMenuAction(() =>
+                        setJourneyFocusSettings({
+                          autoLayoutMode: 'manual',
+                        }),
+                      )
+                    }
+                  >
+                    <span>
+                      Auto-layout: Manual
+                      {journeyFocusSettings.autoLayoutMode === 'manual' ? ' (active)' : ''}
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() =>
+                      runDesktopMenuAction(() =>
+                        setJourneyFocusSettings({
+                          autoLayoutMode: 'always',
+                        }),
+                      )
+                    }
+                  >
+                    <span>
+                      Auto-layout: Always
+                      {journeyFocusSettings.autoLayoutMode === 'always' ? ' (active)' : ''}
+                    </span>
+                  </button>
+                  <button type="button" role="menuitem" onClick={() => runDesktopMenuAction(() => runAutoArrange())}>
+                    <span>Apply Layout Now</span>
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() =>
+                      runDesktopMenuAction(() =>
+                        applyPlayerAnimationPreset('cinematic'),
+                      )
+                    }
+                  >
+                    <span>Animation: Cinematic</span>
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() =>
+                      runDesktopMenuAction(() =>
+                        applyPlayerAnimationPreset('orb'),
+                      )
+                    }
+                  >
+                    <span>Animation: Orb only</span>
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() =>
+                      runDesktopMenuAction(() =>
+                        applyPlayerAnimationPreset('minimal'),
+                      )
+                    }
+                  >
+                    <span>Animation: Minimal</span>
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    disabled={!playerJourney}
+                    onClick={() => runDesktopMenuAction(() => prevPlayerStep())}
+                  >
+                    <span>Player: Previous Step</span>
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    disabled={!playerJourney}
+                    onClick={() => runDesktopMenuAction(() => setPlayerRunning(!playerIsRunning))}
+                  >
+                    <span>{playerIsRunning ? 'Player: Pause' : 'Player: Play'}</span>
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    disabled={!playerJourney}
+                    onClick={() => runDesktopMenuAction(() => stepPlayer())}
+                  >
+                    <span>Player: Next Step</span>
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    disabled={!playerJourney}
+                    onClick={() => runDesktopMenuAction(() => resetPlayer())}
+                  >
+                    <span>Player: Reset</span>
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => runDesktopMenuAction(() => setPlayerLoop(!playerLoop))}
+                  >
+                    <span>{playerLoop ? 'Loop: On' : 'Loop: Off'}</span>
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => runDesktopMenuAction(() => setPlayerHighlightNodes(!playerHighlightNodes))}
+                  >
+                    <span>{playerHighlightNodes ? 'Highlight: On' : 'Highlight: Off'}</span>
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => runDesktopMenuAction(() => setPlayerTrailEnabled(!playerTrailEnabled))}
+                  >
+                    <span>{playerTrailEnabled ? 'Trail: On' : 'Trail: Off'}</span>
                   </button>
                 </div>
               ) : null}

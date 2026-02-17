@@ -34,6 +34,7 @@ describe('App boundary styles', () => {
     expect(appCss).toContain('.dock-tab')
     expect(appCss).toContain('.dock-placement')
     expect(appCss).toContain('.journey-side-player')
+    expect(appCss).toContain('.journey-side-group')
     expect(appCss).toContain('.journey-list-sidebar')
     expect(appCss).toContain('.journey-timeline-toolbar')
     expect(appCss).toContain('.journey-item-edge-drop-target')
@@ -84,6 +85,7 @@ describe('App boundary styles', () => {
     expect(appCss).toContain('.edge-anchor-handle')
     expect(appCss).toContain('.edge-anchor-handle-active')
     expect(appCss).toContain('.edge-label-draggable')
+    expect(appCss).toContain('.edge-label-vertical')
     expect(appCss).toContain('.edge-selected-indicator')
   })
 

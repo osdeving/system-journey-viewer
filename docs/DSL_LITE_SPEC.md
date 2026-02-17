@@ -21,7 +21,7 @@ Each view can declare:
 - parent/via hierarchy
 
 Workspace can also declare:
-- optional `metadata ui-layout` (UI-only node positions and edge label positions).
+- optional `metadata ui-layout` (UI-only node positions and edge label geometry).
 
 Nodes can declare:
 - `drilldown <viewId>`
@@ -64,7 +64,8 @@ metadataDecl     = "metadata", ws1, "ui-layout", ws, "{", ws, { metadataViewDecl
 metadataViewDecl = "view", ws1, viewId, ws, "{", ws, { metadataNodeDecl | metadataEdgeDecl, ws }, "}" ;
 metadataNodeDecl = "node", ws1, alias, ws1, "at", ws1, number, ws1, number,
                    ws1, "size", ws1, number, ws1, number ;
-metadataEdgeDecl = "edge", ws1, alias, ws, "->", ws, alias, ws1, "label", ws1, number ;
+metadataEdgeDecl = "edge", ws1, alias, ws, "->", ws, alias, ws1, "label", ws1, number,
+                   [ ws1, "side", ws1, ("left" | "right") ] ;
 
 nodeDecl         = kind, ws1, alias, ws1, string,
                    [ ws1, "tech", ws1, techId ],
@@ -168,9 +169,9 @@ ws?              = { " " | "\t" } ;
   - preserve UI geometry without changing architecture semantics.
 - supported entries per view:
   - `node <alias> at <x> <y> size <w> <h>`
-  - `edge <fromAlias> -> <toAlias> label <position>`
+  - `edge <fromAlias> -> <toAlias> label <position> [side <left|right>]`
 - conversion behavior:
-  - import applies node bounds and edge label positions after structural conversion;
+  - import applies node bounds, edge label positions, and optional edge label side after structural conversion;
   - export includes this metadata block by default for all emitted views.
 
 ## 4. Import/Export in the Editor

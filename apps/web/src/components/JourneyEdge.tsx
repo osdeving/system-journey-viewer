@@ -5,6 +5,7 @@ import { resolveJourneyEdgeClassName } from './journeyEdgeClassName'
 import {
   composeEdgeDisplayLabel,
   cubicPointAt,
+  resolveEdgeLabelPlacement,
   resolveEdgeStepBadgeProgress,
   type EdgeCurvePath,
 } from './edgePresentation'
@@ -46,9 +47,9 @@ export const JourneyEdge = ({
   onEdgeLabelPointerDown,
   onSelect,
 }: JourneyEdgeProps) => {
-  const pathId = `${edge.id}_path`
   const labelPosition = Math.max(0.08, Math.min(0.92, edge.style.labelPosition ?? 0.5))
-  const labelStartOffset = `${(labelPosition * 100).toFixed(1)}%`
+  const labelSide = edge.style.labelSide === 'right' ? 'right' : 'left'
+  const labelPlacement = resolveEdgeLabelPlacement(curve, labelPosition, labelSide, 14)
   const badgePoint = badge
     ? cubicPointAt(curve, resolveEdgeStepBadgeProgress(curve))
     : null
@@ -67,15 +68,18 @@ export const JourneyEdge = ({
       }}
     >
       <path
-        id={pathId}
         d={path}
         fill="none"
         markerEnd="url(#edge-arrow)"
         className={resolveJourneyEdgeClassName({ isSelected, isPlayerEdge, isFlowAnimated, isDimmed })}
       />
       <text
+        x={labelPlacement.point.x}
+        y={labelPlacement.point.y}
+        transform={`rotate(${labelPlacement.angleDeg} ${labelPlacement.point.x} ${labelPlacement.point.y})`}
         className={[
           isInteractive ? 'edge-label edge-label-draggable' : 'edge-label',
+          labelPlacement.isVertical ? 'edge-label-vertical' : '',
           isDimmed ? 'edge-label-dimmed' : '',
         ]
           .filter(Boolean)
@@ -89,9 +93,7 @@ export const JourneyEdge = ({
           onEdgeLabelPointerDown?.(edge.id, event)
         }}
       >
-        <textPath href={`#${pathId}`} startOffset={labelStartOffset}>
-          {displayLabel}
-        </textPath>
+        {displayLabel}
       </text>
       {selectedPoint ? (
         <g className="edge-selected-indicator">

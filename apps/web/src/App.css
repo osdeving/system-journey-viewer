@@ -661,6 +661,8 @@
   width: 100%;
   height: 100%;
   overflow: hidden;
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 .diagram-canvas {
@@ -671,6 +673,8 @@
   height: 100%;
   touch-action: none;
   cursor: grab;
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 .trail-canvas {
@@ -856,15 +860,20 @@
   fill: #334155;
   font-size: 11px;
   text-anchor: middle;
-  dominant-baseline: text-after-edge;
+  dominant-baseline: central;
   paint-order: stroke;
   stroke: rgba(248, 250, 252, 0.9);
   stroke-width: 3;
   stroke-linejoin: round;
+  pointer-events: auto;
 }
 
 .edge-label-draggable {
-  cursor: ew-resize;
+  cursor: move;
+}
+
+.edge-label-vertical {
+  letter-spacing: 0.01em;
 }
 
 .edge-label-dimmed {
@@ -1069,6 +1078,23 @@
   gap: 8px;
 }
 
+.journey-side-group {
+  border: 1px solid #d8e1ee;
+  border-radius: 12px;
+  padding: 10px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(241, 245, 249, 0.96));
+  display: grid;
+  gap: 8px;
+}
+
+.journey-side-group h3 {
+  margin: 0;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: #334155;
+}
+
 .journey-side-create input,
 .journey-side-filter select,
 .journey-side-player select {
@@ -1131,7 +1157,7 @@
 .journey-list-sidebar {
   display: grid;
   gap: 6px;
-  max-height: 220px;
+  max-height: 260px;
   overflow: auto;
 }
 
@@ -1585,6 +1611,15 @@
 .theme-dark .journey-drawer {
   background: #0f172a;
   border-top-color: #334155;
+}
+
+.theme-dark .journey-side-group {
+  background: linear-gradient(180deg, rgba(17, 24, 39, 0.92), rgba(15, 23, 42, 0.92));
+  border-color: #334155;
+}
+
+.theme-dark .journey-side-group h3 {
+  color: #cbd5e1;
 }
 
 .theme-dark .dsl-panel {

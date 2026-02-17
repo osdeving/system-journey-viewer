@@ -37,6 +37,8 @@ describe('App boundary styles', () => {
     expect(appCss).toContain('.journey-list-sidebar')
     expect(appCss).toContain('.journey-timeline-toolbar')
     expect(appCss).toContain('.journey-item-edge-drop-target')
+    expect(appCss).toContain('.inspector-actions')
+    expect(appCss).toContain('.edge-label-position-value')
     expect(appCss).toContain('.dsl-monaco-editor')
     expect(appCss).toContain('.dsl-panel-maximized .dsl-monaco-editor')
     expect(appCss).toContain('.dsl-codex-instruction')
@@ -78,6 +80,8 @@ describe('App boundary styles', () => {
     expect(appCss).toContain('.node-port-highlight')
     expect(appCss).toContain('.edge-anchor-handle')
     expect(appCss).toContain('.edge-anchor-handle-active')
+    expect(appCss).toContain('.edge-label-draggable')
+    expect(appCss).toContain('.edge-selected-indicator')
   })
 
   it('applies the imported dark palette and arrow styling tokens', () => {

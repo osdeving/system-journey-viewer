@@ -77,6 +77,7 @@ export interface EdgeModel {
     dashed: boolean
     thickness: number
     arrow: boolean
+    labelPosition?: number
   }
 }
 

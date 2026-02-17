@@ -153,6 +153,71 @@ describe('useEditorStore', () => {
     })
   })
 
+  it('removes a selected edge and renormalizes affected journey numbering', () => {
+    const state = useEditorStore.getState()
+    const journeyId = state.createJourney('Edge Removal')
+    state.addEdgeToJourney(journeyId, 'e_c_1')
+    state.addEdgeToJourney(journeyId, 'e_c_10')
+    state.selectEdge('e_c_1')
+
+    state.removeEdge('e_c_1')
+    const updated = useEditorStore.getState()
+    const journey = updated.workspace.journeys[journeyId]
+    const sorted = journey.steps.slice().sort((left, right) => left.n - right.n)
+
+    expect(updated.workspace.edges.e_c_1).toBeUndefined()
+    expect(updated.workspace.views.v_container.edgeIds.includes('e_c_1')).toBe(false)
+    expect(updated.selectedEdgeId).toBeNull()
+    expect(sorted).toEqual([{ n: 1, edgeId: 'e_c_10' }])
+  })
+
+  it('duplicates selected edge and keeps source/target endpoints', () => {
+    const state = useEditorStore.getState()
+    const beforeEdgeCount = state.workspace.views.v_container.edgeIds.length
+    state.selectEdge('e_c_10')
+
+    const result = state.duplicateSelection()
+    const updated = useEditorStore.getState()
+    const afterEdgeCount = updated.workspace.views.v_container.edgeIds.length
+
+    expect(result.edgeId).toBeTruthy()
+    expect(afterEdgeCount).toBe(beforeEdgeCount + 1)
+    expect(result.edgeId ? updated.workspace.edges[result.edgeId] : undefined).toMatchObject({
+      from: updated.workspace.edges.e_c_10.from,
+      to: updated.workspace.edges.e_c_10.to,
+      label: updated.workspace.edges.e_c_10.label,
+    })
+    expect(updated.selectedEdgeId).toBe(result.edgeId)
+  })
+
+  it('duplicates selected nodes and edges between them', () => {
+    const state = useEditorStore.getState()
+    const beforeNodes = state.workspace.views.v_container.nodeIds.length
+    const beforeEdges = state.workspace.views.v_container.edgeIds.length
+    state.selectNode('n_frontend')
+    state.selectNode('n_gateway', { additive: true })
+
+    const result = state.duplicateSelection({ dx: 30, dy: 30 })
+    const updated = useEditorStore.getState()
+
+    expect(result.nodeIds.length).toBe(2)
+    expect(updated.workspace.views.v_container.nodeIds.length).toBe(beforeNodes + 2)
+    expect(updated.workspace.views.v_container.edgeIds.length).toBeGreaterThan(beforeEdges)
+    expect(updated.selectedNodeIds).toEqual(result.nodeIds)
+    expect(updated.selectedEdgeId).toBeNull()
+  })
+
+  it('updates edge label position with clamped range', () => {
+    const state = useEditorStore.getState()
+    state.setEdgeLabelPosition('e_c_1', -3)
+    let updated = useEditorStore.getState()
+    expect(updated.workspace.edges.e_c_1.style.labelPosition).toBeCloseTo(0.08, 5)
+
+    state.setEdgeLabelPosition('e_c_1', 2)
+    updated = useEditorStore.getState()
+    expect(updated.workspace.edges.e_c_1.style.labelPosition).toBeCloseTo(0.92, 5)
+  })
+
   it('allows one edge in multiple journeys with independent numbering', () => {
     const state = useEditorStore.getState()
     const beforeEdges = new Set(state.workspace.views.v_container.edgeIds)

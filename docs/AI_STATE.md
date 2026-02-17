@@ -19,6 +19,10 @@
 - Journey authoring from canvas:
   - drag/release an edge into a journey to append it as the next step;
   - drag-and-drop timeline steps to reorder with automatic renumbering.
+- Selection lifecycle operations:
+  - delete selected nodes or selected edge (`Delete/Backspace`);
+  - duplicate selected node set or selected edge (`Ctrl/Cmd+D`);
+  - same actions available in `Edit` menu and `Inspector`.
 - Drill-down navigation (`Container -> Component -> Hex`) with breadcrumb.
 - Shortcut-assisted drilldown modeling:
   - `Ctrl/Cmd+Alt+double-click` converts a node into a drilldown boundary entry and opens its new detail view.
@@ -45,6 +49,7 @@
 - Reduced confetti radius and intensity for subtle target-local feedback.
 - Connector UX now supports:
   - temporary connect mode while holding `Ctrl`,
+  - modifier priority (`Ctrl+Alt`) that keeps drilldown gestures from being hijacked by connector mode,
   - target node/port highlight while dragging,
   - release-to-connect with nearest-handle resolution.
 
@@ -67,6 +72,10 @@
   - `load-balancer`.
 - Dockable side panel (`Inspector` / `Journeys`) with tab drag and position switching.
 - Standard player control group with icon-based actions.
+- Stronger edge editing UX:
+  - selected edge marker rendered directly on path,
+  - edge label isolation styling,
+  - draggable edge label position (plus inspector slider).
 - Monaco-based `JourneyScript` editor with custom highlighting theme.
 - Focus/presentation workflows for demo-friendly screen usage.
 

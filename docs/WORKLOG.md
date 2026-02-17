@@ -2,6 +2,70 @@
 
 Chronological engineering log. Entries are kept concise and focused on behavior and validation.
 
+## 2026-02-16 - Selection lifecycle and edge/journey interaction hardening
+
+### Scope
+
+- Fix modifier-key conflicts between temporary connector mode and journey edge assignment.
+- Add complete selection actions for nodes/edges (delete + duplicate) with keyboard/menu/inspector access.
+- Improve edge selection feedback and label handling UX.
+- Prevent accidental text selection during drag-heavy editor interactions.
+
+### Changes
+
+- Interaction conflict fixes:
+  - `apps/web/src/components/DiagramCanvas.tsx`
+    - temporary connector mode now activates only for `Ctrl` without `Alt/Meta`;
+    - `Ctrl+Alt` no longer competes with journey drag behavior, preserving drilldown gesture priority.
+  - `apps/web/src/App.tsx`
+    - edge-to-journey assignment now ignores modifier keys and connector-pending state.
+- Selection lifecycle actions (store-level, centralized):
+  - `apps/web/src/store/useEditorStore.ts`
+    - added `removeEdge(edgeId)`;
+    - added `duplicateSelection(offset?)` (duplicates selected edge or selected node set, including internal edges);
+    - added `setEdgeLabelPosition(edgeId, position)`;
+    - refactored edge removal side effects (views, journeys, player state) through shared helper flow.
+- Keyboard/menu/inspector operations:
+  - `apps/web/src/App.tsx`
+    - `Delete/Backspace` removes selected node(s) or selected edge (with confirmation);
+    - `Ctrl/Cmd + D` duplicates current selection;
+    - `Edit` menu now includes `Duplicate Selection` and `Delete Selection`;
+    - inspector adds duplicate/delete actions for nodes and edges.
+- Edge visual feedback and label ergonomics:
+  - `apps/web/src/components/JourneyEdge.tsx`
+    - added explicit selected-edge indicator marker;
+    - label position now reads edge style offset and supports pointer drag start.
+  - `apps/web/src/components/DiagramCanvas.tsx`
+    - added label dragging along path (updates offset continuously).
+  - `apps/web/src/App.tsx`
+    - edge inspector now exposes `Label Position` slider.
+- UX polish:
+  - `apps/web/src/App.css`
+    - disabled broad text selection in editor layout while preserving text inputs/Monaco selection;
+    - added mode-aware cursor cues (`copy`, `ew-resize`) and new edge selection/label styles.
+- Data model/schema updates:
+  - `apps/web/src/model/types.ts`
+  - `apps/web/src/model/schema.ts`
+  - `apps/web/src/dsl-lite/convert.ts`
+    - added optional `edge.style.labelPosition` support.
+
+### Tests
+
+- Updated tests:
+  - `apps/web/src/store/useEditorStore.test.ts`
+    - edge removal + journey renumbering,
+    - edge duplication,
+    - node-set duplication,
+    - edge label position clamp.
+  - `apps/web/src/App.styles.test.ts`
+    - new selection/inspector/label style hooks coverage.
+
+### Validation
+
+- `npm --workspace @sjv/web run lint`
+- `npm --workspace @sjv/web run test:run`
+- `npm --workspace @sjv/web run build`
+
 ## 2026-02-16 - Journey authoring UX and drilldown creation sync
 
 ### Scope

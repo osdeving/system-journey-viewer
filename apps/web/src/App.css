@@ -36,6 +36,17 @@
     'journey journey journey';
   position: relative;
   transition: grid-template-columns 0.22s ease, grid-template-rows 0.22s ease;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.app-layout input,
+.app-layout textarea,
+.app-layout select,
+.app-layout [contenteditable='true'],
+.app-layout .dsl-monaco-editor {
+  user-select: text;
+  -webkit-user-select: text;
 }
 
 .app-layout-focus {
@@ -836,6 +847,33 @@
   font-size: 11px;
   text-anchor: middle;
   dominant-baseline: text-after-edge;
+  paint-order: stroke;
+  stroke: rgba(248, 250, 252, 0.9);
+  stroke-width: 3;
+  stroke-linejoin: round;
+}
+
+.edge-label-draggable {
+  cursor: ew-resize;
+}
+
+.edge-selected-indicator {
+  pointer-events: none;
+}
+
+.edge-selected-indicator-ring {
+  fill: rgba(14, 165, 233, 0.2);
+  stroke: var(--sjv-edge-selected);
+  stroke-width: 1.4;
+  filter: drop-shadow(0 0 6px color-mix(in srgb, var(--sjv-edge-selected) 50%, transparent));
+}
+
+.edge-selected-indicator-check {
+  fill: none;
+  stroke: #f8fafc;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 .edge-step-badge-group {
@@ -898,6 +936,17 @@
 .inspector-form input[type='color'] {
   padding: 2px;
   height: 34px;
+}
+
+.inspector-actions {
+  display: inline-flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.edge-label-position-value {
+  font-size: 12px;
+  color: #475569;
 }
 
 .node-color-presets {
@@ -1165,6 +1214,7 @@
 .journey-item-edge-drop-target {
   border-color: #0ea5e9;
   box-shadow: 0 0 0 1px rgba(14, 165, 233, 0.4);
+  cursor: copy;
 }
 
 .journey-item button {
@@ -1674,6 +1724,7 @@
 
 .theme-dark .edge-label {
   fill: #e2e8f0;
+  stroke: rgba(2, 6, 23, 0.88);
 }
 
 .theme-dark .edge-step-badge {

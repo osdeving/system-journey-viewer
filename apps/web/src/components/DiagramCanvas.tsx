@@ -12,6 +12,7 @@ import {
   snapBounds,
 } from '../engine/geometry'
 import type { EdgeModel, NodeModel } from '../model/types'
+import { resolveJourneyFocusScope } from '../journeys/focus'
 import { protocolPresets } from '../presets/catalog'
 import { iconForKey } from '../presets/iconPipeline'
 import { useEditorStore } from '../store/useEditorStore'
@@ -147,6 +148,7 @@ const FINAL_STEP_ARRIVAL_HOLD_MS = 220
 interface DiagramCanvasProps {
   presentationMode?: boolean
   forceGridHidden?: boolean
+  exportFocusJourneyId?: string | null
   onEdgePointerStart?: (
     edgeId: string,
     event: ReactPointerEvent<SVGGElement>,
@@ -347,6 +349,7 @@ const hexToRgba = (color: string, alpha: number): string => {
 export const DiagramCanvas = ({
   presentationMode = false,
   forceGridHidden = false,
+  exportFocusJourneyId = null,
   onEdgePointerStart,
 }: DiagramCanvasProps = {}) => {
   const panStateRef = useRef<PanState | null>(null)
@@ -447,6 +450,15 @@ export const DiagramCanvas = ({
   const gridEnabled = workspace.settings.grid
   const showGrid = gridEnabled && !forceGridHidden && !presentationMode
   const snapEnabled = workspace.settings.snap
+  const journeyFocusSettings = workspace.settings.journeyFocus
+  const effectiveJourneyFilterId = exportFocusJourneyId ?? journeyFilterId
+  const effectiveOffscopeRenderMode =
+    effectiveJourneyFilterId === null
+      ? 'show'
+      : exportFocusJourneyId
+        ? 'hide'
+        : journeyFocusSettings.offscopeRenderMode
+
   const nodes = useMemo(
     () =>
       currentView.nodeIds
@@ -461,6 +473,12 @@ export const DiagramCanvas = ({
         .filter((edge): edge is EdgeModel => !!edge),
     [currentView.edgeIds, workspace.edges],
   )
+  const journeyFocusScope = useMemo(
+    () => resolveJourneyFocusScope(workspace, viewId, effectiveJourneyFilterId),
+    [effectiveJourneyFilterId, viewId, workspace],
+  )
+  const focusedEdgeIdSet = journeyFocusScope?.edgeIds ?? null
+  const focusedNodeIdSet = journeyFocusScope?.nodeIds ?? null
 
   const edgeJourneyMarkers = useMemo(() => {
     const markers: Record<string, EdgeJourneyMarker[]> = {}
@@ -488,7 +506,7 @@ export const DiagramCanvas = ({
     for (const edge of edges) {
       const markers = edgeJourneyMarkers[edge.id] ?? []
       const badge = resolveEdgeJourneyBadge(markers, {
-        journeyFilterId,
+        journeyFilterId: effectiveJourneyFilterId,
         activeJourneyId,
         playerJourneyId,
       })
@@ -497,7 +515,7 @@ export const DiagramCanvas = ({
       }
     }
     return badges
-  }, [activeJourneyId, edgeJourneyMarkers, edges, journeyFilterId, playerJourneyId])
+  }, [activeJourneyId, edgeJourneyMarkers, edges, effectiveJourneyFilterId, playerJourneyId])
   const protocolLabelById = useMemo(
     () =>
       Object.fromEntries(
@@ -507,16 +525,17 @@ export const DiagramCanvas = ({
   )
 
   const visibleEdges = useMemo(() => {
-    if (!journeyFilterId) {
+    if (!focusedEdgeIdSet || effectiveOffscopeRenderMode !== 'hide') {
       return edges
     }
-    const journey = workspace.journeys[journeyFilterId]
-    if (!journey) {
-      return edges
+    return edges.filter((edge) => focusedEdgeIdSet.has(edge.id))
+  }, [edges, effectiveOffscopeRenderMode, focusedEdgeIdSet])
+  const visibleNodes = useMemo(() => {
+    if (!focusedNodeIdSet || effectiveOffscopeRenderMode !== 'hide') {
+      return nodes
     }
-    const edgeSet = new Set(journey.steps.map((step) => step.edgeId))
-    return edges.filter((edge) => edgeSet.has(edge.id))
-  }, [edges, journeyFilterId, workspace.journeys])
+    return nodes.filter((node) => focusedNodeIdSet.has(node.id))
+  }, [effectiveOffscopeRenderMode, focusedNodeIdSet, nodes])
   const selectedNodeIdSet = useMemo(() => new Set(selectedNodeIds), [selectedNodeIds])
   const edgeRenderItems = useMemo(
     () =>
@@ -628,7 +647,7 @@ export const DiagramCanvas = ({
     if (currentPlayerEdgeId) {
       ids.add(currentPlayerEdgeId)
     }
-    const contextJourneyId = journeyFilterId ?? activeJourneyId
+    const contextJourneyId = effectiveJourneyFilterId ?? activeJourneyId
     if (contextJourneyId) {
       const journey = workspace.journeys[contextJourneyId]
       for (const step of journey?.steps ?? []) {
@@ -636,7 +655,7 @@ export const DiagramCanvas = ({
       }
     }
     return ids
-  }, [activeJourneyId, currentPlayerEdgeId, journeyFilterId, selectedEdgeId, workspace.journeys])
+  }, [activeJourneyId, currentPlayerEdgeId, effectiveJourneyFilterId, selectedEdgeId, workspace.journeys])
 
   const highlightedNodeIds = useMemo(() => {
     if (!playerHighlightNodes || !currentPlayerEdgeId) {
@@ -1018,8 +1037,8 @@ export const DiagramCanvas = ({
   }
 
   const resolveNodeAtPoint = (point: { x: number; y: number }): NodeModel | null => {
-    for (let index = nodes.length - 1; index >= 0; index -= 1) {
-      const node = nodes[index]
+    for (let index = visibleNodes.length - 1; index >= 0; index -= 1) {
+      const node = visibleNodes[index]
       if (
         point.x >= node.bounds.x &&
         point.x <= node.bounds.x + node.bounds.w &&
@@ -1039,7 +1058,7 @@ export const DiagramCanvas = ({
     const maxDistance = options?.maxDistance ?? EDGE_ANCHOR_RESOLVE_RADIUS
     const excludeNodeId = options?.excludeNodeId
     let best: { nodeId: string; portId: string; distance: number } | null = null
-    for (const node of nodes) {
+    for (const node of visibleNodes) {
       if (excludeNodeId && node.id === excludeNodeId) {
         continue
       }
@@ -1755,6 +1774,11 @@ export const DiagramCanvas = ({
               isSelected={edge.id === selectedEdgeId}
               isPlayerEdge={edge.id === currentPlayerEdgeId}
               isFlowAnimated={animatedEdgeIdSet.has(edge.id)}
+              isDimmed={
+                effectiveJourneyFilterId !== null &&
+                effectiveOffscopeRenderMode === 'dim' &&
+                !(focusedEdgeIdSet?.has(edge.id) ?? false)
+              }
               isInteractive={!presentationMode}
               onEdgePointerStart={onEdgePointerStart}
               onEdgeLabelPointerDown={onEdgeLabelPointerDown}
@@ -1802,12 +1826,17 @@ export const DiagramCanvas = ({
               })
             : null}
 
-          {nodes.map((node) => {
+          {visibleNodes.map((node) => {
             const isSelected = selectedNodeIdSet.has(node.id)
             const isPendingConnection = node.id === pendingConnectionFrom
             const isConnectionTarget =
               hoveredConnectionTarget?.nodeId === node.id && Boolean(pendingConnectionFrom)
             const isPlayerHighlighted = highlightedNodeIds.has(node.id)
+            const isJourneyFocused = focusedNodeIdSet?.has(node.id) ?? true
+            const isDimmedByJourney =
+              effectiveJourneyFilterId !== null &&
+              effectiveOffscopeRenderMode === 'dim' &&
+              !isJourneyFocused
             const nodeClassName = [
               'node',
               node.kind === 'boundary' ? 'node-boundary' : '',
@@ -1816,6 +1845,7 @@ export const DiagramCanvas = ({
               isSelected ? 'node-selected' : '',
               node.drilldownRef ? 'node-drilldown' : '',
               isPlayerHighlighted ? 'node-player-highlight' : '',
+              isDimmedByJourney ? 'node-journey-dimmed' : '',
             ]
               .filter(Boolean)
               .join(' ')

@@ -27,5 +27,10 @@ export const createBlankWorkspace = (): WorkspaceModel =>
       grid: true,
       snap: true,
       theme: 'dark',
+      journeyFocus: {
+        offscopeRenderMode: 'dim',
+        layoutMode: 'preserve',
+        autoLayoutMode: 'manual',
+      },
     },
   })

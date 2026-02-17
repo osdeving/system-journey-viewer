@@ -16,6 +16,9 @@
 - Preset catalog for C4, infra, and hexagonal architecture semantics.
 - Theme persistence (`light` / `dark`) in workspace settings.
 - Journey creation, filtering, playback, and timeline editing controls.
+- Journey filter focus modes:
+  - off-scope render strategy: `show`, `dim`, `hide`,
+  - optional journey-only reflow layout while filtering.
 - Journey authoring from canvas:
   - drag/release an edge into a journey to append it as the next step;
   - drag-and-drop timeline steps to reorder with automatic renumbering.
@@ -27,6 +30,8 @@
 - Shortcut-assisted drilldown modeling:
   - `Ctrl/Cmd+Alt+double-click` converts a node into a drilldown boundary entry and opens its new detail view.
 - DSL LITE <-> FULL conversion with auto-layout.
+- DSL LITE now supports optional UI-only geometry metadata:
+  - `metadata ui-layout` for node bounds and edge label positions.
 - Static export (`SVG`, `PNG`, `PDF`).
 - Animated export (`GIF`, `MP4`, animated `SVG`) with journey timeline playback.
 - Presentation mode with clean rendering and export-focused controls.
@@ -77,6 +82,11 @@
   - View menu: `Auto Arrange`,
   - shortcut: `Ctrl/Cmd+Shift+L`,
   - applies best-effort node spacing/sizing, boundary refit, and edge-label repositioning.
+- Journey panel now controls focus/layout policy:
+  - `offscopeRenderMode` (`show|dim|hide`),
+  - `layoutMode` (`preserve|reflow`),
+  - `autoLayoutMode` (`manual|always`),
+  - `Apply layout now` for manual scoped reflow.
 - Stronger edge editing UX:
   - selected edge marker rendered directly on path,
   - edge label isolation styling,
@@ -90,6 +100,13 @@
 - MP4 export enforces explicit codec support (no silent downgrade).
 - Animated SVG export uses rendered path geometry when available.
 - Export output applies canvas background theme and omits edit grid.
+- Animated journey export now forces a compact focused render during capture (journey-only visual scope), then restores editor state.
+
+## Local Persistence State
+
+- Layout persistence now has dual path:
+  - full snapshot persistence (`persist/hydrate`) for editor session state;
+  - dedicated UI layout persistence in localStorage by `workspaceId` (node bounds + edge label positions), auto-applied on DSL import.
 
 ## Open Source / Delivery Readiness (2026-02-16)
 

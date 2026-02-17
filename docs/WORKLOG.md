@@ -2,6 +2,87 @@
 
 Chronological engineering log. Entries are kept concise and focused on behavior and validation.
 
+## 2026-02-17 - Journey-focused layout modes, compact export, and DSL UI metadata
+
+### Scope
+
+- Add journey-filter visual strategies for complex canvases (hide/dim/show off-scope elements).
+- Enable scoped auto-layout behavior during journey focus (`manual` apply vs `always` on filter).
+- Keep journey exports concise by forcing compact visual focus for animated export.
+- Persist and exchange UI geometry (node bounds and edge-label positions) using:
+  - optional DSL metadata block (`metadata ui-layout`),
+  - local browser persistence keyed by workspace id.
+
+### Changes
+
+- Journey focus semantics:
+  - Added `journeyFocus` settings in workspace model/schema:
+    - `offscopeRenderMode`: `show | hide | dim`
+    - `layoutMode`: `preserve | reflow`
+    - `autoLayoutMode`: `manual | always`
+  - Updated defaults in:
+    - `apps/web/src/model/defaultWorkspace.ts`
+    - `apps/web/src/model/blankWorkspace.ts`
+    - `apps/web/src/dsl-lite/convert.ts`
+    - `apps/web/src/model/schema.ts`
+- New journey scope utility:
+  - `apps/web/src/journeys/focus.ts`
+  - resolves focused edge/node sets per `view + journey`, including boundary parents.
+- Canvas rendering behavior:
+  - `apps/web/src/components/DiagramCanvas.tsx`
+    - focus-aware visibility (`hide`) and dimming (`dim`) for nodes and edges,
+    - interaction hit-testing now respects visible node set in hidden mode,
+    - optional export-time forced focus (`exportFocusJourneyId`) for compact capture.
+  - `apps/web/src/components/JourneyEdge.tsx`
+  - `apps/web/src/components/journeyEdgeClassName.ts`
+  - `apps/web/src/App.css`
+    - added `node-journey-dimmed`, `edge-dimmed`, and `edge-label-dimmed` styles.
+- Scoped auto-layout:
+  - `apps/web/src/layout/autoArrange.ts`
+    - now supports optional node/edge scope input.
+  - `apps/web/src/store/useEditorStore.ts`
+    - `autoArrangeCurrentView(scope?)` and `setJourneyFocusSettings(...)`.
+  - `apps/web/src/App.tsx`
+    - journey panel controls for focus mode + layout mode + auto policy,
+    - `Apply layout now` action,
+    - auto-layout effect for `always + reflow` when filter is active.
+- Compact journey export:
+  - `apps/web/src/App.tsx`
+    - animated export now temporarily forces focused render for selected journey, restoring state afterwards.
+- DSL metadata for UI geometry:
+  - `apps/web/src/dsl-lite/types.ts`
+  - `apps/web/src/dsl-lite/parser.ts`
+  - `apps/web/src/dsl-lite/convert.ts`
+    - parses/exports `metadata ui-layout` blocks with:
+      - `node <alias> at <x> <y> size <w> <h>`
+      - `edge <from> -> <to> label <position>`
+    - applies metadata on import after structural conversion.
+  - Spec updated:
+    - `docs/DSL_LITE_SPEC.md`
+- Local layout persistence:
+  - Added `apps/web/src/store/layoutPersistence.ts`
+  - Integrated in `apps/web/src/App.tsx`:
+    - debounced save to localStorage,
+    - auto-apply saved layout when importing DSL.
+
+### Tests
+
+- Added:
+  - `apps/web/src/journeys/focus.test.ts`
+  - `apps/web/src/store/layoutPersistence.test.ts`
+- Updated:
+  - `apps/web/src/components/JourneyEdge.test.ts`
+  - `apps/web/src/store/useEditorStore.test.ts`
+  - `apps/web/src/dsl-lite/parser.test.ts`
+  - `apps/web/src/model/schema.test.ts`
+  - `apps/web/src/App.styles.test.ts`
+
+### Validation
+
+- `npm --workspace @sjv/web run lint`
+- `npm --workspace @sjv/web run test:run`
+- `npm --workspace @sjv/web run build`
+
 ## 2026-02-16 - DSL hierarchy-safe import and intelligent auto-arrange
 
 ### Scope

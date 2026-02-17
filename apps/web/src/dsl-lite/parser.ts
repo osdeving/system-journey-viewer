@@ -1,4 +1,10 @@
-import type { LiteJourney, LiteJourneyStep, LiteViewAst, LiteWorkspaceAst } from './types'
+import type {
+  LiteJourney,
+  LiteJourneyStep,
+  LiteUiLayoutView,
+  LiteViewAst,
+  LiteWorkspaceAst,
+} from './types'
 
 const DEFAULT_VIEW_ID = 'v_container'
 const DEFAULT_VIEW_KIND: LiteViewAst['kind'] = 'container'
@@ -43,11 +49,14 @@ export const parseLiteDsl = (input: string): LiteWorkspaceAst => {
   const result: LiteWorkspaceAst = {
     workspaceName: 'Workspace',
     views: [],
+    uiLayout: [],
   }
 
   let openView: LiteViewAst | null = null
   let implicitView: LiteViewAst | null = null
   let openJourney: LiteJourney | null = null
+  let openUiLayout = false
+  let openUiLayoutView: LiteUiLayoutView | null = null
   let legacyViewIndex = 0
 
   const activeView = (): LiteViewAst | null => openView ?? implicitView
@@ -77,6 +86,14 @@ export const parseLiteDsl = (input: string): LiteWorkspaceAst => {
     openView = null
   }
 
+  const closeUiLayoutView = () => {
+    if (!openUiLayoutView) {
+      return
+    }
+    result.uiLayout.push(openUiLayoutView)
+    openUiLayoutView = null
+  }
+
   for (const line of lines) {
     if (line === '{') {
       continue
@@ -84,6 +101,14 @@ export const parseLiteDsl = (input: string): LiteWorkspaceAst => {
     if (line === '}') {
       if (openJourney) {
         closeJourney()
+        continue
+      }
+      if (openUiLayoutView) {
+        closeUiLayoutView()
+        continue
+      }
+      if (openUiLayout) {
+        openUiLayout = false
         continue
       }
       if (openView) {
@@ -95,6 +120,57 @@ export const parseLiteDsl = (input: string): LiteWorkspaceAst => {
     const workspaceMatch = line.match(/^workspace\s+"([^"]+)"\s*\{$/)
     if (workspaceMatch) {
       result.workspaceName = workspaceMatch[1]
+      continue
+    }
+
+    const uiLayoutMatch = line.match(/^metadata\s+ui-layout\s*\{$/)
+    if (uiLayoutMatch) {
+      closeView()
+      closeJourney()
+      closeUiLayoutView()
+      openUiLayout = true
+      continue
+    }
+
+    if (openUiLayout) {
+      const uiLayoutViewMatch = line.match(/^view\s+([A-Za-z0-9_-]+)\s*\{$/)
+      if (uiLayoutViewMatch) {
+        closeUiLayoutView()
+        openUiLayoutView = {
+          viewId: uiLayoutViewMatch[1],
+          nodes: [],
+          edges: [],
+        }
+        continue
+      }
+
+      if (openUiLayoutView) {
+        const uiNodeMatch = line.match(
+          /^node\s+([A-Za-z0-9_-]+)\s+at\s+(-?\d+(?:\.\d+)?)\s+(-?\d+(?:\.\d+)?)\s+size\s+(\d+(?:\.\d+)?)\s+(\d+(?:\.\d+)?)$/,
+        )
+        if (uiNodeMatch) {
+          openUiLayoutView.nodes.push({
+            alias: uiNodeMatch[1],
+            x: Number(uiNodeMatch[2]),
+            y: Number(uiNodeMatch[3]),
+            w: Number(uiNodeMatch[4]),
+            h: Number(uiNodeMatch[5]),
+          })
+          continue
+        }
+
+        const uiEdgeMatch = line.match(
+          /^edge\s+([A-Za-z0-9_-]+)\s*->\s*([A-Za-z0-9_-]+)\s+label\s+(-?\d+(?:\.\d+)?)$/,
+        )
+        if (uiEdgeMatch) {
+          openUiLayoutView.edges.push({
+            fromAlias: uiEdgeMatch[1],
+            toAlias: uiEdgeMatch[2],
+            labelPosition: Number(uiEdgeMatch[3]),
+          })
+          continue
+        }
+      }
       continue
     }
 
@@ -177,6 +253,7 @@ export const parseLiteDsl = (input: string): LiteWorkspaceAst => {
 
   closeView()
   closeJourney()
+  closeUiLayoutView()
   if (implicitView) {
     result.views.push(implicitView)
   }

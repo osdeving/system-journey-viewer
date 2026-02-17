@@ -18,6 +18,7 @@ interface JourneyEdgeProps {
   isSelected: boolean
   isPlayerEdge: boolean
   isFlowAnimated: boolean
+  isDimmed: boolean
   isInteractive: boolean
   onEdgePointerStart?: (
     edgeId: string,
@@ -39,6 +40,7 @@ export const JourneyEdge = ({
   isSelected,
   isPlayerEdge,
   isFlowAnimated,
+  isDimmed,
   isInteractive,
   onEdgePointerStart,
   onEdgeLabelPointerDown,
@@ -69,10 +71,15 @@ export const JourneyEdge = ({
         d={path}
         fill="none"
         markerEnd="url(#edge-arrow)"
-        className={resolveJourneyEdgeClassName({ isSelected, isPlayerEdge, isFlowAnimated })}
+        className={resolveJourneyEdgeClassName({ isSelected, isPlayerEdge, isFlowAnimated, isDimmed })}
       />
       <text
-        className={isInteractive ? 'edge-label edge-label-draggable' : 'edge-label'}
+        className={[
+          isInteractive ? 'edge-label edge-label-draggable' : 'edge-label',
+          isDimmed ? 'edge-label-dimmed' : '',
+        ]
+          .filter(Boolean)
+          .join(' ')}
         onPointerDown={(event) => {
           if (!isInteractive || event.button !== 0) {
             return

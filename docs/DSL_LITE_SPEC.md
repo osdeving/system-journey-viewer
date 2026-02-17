@@ -20,6 +20,9 @@ Each view can declare:
 - journeys
 - parent/via hierarchy
 
+Workspace can also declare:
+- optional `metadata ui-layout` (UI-only node positions and edge label positions).
+
 Nodes can declare:
 - `drilldown <viewId>`
 - `contains a,b,c` (group boundary)
@@ -46,7 +49,7 @@ workspace "Orders" {
 ```ebnf
 dsl              = ws, workspaceDecl, ws ;
 
-workspaceDecl    = "workspace", ws1, string, ws, "{", ws, { viewDecl, ws }, "}" ;
+workspaceDecl    = "workspace", ws1, string, ws, "{", ws, { workspaceStatement, ws }, "}" ;
 
 viewDecl         = modernViewDecl | legacyViewDecl ;
 modernViewDecl   = "view", ws1, viewId, ws1, viewKind,
@@ -54,7 +57,14 @@ modernViewDecl   = "view", ws1, viewId, ws1, viewKind,
                    ws, "{", ws, { statement, ws }, "}" ;
 legacyViewDecl   = "view", ws1, viewKind, ws, "{", ws, { statement, ws }, "}" ;
 
+workspaceStatement = viewDecl | metadataDecl ;
 statement        = nodeDecl | edgeDecl | journeyDecl ;
+
+metadataDecl     = "metadata", ws1, "ui-layout", ws, "{", ws, { metadataViewDecl, ws }, "}" ;
+metadataViewDecl = "view", ws1, viewId, ws, "{", ws, { metadataNodeDecl | metadataEdgeDecl, ws }, "}" ;
+metadataNodeDecl = "node", ws1, alias, ws1, "at", ws1, number, ws1, number,
+                   ws1, "size", ws1, number, ws1, number ;
+metadataEdgeDecl = "edge", ws1, alias, ws, "->", ws, alias, ws1, "label", ws1, number ;
 
 nodeDecl         = kind, ws1, alias, ws1, string,
                    [ ws1, "tech", ws1, techId ],
@@ -83,6 +93,7 @@ id               = ( letter | digit | "_" | "-" ), { letter | digit | "_" | "-" 
 idOrHash         = ( letter | digit | "_" | "-" | "#" ),
                    { letter | digit | "_" | "-" | "#" } ;
 integer          = digit, { digit } ;
+number           = [ "-" ], digit, { digit }, [ ".", digit, { digit } ] ;
 
 string           = "\"", { stringChar }, "\"" ;
 stringChar       = ? any char except " ? ;
@@ -149,6 +160,18 @@ ws?              = { " " | "\t" } ;
 ### 3.8 Minimum validation
 - if total node count is zero:
   - error: `Invalid DSL LITE: no nodes found.`
+
+### 3.9 UI layout metadata
+- optional block:
+  - `metadata ui-layout { ... }`
+- purpose:
+  - preserve UI geometry without changing architecture semantics.
+- supported entries per view:
+  - `node <alias> at <x> <y> size <w> <h>`
+  - `edge <fromAlias> -> <toAlias> label <position>`
+- conversion behavior:
+  - import applies node bounds and edge label positions after structural conversion;
+  - export includes this metadata block by default for all emitted views.
 
 ## 4. Import/Export in the Editor
 

@@ -46,6 +46,24 @@ workspace "Pedidos" {
 }
 `
 
+const metadataDsl = `
+workspace "Layout Metadata" {
+  view v_main container {
+    container app "App" tech react
+    container api "API" tech spring-boot
+    app -> api : http "GET /status"
+  }
+
+  metadata ui-layout {
+    view v_main {
+      node app at 140 220 size 280 120
+      node api at 560 220 size 300 130
+      edge app -> api label 0.72
+    }
+  }
+}
+`
+
 const cimDslPath =
   [
     resolve(process.cwd(), 'docs/cim.sjv'),
@@ -171,5 +189,25 @@ describe('DSL Lite parser and conversion', () => {
     expect(
       finishComponentView.nodeIds.some((nodeId) => mainNodeSet.has(nodeId)),
     ).toBe(false)
+  })
+
+  it('imports and exports UI layout metadata for node positions and edge labels', () => {
+    const ast = parseLiteDsl(metadataDsl)
+    const workspace = liteToFullWorkspace(ast)
+    const mainView = workspace.views.v_main
+    const appNodeId = mainView.nodeIds.find((nodeId) => workspace.nodes[nodeId]?.name === 'App')
+    const apiNodeId = mainView.nodeIds.find((nodeId) => workspace.nodes[nodeId]?.name === 'API')
+    const edgeId = mainView.edgeIds[0]
+
+    expect(appNodeId).toBeDefined()
+    expect(apiNodeId).toBeDefined()
+    expect(appNodeId ? workspace.nodes[appNodeId].bounds.x : 0).toBe(140)
+    expect(apiNodeId ? workspace.nodes[apiNodeId].bounds.w : 0).toBe(300)
+    expect(workspace.edges[edgeId].style.labelPosition).toBeCloseTo(0.72, 5)
+
+    const exported = fullWorkspaceToLiteDsl(workspace)
+    expect(exported).toContain('metadata ui-layout')
+    expect(exported).toContain('node app at 140 220 size 280 120')
+    expect(exported).toContain('edge app -> api label 0.72')
   })
 })

@@ -67,6 +67,9 @@ describe('App boundary styles', () => {
     expect(appCss).toContain('.node-color-presets')
     expect(appCss).toContain('.node-color-chip')
     expect(appCss).toContain('.journey-drag-handle')
+    expect(appCss).toContain('.node-journey-dimmed')
+    expect(appCss).toContain('.edge-dimmed')
+    expect(appCss).toContain('.edge-label-dimmed')
   })
 
   it('includes desktop menu and advanced canvas interaction styles', () => {

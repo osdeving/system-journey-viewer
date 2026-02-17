@@ -2,6 +2,47 @@
 
 Chronological engineering log. Entries are kept concise and focused on behavior and validation.
 
+## 2026-02-16 - DSL hierarchy-safe import and intelligent auto-arrange
+
+### Scope
+
+- Ensure complex DSL files preserve drilldown hierarchy semantics on import.
+- Improve file-open workflow to support both snapshot JSON and raw DSL (`.sjv`/`.dsl`/text).
+- Add optional best-effort auto-arrange for view layout quality (nodes + edge labels).
+
+### Changes
+
+- DSL hierarchy import hardening:
+  - `apps/web/src/App.tsx`
+    - added root view resolver based on drilldown graph (prefers top-level `container/system-context`);
+    - DSL import from editor now opens the resolved hierarchy entry view instead of arbitrary first key.
+  - Added file import fallback:
+    - tries snapshot parser first (`.sjv.json/.json`);
+    - falls back to DSL parser+converter when snapshot parsing fails;
+    - supports `.sjv`, `.dsl`, `.txt` in picker/input accept lists.
+- Auto-arrange (best-effort document formatting):
+  - Added `apps/web/src/layout/autoArrange.ts`:
+    - Dagre-based graph layout for current view;
+    - dynamic node sizing from text estimates (name/tech) to reduce text overflow;
+    - grouped boundary re-fitting around children;
+    - iterative edge label position optimization to reduce label overlap and node/label collisions.
+  - `apps/web/src/store/useEditorStore.ts`
+    - added `autoArrangeCurrentView()` action to apply arranged node bounds/ports and edge label positions.
+  - `apps/web/src/App.tsx`
+    - added `Auto Arrange` controls in top toolbar and View menu;
+    - added keyboard shortcut `Ctrl/Cmd+Shift+L`.
+- Regression coverage:
+  - `apps/web/src/dsl-lite/parser.test.ts`
+    - added real-world `docs/cim.sjv` import test validating multi-view drilldown hierarchy.
+  - `apps/web/src/store/useEditorStore.test.ts`
+    - added auto-arrange spacing/label normalization test.
+
+### Validation
+
+- `npm --workspace @sjv/web run lint`
+- `npm --workspace @sjv/web run test:run`
+- `npm --workspace @sjv/web run build`
+
 ## 2026-02-16 - Selection lifecycle and edge/journey interaction hardening
 
 ### Scope

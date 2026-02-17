@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import { immer } from 'zustand/middleware/immer'
 import { nearestPortId, nodeCenter } from '../engine/geometry'
 import { journeyColorByIndex } from '../journeys/colors'
+import { autoArrangeView } from '../layout/autoArrange'
 import { createDefaultWorkspace } from '../model/defaultWorkspace'
 import { normalizeWorkspaceNodePorts, resolveNodePorts } from '../model/nodePorts'
 import { resolveNodePreset, resolveTechPreset } from '../presets/catalog'
@@ -85,6 +86,7 @@ interface EditorState {
     nodeIds: string[]
     edgeId: string | null
   }
+  autoArrangeCurrentView: () => void
   setGridEnabled: (enabled: boolean) => void
   setSnapEnabled: (enabled: boolean) => void
   setTheme: (theme: WorkspaceModel['settings']['theme']) => void
@@ -1012,6 +1014,34 @@ export const useEditorStore = create<EditorState>()(
       })
 
       return result
+    },
+    autoArrangeCurrentView: () => {
+      set((state) => {
+        const result = autoArrangeView(state.workspace, state.currentViewId)
+        if (!result) {
+          return
+        }
+
+        for (const [nodeId, bounds] of Object.entries(result.nodeBoundsById)) {
+          const node = state.workspace.nodes[nodeId]
+          if (!node) {
+            continue
+          }
+          node.bounds = bounds
+          node.ports = resolveNodePorts(bounds)
+        }
+
+        for (const [edgeId, labelPosition] of Object.entries(result.edgeLabelPositionById)) {
+          const edge = state.workspace.edges[edgeId]
+          if (!edge) {
+            continue
+          }
+          edge.style = {
+            ...edge.style,
+            labelPosition,
+          }
+        }
+      })
     },
     setGridEnabled: (enabled) => {
       set((state) => {

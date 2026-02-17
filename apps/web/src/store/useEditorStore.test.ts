@@ -218,6 +218,56 @@ describe('useEditorStore', () => {
     expect(updated.workspace.edges.e_c_1.style.labelPosition).toBeCloseTo(0.92, 5)
   })
 
+  it('auto-arranges current view with best-effort spacing and label updates', () => {
+    const state = useEditorStore.getState()
+    state.setNodeBounds('n_frontend', {
+      ...state.workspace.nodes.n_frontend.bounds,
+      x: 120,
+      y: 120,
+      w: 120,
+      h: 80,
+    })
+    state.setNodeBounds('n_gateway', {
+      ...state.workspace.nodes.n_gateway.bounds,
+      x: 140,
+      y: 130,
+      w: 110,
+      h: 80,
+    })
+    state.setNodeBounds('n_api', {
+      ...state.workspace.nodes.n_api.bounds,
+      x: 155,
+      y: 136,
+      w: 140,
+      h: 84,
+    })
+    state.setEdgeLabelPosition('e_c_1', 0.5)
+
+    state.autoArrangeCurrentView()
+    const updated = useEditorStore.getState()
+    const frontendBounds = updated.workspace.nodes.n_frontend.bounds
+    const gatewayBounds = updated.workspace.nodes.n_gateway.bounds
+    const overlapX = Math.max(
+      0,
+      Math.min(
+        frontendBounds.x + frontendBounds.w,
+        gatewayBounds.x + gatewayBounds.w,
+      ) - Math.max(frontendBounds.x, gatewayBounds.x),
+    )
+    const overlapY = Math.max(
+      0,
+      Math.min(
+        frontendBounds.y + frontendBounds.h,
+        gatewayBounds.y + gatewayBounds.h,
+      ) - Math.max(frontendBounds.y, gatewayBounds.y),
+    )
+
+    expect(overlapX * overlapY).toBe(0)
+    expect(updated.workspace.nodes.n_frontend.bounds.w).toBeGreaterThanOrEqual(120)
+    expect(updated.workspace.edges.e_c_1.style.labelPosition ?? 0).toBeGreaterThanOrEqual(0.08)
+    expect(updated.workspace.edges.e_c_1.style.labelPosition ?? 1).toBeLessThanOrEqual(0.92)
+  })
+
   it('allows one edge in multiple journeys with independent numbering', () => {
     const state = useEditorStore.getState()
     const beforeEdges = new Set(state.workspace.views.v_container.edgeIds)

@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest'
+import { existsSync, readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import { fullViewToLiteDsl, fullWorkspaceToLiteDsl, liteToFullWorkspace } from './convert'
 import { parseLiteDsl } from './parser'
 
@@ -43,6 +45,18 @@ workspace "Pedidos" {
   }
 }
 `
+
+const cimDslPath =
+  [
+    resolve(process.cwd(), 'docs/cim.sjv'),
+    resolve(process.cwd(), '../../docs/cim.sjv'),
+  ].find((candidate) => existsSync(candidate)) ?? null
+
+if (!cimDslPath) {
+  throw new Error('Unable to locate docs/cim.sjv for hierarchy import test.')
+}
+
+const cimDsl = readFileSync(cimDslPath, 'utf8')
 
 describe('DSL Lite parser and conversion', () => {
   it('keeps compatibility with single-view legacy syntax', () => {
@@ -117,5 +131,45 @@ describe('DSL Lite parser and conversion', () => {
     expect(dsl).toContain('view v_container container')
     expect(dsl).toContain('journey "Fluxo A" color #2563eb')
     expect(dsl).toContain('api -> kafka : kafka-event "pedido.criado"')
+  })
+
+  it('imports cim workspace preserving drilldown hierarchy across views', () => {
+    const ast = parseLiteDsl(cimDsl)
+    const workspace = liteToFullWorkspace(ast)
+
+    const mainView = workspace.views.v_main
+    expect(mainView).toBeDefined()
+    expect(mainView.kind).toBe('container')
+
+    const cimContainer = Object.values(workspace.nodes).find(
+      (node) => node.name === 'CIM - Customer Interaction Management',
+    )
+    const sagaContainer = Object.values(workspace.nodes).find(
+      (node) => node.name === 'CIM-SAGA - Stateful Orchestrator',
+    )
+    const finishContainer = Object.values(workspace.nodes).find(
+      (node) => node.name === 'MS Finish Interaction',
+    )
+    expect(cimContainer?.drilldownRef).toBe('v_component_cim')
+    expect(sagaContainer?.drilldownRef).toBe('v_component_saga')
+    expect(finishContainer?.drilldownRef).toBe('v_component_finish')
+
+    const cimComponentView = workspace.views.v_component_cim
+    const sagaComponentView = workspace.views.v_component_saga
+    const finishComponentView = workspace.views.v_component_finish
+    expect(cimComponentView).toBeDefined()
+    expect(sagaComponentView).toBeDefined()
+    expect(finishComponentView).toBeDefined()
+
+    const mainNodeSet = new Set(mainView.nodeIds)
+    expect(
+      cimComponentView.nodeIds.some((nodeId) => mainNodeSet.has(nodeId)),
+    ).toBe(false)
+    expect(
+      sagaComponentView.nodeIds.some((nodeId) => mainNodeSet.has(nodeId)),
+    ).toBe(false)
+    expect(
+      finishComponentView.nodeIds.some((nodeId) => mainNodeSet.has(nodeId)),
+    ).toBe(false)
   })
 })

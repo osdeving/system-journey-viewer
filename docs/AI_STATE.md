@@ -32,8 +32,9 @@
 - Presentation mode with clean rendering and export-focused controls.
 - Workspace file lifecycle in-browser UI:
   - `New File` (blank workspace),
-  - `Open File` (validated snapshot import),
+  - `Open File` (snapshot or DSL import: `.json/.sjv/.dsl/.txt`),
   - `Save File` with File System Access API support (handle reuse on `Ctrl/Cmd+S` and Save As on `Ctrl/Cmd+Shift+S`, with download fallback as `.sjv.json`).
+  - entry view selection for DSL import now respects drilldown hierarchy (root/top-level view first, instead of arbitrary view key order).
 
 ## Animation and Player State
 
@@ -72,6 +73,10 @@
   - `load-balancer`.
 - Dockable side panel (`Inspector` / `Journeys`) with tab drag and position switching.
 - Standard player control group with icon-based actions.
+- Intelligent view auto-arrange is available on demand:
+  - View menu: `Auto Arrange`,
+  - shortcut: `Ctrl/Cmd+Shift+L`,
+  - applies best-effort node spacing/sizing, boundary refit, and edge-label repositioning.
 - Stronger edge editing UX:
   - selected edge marker rendered directly on path,
   - edge label isolation styling,

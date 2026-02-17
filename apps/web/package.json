@@ -12,6 +12,7 @@
     "test:run": "vitest run"
   },
   "dependencies": {
+    "@dagrejs/dagre": "^2.0.4",
     "@monaco-editor/react": "^4.7.0",
     "canvas-confetti": "^1.9.3",
     "gifenc": "^1.0.3",

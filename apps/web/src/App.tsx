@@ -55,7 +55,7 @@ import {
   serializeWorkspaceSnapshotFile,
 } from './file/workspaceFile'
 import { BLANK_WORKSPACE_VIEW_ID, createBlankWorkspace } from './model/blankWorkspace'
-import type { EditorSnapshot } from './model/types'
+import type { EditorSnapshot, WorkspaceModel } from './model/types'
 import { nodePresetsByCategory, protocolPresets, resolveNodePreset } from './presets/catalog'
 import { useEditorStore } from './store/useEditorStore'
 
@@ -203,6 +203,7 @@ function App() {
   const setEdgeProtocol = useEditorStore((state) => state.setEdgeProtocol)
   const setEdgeLabel = useEditorStore((state) => state.setEdgeLabel)
   const setEdgeLabelPosition = useEditorStore((state) => state.setEdgeLabelPosition)
+  const autoArrangeCurrentView = useEditorStore((state) => state.autoArrangeCurrentView)
   const setGridEnabled = useEditorStore((state) => state.setGridEnabled)
   const setSnapEnabled = useEditorStore((state) => state.setSnapEnabled)
   const setTheme = useEditorStore((state) => state.setTheme)
@@ -271,6 +272,26 @@ function App() {
       ...DEFAULT_NODE_COLOR_PRESETS.filter((color) => !recentUnique.includes(color)),
     ].slice(0, 10)
   }, [workspace.nodes])
+  const resolveEntryViewId = useCallback((workspaceModel: WorkspaceModel): string => {
+    const viewIds = Object.keys(workspaceModel.views)
+    if (!viewIds.length) {
+      return BLANK_WORKSPACE_VIEW_ID
+    }
+    const inboundDrilldowns = new Set(
+      Object.values(workspaceModel.nodes)
+        .map((node) => node.drilldownRef)
+        .filter((viewId): viewId is string => Boolean(viewId && workspaceModel.views[viewId])),
+    )
+    const rootCandidates = viewIds.filter((viewId) => !inboundDrilldowns.has(viewId))
+    const preferredRoot =
+      rootCandidates.find((viewId) => {
+        const kind = workspaceModel.views[viewId]?.kind
+        return kind === 'container' || kind === 'system-context'
+      }) ??
+      rootCandidates[0] ??
+      viewIds[0]
+    return preferredRoot
+  }, [])
   const currentView = workspace.views[currentViewId]
   const breadcrumb = [...viewHistory, currentViewId]
   const viewJourneys = useMemo(
@@ -552,14 +573,36 @@ function App() {
 
   const loadWorkspacePayload = useCallback(
     (payload: string, options?: { fileName?: string; fileHandle?: WorkspaceFileHandle | null }) => {
-      const snapshot = parseWorkspaceSnapshotFile(payload)
-      replaceWorkspace(snapshot.workspace, snapshot.currentViewId)
-      setViewport(snapshot.viewport)
-      workspaceFileHandleRef.current = options?.fileHandle ?? null
-      setExportError(null)
-      setTransientStatus(`Workspace file loaded: ${options?.fileName ?? 'workspace file'}`)
+      try {
+        const snapshot = parseWorkspaceSnapshotFile(payload)
+        replaceWorkspace(snapshot.workspace, snapshot.currentViewId)
+        setViewport(snapshot.viewport)
+        workspaceFileHandleRef.current = options?.fileHandle ?? null
+        setExportError(null)
+        setTransientStatus(`Workspace file loaded: ${options?.fileName ?? 'workspace file'}`)
+        return
+      } catch (snapshotError) {
+        try {
+          const ast = parseLiteDsl(payload)
+          const importedWorkspace = liteToFullWorkspace(ast)
+          const entryViewId = resolveEntryViewId(importedWorkspace)
+          replaceWorkspace(importedWorkspace, entryViewId)
+          setViewport(DEFAULT_FILE_VIEWPORT)
+          workspaceFileHandleRef.current = options?.fileHandle ?? null
+          setDslText(payload)
+          setDslError(null)
+          setExportError(null)
+          setTransientStatus(`DSL loaded: ${options?.fileName ?? 'workspace.dsl'}`)
+          return
+        } catch (dslError) {
+          const snapshotMessage =
+            snapshotError instanceof Error ? snapshotError.message : 'Invalid workspace snapshot payload.'
+          const dslMessage = dslError instanceof Error ? dslError.message : 'Invalid DSL payload.'
+          throw new Error(`${snapshotMessage}\n${dslMessage}`)
+        }
+      }
     },
-    [replaceWorkspace, setViewport, setTransientStatus],
+    [replaceWorkspace, resolveEntryViewId, setViewport, setTransientStatus],
   )
 
   const openWorkspaceFilePicker = useCallback(async () => {
@@ -572,7 +615,8 @@ function App() {
             {
               description: 'System Journey Viewer Workspace',
               accept: {
-                'application/json': ['.sjv.json', '.json'],
+                'application/json': ['.sjv.json', '.json', '.sjv'],
+                'text/plain': ['.dsl', '.txt'],
               },
             },
           ],
@@ -813,6 +857,12 @@ function App() {
     }
     return false
   }, [duplicateSelection, setTransientStatus])
+
+  const runAutoArrange = useCallback(() => {
+    autoArrangeCurrentView()
+    setTransientStatus('Auto arrange applied to current view.')
+    setExportError(null)
+  }, [autoArrangeCurrentView, setTransientStatus])
 
   const handleDslEditorBeforeMount = (monaco: Monaco): void => {
     registerJourneyScriptLanguage(monaco)
@@ -1169,12 +1219,18 @@ function App() {
       if (hasCommand && !event.altKey && key === 'd') {
         event.preventDefault()
         duplicateCurrentSelection()
+        return
+      }
+
+      if (hasCommand && event.shiftKey && !event.altKey && key === 'l') {
+        event.preventDefault()
+        runAutoArrange()
       }
     }
 
     window.addEventListener('keydown', onEntityShortcut)
     return () => window.removeEventListener('keydown', onEntityShortcut)
-  }, [deleteCurrentSelection, duplicateCurrentSelection])
+  }, [deleteCurrentSelection, duplicateCurrentSelection, runAutoArrange])
 
   const exportFromCanvas = async (format: 'svg' | 'png' | 'pdf') => {
     const svg = document.querySelector('.diagram-canvas')
@@ -1772,7 +1828,7 @@ function App() {
       <input
         ref={snapshotFileInputRef}
         type="file"
-        accept=".json,.sjv,.sjv.json,application/json"
+        accept=".json,.sjv,.sjv.json,.dsl,.txt,application/json,text/plain"
         hidden
         onChange={(event) => {
           void onWorkspaceFileInputChange(event)
@@ -2047,6 +2103,14 @@ function App() {
                   <button
                     type="button"
                     role="menuitem"
+                    onClick={() => runDesktopMenuAction(() => runAutoArrange())}
+                  >
+                    <span>Auto Arrange</span>
+                    <kbd>Ctrl+Shift+L</kbd>
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
                     onClick={() => runDesktopMenuAction(() => setGridEnabled(!gridEnabled))}
                   >
                     <span>{gridEnabled ? 'Hide Grid' : 'Show Grid'}</span>
@@ -2300,6 +2364,9 @@ function App() {
               <button type="button" onClick={() => zoomByFactor(0.9)}>
                 Zoom -
               </button>
+              <button type="button" onClick={() => runAutoArrange()}>
+                Auto layout
+              </button>
               <button
                 type="button"
                 className="icon-toggle-button"
@@ -2547,7 +2614,7 @@ function App() {
                   try {
                     const ast = parseLiteDsl(dslText)
                     const imported = liteToFullWorkspace(ast)
-                    const nextViewId = Object.keys(imported.views)[0]
+                    const nextViewId = resolveEntryViewId(imported)
                     replaceWorkspace(imported, nextViewId)
                     setDslError(null)
                   } catch (error) {

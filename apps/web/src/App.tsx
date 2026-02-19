@@ -63,6 +63,12 @@ import {
 import helpGuideMarkdown from './help/help.md?raw'
 import { resolveJourneyFocusScope } from './journeys/focus'
 import { resolvePlayerStepLabel } from './journeys/playerStepLabel'
+import {
+  resolveDockSideWidth,
+  resolveFloatingDockResizeRect,
+  type DockSide,
+  type FloatingDockResizeHandle,
+} from './layout/dockSizing'
 import { clampFloatingDockRect, type FloatingDockRect } from './layout/floatingDock'
 import { BLANK_WORKSPACE_VIEW_ID, createBlankWorkspace } from './model/blankWorkspace'
 import type { EditorSnapshot, ViewportState, WorkspaceModel } from './model/types'
@@ -76,12 +82,14 @@ import {
 
 const DEBOUNCE_SAVE_MS = 900
 const DEFAULT_LEFT_SIDEBAR_WIDTH = 240
-const RIGHT_SIDEBAR_WIDTH = 340
+const DEFAULT_DOCK_SIDE_WIDTH = 340
 const DEFAULT_JOURNEY_HEIGHT = 220
 const MIN_LEFT_SIDEBAR_WIDTH = 180
 const MAX_LEFT_SIDEBAR_WIDTH = 440
+const MIN_DOCK_SIDE_WIDTH = 260
 const MIN_JOURNEY_HEIGHT = 160
 const TOPBAR_HEIGHT = 80
+const MIN_CANVAS_WIDTH = 320
 const MIN_CANVAS_HEIGHT = 220
 const MIN_DOCK_HEIGHT = 260
 const DEFAULT_FILE_VIEWPORT = { x: 100, y: 80, zoom: 1 }
@@ -110,7 +118,7 @@ const viewKindLabel: Record<string, string> = {
 
 type DrawerTab = 'journeys' | 'dsl' | 'dock' | 'help'
 type DockTab = 'inspector' | 'journeys' | 'timeline' | 'dsl' | 'help'
-type DockPosition = 'right' | 'bottom' | 'floating'
+type DockPosition = 'left' | 'right' | 'bottom' | 'floating'
 type DesktopMenuId = 'file' | 'edit' | 'view' | 'journey' | 'insert' | 'help'
 type PlayerAnimationPreset = 'cinematic' | 'orb' | 'minimal'
 type FileWriteMode = 'prompt' | 'reuse'
@@ -142,6 +150,8 @@ type HistoryStoreSnapshot = {
 
 type HistoryUiSnapshot = {
   leftSidebarWidth: number
+  leftDockWidth: number
+  rightDockWidth: number
   journeyHeight: number
   drawerTab: DrawerTab
   dslMaximized: boolean
@@ -237,6 +247,13 @@ function App() {
   const historyLastCommitAtRef = useRef(0)
   const historyReleaseTimerRef = useRef<number | null>(null)
   const leftResizeRef = useRef<{ pointerId: number; startX: number; startWidth: number } | null>(null)
+  const dockSideResizeRef = useRef<{
+    pointerId: number
+    side: DockSide
+    startClientX: number
+    startWidth: number
+    maxWidth: number
+  } | null>(null)
   const journeyResizeRef = useRef<{
     pointerId: number
     startY: number
@@ -252,8 +269,10 @@ function App() {
   } | null>(null)
   const floatingDockResizeRef = useRef<{
     pointerId: number
+    handle: FloatingDockResizeHandle
     startClientX: number
-    startWidth: number
+    startClientY: number
+    startRect: FloatingDockRect
   } | null>(null)
   const workspace = useEditorStore((state) => state.workspace)
   const currentViewId = useEditorStore((state) => state.currentViewId)
@@ -335,6 +354,8 @@ function App() {
   const [animatedExportRunning, setAnimatedExportRunning] = useState(false)
   const [exportFocusJourneyId, setExportFocusJourneyId] = useState<string | null>(null)
   const [leftSidebarWidth, setLeftSidebarWidth] = useState(DEFAULT_LEFT_SIDEBAR_WIDTH)
+  const [leftDockWidth, setLeftDockWidth] = useState(DEFAULT_DOCK_SIDE_WIDTH)
+  const [rightDockWidth, setRightDockWidth] = useState(DEFAULT_DOCK_SIDE_WIDTH)
   const [journeyHeight, setJourneyHeight] = useState(DEFAULT_JOURNEY_HEIGHT)
   const [drawerTab, setDrawerTab] = useState<DrawerTab>('journeys')
   const [dslMaximized, setDslMaximized] = useState(false)
@@ -420,7 +441,8 @@ function App() {
   const currentViewModeLabel = viewKindLabel[currentView.kind] ?? currentView.kind
   const playerModeLabel = playerIsRunning ? 'Animação' : 'Render'
   const immersiveMode = focusMode || presentationMode
-  const leftPanelVisible = !immersiveMode && !leftSidebarCollapsed
+  const leftDockVisible = !immersiveMode && dockPosition === 'left' && !dockCollapsed
+  const leftPanelVisible = !immersiveMode && !leftSidebarCollapsed && !leftDockVisible
   const rightDockVisible = !immersiveMode && dockPosition === 'right' && !dockCollapsed
   const floatingDockVisible = !immersiveMode && dockPosition === 'floating' && !dockCollapsed
   const drawerVisible = !immersiveMode && !drawerCollapsed
@@ -443,12 +465,22 @@ function App() {
             gridTemplateAreas: `'topbar' 'main'`,
           }
         : {
-            gridTemplateColumns: `${leftPanelVisible ? leftSidebarWidth : 0}px 1fr ${
-              rightDockVisible ? RIGHT_SIDEBAR_WIDTH : 0
+            gridTemplateColumns: `${leftDockVisible ? leftDockWidth : leftPanelVisible ? leftSidebarWidth : 0}px 1fr ${
+              rightDockVisible ? rightDockWidth : 0
             }px`,
             gridTemplateRows: `${TOPBAR_HEIGHT}px 1fr ${drawerVisible ? journeyHeight : 0}px`,
           },
-    [drawerVisible, immersiveMode, journeyHeight, leftPanelVisible, leftSidebarWidth, rightDockVisible],
+    [
+      drawerVisible,
+      immersiveMode,
+      journeyHeight,
+      leftDockVisible,
+      leftDockWidth,
+      leftPanelVisible,
+      leftSidebarWidth,
+      rightDockVisible,
+      rightDockWidth,
+    ],
   )
 
   const playerAnimationPreset = useMemo(
@@ -590,6 +622,31 @@ function App() {
     }
     return Math.max(MIN_JOURNEY_HEIGHT, layoutHeight - TOPBAR_HEIGHT - MIN_CANVAS_HEIGHT)
   }
+
+  const getMaxDockSideWidth = useCallback(
+    (side: DockSide): number => {
+      const layoutWidth = layoutRef.current?.getBoundingClientRect().width ?? window.innerWidth
+      const oppositeWidth =
+        side === 'left'
+          ? rightDockVisible
+            ? rightDockWidth
+            : 0
+          : leftDockVisible
+            ? leftDockWidth
+            : leftPanelVisible
+            ? leftSidebarWidth
+            : 0
+      return Math.max(MIN_DOCK_SIDE_WIDTH, layoutWidth - oppositeWidth - MIN_CANVAS_WIDTH)
+    },
+    [
+      leftDockVisible,
+      leftDockWidth,
+      leftPanelVisible,
+      leftSidebarWidth,
+      rightDockVisible,
+      rightDockWidth,
+    ],
+  )
 
   const switchDrawerTab = (tab: DrawerTab) => {
     if (tab !== 'dsl' && dslMaximized) {
@@ -856,6 +913,14 @@ function App() {
     [loadWorkspacePayload],
   )
 
+  const moveDockToLeft = () => {
+    setDockPosition('left')
+    setDockCollapsed(false)
+    if (drawerTab === 'dock') {
+      setDrawerTab('journeys')
+    }
+  }
+
   const moveDockToRight = () => {
     setDockPosition('right')
     setDockCollapsed(false)
@@ -905,7 +970,10 @@ function App() {
     event.currentTarget.setPointerCapture(event.pointerId)
   }
 
-  const onFloatingDockResizeRightPointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
+  const onFloatingDockResizePointerDown = (
+    handle: FloatingDockResizeHandle,
+    event: ReactPointerEvent<HTMLDivElement>,
+  ) => {
     if (event.button !== 0) {
       return
     }
@@ -913,8 +981,10 @@ function App() {
     event.stopPropagation()
     floatingDockResizeRef.current = {
       pointerId: event.pointerId,
+      handle,
       startClientX: event.clientX,
-      startWidth: floatingDockRect.width,
+      startClientY: event.clientY,
+      startRect: floatingDockRect,
     }
     event.currentTarget.setPointerCapture(event.pointerId)
   }
@@ -1149,6 +1219,8 @@ function App() {
     },
     ui: {
       leftSidebarWidth,
+      leftDockWidth,
+      rightDockWidth,
       journeyHeight,
       drawerTab,
       dslMaximized,
@@ -1185,6 +1257,8 @@ function App() {
     playerTrailEnabled,
     playerConfettiNonce,
     leftSidebarWidth,
+    leftDockWidth,
+    rightDockWidth,
     journeyHeight,
     drawerTab,
     dslMaximized,
@@ -1230,6 +1304,8 @@ function App() {
       playerConfettiNodeId: snapshot.store.playerConfettiNodeId,
     })
     setLeftSidebarWidth(snapshot.ui.leftSidebarWidth)
+    setLeftDockWidth(snapshot.ui.leftDockWidth)
+    setRightDockWidth(snapshot.ui.rightDockWidth)
     setJourneyHeight(snapshot.ui.journeyHeight)
     setDrawerTab(snapshot.ui.drawerTab)
     setDslMaximized(snapshot.ui.dslMaximized)
@@ -1324,6 +1400,50 @@ function App() {
     event.currentTarget.releasePointerCapture(event.pointerId)
   }
 
+  const onDockSideSplitterPointerDown = (side: DockSide, event: ReactPointerEvent<HTMLDivElement>) => {
+    if (event.button !== 0) {
+      return
+    }
+    const startWidth = side === 'left' ? leftDockWidth : rightDockWidth
+    dockSideResizeRef.current = {
+      pointerId: event.pointerId,
+      side,
+      startClientX: event.clientX,
+      startWidth,
+      maxWidth: getMaxDockSideWidth(side),
+    }
+    event.currentTarget.setPointerCapture(event.pointerId)
+  }
+
+  const onDockSideSplitterPointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
+    const resize = dockSideResizeRef.current
+    if (!resize || resize.pointerId !== event.pointerId) {
+      return
+    }
+    const nextWidth = resolveDockSideWidth({
+      side: resize.side,
+      startWidth: resize.startWidth,
+      startClientX: resize.startClientX,
+      currentClientX: event.clientX,
+      minWidth: MIN_DOCK_SIDE_WIDTH,
+      maxWidth: resize.maxWidth,
+    })
+    if (resize.side === 'left') {
+      setLeftDockWidth(nextWidth)
+      return
+    }
+    setRightDockWidth(nextWidth)
+  }
+
+  const stopDockSideResize = (event: ReactPointerEvent<HTMLDivElement>) => {
+    const resize = dockSideResizeRef.current
+    if (!resize || resize.pointerId !== event.pointerId) {
+      return
+    }
+    dockSideResizeRef.current = null
+    event.currentTarget.releasePointerCapture(event.pointerId)
+  }
+
   const onJourneySplitterPointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
     if (event.button !== 0) {
       return
@@ -1367,8 +1487,15 @@ function App() {
     const onWindowPointerMove = (event: PointerEvent) => {
       const resize = floatingDockResizeRef.current
       if (resize && resize.pointerId === event.pointerId) {
-        const nextWidth = resize.startWidth + (event.clientX - resize.startClientX)
-        setFloatingDockRect((current) => clampFloatingDockRectInLayout({ ...current, width: nextWidth }))
+        const nextRect = resolveFloatingDockResizeRect({
+          handle: resize.handle,
+          startRect: resize.startRect,
+          startClientX: resize.startClientX,
+          startClientY: resize.startClientY,
+          currentClientX: event.clientX,
+          currentClientY: event.clientY,
+        })
+        setFloatingDockRect(() => clampFloatingDockRectInLayout(nextRect))
         return
       }
       const drag = floatingDockDragRef.current
@@ -1392,6 +1519,7 @@ function App() {
     const onWindowBlur = () => {
       floatingDockDragRef.current = null
       floatingDockResizeRef.current = null
+      dockSideResizeRef.current = null
     }
 
     window.addEventListener('pointermove', onWindowPointerMove)
@@ -1427,6 +1555,18 @@ function App() {
       window.removeEventListener('resize', clampNow)
     }
   }, [dockPosition, clampFloatingDockRectInLayout])
+
+  useEffect(() => {
+    const clampDockSideWidths = () => {
+      setLeftDockWidth((current) => Math.min(current, getMaxDockSideWidth('left')))
+      setRightDockWidth((current) => Math.min(current, getMaxDockSideWidth('right')))
+    }
+    clampDockSideWidths()
+    window.addEventListener('resize', clampDockSideWidths)
+    return () => {
+      window.removeEventListener('resize', clampDockSideWidths)
+    }
+  }, [getMaxDockSideWidth])
 
   useEffect(() => {
     const timeout = window.setTimeout(() => persist(), DEBOUNCE_SAVE_MS)
@@ -2609,6 +2749,15 @@ function App() {
       <div className="dock-placement-actions">
         <button
           type="button"
+          className={dockPosition === 'left' ? 'dock-placement dock-placement-active' : 'dock-placement'}
+          onClick={() => moveDockToLeft()}
+          title="Dock à esquerda"
+          aria-label="Dock à esquerda"
+        >
+          <PanelLeftOpen size={14} />
+        </button>
+        <button
+          type="button"
           className={dockPosition === 'right' ? 'dock-placement dock-placement-active' : 'dock-placement'}
           onClick={() => moveDockToRight()}
           title="Dock à direita"
@@ -2641,7 +2790,9 @@ function App() {
   const dockPanel = (
     <div
       className={
-        dockPosition === 'right'
+        dockPosition === 'left'
+          ? 'dock-panel dock-panel-left'
+          : dockPosition === 'right'
           ? 'dock-panel dock-panel-right'
           : dockPosition === 'bottom'
             ? 'dock-panel dock-panel-bottom'
@@ -3027,6 +3178,9 @@ function App() {
                     onClick={() => runDesktopMenuAction(() => toggleWorkbench())}
                   >
                     <span>{drawerCollapsed ? 'Show Workbench' : 'Hide Workbench'}</span>
+                  </button>
+                  <button type="button" role="menuitem" onClick={() => runDesktopMenuAction(() => moveDockToLeft())}>
+                    <span>Dock Left</span>
                   </button>
                   <button type="button" role="menuitem" onClick={() => runDesktopMenuAction(() => moveDockToRight())}>
                     <span>Dock Right</span>
@@ -3686,6 +3840,12 @@ function App() {
                   )
                 ) : dockPosition === 'floating' ? (
                   <Dock size={15} />
+                ) : dockPosition === 'left' ? (
+                  dockCollapsed ? (
+                    <PanelLeftOpen size={15} />
+                  ) : (
+                    <PanelLeftClose size={15} />
+                  )
                 ) : dockCollapsed ? (
                   <PanelRightOpen size={15} />
                 ) : (
@@ -3723,6 +3883,26 @@ function App() {
           onPointerCancel={stopLeftResize}
         />
       ) : null}
+      {!immersiveMode && leftDockVisible ? (
+        <div
+          className="layout-splitter layout-splitter-left"
+          style={{ left: leftDockWidth - 3, top: TOPBAR_HEIGHT, bottom: drawerVisible ? journeyHeight : 0 }}
+          onPointerDown={(event) => onDockSideSplitterPointerDown('left', event)}
+          onPointerMove={onDockSideSplitterPointerMove}
+          onPointerUp={stopDockSideResize}
+          onPointerCancel={stopDockSideResize}
+        />
+      ) : null}
+      {!immersiveMode && rightDockVisible ? (
+        <div
+          className="layout-splitter layout-splitter-right"
+          style={{ right: rightDockWidth - 3, top: TOPBAR_HEIGHT, bottom: drawerVisible ? journeyHeight : 0 }}
+          onPointerDown={(event) => onDockSideSplitterPointerDown('right', event)}
+          onPointerMove={onDockSideSplitterPointerMove}
+          onPointerUp={stopDockSideResize}
+          onPointerCancel={stopDockSideResize}
+        />
+      ) : null}
       {!immersiveMode && drawerVisible ? (
         <div
           className="layout-splitter layout-splitter-journey"
@@ -3757,6 +3937,7 @@ function App() {
           ))}
         </aside>
       ) : null}
+      {leftDockVisible ? <aside className="left-sidebar left-sidebar-dock">{dockPanel}</aside> : null}
       <main
         className={`canvas-panel ${gridEnabled && !presentationMode ? 'canvas-panel-grid-visible' : 'canvas-panel-grid-hidden'} ${
           presentationMode ? 'canvas-panel-presentation' : ''
@@ -3809,7 +3990,13 @@ function App() {
             height: `${floatingDockRect.height}px`,
           }}
         >
-          <div className="floating-dock-resize-right" onPointerDown={onFloatingDockResizeRightPointerDown} />
+          {(['n', 's', 'e', 'w', 'ne', 'nw', 'se', 'sw'] as FloatingDockResizeHandle[]).map((handle) => (
+            <div
+              key={handle}
+              className={`floating-dock-resize-handle floating-dock-resize-${handle}`}
+              onPointerDown={(event) => onFloatingDockResizePointerDown(handle, event)}
+            />
+          ))}
           <div className="floating-dock-header" onPointerDown={onFloatingDockHeaderPointerDown}>
             <strong>Dock</strong>
             <span
@@ -3818,12 +4005,15 @@ function App() {
                 event.stopPropagation()
               }}
             >
-              <button type="button" onClick={() => moveDockToRight()}>
-                Right
-              </button>
-              <button type="button" onClick={() => moveDockToBottom()}>
-                Bottom
-              </button>
+                <button type="button" onClick={() => moveDockToRight()}>
+                  Right
+                </button>
+                <button type="button" onClick={() => moveDockToLeft()}>
+                  Left
+                </button>
+                <button type="button" onClick={() => moveDockToBottom()}>
+                  Bottom
+                </button>
               <button type="button" onClick={() => setDockCollapsed(true)}>
                 Hide
               </button>

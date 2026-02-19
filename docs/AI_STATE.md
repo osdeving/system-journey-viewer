@@ -90,8 +90,9 @@
 - Dockable side panel (`Inspector` / `Journeys`) with tab drag and position switching.
 - Dock/workbench now supports broader panel layout control:
   - dock tabs include `Inspector`, `Journeys`, `Timeline`, `DSL`, `Help`,
-  - dock can be placed on right, bottom, or floating window,
-  - floating dock is draggable, horizontally resizable from the right edge, and clamped to viewport bounds,
+  - dock can be placed on left, right, bottom, or floating window,
+  - side docks are resizable on their docking edge (left/right width control),
+  - floating dock is draggable, resizable from all sides/corners, and clamped to viewport bounds,
   - View menu exposes show/hide actions for palette, dock, and workbench.
 - Standard player control group with icon-based actions.
 - Intelligent view auto-arrange is available on demand:

@@ -2,22 +2,29 @@
 
 Chronological engineering log. Entries are kept concise and focused on behavior and validation.
 
-## 2026-02-19 - Floating dock horizontal resize and faster edge-label rotation
+## 2026-02-19 - Full dock resizing model (left/right/bottom/floating) and faster edge-label rotation
 
 ### Scope
 
 - Keep same open PR branch and add requested UX refinements:
-  - resize floating dock width from the right edge,
+  - support dock resize while docked (left/right),
+  - support floating dock resize from all sides/corners,
+  - keep docked sizes in UI context per docking side,
   - increase edge-label rotation speed when using `hold + Alt + wheel`.
 
 ### Changes
 
-- Floating dock resize:
-  - added right-edge resize handle in floating dock window,
-  - implemented pointer-based width resizing with viewport/topbar clamping,
-  - extracted clamp logic into reusable utility:
+- Dock resize system:
+  - added dock placement option on left side,
+  - added dock side splitters:
+    - left dock expands/shrinks to the right,
+    - right dock expands/shrinks to the left,
+  - side dock widths are tracked independently (`leftDockWidth`, `rightDockWidth`) and restored through UI history snapshots,
+  - floating dock now supports resize from all edges/corners (`n/s/e/w/ne/nw/se/sw`),
+  - implemented pointer-based resize + clamping logic with reusable utilities:
     - `apps/web/src/layout/floatingDock.ts`
-  - wired into app state flow:
+    - `apps/web/src/layout/dockSizing.ts`
+  - wired into app state flow and styles:
     - `apps/web/src/App.tsx`
     - `apps/web/src/App.css`
 
@@ -29,13 +36,14 @@ Chronological engineering log. Entries are kept concise and focused on behavior 
     - `apps/web/src/components/DiagramCanvas.tsx`
 
 - Help update:
-  - documented floating dock right-edge resize and faster rotation behavior:
+  - documented side-dock and floating full-direction resize behavior plus faster rotation behavior:
     - `apps/web/src/help/help.md`
 
 ### Tests
 
 - Added:
   - `apps/web/src/layout/floatingDock.test.ts`
+  - `apps/web/src/layout/dockSizing.test.ts`
   - `apps/web/src/components/edgeLabelWheel.test.ts`
 
 ### Validation

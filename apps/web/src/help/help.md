@@ -71,9 +71,12 @@ Default playback/focus state:
 - Open panels from **View** menu:
   - `Inspector`, `Journeys`, `Timeline`, `DSL`, `Help`
 - Dock positions:
-  - `Right`, `Bottom`, `Floating`
+  - `Left`, `Right`, `Bottom`, `Floating`
+- Side docks are resizable in the dock direction:
+  - Left dock: drag splitter to the right to increase width.
+  - Right dock: drag splitter to the left to increase width.
 - Floating dock can be dragged by its header.
-- Floating dock can be resized by dragging its right edge.
+- Floating dock can be resized from all sides/corners.
 - Visibility controls are available in **View**:
   - `Show/Hide Palette`
   - `Show/Hide Dock`

@@ -502,6 +502,10 @@
   padding: 10px;
 }
 
+.left-sidebar-dock {
+  padding: 10px;
+}
+
 .dock-panel {
   border: 1px solid #d6dee9;
   border-radius: 14px;
@@ -516,6 +520,10 @@
 }
 
 .dock-panel-right {
+  height: 100%;
+}
+
+.dock-panel-left {
   height: 100%;
 }
 
@@ -542,33 +550,11 @@
   backdrop-filter: blur(3px);
 }
 
-.floating-dock-resize-right {
+.floating-dock-resize-handle {
   position: absolute;
-  top: 0;
-  right: -2px;
-  width: 10px;
-  height: 100%;
-  cursor: ew-resize;
-  z-index: 4;
   touch-action: none;
-}
-
-.floating-dock-resize-right::before {
-  content: '';
-  position: absolute;
-  top: 10px;
-  bottom: 10px;
-  left: 4px;
-  width: 2px;
-  border-radius: 2px;
-  background: rgba(148, 163, 184, 0.45);
-  opacity: 0.65;
-  transition: opacity 0.15s ease, background-color 0.15s ease;
-}
-
-.floating-dock-resize-right:hover::before {
-  opacity: 1;
-  background: rgba(37, 99, 235, 0.48);
+  z-index: 4;
+  background: transparent;
 }
 
 .floating-dock-header {
@@ -610,6 +596,72 @@
 .floating-dock-actions button:hover {
   border-color: #93c5fd;
   box-shadow: 0 0 0 1px rgba(147, 197, 253, 0.3);
+}
+
+.floating-dock-resize-n,
+.floating-dock-resize-s {
+  left: 10px;
+  right: 10px;
+  height: 8px;
+}
+
+.floating-dock-resize-n {
+  top: -2px;
+  cursor: ns-resize;
+}
+
+.floating-dock-resize-s {
+  bottom: -2px;
+  cursor: ns-resize;
+}
+
+.floating-dock-resize-e,
+.floating-dock-resize-w {
+  top: 10px;
+  bottom: 10px;
+  width: 8px;
+}
+
+.floating-dock-resize-e {
+  right: -2px;
+  cursor: ew-resize;
+}
+
+.floating-dock-resize-w {
+  left: -2px;
+  cursor: ew-resize;
+}
+
+.floating-dock-resize-ne,
+.floating-dock-resize-nw,
+.floating-dock-resize-se,
+.floating-dock-resize-sw {
+  width: 12px;
+  height: 12px;
+}
+
+.floating-dock-resize-ne {
+  top: -3px;
+  right: -3px;
+  cursor: nesw-resize;
+}
+
+.floating-dock-resize-nw {
+  top: -3px;
+  left: -3px;
+  cursor: nwse-resize;
+}
+
+.floating-dock-resize-se {
+  bottom: -3px;
+  right: -3px;
+  cursor: nwse-resize;
+}
+
+.floating-dock-resize-sw {
+  bottom: -3px;
+  left: -3px;
+  cursor: nesw-resize;
 }
 
 .dock-tab-strip {
@@ -743,6 +795,11 @@
 }
 
 .layout-splitter-left {
+  width: 6px;
+  cursor: col-resize;
+}
+
+.layout-splitter-right {
   width: 6px;
   cursor: col-resize;
 }
@@ -1822,14 +1879,6 @@
   background: rgba(15, 23, 42, 0.95);
   border-color: #334155;
   box-shadow: 0 16px 30px rgba(2, 6, 23, 0.68);
-}
-
-.theme-dark .floating-dock-resize-right::before {
-  background: rgba(71, 85, 105, 0.9);
-}
-
-.theme-dark .floating-dock-resize-right:hover::before {
-  background: rgba(59, 130, 246, 0.7);
 }
 
 .theme-dark .floating-dock-header {

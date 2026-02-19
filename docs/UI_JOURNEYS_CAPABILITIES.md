@@ -15,7 +15,8 @@ Quick operational reference for what the UI currently supports.
 - Dock panel:
   - tabs for `Inspector`, `Journeys`, `Timeline`, `DSL`, and `Help`
   - draggable tab ordering
-  - placement in right side, bottom drawer, or floating window
+  - placement in left side, right side, bottom drawer, or floating window
+  - side-dock width resize and floating all-direction resize
 - Bottom workbench drawer:
   - `Journey Timeline`, `JourneyScript`, and `Help` tabs
 

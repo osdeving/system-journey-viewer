@@ -8,7 +8,7 @@ It supports multi-layer modeling (`Container`, `Component`, `Hex`), animated jou
 
 - Visual architecture editor with ports, snap/grid, pan/zoom, and drill-down.
 - Journey timeline and player with animated flow playback.
-- Dockable workspaces (`Inspector`, `Journeys`, `Timeline`, `DSL`, `Help`) with right/bottom/floating layouts.
+- Dockable workspaces (`Inspector`, `Journeys`, `Timeline`, `DSL`, `Help`) with left/right/bottom/floating layouts and resizable dock panes.
 - `JourneyScript` DSL editor with Monaco-based syntax highlighting.
 - Multi-format export: `SVG`, `PNG`, `PDF`, plus animated `GIF`, `MP4`, and animated `SVG`.
 - Optional Codex-assisted DSL refinement through a secure gateway.

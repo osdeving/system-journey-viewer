@@ -54,6 +54,7 @@ export interface LiteUiLayoutEdge {
   labelPosition: number
   labelSide?: 'left' | 'right'
   labelFontSize?: number
+  labelAngle?: number
 }
 
 export interface LiteUiLayoutView {

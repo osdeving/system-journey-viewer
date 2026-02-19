@@ -240,6 +240,17 @@ describe('useEditorStore', () => {
     expect(updated.workspace.edges.e_c_1.style.labelFontSize).toBe(9)
   })
 
+  it('updates edge label rotation with clamped range', () => {
+    const state = useEditorStore.getState()
+    state.setEdgeLabelAngle('e_c_1', 360)
+    let updated = useEditorStore.getState()
+    expect(updated.workspace.edges.e_c_1.style.labelAngle).toBe(180)
+
+    state.setEdgeLabelAngle('e_c_1', -420)
+    updated = useEditorStore.getState()
+    expect(updated.workspace.edges.e_c_1.style.labelAngle).toBe(-180)
+  })
+
   it('updates journey focus rendering/layout settings', () => {
     const state = useEditorStore.getState()
     state.setJourneyFocusSettings({
@@ -406,6 +417,7 @@ describe('useEditorStore', () => {
     const journeyId = state.createJourney('Fluxo Player')
     state.addEdgeToJourney(journeyId, edgeId)
     state.setPlayerJourney(journeyId)
+    state.setPlayerLoop(false)
     state.setPlayerRunning(true)
     const before = useEditorStore.getState().playerConfettiNonce
 
@@ -467,15 +479,15 @@ describe('useEditorStore', () => {
 
   it('allows enabling and disabling player trail rendering', () => {
     const state = useEditorStore.getState()
-    expect(state.playerTrailEnabled).toBe(true)
-
-    state.setPlayerTrailEnabled(false)
-    let updated = useEditorStore.getState()
-    expect(updated.playerTrailEnabled).toBe(false)
+    expect(state.playerTrailEnabled).toBe(false)
 
     state.setPlayerTrailEnabled(true)
-    updated = useEditorStore.getState()
+    let updated = useEditorStore.getState()
     expect(updated.playerTrailEnabled).toBe(true)
+
+    state.setPlayerTrailEnabled(false)
+    updated = useEditorStore.getState()
+    expect(updated.playerTrailEnabled).toBe(false)
   })
 
   it('supports theme toggle and showcase reload', () => {

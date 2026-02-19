@@ -65,9 +65,12 @@ export const JourneyEdge = ({
   const selectedPoint = isSelected ? cubicPointAt(curve, labelPosition) : null
   const displayLabel = composeEdgeDisplayLabel(edge.label, protocolLabel)
   const labelFontSize = edge.style.labelFontSize ?? 11
+  const labelAngle = edge.style.labelAngle ?? 0
+  const finalLabelAngle = labelPlacement.angleDeg + labelAngle
 
   return (
     <g
+      className="journey-edge-group"
       onPointerDown={(event) => {
         event.preventDefault()
         event.stopPropagation()
@@ -86,7 +89,7 @@ export const JourneyEdge = ({
       <CanvasText
         x={labelPlacement.point.x}
         y={labelPlacement.point.y}
-        transform={`rotate(${labelPlacement.angleDeg} ${labelPlacement.point.x} ${labelPlacement.point.y})`}
+        transform={`rotate(${finalLabelAngle} ${labelPlacement.point.x} ${labelPlacement.point.y})`}
         className={[
           isInteractive ? 'edge-label edge-label-draggable' : 'edge-label',
           labelPlacement.isVertical ? 'edge-label-vertical' : '',

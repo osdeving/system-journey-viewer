@@ -34,7 +34,7 @@ describe('workspaceSchema', () => {
     if (parsed.success) {
       expect(parsed.data.settings.theme).toBe('light')
       expect(parsed.data.settings.journeyFocus).toEqual({
-        offscopeRenderMode: 'dim',
+        offscopeRenderMode: 'hide',
         layoutMode: 'preserve',
         autoLayoutMode: 'manual',
       })
@@ -103,6 +103,28 @@ describe('workspaceSchema', () => {
     expect(parsed.success).toBe(true)
     if (parsed.success) {
       expect(parsed.data.edges.e_c_1.style.labelFontSize).toBe(16)
+    }
+  })
+
+  it('accepts optional edge label rotation style', () => {
+    const workspace = createDefaultWorkspace()
+    const parsed = workspaceSchema.safeParse({
+      ...workspace,
+      edges: {
+        ...workspace.edges,
+        e_c_1: {
+          ...workspace.edges.e_c_1,
+          style: {
+            ...workspace.edges.e_c_1.style,
+            labelAngle: -24,
+          },
+        },
+      },
+    })
+
+    expect(parsed.success).toBe(true)
+    if (parsed.success) {
+      expect(parsed.data.edges.e_c_1.style.labelAngle).toBe(-24)
     }
   })
 })

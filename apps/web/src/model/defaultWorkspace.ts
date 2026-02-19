@@ -533,7 +533,7 @@ export const createDefaultWorkspace = (): WorkspaceModel =>
         { n: 4, edgeId: 'e_c_4' },
         { n: 5, edgeId: 'e_c_5' },
       ],
-      player: { loop: false, speedMs: 900, pauseOnStep: false },
+      player: { loop: true, speedMs: 1800, pauseOnStep: false },
     },
     j_c_2: {
       id: 'j_c_2',
@@ -545,7 +545,7 @@ export const createDefaultWorkspace = (): WorkspaceModel =>
         { n: 3, edgeId: 'e_c_7' },
         { n: 4, edgeId: 'e_c_8' },
       ],
-      player: { loop: false, speedMs: 900, pauseOnStep: false },
+      player: { loop: true, speedMs: 1800, pauseOnStep: false },
     },
     j_c_3: {
       id: 'j_c_3',
@@ -555,7 +555,7 @@ export const createDefaultWorkspace = (): WorkspaceModel =>
         { n: 1, edgeId: 'e_c_10' },
         { n: 2, edgeId: 'e_c_11' },
       ],
-      player: { loop: true, speedMs: 700, pauseOnStep: false },
+      player: { loop: true, speedMs: 1800, pauseOnStep: false },
     },
     j_comp_1: {
       id: 'j_comp_1',
@@ -569,7 +569,7 @@ export const createDefaultWorkspace = (): WorkspaceModel =>
         { n: 5, edgeId: 'e_comp_5' },
         { n: 6, edgeId: 'e_comp_6' },
       ],
-      player: { loop: false, speedMs: 850, pauseOnStep: false },
+      player: { loop: true, speedMs: 1800, pauseOnStep: false },
     },
     j_hex_1: {
       id: 'j_hex_1',
@@ -583,7 +583,7 @@ export const createDefaultWorkspace = (): WorkspaceModel =>
         { n: 5, edgeId: 'e_hex_5' },
         { n: 6, edgeId: 'e_hex_6' },
       ],
-      player: { loop: false, speedMs: 900, pauseOnStep: false },
+      player: { loop: true, speedMs: 1800, pauseOnStep: false },
     },
   },
   settings: {
@@ -591,7 +591,7 @@ export const createDefaultWorkspace = (): WorkspaceModel =>
     snap: true,
     theme: 'dark',
     journeyFocus: {
-      offscopeRenderMode: 'dim',
+      offscopeRenderMode: 'hide',
       layoutMode: 'preserve',
       autoLayoutMode: 'manual',
     },

@@ -5,16 +5,19 @@ Quick operational reference for what the UI currently supports.
 ## 1) Screen Map
 
 - Topbar:
-  - primary controls (`Back`, tools, zoom, grid/snap/theme, presentation)
+  - primary controls (`Back`, tools, zoom, grid/snap/theme, focus/presentation)
   - export controls (`SVG`, `PNG`, `PDF`, animated `GIF`, `MP4`, animated `SVG`)
+  - desktop menus (`File`, `Edit`, `View`, `Journey`, `Insert`, `Help`)
 - Left sidebar (`Palette`):
   - node presets by category (drag and drop to canvas)
 - Center (`Canvas`):
   - visual editing, edge manipulation, playback rendering
-- Right dock (`Inspector` / `Journeys` tabs):
-  - editable properties and journey management
+- Dock panel:
+  - tabs for `Inspector`, `Journeys`, `Timeline`, `DSL`, and `Help`
+  - draggable tab ordering
+  - placement in right side, bottom drawer, or floating window
 - Bottom workbench drawer:
-  - `Journey Timeline` and `JourneyScript` tabs
+  - `Journey Timeline`, `JourneyScript`, and `Help` tabs
 
 ## 2) Primary User Flow
 
@@ -37,6 +40,11 @@ Quick operational reference for what the UI currently supports.
 - Select a journey in player controls.
 - Use `Previous`, `Play/Pause`, `Next`, and `Reset`.
 - Tune `Loop`, `Speed`, and visual options.
+- Default startup behavior:
+  - `Loop`: enabled
+  - `Trail`: disabled
+  - animation preset: `Orb only`
+  - journey focus off-scope render: `Hide`
 
 5. Drill down across levels
 - Double-click a node with drill-down reference.
@@ -56,10 +64,14 @@ Quick operational reference for what the UI currently supports.
   - handle-to-handle connection (connector mode)
   - edge re-targeting from endpoints
   - edge label/protocol editing
+  - edge label drag + wheel interactions:
+    - hold + wheel: font size
+    - hold + `Alt` + wheel: label rotation angle
 - Journeys:
   - create journeys
   - add/remove edges from journeys
   - reorder journeys in side panel
+  - reorder and remove journey steps directly in the timeline panel
   - journey filter and autoplay on selection
 - Player:
   - previous/play-pause/next/reset
@@ -75,9 +87,11 @@ Quick operational reference for what the UI currently supports.
   - Monaco syntax highlighting for `JourneyScript`
 - Persistence:
   - save/reload and debounced local autosave
+  - recent workspace memory in localStorage (up to 3 entries)
 - Presentation mode:
   - clean render mode for demos (no edit handles/grid)
   - focused controls for player and animation export
+  - center indicator shows `Step X/Y` and current step label on a single line
 
 ## 4) Current Limits
 

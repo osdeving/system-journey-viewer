@@ -84,6 +84,7 @@ export interface EdgeModel {
     labelFontSize?: number
     labelPosition?: number
     labelSide?: 'left' | 'right'
+    labelAngle?: number
   }
 }
 

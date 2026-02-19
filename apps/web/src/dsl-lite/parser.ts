@@ -160,7 +160,7 @@ export const parseLiteDsl = (input: string): LiteWorkspaceAst => {
         }
 
         const uiEdgeMatch = line.match(
-          /^edge\s+([A-Za-z0-9_-]+)\s*->\s*([A-Za-z0-9_-]+)\s+label\s+(-?\d+(?:\.\d+)?)(?:\s+side\s+(left|right))?(?:\s+font\s+(\d+(?:\.\d+)?))?$/,
+          /^edge\s+([A-Za-z0-9_-]+)\s*->\s*([A-Za-z0-9_-]+)\s+label\s+(-?\d+(?:\.\d+)?)(?:\s+side\s+(left|right))?(?:\s+font\s+(\d+(?:\.\d+)?))?(?:\s+angle\s+(-?\d+(?:\.\d+)?))?$/,
         )
         if (uiEdgeMatch) {
           openUiLayoutView.edges.push({
@@ -171,6 +171,10 @@ export const parseLiteDsl = (input: string): LiteWorkspaceAst => {
             labelFontSize:
               uiEdgeMatch[5] && Number.isFinite(Number(uiEdgeMatch[5]))
                 ? Number(uiEdgeMatch[5])
+                : undefined,
+            labelAngle:
+              uiEdgeMatch[6] && Number.isFinite(Number(uiEdgeMatch[6]))
+                ? Number(uiEdgeMatch[6])
                 : undefined,
           })
           continue

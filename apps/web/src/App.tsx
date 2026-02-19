@@ -5,6 +5,7 @@ import type {
 } from 'react'
 import confetti from 'canvas-confetti'
 import type { Monaco } from '@monaco-editor/react'
+import ReactMarkdown from 'react-markdown'
 import {
   Dock,
   Eye,
@@ -54,6 +55,12 @@ import {
   parseWorkspaceSnapshotFile,
   serializeWorkspaceSnapshotFile,
 } from './file/workspaceFile'
+import {
+  loadRecentWorkspaces,
+  rememberRecentWorkspace,
+  type RecentWorkspaceEntry,
+} from './file/recentWorkspaces'
+import helpGuideMarkdown from './help/help.md?raw'
 import { resolveJourneyFocusScope } from './journeys/focus'
 import { resolvePlayerStepLabel } from './journeys/playerStepLabel'
 import { BLANK_WORKSPACE_VIEW_ID, createBlankWorkspace } from './model/blankWorkspace'
@@ -77,6 +84,7 @@ const TOPBAR_HEIGHT = 80
 const MIN_CANVAS_HEIGHT = 220
 const MIN_DOCK_HEIGHT = 260
 const DEFAULT_FILE_VIEWPORT = { x: 100, y: 80, zoom: 1 }
+const DEFAULT_FLOATING_DOCK_RECT = { x: 28, y: 108, width: 480, height: 420 }
 const DEFAULT_NODE_COLOR_PRESETS = [
   '#ffffff',
   '#dbeafe',
@@ -99,13 +107,14 @@ const viewKindLabel: Record<string, string> = {
   hex: 'Hex',
 }
 
-type DrawerTab = 'journeys' | 'dsl' | 'dock'
-type DockTab = 'inspector' | 'journeys'
-type DockPosition = 'right' | 'bottom'
-type DesktopMenuId = 'file' | 'edit' | 'view' | 'journey' | 'insert'
+type DrawerTab = 'journeys' | 'dsl' | 'dock' | 'help'
+type DockTab = 'inspector' | 'journeys' | 'timeline' | 'dsl' | 'help'
+type DockPosition = 'right' | 'bottom' | 'floating'
+type DesktopMenuId = 'file' | 'edit' | 'view' | 'journey' | 'insert' | 'help'
 type PlayerAnimationPreset = 'cinematic' | 'orb' | 'minimal'
 type FileWriteMode = 'prompt' | 'reuse'
 type StepDragState = { journeyId: string; edgeId: string }
+type FloatingDockRect = { x: number; y: number; width: number; height: number }
 
 type HistoryStoreSnapshot = {
   workspace: WorkspaceModel
@@ -142,6 +151,7 @@ type HistoryUiSnapshot = {
   dockCollapsed: boolean
   drawerCollapsed: boolean
   dockPosition: DockPosition
+  floatingDockRect: FloatingDockRect
   dockTabOrder: DockTab[]
   activeDockTab: DockTab
   journeyDraftName: string
@@ -173,8 +183,8 @@ type WorkspaceWindow = Window & {
   showSaveFilePicker?: (options?: unknown) => Promise<WorkspaceFileHandle>
 }
 
-const DESKTOP_MENU_ORDER: DesktopMenuId[] = ['file', 'edit', 'view', 'journey', 'insert']
-const DEFAULT_DOCK_TAB_ORDER: DockTab[] = ['inspector', 'journeys']
+const DESKTOP_MENU_ORDER: DesktopMenuId[] = ['file', 'edit', 'view', 'journey', 'insert', 'help']
+const DEFAULT_DOCK_TAB_ORDER: DockTab[] = ['inspector', 'journeys', 'timeline', 'dsl', 'help']
 const HISTORY_LIMIT = 120
 
 const isTextInputTarget = (target: EventTarget | null): boolean => {
@@ -233,6 +243,13 @@ function App() {
     startHeight: number
     maxHeight: number
   } | null>(null)
+  const floatingDockDragRef = useRef<{
+    pointerId: number
+    startClientX: number
+    startClientY: number
+    startX: number
+    startY: number
+  } | null>(null)
   const workspace = useEditorStore((state) => state.workspace)
   const currentViewId = useEditorStore((state) => state.currentViewId)
   const viewHistory = useEditorStore((state) => state.viewHistory)
@@ -274,6 +291,7 @@ function App() {
   const setEdgeLabel = useEditorStore((state) => state.setEdgeLabel)
   const setEdgeLabelPosition = useEditorStore((state) => state.setEdgeLabelPosition)
   const setEdgeLabelSide = useEditorStore((state) => state.setEdgeLabelSide)
+  const setEdgeLabelAngle = useEditorStore((state) => state.setEdgeLabelAngle)
   const autoArrangeCurrentView = useEditorStore((state) => state.autoArrangeCurrentView)
   const setGridEnabled = useEditorStore((state) => state.setGridEnabled)
   const setSnapEnabled = useEditorStore((state) => state.setSnapEnabled)
@@ -323,6 +341,8 @@ function App() {
   const [dockPosition, setDockPosition] = useState<DockPosition>('right')
   const [dockTabOrder, setDockTabOrder] = useState<DockTab[]>(DEFAULT_DOCK_TAB_ORDER)
   const [activeDockTab, setActiveDockTab] = useState<DockTab>('inspector')
+  const [floatingDockRect, setFloatingDockRect] = useState<FloatingDockRect>(DEFAULT_FLOATING_DOCK_RECT)
+  const [recentWorkspaces, setRecentWorkspaces] = useState<RecentWorkspaceEntry[]>(() => loadRecentWorkspaces())
   const [openDesktopMenu, setOpenDesktopMenu] = useState<DesktopMenuId | null>(null)
   const [canUndo, setCanUndo] = useState(false)
   const [canRedo, setCanRedo] = useState(false)
@@ -397,7 +417,22 @@ function App() {
   const immersiveMode = focusMode || presentationMode
   const leftPanelVisible = !immersiveMode && !leftSidebarCollapsed
   const rightDockVisible = !immersiveMode && dockPosition === 'right' && !dockCollapsed
+  const floatingDockVisible = !immersiveMode && dockPosition === 'floating' && !dockCollapsed
   const drawerVisible = !immersiveMode && !drawerCollapsed
+  const clampFloatingDockRect = useCallback((candidate: FloatingDockRect): FloatingDockRect => {
+    const layoutRect = layoutRef.current?.getBoundingClientRect()
+    const layoutWidth = Math.max(1, layoutRect?.width ?? window.innerWidth)
+    const layoutHeight = Math.max(1, layoutRect?.height ?? window.innerHeight)
+    const minX = 8
+    const minY = TOPBAR_HEIGHT + 8
+    const maxX = Math.max(minX, layoutWidth - candidate.width - 8)
+    const maxY = Math.max(minY, layoutHeight - candidate.height - 8)
+    return {
+      ...candidate,
+      x: Math.max(minX, Math.min(maxX, candidate.x)),
+      y: Math.max(minY, Math.min(maxY, candidate.y)),
+    }
+  }, [])
 
   const layoutStyle = useMemo(
     () =>
@@ -667,6 +702,13 @@ function App() {
             await writable.write(payload)
             await writable.close()
             workspaceFileHandleRef.current = fileHandle
+            setRecentWorkspaces(
+              rememberRecentWorkspace(
+                snapshot,
+                payload,
+                fileHandle.name ?? filename,
+              ),
+            )
             setExportError(null)
             setTransientStatus(`Workspace file saved: ${fileHandle.name ?? filename}`)
             return
@@ -682,6 +724,9 @@ function App() {
         link.click()
         link.remove()
         URL.revokeObjectURL(objectUrl)
+        setRecentWorkspaces(
+          rememberRecentWorkspace(snapshot, payload, filename),
+        )
         setExportError(null)
         setTransientStatus(`Workspace file saved: ${filename}`)
       } catch (error) {
@@ -798,6 +843,19 @@ function App() {
     [loadWorkspacePayload],
   )
 
+  const openRecentWorkspace = useCallback(
+    (entry: RecentWorkspaceEntry) => {
+      try {
+        loadWorkspacePayload(entry.payload, { fileName: `${entry.name} (recent)`, fileHandle: null })
+        const snapshot = parseWorkspaceSnapshotFile(entry.payload)
+        setRecentWorkspaces(rememberRecentWorkspace(snapshot, entry.payload, entry.name))
+      } catch (error) {
+        setExportError(error instanceof Error ? error.message : 'Failed to load recent workspace.')
+      }
+    },
+    [loadWorkspacePayload],
+  )
+
   const moveDockToRight = () => {
     setDockPosition('right')
     setDockCollapsed(false)
@@ -814,6 +872,15 @@ function App() {
     setJourneyHeight((current) => Math.max(current, MIN_DOCK_HEIGHT))
   }
 
+  const moveDockToFloating = () => {
+    setDockPosition('floating')
+    setDockCollapsed(false)
+    setFloatingDockRect((current) => clampFloatingDockRect(current))
+    if (drawerTab === 'dock') {
+      setDrawerTab('journeys')
+    }
+  }
+
   const openDockTab = (tab: DockTab) => {
     setActiveDockTab(tab)
     setDockCollapsed(false)
@@ -822,6 +889,20 @@ function App() {
       setDrawerTab('dock')
       setJourneyHeight((current) => Math.max(current, MIN_DOCK_HEIGHT))
     }
+  }
+
+  const onFloatingDockHeaderPointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (event.button !== 0) {
+      return
+    }
+    floatingDockDragRef.current = {
+      pointerId: event.pointerId,
+      startClientX: event.clientX,
+      startClientY: event.clientY,
+      startX: floatingDockRect.x,
+      startY: floatingDockRect.y,
+    }
+    event.currentTarget.setPointerCapture(event.pointerId)
   }
 
   const handleDockTabDragStart = (tab: DockTab) => {
@@ -1063,6 +1144,7 @@ function App() {
       dockCollapsed,
       drawerCollapsed,
       dockPosition,
+      floatingDockRect: cloneSerializable(floatingDockRect),
       dockTabOrder: cloneSerializable(dockTabOrder),
       activeDockTab,
       journeyDraftName,
@@ -1098,6 +1180,7 @@ function App() {
     dockCollapsed,
     drawerCollapsed,
     dockPosition,
+    floatingDockRect,
     dockTabOrder,
     activeDockTab,
     journeyDraftName,
@@ -1142,6 +1225,7 @@ function App() {
     setDockCollapsed(snapshot.ui.dockCollapsed)
     setDrawerCollapsed(snapshot.ui.drawerCollapsed)
     setDockPosition(snapshot.ui.dockPosition)
+    setFloatingDockRect(cloneSerializable(snapshot.ui.floatingDockRect))
     setDockTabOrder(cloneSerializable(snapshot.ui.dockTabOrder))
     setActiveDockTab(snapshot.ui.activeDockTab)
     setJourneyDraftName(snapshot.ui.journeyDraftName)
@@ -1264,6 +1348,57 @@ function App() {
     journeyResizeRef.current = null
     event.currentTarget.releasePointerCapture(event.pointerId)
   }
+
+  useEffect(() => {
+    const onWindowPointerMove = (event: PointerEvent) => {
+      const drag = floatingDockDragRef.current
+      if (!drag || drag.pointerId !== event.pointerId) {
+        return
+      }
+      const nextX = drag.startX + (event.clientX - drag.startClientX)
+      const nextY = drag.startY + (event.clientY - drag.startClientY)
+      setFloatingDockRect((current) => clampFloatingDockRect({ ...current, x: nextX, y: nextY }))
+    }
+
+    const stopFloatingDockDrag = (event: PointerEvent) => {
+      if (floatingDockDragRef.current?.pointerId !== event.pointerId) {
+        return
+      }
+      floatingDockDragRef.current = null
+    }
+
+    const onWindowBlur = () => {
+      floatingDockDragRef.current = null
+    }
+
+    window.addEventListener('pointermove', onWindowPointerMove)
+    window.addEventListener('pointerup', stopFloatingDockDrag)
+    window.addEventListener('pointercancel', stopFloatingDockDrag)
+    window.addEventListener('blur', onWindowBlur)
+    return () => {
+      window.removeEventListener('pointermove', onWindowPointerMove)
+      window.removeEventListener('pointerup', stopFloatingDockDrag)
+      window.removeEventListener('pointercancel', stopFloatingDockDrag)
+      window.removeEventListener('blur', onWindowBlur)
+    }
+  }, [clampFloatingDockRect])
+
+  useEffect(() => {
+    if (dockPosition !== 'floating') {
+      return
+    }
+    const clampNow = () => {
+      setFloatingDockRect((current) => {
+        const clamped = clampFloatingDockRect(current)
+        return clamped.x === current.x && clamped.y === current.y ? current : clamped
+      })
+    }
+    clampNow()
+    window.addEventListener('resize', clampNow)
+    return () => {
+      window.removeEventListener('resize', clampNow)
+    }
+  }, [dockPosition, clampFloatingDockRect])
 
   useEffect(() => {
     const timeout = window.setTimeout(() => persist(), DEBOUNCE_SAVE_MS)
@@ -1880,13 +2015,163 @@ function App() {
     }
   }
 
+  const journeyTimelineContent = (
+    <>
+      <div className="journey-timeline-toolbar">
+        <strong>Timeline da jornada ativa</strong>
+        <span className="player-step-info">
+          Step {playerStepIndex + 1}/{playerJourney?.steps.length ?? 0}
+        </span>
+      </div>
+      {activeJourney ? (
+        <ol className="journey-steps">
+          {activeJourneySteps.map((step) => (
+            <li
+              key={`${activeJourney.id}:${step.edgeId}`}
+              className="journey-step-item journey-item"
+              draggable
+              onDragStart={() => onJourneyStepDragStart(activeJourney.id, step.edgeId)}
+              onDragOver={(event) => {
+                event.preventDefault()
+                event.dataTransfer.dropEffect = 'move'
+              }}
+              onDrop={() => onJourneyStepDrop(activeJourney.id, step.edgeId)}
+              onDragEnd={() => {
+                journeyStepDragRef.current = null
+              }}
+            >
+              <span className="journey-drag-handle" aria-hidden="true">
+                <GripVertical size={13} />
+              </span>
+              <span className="journey-color-dot" style={{ background: activeJourney.colorKey }} />
+              <span>
+                {step.n}. {workspace.edges[step.edgeId]?.label ?? step.edgeId}
+              </span>
+              <span className="journey-step-actions">
+                <button type="button" onClick={() => removeEdgeFromJourney(activeJourney.id, step.edgeId)}>
+                  Remover
+                </button>
+              </span>
+            </li>
+          ))}
+        </ol>
+      ) : (
+        <p>Selecione uma jornada na lateral para visualizar a timeline.</p>
+      )}
+    </>
+  )
+
+  const dslPanelContent = (
+    <div className={`dsl-panel ${dslMaximized ? 'dsl-panel-maximized' : ''}`}>
+      <div className="dsl-toolbar">
+        <strong>{JOURNEY_SCRIPT_NAME} DSL</strong>
+        <button
+          type="button"
+          onClick={() => {
+            setDslText(fullWorkspaceToLiteDsl(workspace))
+            setDslError(null)
+          }}
+        >
+          Exportar workspace completo
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            try {
+              const ast = parseLiteDsl(dslText)
+              const imported = liteToFullWorkspace(ast)
+              const restoredLayout = loadWorkspaceLayout(imported.workspace.id)
+              const workspaceWithLayout = applyWorkspaceLayout(imported, restoredLayout)
+              const nextViewId = resolveEntryViewId(workspaceWithLayout)
+              replaceWorkspace(workspaceWithLayout, nextViewId)
+              setDslError(null)
+            } catch (error) {
+              setDslError(error instanceof Error ? error.message : 'Falha ao importar DSL.')
+            }
+          }}
+        >
+          Importar DSL
+        </button>
+        <input
+          className="dsl-codex-instruction"
+          value={dslCodexInstruction}
+          onChange={(event) => setDslCodexInstruction(event.target.value)}
+          placeholder="Instrução para o Codex (ex.: separar fluxos async por boundary)"
+        />
+        <button type="button" onClick={() => void runCodexAssistForDsl()} disabled={dslCodexRunning}>
+          {dslCodexRunning ? 'Codex executando...' : 'Refinar com Codex'}
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            setDslCodexThreadId(null)
+            setDslCodexStatus('Contexto do thread Codex limpo.')
+          }}
+          disabled={!dslCodexThreadId || dslCodexRunning}
+        >
+          Limpar contexto Codex
+        </button>
+      </div>
+      <div className="dsl-monaco-editor">
+        <Suspense fallback={<p className="dsl-codex-status">Loading JourneyScript editor...</p>}>
+          <MonacoEditor
+            beforeMount={handleDslEditorBeforeMount}
+            language={JOURNEY_SCRIPT_LANGUAGE_ID}
+            value={dslText}
+            onChange={(value) => setDslText(value ?? '')}
+            theme={resolveJourneyScriptTheme(theme)}
+            options={{
+              minimap: { enabled: false },
+              fontSize: 13,
+              lineHeight: 21,
+              fontLigatures: true,
+              padding: { top: 10 },
+              scrollBeyondLastLine: false,
+              automaticLayout: true,
+              smoothScrolling: true,
+              cursorBlinking: 'phase',
+            }}
+          />
+        </Suspense>
+      </div>
+      {dslCodexThreadId ? <p className="dsl-codex-thread">Thread Codex: {dslCodexThreadId}</p> : null}
+      {dslCodexStatus ? <p className="dsl-codex-status">{dslCodexStatus}</p> : null}
+      {dslError ? <p className="dsl-error">{dslError}</p> : null}
+    </div>
+  )
+
+  const helpPanelContent = (
+    <section className="help-panel">
+      <ReactMarkdown>{helpGuideMarkdown}</ReactMarkdown>
+    </section>
+  )
+
   const dockLabelByTab: Record<DockTab, string> = {
     inspector: 'Inspector',
     journeys: 'Journeys',
+    timeline: 'Timeline',
+    dsl: 'DSL',
+    help: 'Help',
   }
   const resolvedActiveDockTab = dockTabOrder.includes(activeDockTab)
     ? activeDockTab
     : dockTabOrder[0]
+
+  const resolveDockTabContent = (tab: DockTab) => {
+    if (tab === 'inspector') {
+      return inspectorDockContent
+    }
+    if (tab === 'journeys') {
+      return journeysDockContent
+    }
+    if (tab === 'timeline') {
+      return journeyTimelineContent
+    }
+    if (tab === 'dsl') {
+      return dslPanelContent
+    }
+    return helpPanelContent
+  }
 
   const inspectorDockContent = (
     <div className="dock-content-section">
@@ -2007,6 +2292,19 @@ function App() {
             <option value="left">Left / Top</option>
             <option value="right">Right / Bottom</option>
           </select>
+          <label htmlFor="edge-label-angle">Label Rotation</label>
+          <input
+            id="edge-label-angle"
+            type="range"
+            min={-180}
+            max={180}
+            step={1}
+            value={selectedEdge.style.labelAngle ?? 0}
+            onChange={(event) => setEdgeLabelAngle(selectedEdge.id, Number(event.target.value))}
+          />
+          <span className="edge-label-position-value">
+            {Math.round(selectedEdge.style.labelAngle ?? 0)}°
+          </span>
           <div className="inspector-actions">
             <button type="button" onClick={() => duplicateCurrentSelection()}>
               Duplicate
@@ -2299,14 +2597,31 @@ function App() {
         >
           <PanelBottomOpen size={14} />
         </button>
+        <button
+          type="button"
+          className={dockPosition === 'floating' ? 'dock-placement dock-placement-active' : 'dock-placement'}
+          onClick={() => moveDockToFloating()}
+          title="Dock flutuante"
+          aria-label="Dock flutuante"
+        >
+          <Dock size={14} />
+        </button>
       </div>
     </div>
   )
 
   const dockPanel = (
-    <div className={dockPosition === 'right' ? 'dock-panel dock-panel-right' : 'dock-panel dock-panel-bottom'}>
+    <div
+      className={
+        dockPosition === 'right'
+          ? 'dock-panel dock-panel-right'
+          : dockPosition === 'bottom'
+            ? 'dock-panel dock-panel-bottom'
+            : 'dock-panel dock-panel-floating'
+      }
+    >
       <div className="dock-tab-body">
-        {resolvedActiveDockTab === 'inspector' ? inspectorDockContent : journeysDockContent}
+        {resolveDockTabContent(resolvedActiveDockTab)}
       </div>
     </div>
   )
@@ -2399,6 +2714,17 @@ function App() {
                     <span>Open File...</span>
                     <kbd>Ctrl+O</kbd>
                   </button>
+                  {recentWorkspaces.map((entry) => (
+                    <button
+                      key={`recent-${entry.id}`}
+                      type="button"
+                      role="menuitem"
+                      onClick={() => runDesktopMenuAction(() => openRecentWorkspace(entry))}
+                      title={new Date(entry.savedAtIso).toLocaleString()}
+                    >
+                      <span>Recent: {entry.name}</span>
+                    </button>
+                  ))}
                   <button
                     type="button"
                     role="menuitem"
@@ -2652,6 +2978,51 @@ function App() {
                   >
                     <span>{presentationMode ? 'Exit Presentation' : 'Presentation Mode'}</span>
                     <kbd>P</kbd>
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => runDesktopMenuAction(() => toggleLeftSidebar())}
+                  >
+                    <span>{leftSidebarCollapsed ? 'Show Palette' : 'Hide Palette'}</span>
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => runDesktopMenuAction(() => toggleDockPanel())}
+                  >
+                    <span>{dockCollapsed ? 'Show Dock' : 'Hide Dock'}</span>
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => runDesktopMenuAction(() => toggleWorkbench())}
+                  >
+                    <span>{drawerCollapsed ? 'Show Workbench' : 'Hide Workbench'}</span>
+                  </button>
+                  <button type="button" role="menuitem" onClick={() => runDesktopMenuAction(() => moveDockToRight())}>
+                    <span>Dock Right</span>
+                  </button>
+                  <button type="button" role="menuitem" onClick={() => runDesktopMenuAction(() => moveDockToBottom())}>
+                    <span>Dock Bottom</span>
+                  </button>
+                  <button type="button" role="menuitem" onClick={() => runDesktopMenuAction(() => moveDockToFloating())}>
+                    <span>Dock Floating</span>
+                  </button>
+                  <button type="button" role="menuitem" onClick={() => runDesktopMenuAction(() => openDockTab('inspector'))}>
+                    <span>Panel: Inspector</span>
+                  </button>
+                  <button type="button" role="menuitem" onClick={() => runDesktopMenuAction(() => openDockTab('journeys'))}>
+                    <span>Panel: Journeys</span>
+                  </button>
+                  <button type="button" role="menuitem" onClick={() => runDesktopMenuAction(() => openDockTab('timeline'))}>
+                    <span>Panel: Timeline</span>
+                  </button>
+                  <button type="button" role="menuitem" onClick={() => runDesktopMenuAction(() => openDockTab('dsl'))}>
+                    <span>Panel: DSL</span>
+                  </button>
+                  <button type="button" role="menuitem" onClick={() => runDesktopMenuAction(() => openDockTab('help'))}>
+                    <span>Panel: Help</span>
                   </button>
                 </div>
               ) : null}
@@ -2964,6 +3335,7 @@ function App() {
                         setPresentationMode(false)
                         setDrawerCollapsed(false)
                         switchDrawerTab('journeys')
+                        openDockTab('timeline')
                       })
                     }
                   >
@@ -2978,10 +3350,26 @@ function App() {
                         setPresentationMode(false)
                         setDrawerCollapsed(false)
                         switchDrawerTab('dsl')
+                        openDockTab('dsl')
                       })
                     }
                   >
                     <span>Open DSL Editor</span>
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() =>
+                      runDesktopMenuAction(() => {
+                        setFocusMode(false)
+                        setPresentationMode(false)
+                        setDrawerCollapsed(false)
+                        switchDrawerTab('help')
+                        openDockTab('help')
+                      })
+                    }
+                  >
+                    <span>Open Help</span>
                   </button>
                   <button
                     type="button"
@@ -2995,6 +3383,52 @@ function App() {
                     }
                   >
                     <span>Open Dock Panel</span>
+                  </button>
+                </div>
+              ) : null}
+            </div>
+            <div
+              className={openDesktopMenu === 'help' ? 'desktop-menu desktop-menu-open' : 'desktop-menu'}
+              onMouseEnter={() => {
+                if (openDesktopMenu) {
+                  setOpenDesktopMenu('help')
+                }
+              }}
+            >
+              <button
+                type="button"
+                className="desktop-menu-trigger"
+                aria-haspopup="menu"
+                aria-expanded={openDesktopMenu === 'help'}
+                aria-controls="desktop-menu-help"
+                onClick={() => toggleDesktopMenu('help')}
+              >
+                Help
+              </button>
+              {openDesktopMenu === 'help' ? (
+                <div id="desktop-menu-help" className="desktop-menu-list" role="menu" aria-label="Help menu">
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() =>
+                      runDesktopMenuAction(() => {
+                        setDrawerCollapsed(false)
+                        switchDrawerTab('help')
+                      })
+                    }
+                  >
+                    <span>Open Help Panel</span>
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() =>
+                      runDesktopMenuAction(() => {
+                        openDockTab('help')
+                      })
+                    }
+                  >
+                    <span>Open Help in Dock</span>
                   </button>
                 </div>
               ) : null}
@@ -3022,7 +3456,14 @@ function App() {
                 Step {playerStepIndex + 1}/{playerJourney?.steps.length ?? 0}
               </span>
               {currentPlayerStepLabel ? (
-                <span className="mode-pill mode-pill-step-name" title={currentPlayerStepLabel}>
+                <span
+                  className={
+                    playerIsRunning
+                      ? 'mode-pill mode-pill-playing mode-pill-step-name'
+                      : 'mode-pill mode-pill-step-name'
+                  }
+                  title={currentPlayerStepLabel}
+                >
                   {currentPlayerStepLabel}
                 </span>
               ) : null}
@@ -3215,6 +3656,8 @@ function App() {
                   ) : (
                     <PanelBottomClose size={15} />
                   )
+                ) : dockPosition === 'floating' ? (
+                  <Dock size={15} />
                 ) : dockCollapsed ? (
                   <PanelRightOpen size={15} />
                 ) : (
@@ -3328,6 +3771,38 @@ function App() {
         />
       </main>
       {rightDockVisible ? <aside className="right-sidebar right-sidebar-dock">{dockPanel}</aside> : null}
+      {floatingDockVisible ? (
+        <div
+          className="floating-dock-window"
+          style={{
+            left: `${floatingDockRect.x}px`,
+            top: `${floatingDockRect.y}px`,
+            width: `${floatingDockRect.width}px`,
+            height: `${floatingDockRect.height}px`,
+          }}
+        >
+          <div className="floating-dock-header" onPointerDown={onFloatingDockHeaderPointerDown}>
+            <strong>Dock</strong>
+            <span
+              className="floating-dock-actions"
+              onPointerDown={(event) => {
+                event.stopPropagation()
+              }}
+            >
+              <button type="button" onClick={() => moveDockToRight()}>
+                Right
+              </button>
+              <button type="button" onClick={() => moveDockToBottom()}>
+                Bottom
+              </button>
+              <button type="button" onClick={() => setDockCollapsed(true)}>
+                Hide
+              </button>
+            </span>
+          </div>
+          {dockPanel}
+        </div>
+      ) : null}
       {drawerVisible ? (
         <section className={drawerTab === 'dsl' ? 'journey-drawer journey-drawer-dsl' : 'journey-drawer'}>
           <div className="drawer-tabs">
@@ -3344,6 +3819,13 @@ function App() {
               onClick={() => switchDrawerTab('dsl')}
             >
               DSL
+            </button>
+            <button
+              type="button"
+              className={drawerTab === 'help' ? 'drawer-tab drawer-tab-active' : 'drawer-tab'}
+              onClick={() => switchDrawerTab('help')}
+            >
+              Help
             </button>
             {dockPosition === 'bottom' ? (
               <button
@@ -3362,119 +3844,11 @@ function App() {
             ) : null}
           </div>
           {drawerTab === 'journeys' ? (
-            <>
-              <div className="journey-timeline-toolbar">
-                <strong>Timeline da jornada ativa</strong>
-                <span className="player-step-info">
-                  Step {playerStepIndex + 1}/{playerJourney?.steps.length ?? 0}
-                </span>
-              </div>
-              {activeJourney ? (
-                <ol className="journey-steps">
-                  {activeJourneySteps.map((step) => (
-                      <li
-                        key={`${activeJourney.id}:${step.edgeId}`}
-                        draggable
-                        onDragStart={() => onJourneyStepDragStart(activeJourney.id, step.edgeId)}
-                        onDragOver={(event) => {
-                          event.preventDefault()
-                          event.dataTransfer.dropEffect = 'move'
-                        }}
-                        onDrop={() => onJourneyStepDrop(activeJourney.id, step.edgeId)}
-                        onDragEnd={() => {
-                          journeyStepDragRef.current = null
-                        }}
-                      >
-                        {step.n}. {workspace.edges[step.edgeId]?.label ?? step.edgeId}
-                        <span className="journey-step-actions">
-                          <button type="button" onClick={() => removeEdgeFromJourney(activeJourney.id, step.edgeId)}>
-                            Remover
-                          </button>
-                        </span>
-                      </li>
-                    ))}
-                </ol>
-              ) : (
-                <p>Selecione uma jornada na lateral para visualizar a timeline.</p>
-              )}
-            </>
+            journeyTimelineContent
           ) : drawerTab === 'dsl' ? (
-            <div className={`dsl-panel ${dslMaximized ? 'dsl-panel-maximized' : ''}`}>
-            <div className="dsl-toolbar">
-              <strong>{JOURNEY_SCRIPT_NAME} DSL</strong>
-              <button
-                type="button"
-                onClick={() => {
-                  setDslText(fullWorkspaceToLiteDsl(workspace))
-                  setDslError(null)
-                }}
-              >
-                Exportar workspace completo
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  try {
-                    const ast = parseLiteDsl(dslText)
-                    const imported = liteToFullWorkspace(ast)
-                    const restoredLayout = loadWorkspaceLayout(imported.workspace.id)
-                    const workspaceWithLayout = applyWorkspaceLayout(imported, restoredLayout)
-                    const nextViewId = resolveEntryViewId(workspaceWithLayout)
-                    replaceWorkspace(workspaceWithLayout, nextViewId)
-                    setDslError(null)
-                  } catch (error) {
-                    setDslError(error instanceof Error ? error.message : 'Falha ao importar DSL.')
-                  }
-                }}
-              >
-                Importar DSL
-              </button>
-              <input
-                className="dsl-codex-instruction"
-                value={dslCodexInstruction}
-                onChange={(event) => setDslCodexInstruction(event.target.value)}
-                placeholder="Instrução para o Codex (ex.: separar fluxos async por boundary)"
-              />
-              <button type="button" onClick={() => void runCodexAssistForDsl()} disabled={dslCodexRunning}>
-                {dslCodexRunning ? 'Codex executando...' : 'Refinar com Codex'}
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setDslCodexThreadId(null)
-                  setDslCodexStatus('Contexto do thread Codex limpo.')
-                }}
-                disabled={!dslCodexThreadId || dslCodexRunning}
-              >
-                Limpar contexto Codex
-              </button>
-            </div>
-            <div className="dsl-monaco-editor">
-              <Suspense fallback={<p className="dsl-codex-status">Loading JourneyScript editor...</p>}>
-                <MonacoEditor
-                  beforeMount={handleDslEditorBeforeMount}
-                  language={JOURNEY_SCRIPT_LANGUAGE_ID}
-                  value={dslText}
-                  onChange={(value) => setDslText(value ?? '')}
-                  theme={resolveJourneyScriptTheme(theme)}
-                  options={{
-                    minimap: { enabled: false },
-                    fontSize: 13,
-                    lineHeight: 21,
-                    fontLigatures: true,
-                    padding: { top: 10 },
-                    scrollBeyondLastLine: false,
-                    automaticLayout: true,
-                    smoothScrolling: true,
-                    cursorBlinking: 'phase',
-                  }}
-                />
-              </Suspense>
-            </div>
-            {dslCodexThreadId ? <p className="dsl-codex-thread">Thread Codex: {dslCodexThreadId}</p> : null}
-            {dslCodexStatus ? <p className="dsl-codex-status">{dslCodexStatus}</p> : null}
-            {dslError ? <p className="dsl-error">{dslError}</p> : null}
-            </div>
+            dslPanelContent
+          ) : drawerTab === 'help' ? (
+            helpPanelContent
           ) : dockPosition === 'bottom' ? (
             dockCollapsed ? <p>Dock oculto. Use o atalho na topbar para reabrir.</p> : dockPanel
           ) : (

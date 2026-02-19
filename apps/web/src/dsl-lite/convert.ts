@@ -268,9 +268,13 @@ const buildUiLayoutMetadataBlock = (
             typeof edge.style.labelFontSize === 'number'
               ? Math.max(1, Math.min(64, edge.style.labelFontSize))
               : null
+          const labelAngle =
+            typeof edge.style.labelAngle === 'number'
+              ? Math.max(-180, Math.min(180, edge.style.labelAngle))
+              : null
           return `      edge ${fromAlias} -> ${toAlias} label ${labelPositionText} side ${labelSideText}${
             fontSize !== null ? ` font ${toDslNumber(fontSize)}` : ''
-          }`
+          }${labelAngle !== null ? ` angle ${toDslNumber(labelAngle)}` : ''}`
         })
         .filter((line): line is string => !!line)
 
@@ -453,8 +457,8 @@ export const liteToFullWorkspace = (ast: LiteWorkspaceAst): WorkspaceModel => {
         colorKey: journey.color,
         steps,
         player: {
-          loop: false,
-          speedMs: 900,
+          loop: true,
+          speedMs: 1800,
           pauseOnStep: false,
         },
       }
@@ -554,6 +558,10 @@ export const liteToFullWorkspace = (ast: LiteWorkspaceAst): WorkspaceModel => {
           typeof edgeLayout.labelFontSize === 'number'
             ? Math.max(1, Math.min(64, edgeLayout.labelFontSize))
             : edge.style.labelFontSize,
+        labelAngle:
+          typeof edgeLayout.labelAngle === 'number'
+            ? Math.max(-180, Math.min(180, edgeLayout.labelAngle))
+            : edge.style.labelAngle,
       }
     }
   }
@@ -570,7 +578,7 @@ export const liteToFullWorkspace = (ast: LiteWorkspaceAst): WorkspaceModel => {
       snap: false,
       theme: 'light',
       journeyFocus: {
-        offscopeRenderMode: 'dim',
+        offscopeRenderMode: 'hide',
         layoutMode: 'preserve',
         autoLayoutMode: 'manual',
       },

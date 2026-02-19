@@ -81,6 +81,7 @@ export interface EdgeModel {
     dashed: boolean
     thickness: number
     arrow: boolean
+    labelFontSize?: number
     labelPosition?: number
     labelSide?: 'left' | 'right'
   }

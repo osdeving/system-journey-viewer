@@ -53,6 +53,7 @@ export interface LiteUiLayoutEdge {
   toAlias: string
   labelPosition: number
   labelSide?: 'left' | 'right'
+  labelFontSize?: number
 }
 
 export interface LiteUiLayoutView {

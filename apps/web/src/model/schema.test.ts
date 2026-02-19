@@ -83,4 +83,26 @@ describe('workspaceSchema', () => {
       expect(parsed.data.edges.e_c_1.style.labelSide).toBe('right')
     }
   })
+
+  it('accepts optional edge label font size style', () => {
+    const workspace = createDefaultWorkspace()
+    const parsed = workspaceSchema.safeParse({
+      ...workspace,
+      edges: {
+        ...workspace.edges,
+        e_c_1: {
+          ...workspace.edges.e_c_1,
+          style: {
+            ...workspace.edges.e_c_1.style,
+            labelFontSize: 16,
+          },
+        },
+      },
+    })
+
+    expect(parsed.success).toBe(true)
+    if (parsed.success) {
+      expect(parsed.data.edges.e_c_1.style.labelFontSize).toBe(16)
+    }
+  })
 })

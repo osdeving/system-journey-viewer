@@ -316,6 +316,29 @@
   min-width: 0;
 }
 
+.view-hierarchy-control {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: linear-gradient(180deg, #ffffff, #f8fafc);
+  color: #334155;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.view-hierarchy-select {
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  padding: 5px 8px;
+  font-size: 12px;
+  min-width: 184px;
+  background: #ffffff;
+  color: inherit;
+}
+
 .presentation-toolbar {
   display: flex;
   align-items: center;
@@ -665,6 +688,25 @@
   -webkit-user-select: none;
 }
 
+.canvas-inline-editor {
+  position: absolute;
+  z-index: 6;
+  pointer-events: auto;
+}
+
+.canvas-inline-editor-input {
+  width: 100%;
+  border: 1px solid color-mix(in srgb, #0ea5e9 70%, #ffffff);
+  border-radius: 7px;
+  padding: 4px 8px;
+  background: rgba(248, 250, 252, 0.96);
+  color: #0f172a;
+  box-shadow: 0 8px 22px rgba(2, 8, 23, 0.28);
+  outline: none;
+  font: inherit;
+  line-height: 1.2;
+}
+
 .diagram-canvas {
   position: relative;
   z-index: 1;
@@ -749,6 +791,16 @@
   fill: #475569;
   font-size: 12px;
   pointer-events: none;
+}
+
+.node-title-hex,
+.node-subtitle-hex {
+  dominant-baseline: middle;
+}
+
+.canvas-text-editable {
+  pointer-events: auto;
+  cursor: text;
 }
 
 .node-port {
@@ -1642,6 +1694,7 @@
 }
 
 .theme-dark .topbar-actions button,
+.theme-dark .view-hierarchy-control,
 .theme-dark .inspector-form button,
 .theme-dark .journey-side-create button,
 .theme-dark .journey-side-filter button,
@@ -1657,6 +1710,12 @@
 
 .theme-dark .presentation-select {
   background: #1e293b;
+  color: #e2e8f0;
+  border-color: #475569;
+}
+
+.theme-dark .view-hierarchy-select {
+  background: #111827;
   color: #e2e8f0;
   border-color: #475569;
 }
@@ -1774,6 +1833,13 @@
 .theme-dark .edge-label {
   fill: #e2e8f0;
   stroke: rgba(2, 6, 23, 0.88);
+}
+
+.theme-dark .canvas-inline-editor-input {
+  background: rgba(17, 24, 39, 0.98);
+  color: #e2e8f0;
+  border-color: #38bdf8;
+  box-shadow: 0 12px 24px rgba(2, 6, 23, 0.58);
 }
 
 .theme-dark .edge-step-badge {

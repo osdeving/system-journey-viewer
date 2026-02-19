@@ -60,6 +60,10 @@ import type { EditorSnapshot, ViewportState, WorkspaceModel } from './model/type
 import { nodePresetsByCategory, protocolPresets, resolveNodePreset } from './presets/catalog'
 import { applyWorkspaceLayout, loadWorkspaceLayout, saveWorkspaceLayout } from './store/layoutPersistence'
 import { useEditorStore } from './store/useEditorStore'
+import {
+  buildViewHierarchyOptions,
+  resolvePreferredEntryViewId,
+} from './viewHierarchy'
 
 const DEBOUNCE_SAVE_MS = 900
 const DEFAULT_LEFT_SIDEBAR_WIDTH = 240
@@ -258,6 +262,7 @@ function App() {
   const zoomByFactor = useEditorStore((state) => state.zoomByFactor)
   const setViewport = useEditorStore((state) => state.setViewport)
   const setActiveTool = useEditorStore((state) => state.setActiveTool)
+  const goToView = useEditorStore((state) => state.goToView)
   const removeNode = useEditorStore((state) => state.removeNode)
   const removeEdge = useEditorStore((state) => state.removeEdge)
   const duplicateSelection = useEditorStore((state) => state.duplicateSelection)
@@ -342,27 +347,16 @@ function App() {
       ...DEFAULT_NODE_COLOR_PRESETS.filter((color) => !recentUnique.includes(color)),
     ].slice(0, 10)
   }, [workspace.nodes])
-  const resolveEntryViewId = useCallback((workspaceModel: WorkspaceModel): string => {
-    const viewIds = Object.keys(workspaceModel.views)
-    if (!viewIds.length) {
-      return BLANK_WORKSPACE_VIEW_ID
-    }
-    const inboundDrilldowns = new Set(
-      Object.values(workspaceModel.nodes)
-        .map((node) => node.drilldownRef)
-        .filter((viewId): viewId is string => Boolean(viewId && workspaceModel.views[viewId])),
-    )
-    const rootCandidates = viewIds.filter((viewId) => !inboundDrilldowns.has(viewId))
-    const preferredRoot =
-      rootCandidates.find((viewId) => {
-        const kind = workspaceModel.views[viewId]?.kind
-        return kind === 'container' || kind === 'system-context'
-      }) ??
-      rootCandidates[0] ??
-      viewIds[0]
-    return preferredRoot
-  }, [])
+  const resolveEntryViewId = useCallback(
+    (workspaceModel: WorkspaceModel): string =>
+      resolvePreferredEntryViewId(workspaceModel) || BLANK_WORKSPACE_VIEW_ID,
+    [],
+  )
   const currentView = workspace.views[currentViewId]
+  const viewHierarchyOptions = useMemo(
+    () => buildViewHierarchyOptions(workspace),
+    [workspace],
+  )
   const breadcrumb = [...viewHistory, currentViewId]
   const viewJourneys = useMemo(
     () =>
@@ -3121,6 +3115,24 @@ function App() {
             </div>
           ) : (
             <>
+              <label className="view-hierarchy-control">
+                View
+                <select
+                  className="view-hierarchy-select"
+                  value={currentViewId}
+                  onChange={(event) => goToView(event.target.value)}
+                >
+                  {viewHierarchyOptions.map((option) => {
+                    const view = workspace.views[option.viewId]
+                    const prefix = `${'\u00A0\u00A0'.repeat(option.depth)}${option.depth > 0 ? '\u21B3 ' : ''}`
+                    return (
+                      <option key={option.viewId} value={option.viewId}>
+                        {`${prefix}${view?.name ?? option.viewId}`}
+                      </option>
+                    )
+                  })}
+                </select>
+              </label>
               <button type="button" onClick={() => navigateBack()} disabled={!viewHistory.length}>
                 Back
               </button>

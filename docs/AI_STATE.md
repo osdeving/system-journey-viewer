@@ -34,6 +34,7 @@
 - DSL LITE now supports optional UI-only geometry metadata:
   - `metadata ui-layout` for node bounds and edge label positions.
   - edge metadata now supports label side (`left|right`) in addition to label progress.
+  - edge metadata also supports optional label font size.
 - Static export (`SVG`, `PNG`, `PDF`).
 - Animated export (`GIF`, `MP4`, animated `SVG`) with journey timeline playback.
 - Presentation mode with clean rendering and export-focused controls.
@@ -42,6 +43,8 @@
   - `Open File` (snapshot or DSL import: `.json/.sjv/.dsl/.txt`),
   - `Save File` with File System Access API support (handle reuse on `Ctrl/Cmd+S` and Save As on `Ctrl/Cmd+Shift+S`, with download fallback as `.sjv.json`).
   - entry view selection for DSL import now respects drilldown hierarchy (root/top-level view first, instead of arbitrary view key order).
+- View hierarchy selector in topbar allows direct navigation across all nested views.
+- `replaceWorkspace`/`goToView` now rebuild breadcrumb-compatible history from hierarchy, so `Back` works even when opening a deep view directly.
 
 ## Animation and Player State
 
@@ -95,7 +98,12 @@
   - edge label isolation styling,
   - draggable edge label position (plus inspector slider),
   - draggable label side flip (left/right side of edge),
-  - readable label orientation (avoids upside-down text, vertical-safe orientation).
+  - readable label orientation (avoids upside-down text, vertical-safe orientation),
+  - click-hold + mouse wheel to increase/decrease edge label font size,
+  - double-click inline edge label editing.
+- Node text editing and layout:
+  - double-click inline editing for node title and subtitle/tech text,
+  - hexagon infra nodes now render centered/top labels with truncation to avoid overflow.
 - Monaco-based `JourneyScript` editor with custom highlighting theme.
 - Focus/presentation workflows for demo-friendly screen usage.
 

@@ -260,9 +260,17 @@ const buildUiLayoutMetadataBlock = (
           if (!fromAlias || !toAlias) {
             return null
           }
-          return `      edge ${fromAlias} -> ${toAlias} label ${toDslNumber(
+          const labelPositionText = toDslNumber(
             clampEdgeLabelPosition(edge.style.labelPosition ?? 0.5),
-          )} side ${resolveLabelSide(edge.style.labelSide)}`
+          )
+          const labelSideText = resolveLabelSide(edge.style.labelSide)
+          const fontSize =
+            typeof edge.style.labelFontSize === 'number'
+              ? Math.max(1, Math.min(64, edge.style.labelFontSize))
+              : null
+          return `      edge ${fromAlias} -> ${toAlias} label ${labelPositionText} side ${labelSideText}${
+            fontSize !== null ? ` font ${toDslNumber(fontSize)}` : ''
+          }`
         })
         .filter((line): line is string => !!line)
 
@@ -542,6 +550,10 @@ export const liteToFullWorkspace = (ast: LiteWorkspaceAst): WorkspaceModel => {
         ...edge.style,
         labelPosition: clampEdgeLabelPosition(edgeLayout.labelPosition),
         labelSide: resolveLabelSide(edgeLayout.labelSide),
+        labelFontSize:
+          typeof edgeLayout.labelFontSize === 'number'
+            ? Math.max(1, Math.min(64, edgeLayout.labelFontSize))
+            : edge.style.labelFontSize,
       }
     }
   }

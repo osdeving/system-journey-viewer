@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type {
+  KeyboardEvent as ReactKeyboardEvent,
+  MouseEvent as ReactMouseEvent,
   DragEvent,
   PointerEvent as ReactPointerEvent,
   WheelEvent,
@@ -21,6 +23,7 @@ import {
   type EdgeJourneyBadge,
   type EdgeJourneyMarker,
 } from './edgeJourneyBadge'
+import { CanvasText } from './CanvasText'
 import { resolveHexConnectorRole } from './hexConnectorRole'
 import { JourneyEdge } from './JourneyEdge'
 import {
@@ -28,7 +31,13 @@ import {
   resolveHexagonShape,
   resolveQueueCylinderShape,
 } from './nodeShapePaths'
-import { curveToSvgPath, cubicPointAt, cubicTangentAt, type EdgeCurvePath } from './edgePresentation'
+import {
+  curveToSvgPath,
+  cubicPointAt,
+  cubicTangentAt,
+  resolveEdgeLabelPlacement,
+  type EdgeCurvePath,
+} from './edgePresentation'
 import {
   resolveArrivalAdvance,
   resolveTravelProgress,
@@ -125,6 +134,29 @@ type ConnectionTarget = {
   portId: string
 }
 
+type InlineTextEditMode = 'edge-label' | 'node-name' | 'node-tech'
+
+type InlineTextEditState = {
+  mode: InlineTextEditMode
+  targetId: string
+  value: string
+  worldX: number
+  worldY: number
+  textAnchor: 'start' | 'middle' | 'end'
+  width: number
+  fontSize: number
+}
+
+type NodeLabelLayout = {
+  titleX: number
+  titleY: number
+  subtitleX: number
+  subtitleY: number
+  textAnchor: 'start' | 'middle'
+  maxTitleWidth: number
+  maxSubtitleWidth: number
+}
+
 const ZOOM_SENSITIVITY = 0.0012
 const TRAIL_INITIAL_ALPHA = 0.72
 const TRAIL_FADE_FACTOR = 0.0003
@@ -144,6 +176,60 @@ const PLAYER_TRACK_PROGRESS_ALPHA = 0.88
 const TRAIL_CANVAS_MAX_PIXEL_RATIO = 1.5
 const TRAIL_MIN_VISIBLE_ALPHA = 0.015
 const FINAL_STEP_ARRIVAL_HOLD_MS = 220
+const MIN_EDGE_LABEL_FONT_SIZE = 9
+const MAX_EDGE_LABEL_FONT_SIZE = 28
+const DEFAULT_EDGE_LABEL_FONT_SIZE = 11
+
+const estimateTextWidth = (text: string, fontSize: number): number =>
+  Math.max(fontSize, text.trim().length * fontSize * 0.56)
+
+const truncateCanvasText = (
+  value: string,
+  maxWidth: number,
+  fontSize: number,
+): string => {
+  const normalized = value.trim()
+  if (!normalized) {
+    return ''
+  }
+  if (estimateTextWidth(normalized, fontSize) <= maxWidth) {
+    return normalized
+  }
+  let nextValue = normalized
+  while (
+    nextValue.length > 4 &&
+    estimateTextWidth(`${nextValue}\u2026`, fontSize) > maxWidth
+  ) {
+    nextValue = nextValue.slice(0, -1)
+  }
+  return `${nextValue}\u2026`
+}
+
+const resolveNodeLabelLayout = (
+  node: NodeModel,
+  shouldRenderHexagon: boolean,
+): NodeLabelLayout => {
+  if (shouldRenderHexagon) {
+    return {
+      titleX: node.bounds.w / 2,
+      titleY: 32,
+      subtitleX: node.bounds.w / 2,
+      subtitleY: 53,
+      textAnchor: 'middle',
+      maxTitleWidth: Math.max(72, node.bounds.w * 0.58),
+      maxSubtitleWidth: Math.max(64, node.bounds.w * 0.62),
+    }
+  }
+  return {
+    titleX: 16,
+    titleY: 34,
+    subtitleX: 16,
+    subtitleY: 56,
+    textAnchor: 'start',
+    maxTitleWidth: Math.max(84, node.bounds.w - 30),
+    maxSubtitleWidth: Math.max(70, node.bounds.w - 30),
+  }
+}
 
 interface DiagramCanvasProps {
   presentationMode?: boolean
@@ -386,6 +472,8 @@ export const DiagramCanvas = ({
   const stepAdvanceRequestedRef = useRef(false)
   const orbPositionRef = useRef<{ x: number; y: number } | null>(null)
   const lastTrailPositionRef = useRef<{ x: number; y: number } | null>(null)
+  const edgeLabelZoomRef = useRef<{ edgeId: string; pointerId: number } | null>(null)
+  const inlineTextInputRef = useRef<HTMLInputElement | null>(null)
   const [connectionPreview, setConnectionPreview] = useState<DragPreviewState>(null)
   const [hoverCursor, setHoverCursor] = useState<string | null>(null)
   const [dragCursor, setDragCursor] = useState<string | null>(null)
@@ -393,6 +481,7 @@ export const DiagramCanvas = ({
   const [hoveredConnectionTarget, setHoveredConnectionTarget] = useState<ConnectionTarget | null>(null)
   const [hoveredAnchorKey, setHoveredAnchorKey] = useState<string | null>(null)
   const [playerStepArrivedForUi, setPlayerStepArrivedForUi] = useState(false)
+  const [inlineTextEdit, setInlineTextEdit] = useState<InlineTextEditState | null>(null)
 
   const workspace = useEditorStore((state) => state.workspace)
   const viewId = useEditorStore((state) => state.currentViewId)
@@ -417,11 +506,15 @@ export const DiagramCanvas = ({
   const createDrilldownForNode = useEditorStore((state) => state.createDrilldownForNode)
   const setNodeBounds = useEditorStore((state) => state.setNodeBounds)
   const setNodesBounds = useEditorStore((state) => state.setNodesBounds)
+  const setNodeName = useEditorStore((state) => state.setNodeName)
+  const setNodeTech = useEditorStore((state) => state.setNodeTech)
   const addNode = useEditorStore((state) => state.addNode)
   const beginConnection = useEditorStore((state) => state.beginConnection)
   const connectPendingTo = useEditorStore((state) => state.connectPendingTo)
   const cancelPendingConnection = useEditorStore((state) => state.cancelPendingConnection)
   const reconnectEdgeEndpoint = useEditorStore((state) => state.reconnectEdgeEndpoint)
+  const setEdgeLabel = useEditorStore((state) => state.setEdgeLabel)
+  const setEdgeLabelFontSize = useEditorStore((state) => state.setEdgeLabelFontSize)
   const setEdgeLabelPosition = useEditorStore((state) => state.setEdgeLabelPosition)
   const setEdgeLabelSide = useEditorStore((state) => state.setEdgeLabelSide)
   const isConnectorMode = activeTool === 'connector' || isCtrlConnectorActive
@@ -701,6 +794,7 @@ export const DiagramCanvas = ({
     connectionDragRef.current = null
     edgeReconnectRef.current = null
     edgeLabelDragRef.current = null
+    edgeLabelZoomRef.current = null
     let resetPreviewFrame = window.requestAnimationFrame(() => {
       setConnectionPreview(null)
       setHoveredConnectionTarget(null)
@@ -731,6 +825,7 @@ export const DiagramCanvas = ({
     connectionDragRef.current = null
     edgeReconnectRef.current = null
     edgeLabelDragRef.current = null
+    edgeLabelZoomRef.current = null
     let resetPreviewFrame = window.requestAnimationFrame(() => {
       setConnectionPreview(null)
     })
@@ -742,6 +837,7 @@ export const DiagramCanvas = ({
       setDragCursor(null)
       setHoveredConnectionTarget(null)
       setHoveredAnchorKey(null)
+      setInlineTextEdit(null)
     })
     const trailCanvas = trailCanvasRef.current
     const context = trailCanvas?.getContext('2d')
@@ -757,6 +853,19 @@ export const DiagramCanvas = ({
       resetCursorFrame = 0
     }
   }, [viewId])
+
+  useEffect(() => {
+    if (!inlineTextEdit) {
+      return
+    }
+    const frameId = window.requestAnimationFrame(() => {
+      inlineTextInputRef.current?.focus()
+      inlineTextInputRef.current?.select()
+    })
+    return () => {
+      window.cancelAnimationFrame(frameId)
+    }
+  }, [inlineTextEdit])
 
   useEffect(() => {
     if (playerTrailEnabled) {
@@ -1138,6 +1247,85 @@ export const DiagramCanvas = ({
     }
   }
 
+  const closeInlineTextEditor = (commitChanges: boolean): void => {
+    if (!inlineTextEdit) {
+      return
+    }
+    if (commitChanges) {
+      const nextValue = inlineTextEdit.value.trim()
+      if (inlineTextEdit.mode === 'edge-label') {
+        setEdgeLabel(inlineTextEdit.targetId, nextValue)
+      } else if (inlineTextEdit.mode === 'node-name') {
+        const node = workspace.nodes[inlineTextEdit.targetId]
+        if (node) {
+          setNodeName(inlineTextEdit.targetId, nextValue || node.name)
+        }
+      } else if (inlineTextEdit.mode === 'node-tech') {
+        const node = workspace.nodes[inlineTextEdit.targetId]
+        if (node) {
+          setNodeTech(inlineTextEdit.targetId, nextValue || node.tech?.label || node.kind)
+        }
+      }
+    }
+    setInlineTextEdit(null)
+  }
+
+  const startNodeInlineEdit = (
+    event: ReactMouseEvent<SVGTextElement>,
+    node: NodeModel,
+    mode: InlineTextEditMode,
+    layout: NodeLabelLayout,
+  ): void => {
+    if (presentationMode) {
+      return
+    }
+    event.preventDefault()
+    event.stopPropagation()
+    const isNodeName = mode === 'node-name'
+    setInlineTextEdit({
+      mode,
+      targetId: node.id,
+      value: isNodeName ? node.name : node.tech?.label ?? node.kind,
+      worldX: node.bounds.x + (isNodeName ? layout.titleX : layout.subtitleX),
+      worldY: node.bounds.y + (isNodeName ? layout.titleY : layout.subtitleY),
+      textAnchor: layout.textAnchor,
+      width: isNodeName ? layout.maxTitleWidth : layout.maxSubtitleWidth,
+      fontSize: isNodeName ? 14 : 12,
+    })
+  }
+
+  const startEdgeLabelInlineEdit = (
+    edgeId: string,
+    event: ReactMouseEvent<SVGTextElement>,
+  ): void => {
+    if (presentationMode) {
+      return
+    }
+    event.preventDefault()
+    event.stopPropagation()
+    const edge = workspace.edges[edgeId]
+    const curve = edgeCurveById.get(edgeId)
+    if (!edge || !curve) {
+      return
+    }
+    const labelPlacement = resolveEdgeLabelPlacement(
+      curve,
+      edge.style.labelPosition ?? 0.5,
+      edge.style.labelSide === 'right' ? 'right' : 'left',
+      14,
+    )
+    setInlineTextEdit({
+      mode: 'edge-label',
+      targetId: edgeId,
+      value: edge.label,
+      worldX: labelPlacement.point.x,
+      worldY: labelPlacement.point.y,
+      textAnchor: 'middle',
+      width: Math.max(160, Math.min(420, estimateTextWidth(edge.label, edge.style.labelFontSize ?? 11) + 120)),
+      fontSize: edge.style.labelFontSize ?? DEFAULT_EDGE_LABEL_FONT_SIZE,
+    })
+  }
+
   const startConnectionDrag = (
     pointerId: number,
     sourceNodeId: string,
@@ -1182,6 +1370,9 @@ export const DiagramCanvas = ({
       return
     }
     event.preventDefault()
+    if (inlineTextEdit) {
+      closeInlineTextEditor(true)
+    }
     if (isConnectorMode) {
       return
     }
@@ -1275,6 +1466,7 @@ export const DiagramCanvas = ({
     const labelDrag = edgeLabelDragRef.current
     if (labelDrag?.pointerId === event.pointerId) {
       edgeLabelDragRef.current = null
+      edgeLabelZoomRef.current = null
       setDragCursor(null)
       if (event.currentTarget.hasPointerCapture(event.pointerId)) {
         event.currentTarget.releasePointerCapture(event.pointerId)
@@ -1334,6 +1526,9 @@ export const DiagramCanvas = ({
         event.currentTarget.releasePointerCapture(event.pointerId)
       }
     }
+    if (edgeLabelZoomRef.current?.pointerId === event.pointerId) {
+      edgeLabelZoomRef.current = null
+    }
   }
 
   const onNodePointerDown = (
@@ -1344,6 +1539,9 @@ export const DiagramCanvas = ({
   ): void => {
     if (presentationMode) {
       return
+    }
+    if (inlineTextEdit) {
+      closeInlineTextEditor(true)
     }
     if (event.button !== 0) {
       return
@@ -1585,7 +1783,13 @@ export const DiagramCanvas = ({
     if (isConnectorMode) {
       return
     }
+    closeInlineTextEditor(true)
+    selectEdge(edgeId)
     edgeLabelDragRef.current = {
+      pointerId: event.pointerId,
+      edgeId,
+    }
+    edgeLabelZoomRef.current = {
       pointerId: event.pointerId,
       edgeId,
     }
@@ -1687,6 +1891,33 @@ export const DiagramCanvas = ({
   }
 
   const onWheel = (event: WheelEvent<HTMLDivElement>): void => {
+    const wheelTarget = event.target
+    if (wheelTarget instanceof HTMLInputElement && wheelTarget.classList.contains('canvas-inline-editor-input')) {
+      return
+    }
+    const zoomEdgeLabel = edgeLabelZoomRef.current
+    if (
+      zoomEdgeLabel &&
+      !presentationMode &&
+      edgeLabelDragRef.current?.edgeId === zoomEdgeLabel.edgeId
+    ) {
+      event.preventDefault()
+      const edge = workspace.edges[zoomEdgeLabel.edgeId]
+      if (!edge) {
+        return
+      }
+      const currentFontSize = edge.style.labelFontSize ?? DEFAULT_EDGE_LABEL_FONT_SIZE
+      const nextFontSize =
+        event.deltaY < 0
+          ? currentFontSize + 1
+          : currentFontSize - 1
+      const clampedFontSize = Math.min(MAX_EDGE_LABEL_FONT_SIZE, Math.max(MIN_EDGE_LABEL_FONT_SIZE, nextFontSize))
+      if (clampedFontSize !== currentFontSize) {
+        setEdgeLabelFontSize(zoomEdgeLabel.edgeId, clampedFontSize)
+      }
+      return
+    }
+
     event.preventDefault()
     const container = canvasRef.current
     if (!container) {
@@ -1730,6 +1961,36 @@ export const DiagramCanvas = ({
   const onDragOver = (event: DragEvent<HTMLDivElement>): void => {
     event.preventDefault()
   }
+
+  const onInlineTextInputKeyDown = (event: ReactKeyboardEvent<HTMLInputElement>): void => {
+    if (event.key === 'Enter') {
+      event.preventDefault()
+      closeInlineTextEditor(true)
+      return
+    }
+    if (event.key === 'Escape') {
+      event.preventDefault()
+      closeInlineTextEditor(false)
+    }
+  }
+
+  const inlineTextEditStyle = useMemo(() => {
+    if (!inlineTextEdit) {
+      return null
+    }
+    const left = viewport.x + inlineTextEdit.worldX * viewport.zoom
+    const top = viewport.y + inlineTextEdit.worldY * viewport.zoom
+    const width = Math.max(120, inlineTextEdit.width * viewport.zoom)
+    const translateX =
+      inlineTextEdit.textAnchor === 'middle' ? '-50%' : inlineTextEdit.textAnchor === 'end' ? '-100%' : '0'
+    return {
+      left: `${left}px`,
+      top: `${top}px`,
+      width: `${width}px`,
+      transform: `translate(${translateX}, -50%)`,
+      fontSize: `${Math.max(11, inlineTextEdit.fontSize * viewport.zoom)}px`,
+    }
+  }, [inlineTextEdit, viewport.x, viewport.y, viewport.zoom])
 
   const canvasCursor =
     dragCursor ?? hoverCursor ?? (presentationMode ? 'grab' : isConnectorMode ? 'crosshair' : 'grab')
@@ -1800,8 +2061,12 @@ export const DiagramCanvas = ({
               isInteractive={!presentationMode}
               onEdgePointerStart={onEdgePointerStart}
               onEdgeLabelPointerDown={onEdgeLabelPointerDown}
+              onEdgeLabelDoubleClick={startEdgeLabelInlineEdit}
               onSelect={() => {
                 if (!presentationMode) {
+                  if (inlineTextEdit) {
+                    closeInlineTextEditor(true)
+                  }
                   selectEdge(edge.id)
                 }
               }}
@@ -1887,6 +2152,13 @@ export const DiagramCanvas = ({
                 : null
             const connectorIconX = node.bounds.w - 34
             const connectorIconY = 12
+            const labelLayout = resolveNodeLabelLayout(node, shouldRenderHexagon)
+            const nodeTitleText = truncateCanvasText(node.name, labelLayout.maxTitleWidth, 14)
+            const nodeSubtitleText = truncateCanvasText(
+              node.tech?.label ?? node.kind,
+              labelLayout.maxSubtitleWidth,
+              12,
+            )
             return (
               <g
                 key={node.id}
@@ -2025,12 +2297,40 @@ export const DiagramCanvas = ({
                     />
                   </g>
                 ) : null}
-                <text x={16} y={34} className="node-title">
-                  {iconForKey(node.tech?.iconKey)} {node.name}
-                </text>
-                <text x={16} y={56} className="node-subtitle">
-                  {node.tech?.label ?? node.kind}
-                </text>
+                <CanvasText
+                  x={labelLayout.titleX}
+                  y={labelLayout.titleY}
+                  className={[
+                    'node-title',
+                    shouldRenderHexagon ? 'node-title-hex' : '',
+                    !presentationMode ? 'canvas-text-editable' : '',
+                  ]
+                    .filter(Boolean)
+                    .join(' ')}
+                  textAnchor={labelLayout.textAnchor}
+                  onDoubleClick={(event) => {
+                    startNodeInlineEdit(event, node, 'node-name', labelLayout)
+                  }}
+                >
+                  {iconForKey(node.tech?.iconKey)} {nodeTitleText}
+                </CanvasText>
+                <CanvasText
+                  x={labelLayout.subtitleX}
+                  y={labelLayout.subtitleY}
+                  className={[
+                    'node-subtitle',
+                    shouldRenderHexagon ? 'node-subtitle-hex' : '',
+                    !presentationMode ? 'canvas-text-editable' : '',
+                  ]
+                    .filter(Boolean)
+                    .join(' ')}
+                  textAnchor={labelLayout.textAnchor}
+                  onDoubleClick={(event) => {
+                    startNodeInlineEdit(event, node, 'node-tech', labelLayout)
+                  }}
+                >
+                  {nodeSubtitleText}
+                </CanvasText>
                 {!presentationMode
                   ? node.ports.map((port) => (
                       <circle
@@ -2054,6 +2354,34 @@ export const DiagramCanvas = ({
         </g>
       </svg>
       <canvas ref={trailCanvasRef} className="trail-canvas" />
+      {!presentationMode && inlineTextEdit && inlineTextEditStyle ? (
+        <div className="canvas-inline-editor" style={inlineTextEditStyle}>
+          <input
+            ref={inlineTextInputRef}
+            className="canvas-inline-editor-input"
+            value={inlineTextEdit.value}
+            onChange={(event) => {
+              const nextValue = event.target.value
+              setInlineTextEdit((current) =>
+                current
+                  ? {
+                      ...current,
+                      value: nextValue,
+                    }
+                  : current,
+              )
+            }}
+            onKeyDown={onInlineTextInputKeyDown}
+            onBlur={() => closeInlineTextEditor(true)}
+            onPointerDown={(event) => {
+              event.stopPropagation()
+            }}
+            onWheel={(event) => {
+              event.stopPropagation()
+            }}
+          />
+        </div>
+      ) : null}
     </div>
   )
 }

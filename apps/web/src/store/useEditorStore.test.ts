@@ -229,6 +229,17 @@ describe('useEditorStore', () => {
     expect(updated.workspace.edges.e_c_1.style.labelSide).toBe('left')
   })
 
+  it('updates edge label font size with clamped range', () => {
+    const state = useEditorStore.getState()
+    state.setEdgeLabelFontSize('e_c_1', 99)
+    let updated = useEditorStore.getState()
+    expect(updated.workspace.edges.e_c_1.style.labelFontSize).toBe(28)
+
+    state.setEdgeLabelFontSize('e_c_1', 2)
+    updated = useEditorStore.getState()
+    expect(updated.workspace.edges.e_c_1.style.labelFontSize).toBe(9)
+  })
+
   it('updates journey focus rendering/layout settings', () => {
     const state = useEditorStore.getState()
     state.setJourneyFocusSettings({
@@ -522,7 +533,19 @@ describe('useEditorStore', () => {
     const updated = useEditorStore.getState()
 
     expect(updated.currentViewId).toBe('v_components_api')
+    expect(updated.viewHistory).toEqual(['v_container'])
     expect(updated.playerIsRunning).toBe(false)
     expect(updated.playerJourneyId).toBe('j_comp_1')
+  })
+
+  it('restores compatible history path when replacing workspace on deep view', () => {
+    const state = useEditorStore.getState()
+    const sourceWorkspace = structuredClone(state.workspace)
+
+    state.replaceWorkspace(sourceWorkspace, 'v_hex_api')
+    const updated = useEditorStore.getState()
+
+    expect(updated.currentViewId).toBe('v_hex_api')
+    expect(updated.viewHistory).toEqual(['v_container', 'v_components_api'])
   })
 })

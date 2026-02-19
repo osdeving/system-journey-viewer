@@ -1,6 +1,10 @@
-import type { PointerEvent as ReactPointerEvent } from 'react'
+import type {
+  MouseEvent as ReactMouseEvent,
+  PointerEvent as ReactPointerEvent,
+} from 'react'
 import type { EdgeModel } from '../model/types'
 import type { EdgeJourneyBadge } from './edgeJourneyBadge'
+import { CanvasText } from './CanvasText'
 import { resolveJourneyEdgeClassName } from './journeyEdgeClassName'
 import {
   composeEdgeDisplayLabel,
@@ -29,6 +33,10 @@ interface JourneyEdgeProps {
     edgeId: string,
     event: ReactPointerEvent<SVGTextElement>,
   ) => void
+  onEdgeLabelDoubleClick?: (
+    edgeId: string,
+    event: ReactMouseEvent<SVGTextElement>,
+  ) => void
   onSelect: () => void
 }
 
@@ -45,6 +53,7 @@ export const JourneyEdge = ({
   isInteractive,
   onEdgePointerStart,
   onEdgeLabelPointerDown,
+  onEdgeLabelDoubleClick,
   onSelect,
 }: JourneyEdgeProps) => {
   const labelPosition = Math.max(0.08, Math.min(0.92, edge.style.labelPosition ?? 0.5))
@@ -55,6 +64,7 @@ export const JourneyEdge = ({
     : null
   const selectedPoint = isSelected ? cubicPointAt(curve, labelPosition) : null
   const displayLabel = composeEdgeDisplayLabel(edge.label, protocolLabel)
+  const labelFontSize = edge.style.labelFontSize ?? 11
 
   return (
     <g
@@ -73,7 +83,7 @@ export const JourneyEdge = ({
         markerEnd="url(#edge-arrow)"
         className={resolveJourneyEdgeClassName({ isSelected, isPlayerEdge, isFlowAnimated, isDimmed })}
       />
-      <text
+      <CanvasText
         x={labelPlacement.point.x}
         y={labelPlacement.point.y}
         transform={`rotate(${labelPlacement.angleDeg} ${labelPlacement.point.x} ${labelPlacement.point.y})`}
@@ -92,9 +102,18 @@ export const JourneyEdge = ({
           event.stopPropagation()
           onEdgeLabelPointerDown?.(edge.id, event)
         }}
+        onDoubleClick={(event) => {
+          if (!isInteractive) {
+            return
+          }
+          event.preventDefault()
+          event.stopPropagation()
+          onEdgeLabelDoubleClick?.(edge.id, event)
+        }}
+        style={{ fontSize: `${labelFontSize}px` }}
       >
         {displayLabel}
-      </text>
+      </CanvasText>
       {selectedPoint ? (
         <g className="edge-selected-indicator">
           <circle cx={selectedPoint.x} cy={selectedPoint.y} r={9} className="edge-selected-indicator-ring" />
@@ -115,13 +134,13 @@ export const JourneyEdge = ({
             r={8}
             style={{ fill: badge.colorKey }}
           />
-          <text
+          <CanvasText
             className="edge-step-number"
             x={badgePoint.x}
             y={badgePoint.y}
           >
             {badge.stepNumber}
-          </text>
+          </CanvasText>
         </g>
       ) : null}
     </g>

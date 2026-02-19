@@ -57,6 +57,7 @@ export const edgeSchema = z.object({
     dashed: z.boolean(),
     thickness: z.number().positive(),
     arrow: z.boolean(),
+    labelFontSize: z.number().min(1).max(64).optional(),
     labelPosition: z.number().min(0).max(1).optional(),
     labelSide: z.enum(['left', 'right']).optional(),
   }),

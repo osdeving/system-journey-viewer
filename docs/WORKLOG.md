@@ -2,6 +2,71 @@
 
 Chronological engineering log. Entries are kept concise and focused on behavior and validation.
 
+## 2026-02-19 - Inline text editing, edge-label zoom, and hierarchy-safe view navigation
+
+### Scope
+
+- Fix hexagon node text overflow for infra nodes (`gateway`, `security`, `load-balancer`).
+- Add direct in-canvas text editing for edge labels and node texts.
+- Add edge-label font size adjustment with click-hold + mouse wheel.
+- Prevent drilldown-load dead-ends by improving view hierarchy navigation after file import.
+
+### Changes
+
+- Canvas text rendering/interaction:
+  - Added reusable SVG text wrapper:
+    - `apps/web/src/components/CanvasText.tsx`
+  - Updated edge text rendering:
+    - `apps/web/src/components/JourneyEdge.tsx`
+      - optional `edge.style.labelFontSize` support,
+      - double-click callback for inline editing.
+  - Updated canvas interaction logic:
+    - `apps/web/src/components/DiagramCanvas.tsx`
+      - inline editor overlay for:
+        - edge label,
+        - node title,
+        - node subtitle/tech,
+      - edge label font-size wheel adjustment while holding label drag,
+      - hexagon node label layout adjusted to centered/top positions with truncation.
+
+- State/model/schema:
+  - Added optional `edge.style.labelFontSize`:
+    - `apps/web/src/model/types.ts`
+    - `apps/web/src/model/schema.ts`
+    - `apps/web/src/store/useEditorStore.ts`
+  - Added store action:
+    - `setEdgeLabelFontSize(edgeId, fontSize)` with clamping.
+
+- DSL UI metadata:
+  - Added optional UI metadata parsing/export for edge label font size:
+    - `apps/web/src/dsl-lite/types.ts`
+    - `apps/web/src/dsl-lite/parser.ts`
+    - `apps/web/src/dsl-lite/convert.ts`
+
+- View hierarchy navigation:
+  - Added shared hierarchy utilities:
+    - `apps/web/src/viewHierarchy.ts`
+  - Added topbar hierarchy selector:
+    - `apps/web/src/App.tsx`
+    - `apps/web/src/App.css`
+  - Updated store navigation behavior:
+    - `replaceWorkspace` and `goToView` now derive compatible breadcrumb history from hierarchy so `Back` works when opening deep views directly.
+
+### Tests
+
+- Added/updated:
+  - `apps/web/src/viewHierarchy.test.ts`
+  - `apps/web/src/store/useEditorStore.test.ts`
+  - `apps/web/src/model/schema.test.ts`
+
+### Validation
+
+- `npm --workspace @sjv/web run test:run -- src/store/useEditorStore.test.ts src/viewHierarchy.test.ts src/model/schema.test.ts`
+- `npm --workspace @sjv/web run lint`
+- `npm --workspace @sjv/web run build`
+- `npm --workspace @sjv/web run test:run -- --maxWorkers=1`
+  - Note: default parallel `vitest run` timed out workers in this environment; single-worker run completed with all tests passing.
+
 ## 2026-02-17 - Replace default Vite favicon with app logo
 
 ### Scope

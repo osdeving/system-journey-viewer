@@ -6,6 +6,7 @@ import { autoArrangeView } from '../layout/autoArrange'
 import { createDefaultWorkspace } from '../model/defaultWorkspace'
 import { normalizeWorkspaceNodePorts, resolveNodePorts } from '../model/nodePorts'
 import { resolveNodePreset, resolveTechPreset } from '../presets/catalog'
+import { resolveViewHistoryForView } from '../viewHierarchy'
 import type {
   EdgeEndpoint,
   EditorSnapshot,
@@ -84,6 +85,7 @@ interface EditorState {
   ) => void
   setEdgeProtocol: (edgeId: string, protocolPresetId: string) => void
   setEdgeLabel: (edgeId: string, label: string) => void
+  setEdgeLabelFontSize: (edgeId: string, fontSize: number) => void
   setEdgeLabelPosition: (edgeId: string, position: number) => void
   setEdgeLabelSide: (edgeId: string, side: 'left' | 'right') => void
   duplicateSelection: (offset?: { dx: number; dy: number }) => {
@@ -275,9 +277,14 @@ const firstJourneyForView = (workspace: WorkspaceModel, viewId: string): string 
 
 const MIN_EDGE_LABEL_POSITION = 0.08
 const MAX_EDGE_LABEL_POSITION = 0.92
+const MIN_EDGE_LABEL_FONT_SIZE = 9
+const MAX_EDGE_LABEL_FONT_SIZE = 28
 
 const clampEdgeLabelPosition = (position: number): number =>
   Math.min(MAX_EDGE_LABEL_POSITION, Math.max(MIN_EDGE_LABEL_POSITION, position))
+
+const clampEdgeLabelFontSize = (fontSize: number): number =>
+  Math.min(MAX_EDGE_LABEL_FONT_SIZE, Math.max(MIN_EDGE_LABEL_FONT_SIZE, fontSize))
 
 const resolveEdgeLabelSide = (side?: string): 'left' | 'right' =>
   side === 'right' ? 'right' : 'left'
@@ -444,13 +451,16 @@ export const useEditorStore = create<EditorState>()(
       saveSnapshot(toSnapshot(get()))
     },
     replaceWorkspace: (workspace, viewId) => {
-      const firstViewId = viewId ?? Object.keys(workspace.views)[0] ?? DEFAULT_VIEW_ID
       const normalizedWorkspace = normalizeWorkspaceNodePorts(workspace)
+      const fallbackViewId = Object.keys(normalizedWorkspace.views)[0] ?? DEFAULT_VIEW_ID
+      const firstViewId =
+        (viewId && normalizedWorkspace.views[viewId] ? viewId : undefined) ?? fallbackViewId
       const firstJourneyId = firstJourneyForView(normalizedWorkspace, firstViewId)
+      const viewHistory = resolveViewHistoryForView(normalizedWorkspace, firstViewId)
       set((state) => {
         state.workspace = normalizedWorkspace
         state.currentViewId = firstViewId
-        state.viewHistory = []
+        state.viewHistory = viewHistory
         state.selectedNodeId = null
         state.selectedNodeIds = []
         state.selectedEdgeId = null
@@ -626,7 +636,9 @@ export const useEditorStore = create<EditorState>()(
           return
         }
         const firstJourneyId = view.journeyIds[0] ?? null
+        const viewHistory = resolveViewHistoryForView(state.workspace, viewId)
         state.currentViewId = viewId
+        state.viewHistory = viewHistory
         state.selectedNodeId = null
         state.selectedNodeIds = []
         state.selectedEdgeId = null
@@ -883,6 +895,18 @@ export const useEditorStore = create<EditorState>()(
           return
         }
         edge.label = label
+      })
+    },
+    setEdgeLabelFontSize: (edgeId, fontSize) => {
+      set((state) => {
+        const edge = state.workspace.edges[edgeId]
+        if (!edge) {
+          return
+        }
+        edge.style = {
+          ...edge.style,
+          labelFontSize: clampEdgeLabelFontSize(fontSize),
+        }
       })
     },
     setEdgeLabelPosition: (edgeId, position) => {

@@ -63,6 +63,7 @@ import {
 import helpGuideMarkdown from './help/help.md?raw'
 import { resolveJourneyFocusScope } from './journeys/focus'
 import { resolvePlayerStepLabel } from './journeys/playerStepLabel'
+import { clampFloatingDockRect, type FloatingDockRect } from './layout/floatingDock'
 import { BLANK_WORKSPACE_VIEW_ID, createBlankWorkspace } from './model/blankWorkspace'
 import type { EditorSnapshot, ViewportState, WorkspaceModel } from './model/types'
 import { nodePresetsByCategory, protocolPresets, resolveNodePreset } from './presets/catalog'
@@ -114,7 +115,6 @@ type DesktopMenuId = 'file' | 'edit' | 'view' | 'journey' | 'insert' | 'help'
 type PlayerAnimationPreset = 'cinematic' | 'orb' | 'minimal'
 type FileWriteMode = 'prompt' | 'reuse'
 type StepDragState = { journeyId: string; edgeId: string }
-type FloatingDockRect = { x: number; y: number; width: number; height: number }
 
 type HistoryStoreSnapshot = {
   workspace: WorkspaceModel
@@ -249,6 +249,11 @@ function App() {
     startClientY: number
     startX: number
     startY: number
+  } | null>(null)
+  const floatingDockResizeRef = useRef<{
+    pointerId: number
+    startClientX: number
+    startWidth: number
   } | null>(null)
   const workspace = useEditorStore((state) => state.workspace)
   const currentViewId = useEditorStore((state) => state.currentViewId)
@@ -419,19 +424,14 @@ function App() {
   const rightDockVisible = !immersiveMode && dockPosition === 'right' && !dockCollapsed
   const floatingDockVisible = !immersiveMode && dockPosition === 'floating' && !dockCollapsed
   const drawerVisible = !immersiveMode && !drawerCollapsed
-  const clampFloatingDockRect = useCallback((candidate: FloatingDockRect): FloatingDockRect => {
+  const clampFloatingDockRectInLayout = useCallback((candidate: FloatingDockRect): FloatingDockRect => {
     const layoutRect = layoutRef.current?.getBoundingClientRect()
-    const layoutWidth = Math.max(1, layoutRect?.width ?? window.innerWidth)
-    const layoutHeight = Math.max(1, layoutRect?.height ?? window.innerHeight)
-    const minX = 8
-    const minY = TOPBAR_HEIGHT + 8
-    const maxX = Math.max(minX, layoutWidth - candidate.width - 8)
-    const maxY = Math.max(minY, layoutHeight - candidate.height - 8)
-    return {
-      ...candidate,
-      x: Math.max(minX, Math.min(maxX, candidate.x)),
-      y: Math.max(minY, Math.min(maxY, candidate.y)),
-    }
+    return clampFloatingDockRect({
+      rect: candidate,
+      viewportWidth: layoutRect?.width ?? window.innerWidth,
+      viewportHeight: layoutRect?.height ?? window.innerHeight,
+      topbarHeight: TOPBAR_HEIGHT,
+    })
   }, [])
 
   const layoutStyle = useMemo(
@@ -875,7 +875,7 @@ function App() {
   const moveDockToFloating = () => {
     setDockPosition('floating')
     setDockCollapsed(false)
-    setFloatingDockRect((current) => clampFloatingDockRect(current))
+    setFloatingDockRect((current) => clampFloatingDockRectInLayout(current))
     if (drawerTab === 'dock') {
       setDrawerTab('journeys')
     }
@@ -901,6 +901,20 @@ function App() {
       startClientY: event.clientY,
       startX: floatingDockRect.x,
       startY: floatingDockRect.y,
+    }
+    event.currentTarget.setPointerCapture(event.pointerId)
+  }
+
+  const onFloatingDockResizeRightPointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (event.button !== 0) {
+      return
+    }
+    event.preventDefault()
+    event.stopPropagation()
+    floatingDockResizeRef.current = {
+      pointerId: event.pointerId,
+      startClientX: event.clientX,
+      startWidth: floatingDockRect.width,
     }
     event.currentTarget.setPointerCapture(event.pointerId)
   }
@@ -1351,37 +1365,46 @@ function App() {
 
   useEffect(() => {
     const onWindowPointerMove = (event: PointerEvent) => {
+      const resize = floatingDockResizeRef.current
+      if (resize && resize.pointerId === event.pointerId) {
+        const nextWidth = resize.startWidth + (event.clientX - resize.startClientX)
+        setFloatingDockRect((current) => clampFloatingDockRectInLayout({ ...current, width: nextWidth }))
+        return
+      }
       const drag = floatingDockDragRef.current
       if (!drag || drag.pointerId !== event.pointerId) {
         return
       }
       const nextX = drag.startX + (event.clientX - drag.startClientX)
       const nextY = drag.startY + (event.clientY - drag.startClientY)
-      setFloatingDockRect((current) => clampFloatingDockRect({ ...current, x: nextX, y: nextY }))
+      setFloatingDockRect((current) => clampFloatingDockRectInLayout({ ...current, x: nextX, y: nextY }))
     }
 
-    const stopFloatingDockDrag = (event: PointerEvent) => {
-      if (floatingDockDragRef.current?.pointerId !== event.pointerId) {
-        return
+    const stopFloatingDockInteraction = (event: PointerEvent) => {
+      if (floatingDockDragRef.current?.pointerId === event.pointerId) {
+        floatingDockDragRef.current = null
       }
-      floatingDockDragRef.current = null
+      if (floatingDockResizeRef.current?.pointerId === event.pointerId) {
+        floatingDockResizeRef.current = null
+      }
     }
 
     const onWindowBlur = () => {
       floatingDockDragRef.current = null
+      floatingDockResizeRef.current = null
     }
 
     window.addEventListener('pointermove', onWindowPointerMove)
-    window.addEventListener('pointerup', stopFloatingDockDrag)
-    window.addEventListener('pointercancel', stopFloatingDockDrag)
+    window.addEventListener('pointerup', stopFloatingDockInteraction)
+    window.addEventListener('pointercancel', stopFloatingDockInteraction)
     window.addEventListener('blur', onWindowBlur)
     return () => {
       window.removeEventListener('pointermove', onWindowPointerMove)
-      window.removeEventListener('pointerup', stopFloatingDockDrag)
-      window.removeEventListener('pointercancel', stopFloatingDockDrag)
+      window.removeEventListener('pointerup', stopFloatingDockInteraction)
+      window.removeEventListener('pointercancel', stopFloatingDockInteraction)
       window.removeEventListener('blur', onWindowBlur)
     }
-  }, [clampFloatingDockRect])
+  }, [clampFloatingDockRectInLayout])
 
   useEffect(() => {
     if (dockPosition !== 'floating') {
@@ -1389,8 +1412,13 @@ function App() {
     }
     const clampNow = () => {
       setFloatingDockRect((current) => {
-        const clamped = clampFloatingDockRect(current)
-        return clamped.x === current.x && clamped.y === current.y ? current : clamped
+        const clamped = clampFloatingDockRectInLayout(current)
+        return clamped.x === current.x &&
+          clamped.y === current.y &&
+          clamped.width === current.width &&
+          clamped.height === current.height
+          ? current
+          : clamped
       })
     }
     clampNow()
@@ -1398,7 +1426,7 @@ function App() {
     return () => {
       window.removeEventListener('resize', clampNow)
     }
-  }, [dockPosition, clampFloatingDockRect])
+  }, [dockPosition, clampFloatingDockRectInLayout])
 
   useEffect(() => {
     const timeout = window.setTimeout(() => persist(), DEBOUNCE_SAVE_MS)
@@ -3781,6 +3809,7 @@ function App() {
             height: `${floatingDockRect.height}px`,
           }}
         >
+          <div className="floating-dock-resize-right" onPointerDown={onFloatingDockResizeRightPointerDown} />
           <div className="floating-dock-header" onPointerDown={onFloatingDockHeaderPointerDown}>
             <strong>Dock</strong>
             <span

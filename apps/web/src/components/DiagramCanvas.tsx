@@ -43,6 +43,7 @@ import {
   resolveTravelProgress,
   STEP_ARRIVAL_HOLD_MS,
 } from './playerStepTimeline'
+import { resolveNextEdgeLabelRotationAngle } from './edgeLabelWheel'
 import {
   buildTrailPoints,
   compactPositiveAlphaInPlace,
@@ -1928,7 +1929,7 @@ export const DiagramCanvas = ({
       }
       if (event.altKey) {
         const currentAngle = edge.style.labelAngle ?? 0
-        const nextAngle = event.deltaY < 0 ? currentAngle + 2 : currentAngle - 2
+        const nextAngle = resolveNextEdgeLabelRotationAngle(currentAngle, event.deltaY)
         if (nextAngle !== currentAngle) {
           setEdgeLabelAngle(zoomEdgeLabel.edgeId, nextAngle)
         }

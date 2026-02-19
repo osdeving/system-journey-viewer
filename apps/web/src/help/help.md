@@ -34,6 +34,7 @@ Default playback/focus state:
 - Double-click edge label for inline edit.
 - Click-hold label + scroll: change label font size.
 - Click-hold label + `Alt` + scroll: rotate label angle.
+- Rotation step is intentionally faster for quicker horizontal/vertical orientation changes.
 - Drag label to move along edge and switch side.
 
 ## Journey Timeline
@@ -72,6 +73,7 @@ Default playback/focus state:
 - Dock positions:
   - `Right`, `Bottom`, `Floating`
 - Floating dock can be dragged by its header.
+- Floating dock can be resized by dragging its right edge.
 - Visibility controls are available in **View**:
   - `Show/Hide Palette`
   - `Show/Hide Dock`

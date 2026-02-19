@@ -2,6 +2,48 @@
 
 Chronological engineering log. Entries are kept concise and focused on behavior and validation.
 
+## 2026-02-19 - Floating dock horizontal resize and faster edge-label rotation
+
+### Scope
+
+- Keep same open PR branch and add requested UX refinements:
+  - resize floating dock width from the right edge,
+  - increase edge-label rotation speed when using `hold + Alt + wheel`.
+
+### Changes
+
+- Floating dock resize:
+  - added right-edge resize handle in floating dock window,
+  - implemented pointer-based width resizing with viewport/topbar clamping,
+  - extracted clamp logic into reusable utility:
+    - `apps/web/src/layout/floatingDock.ts`
+  - wired into app state flow:
+    - `apps/web/src/App.tsx`
+    - `apps/web/src/App.css`
+
+- Edge-label rotation speed:
+  - increased rotation step from slow incremental updates to faster step (`6` degrees per wheel event),
+  - extracted wheel-angle helper:
+    - `apps/web/src/components/edgeLabelWheel.ts`
+  - integrated in canvas interaction:
+    - `apps/web/src/components/DiagramCanvas.tsx`
+
+- Help update:
+  - documented floating dock right-edge resize and faster rotation behavior:
+    - `apps/web/src/help/help.md`
+
+### Tests
+
+- Added:
+  - `apps/web/src/layout/floatingDock.test.ts`
+  - `apps/web/src/components/edgeLabelWheel.test.ts`
+
+### Validation
+
+- `npm --workspace @sjv/web run lint`
+- `npm --workspace @sjv/web run test:run`
+- `npm --workspace @sjv/web run build`
+
 ## 2026-02-19 - Playback defaults, dock/view upgrades, edge-label rotation, recents memory, and help guide
 
 ### Scope

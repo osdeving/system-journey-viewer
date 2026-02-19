@@ -91,7 +91,7 @@
 - Dock/workbench now supports broader panel layout control:
   - dock tabs include `Inspector`, `Journeys`, `Timeline`, `DSL`, `Help`,
   - dock can be placed on right, bottom, or floating window,
-  - floating dock is draggable and clamped to viewport bounds,
+  - floating dock is draggable, horizontally resizable from the right edge, and clamped to viewport bounds,
   - View menu exposes show/hide actions for palette, dock, and workbench.
 - Standard player control group with icon-based actions.
 - Intelligent view auto-arrange is available on demand:
@@ -111,7 +111,7 @@
   - draggable label side flip (left/right side of edge),
   - readable label orientation (avoids upside-down text, vertical-safe orientation),
   - click-hold + mouse wheel to increase/decrease edge label font size,
-  - click-hold + `Alt` + mouse wheel to rotate edge label text,
+  - click-hold + `Alt` + mouse wheel to rotate edge label text with faster angle step,
   - double-click inline edge label editing.
 - Node text editing and layout:
   - double-click inline editing for node title and subtitle/tech text,

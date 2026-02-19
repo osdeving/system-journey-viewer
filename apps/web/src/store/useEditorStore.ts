@@ -25,6 +25,10 @@ const DEFAULT_VIEWPORT: ViewportState = { x: 100, y: 80, zoom: 1 }
 const MIN_ZOOM = 0.3
 const MAX_ZOOM = 2.8
 const DEFAULT_PLAYER_JOURNEY_ID = 'j_c_1'
+const DEFAULT_PLAYER_LOOP = true
+const DEFAULT_PLAYER_SPEED_MS = 1800
+const DEFAULT_PLAYER_HIGHLIGHT_NODES = true
+const DEFAULT_PLAYER_TRAIL_ENABLED = false
 
 export type ActiveTool = 'select' | 'connector'
 type SelectOptions = { additive?: boolean }
@@ -88,6 +92,7 @@ interface EditorState {
   setEdgeLabelFontSize: (edgeId: string, fontSize: number) => void
   setEdgeLabelPosition: (edgeId: string, position: number) => void
   setEdgeLabelSide: (edgeId: string, side: 'left' | 'right') => void
+  setEdgeLabelAngle: (edgeId: string, angleDeg: number) => void
   duplicateSelection: (offset?: { dx: number; dy: number }) => {
     nodeIds: string[]
     edgeId: string | null
@@ -163,10 +168,10 @@ const getDefaultState = (): Pick<
       playerJourneyId: DEFAULT_PLAYER_JOURNEY_ID,
       playerIsRunning: false,
       playerStepIndex: 0,
-      playerLoop: false,
-      playerSpeedMs: 900,
-      playerHighlightNodes: true,
-      playerTrailEnabled: true,
+      playerLoop: DEFAULT_PLAYER_LOOP,
+      playerSpeedMs: DEFAULT_PLAYER_SPEED_MS,
+      playerHighlightNodes: DEFAULT_PLAYER_HIGHLIGHT_NODES,
+      playerTrailEnabled: DEFAULT_PLAYER_TRAIL_ENABLED,
       playerConfettiNonce: 0,
       playerConfettiNodeId: null,
     }
@@ -191,10 +196,10 @@ const getDefaultState = (): Pick<
       snapshot.workspace.views[resolvedViewId]?.journeyIds[0] ?? DEFAULT_PLAYER_JOURNEY_ID,
     playerIsRunning: false,
     playerStepIndex: 0,
-    playerLoop: false,
-    playerSpeedMs: 900,
-    playerHighlightNodes: true,
-    playerTrailEnabled: true,
+    playerLoop: DEFAULT_PLAYER_LOOP,
+    playerSpeedMs: DEFAULT_PLAYER_SPEED_MS,
+    playerHighlightNodes: DEFAULT_PLAYER_HIGHLIGHT_NODES,
+    playerTrailEnabled: DEFAULT_PLAYER_TRAIL_ENABLED,
     playerConfettiNonce: 0,
     playerConfettiNodeId: null,
   }
@@ -279,12 +284,17 @@ const MIN_EDGE_LABEL_POSITION = 0.08
 const MAX_EDGE_LABEL_POSITION = 0.92
 const MIN_EDGE_LABEL_FONT_SIZE = 9
 const MAX_EDGE_LABEL_FONT_SIZE = 28
+const MIN_EDGE_LABEL_ANGLE_DEG = -180
+const MAX_EDGE_LABEL_ANGLE_DEG = 180
 
 const clampEdgeLabelPosition = (position: number): number =>
   Math.min(MAX_EDGE_LABEL_POSITION, Math.max(MIN_EDGE_LABEL_POSITION, position))
 
 const clampEdgeLabelFontSize = (fontSize: number): number =>
   Math.min(MAX_EDGE_LABEL_FONT_SIZE, Math.max(MIN_EDGE_LABEL_FONT_SIZE, fontSize))
+
+const clampEdgeLabelAngle = (angleDeg: number): number =>
+  Math.min(MAX_EDGE_LABEL_ANGLE_DEG, Math.max(MIN_EDGE_LABEL_ANGLE_DEG, angleDeg))
 
 const resolveEdgeLabelSide = (side?: string): 'left' | 'right' =>
   side === 'right' ? 'right' : 'left'
@@ -413,10 +423,10 @@ export const useEditorStore = create<EditorState>()(
           defaults.workspace.views[defaults.currentViewId]?.journeyIds[0] ?? DEFAULT_PLAYER_JOURNEY_ID,
         playerIsRunning: false,
         playerStepIndex: 0,
-        playerLoop: false,
-        playerSpeedMs: 900,
-        playerHighlightNodes: true,
-        playerTrailEnabled: true,
+        playerLoop: DEFAULT_PLAYER_LOOP,
+        playerSpeedMs: DEFAULT_PLAYER_SPEED_MS,
+        playerHighlightNodes: DEFAULT_PLAYER_HIGHLIGHT_NODES,
+        playerTrailEnabled: DEFAULT_PLAYER_TRAIL_ENABLED,
         playerConfettiNonce: 0,
         playerConfettiNodeId: null,
       })
@@ -441,10 +451,10 @@ export const useEditorStore = create<EditorState>()(
         playerJourneyId: DEFAULT_PLAYER_JOURNEY_ID,
         playerIsRunning: false,
         playerStepIndex: 0,
-        playerLoop: false,
-        playerSpeedMs: 900,
-        playerHighlightNodes: true,
-        playerTrailEnabled: true,
+        playerLoop: DEFAULT_PLAYER_LOOP,
+        playerSpeedMs: DEFAULT_PLAYER_SPEED_MS,
+        playerHighlightNodes: DEFAULT_PLAYER_HIGHLIGHT_NODES,
+        playerTrailEnabled: DEFAULT_PLAYER_TRAIL_ENABLED,
         playerConfettiNonce: 0,
         playerConfettiNodeId: null,
       })
@@ -933,6 +943,18 @@ export const useEditorStore = create<EditorState>()(
         }
       })
     },
+    setEdgeLabelAngle: (edgeId, angleDeg) => {
+      set((state) => {
+        const edge = state.workspace.edges[edgeId]
+        if (!edge) {
+          return
+        }
+        edge.style = {
+          ...edge.style,
+          labelAngle: clampEdgeLabelAngle(angleDeg),
+        }
+      })
+    },
     duplicateSelection: (offset) => {
       const resolvedOffset = {
         dx: offset?.dx ?? 36,
@@ -1144,10 +1166,10 @@ export const useEditorStore = create<EditorState>()(
         playerJourneyId: DEFAULT_PLAYER_JOURNEY_ID,
         playerIsRunning: false,
         playerStepIndex: 0,
-        playerLoop: false,
-        playerSpeedMs: 900,
-        playerHighlightNodes: true,
-        playerTrailEnabled: true,
+        playerLoop: DEFAULT_PLAYER_LOOP,
+        playerSpeedMs: DEFAULT_PLAYER_SPEED_MS,
+        playerHighlightNodes: DEFAULT_PLAYER_HIGHLIGHT_NODES,
+        playerTrailEnabled: DEFAULT_PLAYER_TRAIL_ENABLED,
         playerConfettiNonce: 0,
         playerConfettiNodeId: null,
       })
@@ -1167,8 +1189,8 @@ export const useEditorStore = create<EditorState>()(
           colorKey: journeyColorByIndex(colorIndex),
           steps: [],
           player: {
-            loop: false,
-            speedMs: 900,
+            loop: DEFAULT_PLAYER_LOOP,
+            speedMs: DEFAULT_PLAYER_SPEED_MS,
             pauseOnStep: false,
           },
         }

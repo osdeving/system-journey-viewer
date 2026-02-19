@@ -4,6 +4,7 @@
 
 - Roadmap milestones `M0 -> M9` were implemented.
 - Feature branches were promoted without merge commits using cherry-pick flow.
+- Latest UI increment (2026-02-19) added stronger dock/view controls, local recents memory, and in-app markdown help.
 - Architecture baseline:
   - custom SVG editor engine (internal adapter, no paid lock-in),
   - versioned FULL model (`schemaVersion: 1.0`) as source of truth,
@@ -54,6 +55,11 @@
   - next step starts only after arrival hold.
 - Optional trail toggle:
   - keep only orb motion when trail is disabled.
+- Default startup playback state:
+  - loop enabled,
+  - trail disabled,
+  - slower base speed (`1800ms`),
+  - default visual preset equivalent to `Orb only`.
 - Contextual dashed-edge animation:
   - dashed style for all edges,
   - animated dash prioritized for active journey context.
@@ -82,6 +88,12 @@
   - `security`,
   - `load-balancer`.
 - Dockable side panel (`Inspector` / `Journeys`) with tab drag and position switching.
+- Dock/workbench now supports broader panel layout control:
+  - dock tabs include `Inspector`, `Journeys`, `Timeline`, `DSL`, `Help`,
+  - dock can be placed on left, right, bottom, or floating window,
+  - side docks are resizable on their docking edge (left/right width control),
+  - floating dock is draggable, resizable from all sides/corners, and clamped to viewport bounds,
+  - View menu exposes show/hide actions for palette, dock, and workbench.
 - Standard player control group with icon-based actions.
 - Intelligent view auto-arrange is available on demand:
   - View menu: `Auto Arrange`,
@@ -100,6 +112,7 @@
   - draggable label side flip (left/right side of edge),
   - readable label orientation (avoids upside-down text, vertical-safe orientation),
   - click-hold + mouse wheel to increase/decrease edge label font size,
+  - click-hold + `Alt` + mouse wheel to rotate edge label text with faster angle step,
   - double-click inline edge label editing.
 - Node text editing and layout:
   - double-click inline editing for node title and subtitle/tech text,
@@ -107,6 +120,7 @@
 - Monaco-based `JourneyScript` editor with custom highlighting theme.
 - Focus/presentation workflows for demo-friendly screen usage.
 - Presentation mode center indicators now show both `Step X/Y` and the currently animated step label.
+- Presentation step label pill now keeps single-line behavior and playing-color parity with the step counter.
 
 ## Export State
 
@@ -121,6 +135,8 @@
 - Layout persistence now has dual path:
   - full snapshot persistence (`persist/hydrate`) for editor session state;
   - dedicated UI layout persistence in localStorage by `workspaceId` (node bounds + edge label positions), auto-applied on DSL import.
+- Edge label angle is now part of persisted UI layout and DSL UI metadata import/export.
+- File menu includes local recents memory (up to 3 saved snapshots) for quick reopen.
 
 ## Open Source / Delivery Readiness (2026-02-16)
 

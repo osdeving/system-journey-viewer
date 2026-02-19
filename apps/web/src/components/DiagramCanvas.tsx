@@ -43,6 +43,7 @@ import {
   resolveTravelProgress,
   STEP_ARRIVAL_HOLD_MS,
 } from './playerStepTimeline'
+import { resolveNextEdgeLabelRotationAngle } from './edgeLabelWheel'
 import {
   buildTrailPoints,
   compactPositiveAlphaInPlace,
@@ -517,6 +518,7 @@ export const DiagramCanvas = ({
   const setEdgeLabelFontSize = useEditorStore((state) => state.setEdgeLabelFontSize)
   const setEdgeLabelPosition = useEditorStore((state) => state.setEdgeLabelPosition)
   const setEdgeLabelSide = useEditorStore((state) => state.setEdgeLabelSide)
+  const setEdgeLabelAngle = useEditorStore((state) => state.setEdgeLabelAngle)
   const isConnectorMode = activeTool === 'connector' || isCtrlConnectorActive
 
   useEffect(() => {
@@ -881,6 +883,21 @@ export const DiagramCanvas = ({
   }, [playerTrailEnabled])
 
   useEffect(() => {
+    if (playerIsRunning) {
+      return
+    }
+    orbPositionRef.current = null
+    lastTrailPositionRef.current = null
+    trailsRef.current = []
+    const trailCanvas = trailCanvasRef.current
+    const context = trailCanvas?.getContext('2d')
+    if (!trailCanvas || !context) {
+      return
+    }
+    context.clearRect(0, 0, trailCanvas.width, trailCanvas.height)
+  }, [playerIsRunning])
+
+  useEffect(() => {
     const trailCanvas = trailCanvasRef.current
     if (!trailCanvas) {
       return
@@ -1118,6 +1135,10 @@ export const DiagramCanvas = ({
         rafId = window.requestAnimationFrame(drawFrame)
       } else {
         lastFrameTsRef.current = null
+        orbPositionRef.current = null
+        trailsRef.current = []
+        context.setTransform(metrics.pixelRatio, 0, 0, metrics.pixelRatio, 0, 0)
+        context.clearRect(0, 0, metrics.width, metrics.height)
         playerStepArrivedRef.current = false
         setPlayerStepArrivedForUi(false)
       }
@@ -1906,6 +1927,14 @@ export const DiagramCanvas = ({
       if (!edge) {
         return
       }
+      if (event.altKey) {
+        const currentAngle = edge.style.labelAngle ?? 0
+        const nextAngle = resolveNextEdgeLabelRotationAngle(currentAngle, event.deltaY)
+        if (nextAngle !== currentAngle) {
+          setEdgeLabelAngle(zoomEdgeLabel.edgeId, nextAngle)
+        }
+        return
+      }
       const currentFontSize = edge.style.labelFontSize ?? DEFAULT_EDGE_LABEL_FONT_SIZE
       const nextFontSize =
         event.deltaY < 0
@@ -2162,6 +2191,7 @@ export const DiagramCanvas = ({
             return (
               <g
                 key={node.id}
+                className="node-group"
                 transform={`translate(${node.bounds.x}, ${node.bounds.y})`}
                 onPointerDown={(event) => onNodePointerDown(event, node, 'move')}
                 onPointerMove={onNodePointerMove}

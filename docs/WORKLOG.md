@@ -2,6 +2,162 @@
 
 Chronological engineering log. Entries are kept concise and focused on behavior and validation.
 
+## 2026-02-19 - Full dock resizing model (left/right/bottom/floating) and faster edge-label rotation
+
+### Scope
+
+- Keep same open PR branch and add requested UX refinements:
+  - support dock resize while docked (left/right),
+  - support floating dock resize from all sides/corners,
+  - keep docked sizes in UI context per docking side,
+  - increase edge-label rotation speed when using `hold + Alt + wheel`.
+
+### Changes
+
+- Dock resize system:
+  - added dock placement option on left side,
+  - added dock side splitters:
+    - left dock expands/shrinks to the right,
+    - right dock expands/shrinks to the left,
+  - side dock widths are tracked independently (`leftDockWidth`, `rightDockWidth`) and restored through UI history snapshots,
+  - floating dock now supports resize from all edges/corners (`n/s/e/w/ne/nw/se/sw`),
+  - implemented pointer-based resize + clamping logic with reusable utilities:
+    - `apps/web/src/layout/floatingDock.ts`
+    - `apps/web/src/layout/dockSizing.ts`
+  - wired into app state flow and styles:
+    - `apps/web/src/App.tsx`
+    - `apps/web/src/App.css`
+
+- Edge-label rotation speed:
+  - increased rotation step from slow incremental updates to faster step (`6` degrees per wheel event),
+  - extracted wheel-angle helper:
+    - `apps/web/src/components/edgeLabelWheel.ts`
+  - integrated in canvas interaction:
+    - `apps/web/src/components/DiagramCanvas.tsx`
+
+- Help update:
+  - documented side-dock and floating full-direction resize behavior plus faster rotation behavior:
+    - `apps/web/src/help/help.md`
+
+### Tests
+
+- Added:
+  - `apps/web/src/layout/floatingDock.test.ts`
+  - `apps/web/src/layout/dockSizing.test.ts`
+  - `apps/web/src/components/edgeLabelWheel.test.ts`
+
+### Validation
+
+- `npm --workspace @sjv/web run lint`
+- `npm --workspace @sjv/web run test:run`
+- `npm --workspace @sjv/web run build`
+
+## 2026-02-19 - Playback defaults, dock/view upgrades, edge-label rotation, recents memory, and help guide
+
+### Scope
+
+- Apply requested startup defaults for journey playback/focus.
+- Expand dock/view workflow with floating dock and panel visibility controls.
+- Add edge-label rotation shortcut and persist angle in DSL/layout metadata.
+- Add local recent-workspace memory (up to 3 entries) in File menu.
+- Add in-app markdown Help panel and update repository capability docs.
+
+### Changes
+
+- Playback and journey focus defaults:
+  - `loop` now starts enabled.
+  - `trail` now starts disabled.
+  - default animation preset behavior resolves to `orb`.
+  - off-scope rendering defaults to `hide`.
+  - default animation speed set to slower baseline (`1800ms`).
+  - files:
+    - `apps/web/src/store/useEditorStore.ts`
+    - `apps/web/src/model/defaultWorkspace.ts`
+    - `apps/web/src/model/blankWorkspace.ts`
+    - `apps/web/src/model/schema.ts`
+
+- Journey timeline editing parity:
+  - timeline items now match journey-list style and support drag-drop reorder + remove in panel/dock timeline.
+  - files:
+    - `apps/web/src/App.tsx`
+    - `apps/web/src/App.css`
+
+- Edge-label rotation shortcut:
+  - hold selected edge label + wheel => font size.
+  - hold selected edge label + `Alt` + wheel => rotation angle.
+  - added `edge.style.labelAngle` with schema validation and persistence.
+  - DSL UI metadata now supports optional `angle` on edges.
+  - files:
+    - `apps/web/src/components/DiagramCanvas.tsx`
+    - `apps/web/src/components/JourneyEdge.tsx`
+    - `apps/web/src/model/types.ts`
+    - `apps/web/src/model/schema.ts`
+    - `apps/web/src/store/useEditorStore.ts`
+    - `apps/web/src/store/layoutPersistence.ts`
+    - `apps/web/src/dsl-lite/types.ts`
+    - `apps/web/src/dsl-lite/parser.ts`
+    - `apps/web/src/dsl-lite/convert.ts`
+
+- Player orb cleanup:
+  - orb/trail visuals are cleared when playback stops so stale orb does not remain after pan/zoom/resize.
+  - file:
+    - `apps/web/src/components/DiagramCanvas.tsx`
+
+- Presentation indicator polish:
+  - step name pill keeps single-line behavior with larger width allowance.
+  - step name pill uses same playing color treatment as `Step X/Y`.
+  - files:
+    - `apps/web/src/App.tsx`
+    - `apps/web/src/App.css`
+
+- Dock/view system improvements:
+  - dock tabs expanded to `Inspector`, `Journeys`, `Timeline`, `DSL`, `Help`.
+  - dock placement controls for right/bottom/floating.
+  - floating dock window with draggable header and viewport clamp.
+  - menu actions to show/hide palette, dock, and workbench similar to desktop creative apps.
+  - files:
+    - `apps/web/src/App.tsx`
+    - `apps/web/src/App.css`
+
+- Local recents memory:
+  - save operations now mirror a snapshot copy into localStorage recents (max 3).
+  - File menu can open recent entries directly.
+  - files:
+    - `apps/web/src/file/recentWorkspaces.ts`
+    - `apps/web/src/file/recentWorkspaces.test.ts`
+    - `apps/web/src/App.tsx`
+
+- Help and docs:
+  - app tab title updated to `System Journey Viewer`.
+  - markdown help menu/panel added via `react-markdown`.
+  - repository docs updated with new capabilities.
+  - files:
+    - `apps/web/index.html`
+    - `apps/web/src/help/help.md`
+    - `apps/web/src/App.tsx`
+    - `apps/web/package.json`
+    - `README.md`
+    - `docs/UI_JOURNEYS_CAPABILITIES.md`
+
+- CI/CD note:
+  - verified via GitHub API that required checks are `Web lint/test/build` and `Gateway tests`; no Sourcery check/comment workflow is configured in this repository.
+
+### Tests
+
+- Added:
+  - `apps/web/src/file/recentWorkspaces.test.ts`
+- Updated:
+  - `apps/web/src/store/useEditorStore.test.ts`
+  - `apps/web/src/store/layoutPersistence.test.ts`
+  - `apps/web/src/model/schema.test.ts`
+  - `apps/web/src/dsl-lite/parser.test.ts`
+
+### Validation
+
+- `npm --workspace @sjv/web run lint`
+- `npm --workspace @sjv/web run test:run`
+- `npm --workspace @sjv/web run build`
+
 ## 2026-02-19 - Presentation mode shows active step name next to step counter
 
 ### Scope

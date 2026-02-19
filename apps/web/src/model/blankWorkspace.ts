@@ -28,7 +28,7 @@ export const createBlankWorkspace = (): WorkspaceModel =>
       snap: true,
       theme: 'dark',
       journeyFocus: {
-        offscopeRenderMode: 'dim',
+        offscopeRenderMode: 'hide',
         layoutMode: 'preserve',
         autoLayoutMode: 'manual',
       },

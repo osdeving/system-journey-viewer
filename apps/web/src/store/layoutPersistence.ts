@@ -4,11 +4,14 @@ import type { NodeBounds, WorkspaceModel } from '../model/types'
 const LAYOUT_STORAGE_VERSION = 'v1'
 const MIN_EDGE_LABEL_POSITION = 0.08
 const MAX_EDGE_LABEL_POSITION = 0.92
+const MIN_EDGE_LABEL_ANGLE_DEG = -180
+const MAX_EDGE_LABEL_ANGLE_DEG = 180
 
 type LayoutViewSnapshot = {
   nodes: Record<string, NodeBounds>
   edgeLabelPositions: Record<string, number>
   edgeLabelSides: Record<string, 'left' | 'right'>
+  edgeLabelAngles: Record<string, number>
 }
 
 type WorkspaceLayoutSnapshot = {
@@ -24,6 +27,9 @@ const canUseStorage = (): boolean => typeof window !== 'undefined' && !!window.l
 
 const clampLabelPosition = (position: number): number =>
   Math.min(MAX_EDGE_LABEL_POSITION, Math.max(MIN_EDGE_LABEL_POSITION, position))
+
+const clampLabelAngle = (angleDeg: number): number =>
+  Math.min(MAX_EDGE_LABEL_ANGLE_DEG, Math.max(MIN_EDGE_LABEL_ANGLE_DEG, angleDeg))
 
 const isFiniteNumber = (value: unknown): value is number =>
   typeof value === 'number' && Number.isFinite(value)
@@ -56,6 +62,7 @@ export const buildWorkspaceLayoutSnapshot = (
     const nodes: Record<string, NodeBounds> = {}
     const edgeLabelPositions: Record<string, number> = {}
     const edgeLabelSides: Record<string, 'left' | 'right'> = {}
+    const edgeLabelAngles: Record<string, number> = {}
 
     for (const nodeId of view.nodeIds) {
       const node = workspace.nodes[nodeId]
@@ -72,12 +79,14 @@ export const buildWorkspaceLayoutSnapshot = (
       }
       edgeLabelPositions[edgeId] = clampLabelPosition(edge.style.labelPosition ?? 0.5)
       edgeLabelSides[edgeId] = resolveLabelSide(edge.style.labelSide)
+      edgeLabelAngles[edgeId] = clampLabelAngle(edge.style.labelAngle ?? 0)
     }
 
     views[view.id] = {
       nodes,
       edgeLabelPositions,
       edgeLabelSides,
+      edgeLabelAngles,
     }
   }
 
@@ -187,6 +196,9 @@ export const applyWorkspaceLayout = (
           ...edge.style,
           labelPosition: clampLabelPosition(labelPosition),
           labelSide: resolveLabelSide(viewLayout.edgeLabelSides?.[edgeId]),
+          labelAngle: isFiniteNumber(viewLayout.edgeLabelAngles?.[edgeId])
+            ? clampLabelAngle(viewLayout.edgeLabelAngles[edgeId])
+            : edge.style.labelAngle,
         },
       }
     }

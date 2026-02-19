@@ -60,6 +60,7 @@ export const edgeSchema = z.object({
     labelFontSize: z.number().min(1).max(64).optional(),
     labelPosition: z.number().min(0).max(1).optional(),
     labelSide: z.enum(['left', 'right']).optional(),
+    labelAngle: z.number().min(-180).max(180).optional(),
   }),
 })
 
@@ -106,12 +107,12 @@ export const workspaceSchema = z.object({
     theme: z.enum(['light', 'dark']).default('light'),
     journeyFocus: z
       .object({
-        offscopeRenderMode: z.enum(['show', 'hide', 'dim']).default('dim'),
+        offscopeRenderMode: z.enum(['show', 'hide', 'dim']).default('hide'),
         layoutMode: z.enum(['preserve', 'reflow']).default('preserve'),
         autoLayoutMode: z.enum(['manual', 'always']).default('manual'),
       })
       .default({
-        offscopeRenderMode: 'dim',
+        offscopeRenderMode: 'hide',
         layoutMode: 'preserve',
         autoLayoutMode: 'manual',
       }),

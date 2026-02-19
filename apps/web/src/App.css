@@ -289,6 +289,13 @@
   color: #92400e;
 }
 
+.mode-pill-step-name {
+  max-width: min(40vw, 420px);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .topbar-error {
   position: absolute;
   left: 20px;

@@ -55,6 +55,7 @@ import {
   serializeWorkspaceSnapshotFile,
 } from './file/workspaceFile'
 import { resolveJourneyFocusScope } from './journeys/focus'
+import { resolvePlayerStepLabel } from './journeys/playerStepLabel'
 import { BLANK_WORKSPACE_VIEW_ID, createBlankWorkspace } from './model/blankWorkspace'
 import type { EditorSnapshot, ViewportState, WorkspaceModel } from './model/types'
 import { nodePresetsByCategory, protocolPresets, resolveNodePreset } from './presets/catalog'
@@ -387,6 +388,10 @@ function App() {
     [activeJourney],
   )
   const playerJourney = playerJourneyId ? workspace.journeys[playerJourneyId] : undefined
+  const currentPlayerStepLabel = useMemo(
+    () => resolvePlayerStepLabel(playerJourney, workspace.edges, playerStepIndex),
+    [playerJourney, playerStepIndex, workspace.edges],
+  )
   const currentViewModeLabel = viewKindLabel[currentView.kind] ?? currentView.kind
   const playerModeLabel = playerIsRunning ? 'Animação' : 'Render'
   const immersiveMode = focusMode || presentationMode
@@ -3016,6 +3021,11 @@ function App() {
               <span className={playerIsRunning ? 'mode-pill mode-pill-playing' : 'mode-pill'}>
                 Step {playerStepIndex + 1}/{playerJourney?.steps.length ?? 0}
               </span>
+              {currentPlayerStepLabel ? (
+                <span className="mode-pill mode-pill-step-name" title={currentPlayerStepLabel}>
+                  {currentPlayerStepLabel}
+                </span>
+              ) : null}
             </div>
           )}
         </div>

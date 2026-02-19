@@ -2,6 +2,35 @@
 
 Chronological engineering log. Entries are kept concise and focused on behavior and validation.
 
+## 2026-02-19 - Presentation mode shows active step name next to step counter
+
+### Scope
+
+- In presentation mode, show the currently animated step name beside `Step X/Y` in the centered mode indicators.
+
+### Changes
+
+- Added player step label resolver utility:
+  - `apps/web/src/journeys/playerStepLabel.ts`
+  - resolves active step by sorted journey order (`n`) and returns edge label fallback to `edgeId`.
+- Wired the resolved label into presentation mode indicators:
+  - `apps/web/src/App.tsx`
+  - in `mode-indicators-presentation`, now renders current step name next to `Step X/Y`.
+- Added truncation style for long step labels in the topbar:
+  - `apps/web/src/App.css`
+  - new `.mode-pill-step-name` with ellipsis behavior.
+
+### Tests
+
+- Added unit tests for active step label resolution:
+  - `apps/web/src/journeys/playerStepLabel.test.ts`
+
+### Validation
+
+- `npm --workspace @sjv/web run test:run -- src/journeys/playerStepLabel.test.ts`
+- `npm --workspace @sjv/web run lint`
+- `npm --workspace @sjv/web run build`
+
 ## 2026-02-19 - Inline text editing, edge-label zoom, and hierarchy-safe view navigation
 
 ### Scope

@@ -106,6 +106,7 @@
   - hexagon infra nodes now render centered/top labels with truncation to avoid overflow.
 - Monaco-based `JourneyScript` editor with custom highlighting theme.
 - Focus/presentation workflows for demo-friendly screen usage.
+- Presentation mode center indicators now show both `Step X/Y` and the currently animated step label.
 
 ## Export State
 

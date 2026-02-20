@@ -2,6 +2,57 @@
 
 Chronological engineering log. Entries are kept concise and focused on behavior and validation.
 
+## 2026-02-20 - DSL typing sync direction fix, presentation shortcut cleanup, and theme-safe DSL import
+
+### Scope
+
+- Remove `P` keyboard shortcut that was interrupting normal typing.
+- Fix `Sync com editor` behavior so DSL typing updates the canvas view in real time.
+- Ensure DSL import preserves currently selected app theme instead of forcing light.
+
+### Changes
+
+- Mode shortcuts:
+  - removed `P` presentation toggle from keyboard shortcuts.
+  - extracted mode shortcut resolution helper:
+    - `apps/web/src/keyboard/modeShortcuts.ts`
+  - wired in app:
+    - `apps/web/src/App.tsx`
+
+- DSL sync behavior:
+  - replaced old workspace->DSL mirror flow with DSL->workspace live apply flow.
+  - sync now keeps editor editable and applies valid DSL changes to view while typing.
+  - file:
+    - `apps/web/src/App.tsx`
+
+- Theme-safe DSL import:
+  - extracted helper to parse DSL and force current app theme on imported workspace:
+    - `apps/web/src/dsl-lite/sync.ts`
+  - applied in:
+    - DSL panel `Importar DSL` action,
+    - file open fallback when payload is DSL.
+  - file:
+    - `apps/web/src/App.tsx`
+
+- Help update:
+  - clarified sync semantics as live DSL-to-view updates.
+  - file:
+    - `apps/web/src/help/help.md`
+
+### Tests
+
+- Added:
+  - `apps/web/src/keyboard/modeShortcuts.test.ts`
+- Updated:
+  - `apps/web/src/dsl-lite/sync.test.ts`
+
+### Validation
+
+- `npm --workspace @sjv/web run lint`
+- `npm --workspace @sjv/web run test:run -- src/dsl-lite/sync.test.ts src/keyboard/modeShortcuts.test.ts`
+- `npm --workspace @sjv/web run test:run -- --maxWorkers=1`
+- `npm --workspace @sjv/web run build`
+
 ## 2026-02-20 - Edge arrow orientation fix, DSL live sync, stronger edge-handle visibility, and node text color controls
 
 ### Scope

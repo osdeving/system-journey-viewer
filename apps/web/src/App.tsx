@@ -34,15 +34,14 @@ import {
   extractDslFromCodexResponse,
   requestCodexDslAssist,
 } from './dsl-lite/codexAssist'
-import { fullWorkspaceToLiteDsl, liteToFullWorkspace } from './dsl-lite/convert'
-import { resolveDslPanelText } from './dsl-lite/sync'
+import { fullWorkspaceToLiteDsl } from './dsl-lite/convert'
+import { parseDslToWorkspaceWithTheme } from './dsl-lite/sync'
 import {
   JOURNEY_SCRIPT_LANGUAGE_ID,
   JOURNEY_SCRIPT_NAME,
   registerJourneyScriptLanguage,
   resolveJourneyScriptTheme,
 } from './dsl-lite/monacoJourneyScript'
-import { parseLiteDsl } from './dsl-lite/parser'
 import {
   exportAnimatedJourneyGif,
   exportAnimatedJourneySvg,
@@ -64,6 +63,7 @@ import {
 import helpGuideMarkdown from './help/help.md?raw'
 import { resolveJourneyFocusScope } from './journeys/focus'
 import { resolvePlayerStepLabel } from './journeys/playerStepLabel'
+import { resolveModeShortcutAction } from './keyboard/modeShortcuts'
 import {
   resolveDockSideWidth,
   resolveFloatingDockResizeRect,
@@ -257,6 +257,7 @@ function App() {
   const journeyDragRef = useRef<string | null>(null)
   const journeyStepDragRef = useRef<StepDragState | null>(null)
   const workspaceFileHandleRef = useRef<WorkspaceFileHandle | null>(null)
+  const dslSyncLastAppliedTextRef = useRef<string | null>(null)
   const historyRef = useRef<HistoryStacks>({ past: [], future: [] })
   const historyApplyingRef = useRef(false)
   const historyLastCommitAtRef = useRef(0)
@@ -428,6 +429,18 @@ function App() {
     (workspaceModel: WorkspaceModel): string =>
       resolvePreferredEntryViewId(workspaceModel) || BLANK_WORKSPACE_VIEW_ID,
     [],
+  )
+  const resolveWorkspaceFromDslText = useCallback(
+    (dslTextInput: string): { workspace: WorkspaceModel; entryViewId: string } => {
+      const importedWorkspace = parseDslToWorkspaceWithTheme(dslTextInput, theme)
+      const restoredLayout = loadWorkspaceLayout(importedWorkspace.workspace.id)
+      const workspaceWithLayout = applyWorkspaceLayout(importedWorkspace, restoredLayout)
+      return {
+        workspace: workspaceWithLayout,
+        entryViewId: resolveEntryViewId(workspaceWithLayout),
+      }
+    },
+    [resolveEntryViewId, theme],
   )
   const currentView = workspace.views[currentViewId]
   const viewHierarchyOptions = useMemo(
@@ -850,12 +863,8 @@ function App() {
         return
       } catch (snapshotError) {
         try {
-          const ast = parseLiteDsl(payload)
-          const importedWorkspace = liteToFullWorkspace(ast)
-          const restoredLayout = loadWorkspaceLayout(importedWorkspace.workspace.id)
-          const workspaceWithLayout = applyWorkspaceLayout(importedWorkspace, restoredLayout)
-          const entryViewId = resolveEntryViewId(workspaceWithLayout)
-          replaceWorkspace(workspaceWithLayout, entryViewId)
+          const imported = resolveWorkspaceFromDslText(payload)
+          replaceWorkspace(imported.workspace, imported.entryViewId)
           setViewport(DEFAULT_FILE_VIEWPORT)
           workspaceFileHandleRef.current = options?.fileHandle ?? null
           setDslText(payload)
@@ -871,7 +880,7 @@ function App() {
         }
       }
     },
-    [replaceWorkspace, resolveEntryViewId, setViewport, setTransientStatus],
+    [replaceWorkspace, resolveWorkspaceFromDslText, setViewport, setTransientStatus],
   )
 
   const openWorkspaceFilePicker = useCallback(async () => {
@@ -1611,11 +1620,22 @@ function App() {
   }, [workspace])
 
   useEffect(() => {
-    setDslText((current) => resolveDslPanelText(workspace, current, dslSyncEnabled))
-    if (dslSyncEnabled) {
-      setDslError(null)
+    if (!dslSyncEnabled) {
+      dslSyncLastAppliedTextRef.current = null
+      return
     }
-  }, [dslSyncEnabled, workspace])
+    if (dslSyncLastAppliedTextRef.current === dslText) {
+      return
+    }
+    try {
+      const imported = resolveWorkspaceFromDslText(dslText)
+      replaceWorkspace(imported.workspace, imported.entryViewId)
+      dslSyncLastAppliedTextRef.current = dslText
+      setDslError(null)
+    } catch (error) {
+      setDslError(error instanceof Error ? error.message : 'Falha ao sincronizar DSL.')
+    }
+  }, [dslSyncEnabled, dslText, replaceWorkspace, resolveWorkspaceFromDslText])
 
   useEffect(() => {
     if (historyApplyingRef.current) {
@@ -1877,38 +1897,17 @@ function App() {
       if (isTextInputTarget(event.target)) {
         return
       }
-      if (event.key === 'f' || event.key === 'F') {
-        event.preventDefault()
+      const action = resolveModeShortcutAction(event.key, { focusMode, presentationMode })
+      if (!action) {
+        return
+      }
+      event.preventDefault()
+      if (action === 'toggle-focus') {
         setPresentationMode(false)
         setFocusMode((current) => !current)
         return
       }
-      if (event.key === 'p' || event.key === 'P') {
-        event.preventDefault()
-        setFocusMode(false)
-        setPresentationMode((current) => {
-          const next = !current
-          if (next) {
-            setLeftSidebarCollapsed(true)
-            setDockCollapsed(true)
-            setDrawerCollapsed(true)
-            setOpenDesktopMenu(null)
-            window.requestAnimationFrame(() => {
-              window.requestAnimationFrame(() => {
-                fitCurrentViewToCanvas()
-              })
-            })
-          } else {
-            setLeftSidebarCollapsed(false)
-            setDockCollapsed(false)
-            setDrawerCollapsed(false)
-          }
-          return next
-        })
-        return
-      }
-      if (event.key === 'Escape' && (focusMode || presentationMode)) {
-        event.preventDefault()
+      if (action === 'exit-immersive') {
         setFocusMode(false)
         if (presentationMode) {
           setLeftSidebarCollapsed(false)
@@ -1921,7 +1920,7 @@ function App() {
 
     window.addEventListener('keydown', onModeShortcut)
     return () => window.removeEventListener('keydown', onModeShortcut)
-  }, [fitCurrentViewToCanvas, focusMode, presentationMode])
+  }, [focusMode, presentationMode])
 
   useEffect(() => {
     if (dockPosition !== 'bottom' && drawerTab === 'dock') {
@@ -2274,7 +2273,14 @@ function App() {
           <input
             type="checkbox"
             checked={dslSyncEnabled}
-            onChange={(event) => setDslSyncEnabled(event.target.checked)}
+            onChange={(event) => {
+              const enabled = event.target.checked
+              setDslSyncEnabled(enabled)
+              dslSyncLastAppliedTextRef.current = enabled ? dslText : null
+              if (enabled) {
+                setDslError(null)
+              }
+            }}
           />
           Sync com editor
         </label>
@@ -2291,12 +2297,8 @@ function App() {
           type="button"
           onClick={() => {
             try {
-              const ast = parseLiteDsl(dslText)
-              const imported = liteToFullWorkspace(ast)
-              const restoredLayout = loadWorkspaceLayout(imported.workspace.id)
-              const workspaceWithLayout = applyWorkspaceLayout(imported, restoredLayout)
-              const nextViewId = resolveEntryViewId(workspaceWithLayout)
-              replaceWorkspace(workspaceWithLayout, nextViewId)
+              const imported = resolveWorkspaceFromDslText(dslText)
+              replaceWorkspace(imported.workspace, imported.entryViewId)
               setDslError(null)
             } catch (error) {
               setDslError(error instanceof Error ? error.message : 'Falha ao importar DSL.')
@@ -2349,12 +2351,13 @@ function App() {
               automaticLayout: true,
               smoothScrolling: true,
               cursorBlinking: 'phase',
-              readOnly: dslSyncEnabled,
             }}
           />
         </Suspense>
       </div>
-      {dslSyncEnabled ? <p className="dsl-codex-status">Sync ativo: DSL espelha o editor em tempo real.</p> : null}
+      {dslSyncEnabled ? (
+        <p className="dsl-codex-status">Sync ativo: alterações válidas no DSL são aplicadas no view em tempo real.</p>
+      ) : null}
       {dslCodexThreadId ? <p className="dsl-codex-thread">Thread Codex: {dslCodexThreadId}</p> : null}
       {dslCodexStatus ? <p className="dsl-codex-status">{dslCodexStatus}</p> : null}
       {dslError ? <p className="dsl-error">{dslError}</p> : null}

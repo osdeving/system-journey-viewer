@@ -1,14 +1,24 @@
 import type { WorkspaceModel } from '../model/types'
-import { fullWorkspaceToLiteDsl } from './convert'
+import { liteToFullWorkspace } from './convert'
+import { parseLiteDsl } from './parser'
 
-export const resolveDslPanelText = (
-  workspace: WorkspaceModel,
-  currentText: string,
-  syncEnabled: boolean,
-): string => {
-  if (!syncEnabled) {
-    return currentText
-  }
-  const syncedText = fullWorkspaceToLiteDsl(workspace)
-  return currentText === syncedText ? currentText : syncedText
+export const parseDslToWorkspace = (dslText: string): WorkspaceModel => {
+  const ast = parseLiteDsl(dslText)
+  return liteToFullWorkspace(ast)
 }
+
+export const applyThemeToWorkspace = (
+  workspace: WorkspaceModel,
+  theme: WorkspaceModel['settings']['theme'],
+): WorkspaceModel => ({
+  ...workspace,
+  settings: {
+    ...workspace.settings,
+    theme,
+  },
+})
+
+export const parseDslToWorkspaceWithTheme = (
+  dslText: string,
+  theme: WorkspaceModel['settings']['theme'],
+): WorkspaceModel => applyThemeToWorkspace(parseDslToWorkspace(dslText), theme)

@@ -4,7 +4,7 @@
 
 - Roadmap milestones `M0 -> M9` were implemented.
 - Feature branches were promoted without merge commits using cherry-pick flow.
-- Latest UI increment (2026-02-20) fixed edge-arrow orientation by port direction, corrected DSL sync to apply typed DSL directly into view, removed `P` presentation shortcut, improved edge-handle discoverability, and enabled node text color editing with theme-aware palettes.
+- Latest UI increment (2026-02-20) fixed edge-arrow orientation by port direction, corrected DSL sync to apply typed DSL directly into view, removed `P` presentation shortcut, improved edge-handle discoverability, enabled node text color editing with theme-aware palettes, and normalized full-height DSL editor layout across dock/floating/bottom contexts.
 - Architecture baseline:
   - custom SVG editor engine (internal adapter, no paid lock-in),
   - versioned FULL model (`schemaVersion: 1.0`) as source of truth,
@@ -124,6 +124,10 @@
 - DSL panel now includes `Sync com editor` mode:
   - when enabled, valid DSL edits are applied to the view in real time while typing,
   - import flow preserves current app theme (prevents forced light-theme fallback on DSL load/import).
+- DSL editor layout now enforces top-pinned controls and full-height Monaco area in:
+  - side dock,
+  - floating dock,
+  - bottom drawer dock mode.
 - Keyboard mode shortcuts no longer bind presentation toggle to `P` to avoid conflicts with text typing.
 - Focus/presentation workflows for demo-friendly screen usage.
 - Presentation mode center indicators now show both `Step X/Y` and the currently animated step label.

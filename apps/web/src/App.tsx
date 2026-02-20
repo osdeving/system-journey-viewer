@@ -2885,11 +2885,18 @@ function App() {
             : 'dock-panel dock-panel-floating'
       }
     >
-      <div className="dock-tab-body">
+      <div className={resolvedActiveDockTab === 'dsl' ? 'dock-tab-body dock-tab-body-dsl' : 'dock-tab-body'}>
         {resolveDockTabContent(resolvedActiveDockTab)}
       </div>
     </div>
   )
+
+  const drawerClassName =
+    drawerTab === 'dsl'
+      ? 'journey-drawer journey-drawer-dsl'
+      : drawerTab === 'dock'
+        ? 'journey-drawer journey-drawer-dock'
+        : 'journey-drawer'
 
   return (
     <div
@@ -4109,7 +4116,7 @@ function App() {
         </div>
       ) : null}
       {drawerVisible ? (
-        <section className={drawerTab === 'dsl' ? 'journey-drawer journey-drawer-dsl' : 'journey-drawer'}>
+        <section className={drawerClassName}>
           <div className="drawer-tabs">
             <button
               type="button"

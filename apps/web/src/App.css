@@ -730,8 +730,21 @@
 
 .dock-tab-body {
   min-height: 0;
+  display: grid;
   overflow: auto;
   padding: 10px;
+}
+
+.dock-tab-body > * {
+  min-height: 0;
+}
+
+.dock-tab-body-dsl {
+  overflow: hidden;
+}
+
+.dock-tab-body-dsl > .dsl-panel {
+  height: 100%;
 }
 
 .dock-content-section {
@@ -1292,8 +1305,13 @@
   grid-template-rows: auto 1fr;
 }
 
+.journey-drawer-dock {
+  grid-template-rows: auto 1fr;
+}
+
 .journey-drawer .dock-panel {
   height: 100%;
+  min-height: 0;
 }
 
 .drawer-tabs {
@@ -1609,7 +1627,9 @@
   border-radius: 12px;
   padding: 10px;
   display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
   gap: 8px;
+  height: 100%;
   min-height: 0;
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(241, 245, 249, 0.92)),

@@ -2,6 +2,48 @@
 
 Chronological engineering log. Entries are kept concise and focused on behavior and validation.
 
+## 2026-02-20 - DSL editor full-height layout in dock/floating/bottom contexts
+
+### Scope
+
+- Fix DSL editor panel so Monaco occupies full available vertical space.
+- Ensure toolbar controls stay pinned at the top and editor consumes remaining area.
+- Fix bottom dock rendering where DSL content looked vertically centered and wasted space.
+
+### Changes
+
+- Dock body + DSL fill behavior:
+  - added DSL-aware dock body class to force full-height content area:
+    - `apps/web/src/App.tsx`
+    - `apps/web/src/App.css`
+  - `dock-tab-body` now uses grid stretching with child `min-height: 0` to avoid collapse.
+  - `dock-tab-body-dsl` now disables outer scroll and lets Monaco consume internal area.
+
+- Bottom drawer dock flow:
+  - added dedicated drawer class for dock tab (`journey-drawer-dock`) with `auto + 1fr` rows:
+    - `apps/web/src/App.tsx`
+    - `apps/web/src/App.css`
+  - ensures dock panel fills full bottom drawer height instead of staying compact.
+
+- DSL panel sizing:
+  - `dsl-panel` now always uses `auto / minmax(0,1fr) / auto` rows and `height: 100%`:
+    - keeps controls at top and status at bottom while Monaco fills center.
+  - file:
+    - `apps/web/src/App.css`
+
+### Tests
+
+- Updated:
+  - `apps/web/src/App.styles.test.ts`
+    - asserts new selectors for DSL dock full-height layout.
+
+### Validation
+
+- `npm --workspace @sjv/web run lint`
+- `npm --workspace @sjv/web run test:run -- src/App.styles.test.ts`
+- `npm --workspace @sjv/web run test:run -- --maxWorkers=1`
+- `npm --workspace @sjv/web run build`
+
 ## 2026-02-20 - DSL typing sync direction fix, presentation shortcut cleanup, and theme-safe DSL import
 
 ### Scope

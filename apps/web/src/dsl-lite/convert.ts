@@ -1,7 +1,7 @@
 import { resolveNodePreset, resolveTechPreset } from '../presets/catalog'
 import { resolveNodePorts } from '../model/nodePorts'
 import { fallbackAliasFromNodeId, toEdgeLineText, toJourneyStepText, toNodeLineText } from './parser'
-import type { LiteViewAst, LiteWorkspaceAst } from './types'
+import type { LiteWorkspaceAst } from './types'
 import type { WorkspaceModel } from '../model/types'
 
 const MIN_NODE_SIZE = 80
@@ -129,6 +129,30 @@ const buildAliasMapByView = (
   return aliasesByView
 }
 
+const buildEdgeTokenMapByView = (
+  workspace: WorkspaceModel,
+): Record<string, Map<string, string>> => {
+  const edgeTokensByView: Record<string, Map<string, string>> = {}
+  for (const view of Object.values(workspace.views)) {
+    const edgeTokens = new Map<string, string>()
+    const usedTokens = new Set<string>()
+    for (const edgeId of view.edgeIds) {
+      const edge = workspace.edges[edgeId]
+      if (!edge) {
+        continue
+      }
+      const token = resolveUniqueToken(
+        sanitizeToken(edge.id, `edge_${view.id}`),
+        usedTokens,
+        `edge_${view.id}`,
+      )
+      edgeTokens.set(edge.id, token)
+    }
+    edgeTokensByView[view.id] = edgeTokens
+  }
+  return edgeTokensByView
+}
+
 const resolveParentRef = (
   workspace: WorkspaceModel,
   targetViewId: string,
@@ -153,8 +177,10 @@ const buildViewBlock = (
   workspace: WorkspaceModel,
   view: WorkspaceModel['views'][string],
   aliasByView: Record<string, Map<string, string>>,
+  edgeTokensByView: Record<string, Map<string, string>>,
 ): string => {
   const nodeAliasById = aliasByView[view.id] ?? new Map<string, string>()
+  const edgeTokensById = edgeTokensByView[view.id] ?? new Map<string, string>()
   const parentRef = resolveParentRef(workspace, view.id, aliasByView)
   const viewHeader = parentRef
     ? `view ${view.id} ${view.kind} parent ${parentRef.viewId} via ${parentRef.viaAlias} {`
@@ -165,6 +191,10 @@ const buildViewBlock = (
     .filter((node) => !!node)
     .map((node) => {
       const alias = nodeAliasById.get(node.id) ?? resolveAliasToken(node.id, 'node')
+      const noteTargetAlias =
+        node.kind === 'note' && node.noteTargetNodeId
+          ? nodeAliasById.get(node.noteTargetNodeId)
+          : undefined
       const containsAliases =
         node.kind === 'boundary' && node.children.length > 0
           ? node.children
@@ -172,9 +202,10 @@ const buildViewBlock = (
               .filter((childAlias): childAlias is string => !!childAlias)
           : undefined
       return `    ${toNodeLineText(node.kind, alias, node.name, {
-        techId: node.tech?.id,
+        techId: node.kind === 'note' ? undefined : node.tech?.id,
         drilldownToViewId: node.drilldownRef,
         containsAliases,
+        noteTargetAlias,
       })}`
     })
 
@@ -182,31 +213,31 @@ const buildViewBlock = (
     .map((edgeId) => workspace.edges[edgeId])
     .filter((edge) => !!edge)
     .map((edge) => {
+      const edgeToken = edgeTokensById.get(edge.id) ?? resolveAliasToken(edge.id, 'edge')
       const fromAlias = nodeAliasById.get(edge.from.nodeId) ?? edge.from.nodeId
       const toAlias = nodeAliasById.get(edge.to.nodeId) ?? edge.to.nodeId
-      return `    ${toEdgeLineText(fromAlias, toAlias, edge.protocolPresetId, edge.label)}`
+      return `    ${toEdgeLineText(edgeToken, fromAlias, toAlias, edge.protocolPresetId, edge.label)}`
     })
 
   const journeyBlocks = view.journeyIds
     .map((journeyId) => workspace.journeys[journeyId])
     .filter((journey) => !!journey)
     .map((journey) => {
+      const journeyToken = sanitizeToken(journey.id, `journey_${view.id}`)
       const steps = journey.steps
         .slice()
         .sort((left, right) => left.n - right.n)
         .map((step) => {
-          const edge = workspace.edges[step.edgeId]
-          if (!edge) {
+          const edgeToken = edgeTokensById.get(step.edgeId)
+          if (!edgeToken) {
             return null
           }
-          const fromAlias = nodeAliasById.get(edge.from.nodeId) ?? edge.from.nodeId
-          const toAlias = nodeAliasById.get(edge.to.nodeId) ?? edge.to.nodeId
-          return `      ${toJourneyStepText({ n: step.n, fromAlias, toAlias })}`
+          return `      ${toJourneyStepText({ edgeId: edgeToken })}`
         })
         .filter((line): line is string => !!line)
 
       return [
-        `    journey "${journey.name}" color ${journey.colorKey} {`,
+        `    journey ${journeyToken} "${journey.name}" color ${journey.colorKey} {`,
         ...steps,
         '    }',
       ].join('\n')
@@ -228,6 +259,7 @@ const buildViewBlock = (
 const buildUiLayoutMetadataBlock = (
   workspace: WorkspaceModel,
   aliasByView: Record<string, Map<string, string>>,
+  edgeTokensByView: Record<string, Map<string, string>>,
   options?: { viewIds?: string[] },
 ): string | null => {
   const scopedViewIds = options?.viewIds?.length
@@ -239,6 +271,7 @@ const buildUiLayoutMetadataBlock = (
     .filter((view): view is WorkspaceModel['views'][string] => !!view)
     .map((view) => {
       const nodeAliasById = aliasByView[view.id] ?? new Map<string, string>()
+      const edgeTokensById = edgeTokensByView[view.id] ?? new Map<string, string>()
       const nodeLines = view.nodeIds
         .map((nodeId) => workspace.nodes[nodeId])
         .filter((node): node is WorkspaceModel['nodes'][string] => !!node)
@@ -255,9 +288,8 @@ const buildUiLayoutMetadataBlock = (
         .map((edgeId) => workspace.edges[edgeId])
         .filter((edge): edge is WorkspaceModel['edges'][string] => !!edge)
         .map((edge) => {
-          const fromAlias = nodeAliasById.get(edge.from.nodeId)
-          const toAlias = nodeAliasById.get(edge.to.nodeId)
-          if (!fromAlias || !toAlias) {
+          const edgeToken = edgeTokensById.get(edge.id)
+          if (!edgeToken) {
             return null
           }
           const labelPositionText = toDslNumber(
@@ -272,7 +304,7 @@ const buildUiLayoutMetadataBlock = (
             typeof edge.style.labelAngle === 'number'
               ? Math.max(-180, Math.min(180, edge.style.labelAngle))
               : null
-          return `      edge ${fromAlias} -> ${toAlias} label ${labelPositionText} side ${labelSideText}${
+          return `      edge ${edgeToken} label ${labelPositionText} side ${labelSideText}${
             fontSize !== null ? ` font ${toDslNumber(fontSize)}` : ''
           }${labelAngle !== null ? ` angle ${toDslNumber(labelAngle)}` : ''}`
         })
@@ -308,18 +340,7 @@ export const liteToFullWorkspace = (ast: LiteWorkspaceAst): WorkspaceModel => {
   const resolvedViewIdByOriginal = new Map<string, string>()
   const usedViewIds = new Set<string>()
 
-  const parsedViews =
-    ast.views.length > 0
-      ? ast.views
-      : [
-          ({
-            id: 'v_container',
-            kind: 'container',
-            nodes: [],
-            edges: [],
-            journeys: [],
-          } satisfies LiteViewAst),
-        ]
+  const parsedViews = ast.views
 
   const resolvedViews = parsedViews.map((view, index) => {
     const preferredId = sanitizeToken(
@@ -354,12 +375,13 @@ export const liteToFullWorkspace = (ast: LiteWorkspaceAst): WorkspaceModel => {
   const usedJourneyIds = new Set<string>()
 
   const aliasToNodeIdByView = new Map<string, Map<string, string>>()
-  const edgeLookupByView = new Map<string, Map<string, string>>()
+  const edgeIdByTokenByView = new Map<string, Map<string, string>>()
   const boundaryNodeEntries: Array<{ viewId: string; nodeId: string; containsAliases: string[] }> = []
 
   for (const view of resolvedViews) {
     const aliasToNodeId = new Map<string, string>()
     aliasToNodeIdByView.set(view.id, aliasToNodeId)
+    const noteAttachmentRequests: Array<{ nodeId: string; targetAlias: string }> = []
 
     view.nodes.forEach((node, index) => {
       const preferredNodeId = sanitizeToken(
@@ -370,7 +392,9 @@ export const liteToFullWorkspace = (ast: LiteWorkspaceAst): WorkspaceModel => {
       aliasToNodeId.set(node.alias, nodeId)
 
       const preset = resolveNodePreset(node.kind) ?? resolveNodePreset('container')
-      const techPreset = resolveTechPreset(node.techId ?? preset?.defaultTechId ?? '')
+      const resolvedKind = (preset?.kind ?? 'container') as WorkspaceModel['nodes'][string]['kind']
+      const techPreset =
+        resolvedKind !== 'note' ? resolveTechPreset(node.techId ?? preset?.defaultTechId ?? '') : undefined
       const col = index % 3
       const row = Math.floor(index / 3)
       const bounds = {
@@ -382,14 +406,14 @@ export const liteToFullWorkspace = (ast: LiteWorkspaceAst): WorkspaceModel => {
       nodes[nodeId] = {
         id: nodeId,
         presetId: preset?.id,
-        kind: (preset?.kind ?? 'container') as WorkspaceModel['nodes'][string]['kind'],
+        kind: resolvedKind,
         name: node.name,
         tags: [],
         tech: techPreset
           ? { id: techPreset.id, label: techPreset.label, iconKey: techPreset.iconKey }
           : undefined,
         bounds,
-        ports: resolveNodePorts(bounds),
+        ports: resolveNodePorts(bounds, resolvedKind),
         children: [],
         drilldownRef: resolveViewRef(node.drilldownToViewId),
       }
@@ -403,10 +427,22 @@ export const liteToFullWorkspace = (ast: LiteWorkspaceAst): WorkspaceModel => {
           containsAliases: node.containsAliases,
         })
       }
+      if (resolvedKind === 'note' && node.noteTargetAlias) {
+        noteAttachmentRequests.push({ nodeId, targetAlias: node.noteTargetAlias })
+      }
     })
 
-    const edgeLookup = new Map<string, string>()
-    edgeLookupByView.set(view.id, edgeLookup)
+    for (const request of noteAttachmentRequests) {
+      const noteNode = nodes[request.nodeId]
+      const targetNodeId = aliasToNodeId.get(request.targetAlias)
+      if (!noteNode || !targetNodeId || noteNode.id === targetNodeId) {
+        continue
+      }
+      noteNode.noteTargetNodeId = targetNodeId
+    }
+
+    const edgeIdByToken = new Map<string, string>()
+    edgeIdByTokenByView.set(view.id, edgeIdByToken)
 
     view.edges.forEach((edge, index) => {
       const fromNodeId = aliasToNodeId.get(edge.fromAlias)
@@ -414,9 +450,14 @@ export const liteToFullWorkspace = (ast: LiteWorkspaceAst): WorkspaceModel => {
       if (!fromNodeId || !toNodeId) {
         return
       }
+      const fromNode = nodes[fromNodeId]
+      const toNode = nodes[toNodeId]
+      if (!fromNode || !toNode || fromNode.kind === 'note' || toNode.kind === 'note') {
+        return
+      }
 
       const preferredEdgeId = sanitizeToken(
-        `e_${view.id}_${index + 1}`,
+        edge.id,
         `e_${view.id}_${index + 1}`,
       )
       const edgeId = resolveUniqueToken(preferredEdgeId, usedEdgeIds, `e_${view.id}_${index + 1}`)
@@ -430,20 +471,20 @@ export const liteToFullWorkspace = (ast: LiteWorkspaceAst): WorkspaceModel => {
         style: { arrow: true, dashed: false, thickness: 2, labelPosition: 0.5, labelSide: 'left' },
       }
       views[view.id].edgeIds.push(edgeId)
-      edgeLookup.set(`${edge.fromAlias}->${edge.toAlias}`, edgeId)
+      edgeIdByToken.set(edge.id, edgeId)
     })
 
     view.journeys.forEach((journey, index) => {
-      const edgeLookupForView = edgeLookupByView.get(view.id) ?? new Map<string, string>()
+      const edgeLookupForView = edgeIdByTokenByView.get(view.id) ?? new Map<string, string>()
       const steps = journey.steps
-        .map((step) => ({
-          n: step.n,
-          edgeId: edgeLookupForView.get(`${step.fromAlias}->${step.toAlias}`),
+        .map((step, stepIndex) => ({
+          n: stepIndex + 1,
+          edgeId: edgeLookupForView.get(step.edgeId),
         }))
         .filter((step): step is { n: number; edgeId: string } => !!step.edgeId)
 
       const preferredJourneyId = sanitizeToken(
-        `j_${view.id}_${index + 1}`,
+        journey.id,
         `j_${view.id}_${index + 1}`,
       )
       const journeyId = resolveUniqueToken(
@@ -511,7 +552,7 @@ export const liteToFullWorkspace = (ast: LiteWorkspaceAst): WorkspaceModel => {
       w: Math.max(boundary.bounds.w, groupBounds.w),
       h: Math.max(boundary.bounds.h, groupBounds.h),
     }
-    boundary.ports = resolveNodePorts(boundary.bounds)
+    boundary.ports = resolveNodePorts(boundary.bounds, boundary.kind)
   }
 
   for (const layoutView of ast.uiLayout ?? []) {
@@ -521,7 +562,7 @@ export const liteToFullWorkspace = (ast: LiteWorkspaceAst): WorkspaceModel => {
     }
     const view = views[resolvedLayoutViewId]
     const aliasMap = aliasToNodeIdByView.get(resolvedLayoutViewId)
-    const edgeLookup = edgeLookupByView.get(resolvedLayoutViewId)
+    const edgeLookup = edgeIdByTokenByView.get(resolvedLayoutViewId)
 
     for (const nodeLayout of layoutView.nodes) {
       const nodeId = aliasMap?.get(nodeLayout.alias)
@@ -538,11 +579,11 @@ export const liteToFullWorkspace = (ast: LiteWorkspaceAst): WorkspaceModel => {
         w: Math.max(MIN_NODE_SIZE, nodeLayout.w),
         h: Math.max(MIN_NODE_SIZE, nodeLayout.h),
       }
-      node.ports = resolveNodePorts(node.bounds)
+      node.ports = resolveNodePorts(node.bounds, node.kind)
     }
 
     for (const edgeLayout of layoutView.edges) {
-      const edgeId = edgeLookup?.get(`${edgeLayout.fromAlias}->${edgeLayout.toAlias}`)
+      const edgeId = edgeLookup?.get(edgeLayout.edgeId)
       if (!edgeId || !view.edgeIds.includes(edgeId)) {
         continue
       }
@@ -593,11 +634,14 @@ export const fullWorkspaceToLiteDsl = (workspace: WorkspaceModel): string => {
   }
 
   const aliasByView = buildAliasMapByView(workspace)
+  const edgeTokensByView = buildEdgeTokenMapByView(workspace)
   const viewBlocks = viewIds
     .map((viewId) => workspace.views[viewId])
     .filter((view) => !!view)
-    .map((view) => buildViewBlock(workspace, view, aliasByView))
-  const uiLayoutBlock = buildUiLayoutMetadataBlock(workspace, aliasByView, { viewIds })
+    .map((view) => buildViewBlock(workspace, view, aliasByView, edgeTokensByView))
+  const uiLayoutBlock = buildUiLayoutMetadataBlock(workspace, aliasByView, edgeTokensByView, {
+    viewIds,
+  })
   const sections = uiLayoutBlock ? [...viewBlocks, uiLayoutBlock] : viewBlocks
 
   return [`workspace "${workspace.workspace.name}" {`, ...sections, '}'].join('\n\n')
@@ -609,8 +653,11 @@ export const fullViewToLiteDsl = (workspace: WorkspaceModel, viewId: string): st
     return ''
   }
   const aliasByView = buildAliasMapByView(workspace)
-  const viewBlock = buildViewBlock(workspace, view, aliasByView)
-  const uiLayoutBlock = buildUiLayoutMetadataBlock(workspace, aliasByView, { viewIds: [viewId] })
+  const edgeTokensByView = buildEdgeTokenMapByView(workspace)
+  const viewBlock = buildViewBlock(workspace, view, aliasByView, edgeTokensByView)
+  const uiLayoutBlock = buildUiLayoutMetadataBlock(workspace, aliasByView, edgeTokensByView, {
+    viewIds: [viewId],
+  })
   return [`workspace "${workspace.workspace.name}" {`, viewBlock, uiLayoutBlock, '}']
     .filter((line): line is string => !!line)
     .join('\n\n')

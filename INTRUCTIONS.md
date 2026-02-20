@@ -10,12 +10,12 @@ Build a draw.io/Whimsical-style editor with full product control, focused on:
 - **Render/Player mode** with edge flow animation, node/edge highlighting, end-of-journey effects, loop, and speed control.
 - **Drill-down**: double-click a container to open its child view with breadcrumb navigation.
 - Persistence strategy:
-  - always save **FULL DSL/model** (with geometry),
-  - support a **LITE DSL** for human/AI editing that is converted to FULL.
+  - always save **FULL model** (with geometry),
+  - support a **SJV Script** for human/AI editing that is converted to FULL.
 
 ### Core principles
 
-- Decouple UI, engine, and DSL layers.
+- Decouple UI, engine, and SJV Script layers.
 - Keep schema-versioned data with explicit migrations.
 - Avoid paid/proprietary lock-in.
 - Preserve extensibility by adapter boundaries.
@@ -47,7 +47,7 @@ Build a draw.io/Whimsical-style editor with full product control, focused on:
 - supports dock repositioning (right/bottom)
 
 5. **Bottom workbench**
-- timeline and DSL tabs
+- timeline and SJV Script tabs
 - focus/maximize behavior for text workflows
 
 ### 1.2 Key interactions
@@ -96,8 +96,8 @@ flowchart LR
   UI[React UI] -->|actions| Store[(State Store)]
   UI --> Engine[Diagram Engine Wrapper]
 
-  Store --> DSL[DSL Layer]
-  DSL -->|load| Engine
+  Store --> SJV Script[SJV Script Layer]
+  SJV Script -->|load| Engine
   Engine -->|events| Store
 
   Engine --> Render[SVG/Canvas Render Layer]
@@ -116,7 +116,7 @@ flowchart LR
 - **UI**: layout, forms, hotkeys, and command surfaces.
 - **Store**: editor state, selection, viewport, journeys, playback state.
 - **Engine adapter**: canonical operations for create/move/resize/connect/select.
-- **DSL layer**: FULL canonical model + LITE conversion/parsing.
+- **SJV Script layer**: parser/exporter and conversion to/from FULL model.
 - **Presets**: node/tech/protocol catalogs.
 - **Layout/routing**: optional auto-arrangement and edge routing.
 - **Player**: step timeline and animation semantics.
@@ -178,14 +178,14 @@ Each preset should provide:
 
 ---
 
-## 7) DSL Strategy
+## 7) SJV Script Strategy
 
 ### 7.1 FULL model
 
 - JSON-based canonical source of truth.
 - includes geometry, style, view hierarchy, journeys, and settings.
 
-### 7.2 LITE DSL (human/AI-friendly)
+### 7.2 SJV Script (human/AI-friendly)
 
 - text-based structure for architecture intent.
 - no required geometry.
@@ -193,7 +193,7 @@ Each preset should provide:
 
 ### 7.3 Conversion flow
 
-- parse LITE into AST
+- parse script into AST
 - resolve stable IDs
 - apply presets
 - compute layout
@@ -254,7 +254,7 @@ Each preset should provide:
 ### 10.2 File export
 
 - always export canonical FULL model
-- optional generated LITE text export
+- optional generated SJV Script text export
 
 ---
 
@@ -263,7 +263,7 @@ Each preset should provide:
 - React + TypeScript + Vite
 - Zustand + Immer
 - Zod validation
-- Monaco editor for DSL
+- Monaco editor for SJV Script
 - Vitest for unit tests
 - Playwright for E2E (recommended future addition)
 
@@ -293,7 +293,7 @@ Each preset should provide:
 - **M5** Player and effects.
 - **M6** C4 drill-down.
 - **M7** Hex view.
-- **M8** DSL LITE pipeline.
+- **M8** SJV Script pipeline.
 - **M9** Export pipeline.
 
 ---
@@ -315,7 +315,7 @@ Each preset should provide:
 - avoid allocation-heavy per-frame loops.
 
 ### 14.5 Testing
-- unit: DSL parsing, migrations, journey sequencing.
+- unit: SJV Script parsing, migrations, journey sequencing.
 - E2E: editing, drill-down, playback, export smoke tests.
 
 ---
@@ -347,4 +347,4 @@ Freeze and enforce `EngineAdapter` API:
   - `onResize`
   - `onViewportChange`
 
-This keeps DSL, journeys, and player evolution independent from engine internals.
+This keeps SJV Script, journeys, and player evolution independent from engine internals.

@@ -361,7 +361,7 @@ function App() {
   const [dslSyncEnabled, setDslSyncEnabled] = useState(false)
   const [dslError, setDslError] = useState<string | null>(null)
   const [dslCodexInstruction, setDslCodexInstruction] = useState(
-    'Refine o DSL preservando comportamento e melhorando legibilidade.',
+    'Refine the SJV Script while preserving behavior and improving readability.',
   )
   const [dslCodexThreadId, setDslCodexThreadId] = useState<string | null>(null)
   const [dslCodexStatus, setDslCodexStatus] = useState<string | null>(null)
@@ -482,7 +482,7 @@ function App() {
     [playerJourney, playerStepIndex, workspace.edges],
   )
   const currentViewModeLabel = viewKindLabel[currentView.kind] ?? currentView.kind
-  const playerModeLabel = playerIsRunning ? 'Animação' : 'Render'
+  const playerModeLabel = playerIsRunning ? 'Animation' : 'Render'
   const immersiveMode = focusMode || presentationMode
   const leftDockVisible = !immersiveMode && dockPosition === 'left' && !dockCollapsed
   const leftPanelVisible = !immersiveMode && !leftSidebarCollapsed && !leftDockVisible
@@ -870,12 +870,12 @@ function App() {
           setDslText(payload)
           setDslError(null)
           setExportError(null)
-          setTransientStatus(`DSL loaded: ${options?.fileName ?? 'workspace.dsl'}`)
+          setTransientStatus(`SJV Script loaded: ${options?.fileName ?? 'workspace.sjv'}`)
           return
         } catch (dslError) {
           const snapshotMessage =
             snapshotError instanceof Error ? snapshotError.message : 'Invalid workspace snapshot payload.'
-          const dslMessage = dslError instanceof Error ? dslError.message : 'Invalid DSL payload.'
+          const dslMessage = dslError instanceof Error ? dslError.message : 'Invalid SJV Script payload.'
           throw new Error(`${snapshotMessage}\n${dslMessage}`)
         }
       }
@@ -1633,7 +1633,7 @@ function App() {
       dslSyncLastAppliedTextRef.current = dslText
       setDslError(null)
     } catch (error) {
-      setDslError(error instanceof Error ? error.message : 'Falha ao sincronizar DSL.')
+      setDslError(error instanceof Error ? error.message : 'Failed to sync SJV Script.')
     }
   }, [dslSyncEnabled, dslText, replaceWorkspace, resolveWorkspaceFromDslText])
 
@@ -1995,7 +1995,7 @@ function App() {
   const exportFromCanvas = async (format: 'svg' | 'png' | 'pdf') => {
     const svg = document.querySelector('.diagram-canvas')
     if (!(svg instanceof SVGSVGElement)) {
-      setExportError('Canvas não encontrado para exportação.')
+      setExportError('Canvas not found for export.')
       return
     }
     try {
@@ -2008,7 +2008,7 @@ function App() {
       }
       setExportError(null)
     } catch (error) {
-      setExportError(error instanceof Error ? error.message : 'Falha ao exportar arquivo.')
+      setExportError(error instanceof Error ? error.message : 'Failed to export file.')
     }
   }
 
@@ -2069,18 +2069,18 @@ function App() {
     const svg = document.querySelector('.diagram-canvas')
     const trailCanvas = document.querySelector('.trail-canvas')
     if (!(svg instanceof SVGSVGElement) || !(trailCanvas instanceof HTMLCanvasElement)) {
-      setExportError('Canvas não encontrado para export animado.')
+      setExportError('Canvas not found for animated export.')
       return
     }
 
     const journeyId = resolveCurrentExportJourneyId()
     if (!journeyId) {
-      setExportError('Selecione uma jornada para exportar.')
+      setExportError('Select a journey to export.')
       return
     }
     const journey = workspace.journeys[journeyId]
     if (!journey || !journey.steps.length) {
-      setExportError('A jornada selecionada não possui passos para exportação animada.')
+      setExportError('The selected journey has no steps for animated export.')
       return
     }
 
@@ -2095,7 +2095,7 @@ function App() {
 
     if (format === 'svg') {
       try {
-        setExportStatus('Gerando SVG animado...')
+        setExportStatus('Generating animated SVG...')
         exportAnimatedJourneySvg({
           svg,
           workspace,
@@ -2103,10 +2103,10 @@ function App() {
           playerSpeedMs: exportSpeedMs,
           filenameBase,
         })
-        setExportStatus('SVG animado exportado.')
+        setExportStatus('Animated SVG exported.')
         window.setTimeout(() => setExportStatus(null), 2800)
       } catch (error) {
-        setExportError(error instanceof Error ? error.message : 'Falha ao exportar SVG animado.')
+        setExportError(error instanceof Error ? error.message : 'Failed to export animated SVG.')
       } finally {
         setExportFocusJourneyId(null)
         setAnimatedExportRunning(false)
@@ -2124,7 +2124,7 @@ function App() {
     }
 
     try {
-      setExportStatus('Preparando captura animada...')
+      setExportStatus('Preparing animated capture...')
       setPlayerLoop(false)
       setPlayerSpeedMs(exportSpeedMs)
       setPlayerJourney(journeyId)
@@ -2143,7 +2143,7 @@ function App() {
       }
 
       if (format === 'gif') {
-        setExportStatus('Renderizando GIF animado...')
+        setExportStatus('Rendering animated GIF...')
         await exportAnimatedJourneyGif({
           svg,
           trailCanvas,
@@ -2152,9 +2152,9 @@ function App() {
           resolveBaseKey,
           filenameBase,
         })
-        setExportStatus('GIF animado exportado.')
+        setExportStatus('Animated GIF exported.')
       } else {
-        setExportStatus('Gravando vídeo da jornada...')
+        setExportStatus('Recording journey video...')
         const video = await exportAnimatedJourneyVideo({
           svg,
           trailCanvas,
@@ -2167,13 +2167,13 @@ function App() {
         })
         setExportStatus(
           video.extension === 'mp4'
-            ? 'Vídeo MP4 (compatível com mobile) exportado.'
-            : 'Vídeo exportado.',
+            ? 'MP4 video (mobile-compatible) exported.'
+            : 'Video exported.',
         )
       }
       window.setTimeout(() => setExportStatus(null), 3200)
     } catch (error) {
-      setExportError(error instanceof Error ? error.message : 'Falha ao exportar jornada animada.')
+      setExportError(error instanceof Error ? error.message : 'Failed to export animated journey.')
     } finally {
       restorePlayerAfterAnimatedExport(snapshot)
       setExportFocusJourneyId(null)
@@ -2184,12 +2184,12 @@ function App() {
   const runCodexAssistForDsl = async () => {
     const trimmedDsl = dslText.trim()
     if (!trimmedDsl) {
-      setDslError('Preencha a DSL antes de executar o Codex.')
+      setDslError('Fill in the SJV Script before running Codex.')
       return
     }
     const instruction = dslCodexInstruction.trim()
     if (!instruction) {
-      setDslError('Informe uma instrução para o Codex.')
+      setDslError('Provide a Codex instruction.')
       return
     }
 
@@ -2206,14 +2206,14 @@ function App() {
       const extractedDsl = extractDslFromCodexResponse(result.finalResponse)
       if (!extractedDsl) {
         setDslCodexStatus(
-          'Codex respondeu sem bloco DSL. Ajuste a instrução para retornar o resultado em ```dsl ... ```.',
+          'Codex returned no SJV Script block. Ask it to return the result inside ```sjv ... ```.',
         )
         return
       }
       setDslText(extractedDsl)
-      setDslCodexStatus('DSL atualizada com sucesso via Codex.')
+      setDslCodexStatus('SJV Script updated via Codex.')
     } catch (error) {
-      setDslError(error instanceof Error ? error.message : 'Falha ao executar Codex.')
+      setDslError(error instanceof Error ? error.message : 'Failed to run Codex.')
     } finally {
       setDslCodexRunning(false)
     }
@@ -2222,7 +2222,7 @@ function App() {
   const journeyTimelineContent = (
     <>
       <div className="journey-timeline-toolbar">
-        <strong>Timeline da jornada ativa</strong>
+        <strong>Active journey timeline</strong>
         <span className="player-step-info">
           Step {playerStepIndex + 1}/{playerJourney?.steps.length ?? 0}
         </span>
@@ -2253,14 +2253,14 @@ function App() {
               </span>
               <span className="journey-step-actions">
                 <button type="button" onClick={() => removeEdgeFromJourney(activeJourney.id, step.edgeId)}>
-                  Remover
+                  Remove
                 </button>
               </span>
             </li>
           ))}
         </ol>
       ) : (
-        <p>Selecione uma jornada na lateral para visualizar a timeline.</p>
+        <p>Select a journey on the sidebar to view the timeline.</p>
       )}
     </>
   )
@@ -2268,7 +2268,7 @@ function App() {
   const dslPanelContent = (
     <div className={`dsl-panel ${dslMaximized ? 'dsl-panel-maximized' : ''}`}>
       <div className="dsl-toolbar">
-        <strong>{JOURNEY_SCRIPT_NAME} DSL</strong>
+        <strong>{JOURNEY_SCRIPT_NAME}</strong>
         <label className="dsl-sync-toggle">
           <input
             type="checkbox"
@@ -2282,7 +2282,7 @@ function App() {
               }
             }}
           />
-          Sync com editor
+          Sync with editor
         </label>
         <button
           type="button"
@@ -2291,7 +2291,7 @@ function App() {
             setDslError(null)
           }}
         >
-          Exportar workspace completo
+          Export full workspace
         </button>
         <button
           type="button"
@@ -2301,18 +2301,18 @@ function App() {
               replaceWorkspace(imported.workspace, imported.entryViewId)
               setDslError(null)
             } catch (error) {
-              setDslError(error instanceof Error ? error.message : 'Falha ao importar DSL.')
+              setDslError(error instanceof Error ? error.message : 'Failed to import SJV Script.')
             }
           }}
           disabled={dslSyncEnabled}
         >
-          Importar DSL
+          Import SJV Script
         </button>
         <input
           className="dsl-codex-instruction"
           value={dslCodexInstruction}
           onChange={(event) => setDslCodexInstruction(event.target.value)}
-          placeholder="Instrução para o Codex (ex.: separar fluxos async por boundary)"
+          placeholder="Instruction for Codex (e.g. split async flows by boundary)"
           disabled={dslSyncEnabled}
         />
         <button
@@ -2320,21 +2320,21 @@ function App() {
           onClick={() => void runCodexAssistForDsl()}
           disabled={dslCodexRunning || dslSyncEnabled}
         >
-          {dslCodexRunning ? 'Codex executando...' : 'Refinar com Codex'}
+          {dslCodexRunning ? 'Running Codex...' : 'Refine with Codex'}
         </button>
         <button
           type="button"
           onClick={() => {
             setDslCodexThreadId(null)
-            setDslCodexStatus('Contexto do thread Codex limpo.')
+            setDslCodexStatus('Codex thread context cleared.')
           }}
           disabled={!dslCodexThreadId || dslCodexRunning || dslSyncEnabled}
         >
-          Limpar contexto Codex
+          Clear Codex context
         </button>
       </div>
       <div className="dsl-monaco-editor">
-        <Suspense fallback={<p className="dsl-codex-status">Loading JourneyScript editor...</p>}>
+        <Suspense fallback={<p className="dsl-codex-status">Loading SJV Script editor...</p>}>
           <MonacoEditor
             beforeMount={handleDslEditorBeforeMount}
             language={JOURNEY_SCRIPT_LANGUAGE_ID}
@@ -2356,7 +2356,7 @@ function App() {
         </Suspense>
       </div>
       {dslSyncEnabled ? (
-        <p className="dsl-codex-status">Sync ativo: alterações válidas no DSL são aplicadas no view em tempo real.</p>
+        <p className="dsl-codex-status">Sync active: valid SJV Script changes are applied to the view in real time.</p>
       ) : null}
       {dslCodexThreadId ? <p className="dsl-codex-thread">Thread Codex: {dslCodexThreadId}</p> : null}
       {dslCodexStatus ? <p className="dsl-codex-status">{dslCodexStatus}</p> : null}
@@ -2374,7 +2374,7 @@ function App() {
     inspector: 'Inspector',
     journeys: 'Journeys',
     timeline: 'Timeline',
-    dsl: 'DSL',
+    dsl: 'SJV Script',
     help: 'Help',
   }
   const resolvedActiveDockTab = dockTabOrder.includes(activeDockTab)
@@ -2400,17 +2400,17 @@ function App() {
   const inspectorDockContent = (
     <div className="dock-content-section">
       <h2>Inspector</h2>
-      {!selectedNode && !selectedEdge ? <p>Selecione um node ou edge no canvas.</p> : null}
+      {!selectedNode && !selectedEdge ? <p>Select a node or edge on the canvas.</p> : null}
       {selectedNodes.length > 1 ? (
-        <p>{selectedNodes.length} componentes selecionados (foco atual: {selectedNode?.name ?? 'n/a'}).</p>
+        <p>{selectedNodes.length} selected components (current focus: {selectedNode?.name ?? 'n/a'}).</p>
       ) : null}
       {selectedNode ? (
         <div className="inspector-form">
           <label htmlFor="node-id">ID</label>
           <input id="node-id" value={selectedNode.id} disabled />
-          <label htmlFor="node-kind">Tipo</label>
+          <label htmlFor="node-kind">Type</label>
           <input id="node-kind" value={selectedNode.kind} disabled />
-          <label htmlFor="node-name">Nome</label>
+          <label htmlFor="node-name">Name</label>
           <input
             id="node-name"
             value={selectedNode.name}
@@ -2422,7 +2422,7 @@ function App() {
             value={resolveNodePreset(selectedNode.presetId ?? '')?.label ?? 'Custom'}
             disabled
           />
-          <label htmlFor="node-tech">Tecnologia</label>
+          <label htmlFor="node-tech">Technology</label>
           <input
             id="node-tech"
             value={selectedNode.tech?.label ?? ''}
@@ -2430,7 +2430,7 @@ function App() {
           />
           {selectedNode.kind !== 'boundary' ? (
             <>
-              <label htmlFor="node-color">Cor do node</label>
+              <label htmlFor="node-color">Node color</label>
               <input
                 id="node-color"
                 type="color"
@@ -2441,7 +2441,7 @@ function App() {
                 }
                 onChange={(event) => setNodeColor(selectedNode.id, event.target.value)}
               />
-              <label>Paleta sugerida ({theme === 'dark' ? 'Tailwind dark' : 'Tailwind light'})</label>
+              <label>Suggested palette ({theme === 'dark' ? 'Tailwind dark' : 'Tailwind light'})</label>
               <div className="node-color-presets">
                 {nodeColorPresets.map((color) => (
                   <button
@@ -2460,7 +2460,7 @@ function App() {
               </div>
             </>
           ) : null}
-          <label htmlFor="node-text-color">Cor do texto</label>
+          <label htmlFor="node-text-color">Text color</label>
           <input
             id="node-text-color"
             type="color"
@@ -2473,7 +2473,7 @@ function App() {
             }
             onChange={(event) => setNodeTextColor(selectedNode.id, event.target.value)}
           />
-          <label>Paleta de texto</label>
+          <label>Text palette</label>
           <div className="node-color-presets">
             {nodeTextColorPresets.map((color) => (
               <button
@@ -2510,7 +2510,7 @@ function App() {
             value={selectedEdge.label}
             onChange={(event) => setEdgeLabel(selectedEdge.id, event.target.value)}
           />
-          <label htmlFor="edge-protocol">Protocolo</label>
+          <label htmlFor="edge-protocol">Protocol</label>
           <select
             id="edge-protocol"
             value={selectedEdge.protocolPresetId}
@@ -2590,7 +2590,7 @@ function App() {
         <h3>Creation</h3>
         <div className="journey-side-create">
           <input
-            placeholder="Nova jornada"
+            placeholder="New journey"
             value={journeyDraftName}
             onChange={(event) => setJourneyDraftName(event.target.value)}
           />
@@ -2603,7 +2603,7 @@ function App() {
               activateJourneyPlayback(journeyId)
             }}
           >
-            Criar jornada
+            Create journey
           </button>
         </div>
       </section>
@@ -2617,7 +2617,7 @@ function App() {
               applyJourneyFilter(nextJourneyId, { activateJourney: true })
             }}
           >
-            <option value="">Filtro: todas jornadas</option>
+            <option value="">Filter: all journeys</option>
             {viewJourneys.map((journey) => (
               <option key={journey.id} value={journey.id}>
                 {journey.name}
@@ -2625,7 +2625,7 @@ function App() {
             ))}
           </select>
           <button type="button" onClick={() => applyJourneyFilter(null, { activateJourney: false })}>
-            Limpar filtro
+            Clear filter
           </button>
           <select
             value={journeyFocusSettings.offscopeRenderMode}
@@ -2635,9 +2635,9 @@ function App() {
               })
             }
           >
-            <option value="show">Foco: mostrar tudo</option>
-            <option value="dim">Foco: cinza fora da jornada</option>
-            <option value="hide">Foco: ocultar fora da jornada</option>
+            <option value="show">Focus: show all</option>
+            <option value="dim">Focus: dim outside journey</option>
+            <option value="hide">Focus: hide outside journey</option>
           </select>
           <select
             value={journeyFocusSettings.layoutMode}
@@ -2647,8 +2647,8 @@ function App() {
               })
             }
           >
-            <option value="preserve">Layout filtro: preservar posições</option>
-            <option value="reflow">Layout filtro: reflow da jornada</option>
+            <option value="preserve">Filter layout: preserve positions</option>
+            <option value="reflow">Filter layout: reflow journey</option>
           </select>
           <select
             value={journeyFocusSettings.autoLayoutMode}
@@ -2658,8 +2658,8 @@ function App() {
               })
             }
           >
-            <option value="manual">Auto-layout: aplicar manual</option>
-            <option value="always">Auto-layout: sempre no filtro</option>
+            <option value="manual">Auto-layout: apply manually</option>
+            <option value="always">Auto-layout: always while filtering</option>
           </select>
           <button
             type="button"
@@ -2678,7 +2678,7 @@ function App() {
         <h3>Player</h3>
         <div className="journey-side-player">
           <select value={playerJourneyId ?? ''} onChange={(event) => activateJourneyPlayback(event.target.value || null)}>
-            <option value="">Player: selecione jornada</option>
+            <option value="">Player: select journey</option>
             {viewJourneys.map((journey) => (
               <option key={journey.id} value={journey.id}>
                 {journey.name}
@@ -2689,26 +2689,26 @@ function App() {
             value={playerAnimationPreset}
             onChange={(event) => applyPlayerAnimationPreset(event.target.value as PlayerAnimationPreset)}
           >
-            <option value="cinematic">Animação: Cinematic</option>
-            <option value="orb">Animação: Orb only</option>
-            <option value="minimal">Animação: Minimal</option>
+            <option value="cinematic">Animation: Cinematic</option>
+            <option value="orb">Animation: Orb only</option>
+            <option value="minimal">Animation: Minimal</option>
           </select>
-          <div className="journey-player-actions journey-player-actions-iconic" role="group" aria-label="Controles do player">
-            <button type="button" disabled={!playerJourney} onClick={() => prevPlayerStep()} aria-label="Passo anterior">
+          <div className="journey-player-actions journey-player-actions-iconic" role="group" aria-label="Player controls">
+            <button type="button" disabled={!playerJourney} onClick={() => prevPlayerStep()} aria-label="Previous step">
               <SkipBack size={15} />
             </button>
             <button
               type="button"
               disabled={!playerJourney}
               onClick={() => setPlayerRunning(!playerIsRunning)}
-              aria-label={playerIsRunning ? 'Pausar player' : 'Iniciar player'}
+              aria-label={playerIsRunning ? 'Pause player' : 'Start player'}
             >
               {playerIsRunning ? <Pause size={16} /> : <Play size={16} />}
             </button>
-            <button type="button" disabled={!playerJourney} onClick={() => stepPlayer()} aria-label="Próximo passo">
+            <button type="button" disabled={!playerJourney} onClick={() => stepPlayer()} aria-label="Next step">
               <SkipForward size={15} />
             </button>
-            <button type="button" disabled={!playerJourney} onClick={() => resetPlayer()} aria-label="Resetar player">
+            <button type="button" disabled={!playerJourney} onClick={() => resetPlayer()} aria-label="Reset player">
               <RotateCcw size={15} />
             </button>
           </div>
@@ -2802,7 +2802,7 @@ function App() {
                   }
                 }}
               >
-                {journeyFilterId === journey.id ? 'Filtrando' : 'Filtrar'}
+                {journeyFilterId === journey.id ? 'Filtering' : 'Filter'}
               </button>
             </div>
           ))}
@@ -2837,8 +2837,8 @@ function App() {
           type="button"
           className={dockPosition === 'left' ? 'dock-placement dock-placement-active' : 'dock-placement'}
           onClick={() => moveDockToLeft()}
-          title="Dock à esquerda"
-          aria-label="Dock à esquerda"
+          title="Dock left"
+          aria-label="Dock left"
         >
           <PanelLeftOpen size={14} />
         </button>
@@ -2846,8 +2846,8 @@ function App() {
           type="button"
           className={dockPosition === 'right' ? 'dock-placement dock-placement-active' : 'dock-placement'}
           onClick={() => moveDockToRight()}
-          title="Dock à direita"
-          aria-label="Dock à direita"
+          title="Dock right"
+          aria-label="Dock right"
         >
           <PanelRightOpen size={14} />
         </button>
@@ -2855,8 +2855,8 @@ function App() {
           type="button"
           className={dockPosition === 'bottom' ? 'dock-placement dock-placement-active' : 'dock-placement'}
           onClick={() => moveDockToBottom()}
-          title="Dock embaixo"
-          aria-label="Dock embaixo"
+          title="Dock bottom"
+          aria-label="Dock bottom"
         >
           <PanelBottomOpen size={14} />
         </button>
@@ -2864,8 +2864,8 @@ function App() {
           type="button"
           className={dockPosition === 'floating' ? 'dock-placement dock-placement-active' : 'dock-placement'}
           onClick={() => moveDockToFloating()}
-          title="Dock flutuante"
-          aria-label="Dock flutuante"
+          title="Floating dock"
+          aria-label="Floating dock"
         >
           <Dock size={14} />
         </button>
@@ -2945,7 +2945,7 @@ function App() {
             </div>
           </div>
           {!presentationMode ? (
-            <nav className="desktop-menu-bar" aria-label="Menu principal" ref={desktopMenuBarRef}>
+            <nav className="desktop-menu-bar" aria-label="Main menu" ref={desktopMenuBarRef}>
             <div
               className={openDesktopMenu === 'file' ? 'desktop-menu desktop-menu-open' : 'desktop-menu'}
               onMouseEnter={() => {
@@ -3249,7 +3249,6 @@ function App() {
                     onClick={() => runDesktopMenuAction(() => togglePresentationMode())}
                   >
                     <span>{presentationMode ? 'Exit Presentation' : 'Presentation Mode'}</span>
-                    <kbd>P</kbd>
                   </button>
                   <button
                     type="button"
@@ -3294,7 +3293,7 @@ function App() {
                     <span>Panel: Timeline</span>
                   </button>
                   <button type="button" role="menuitem" onClick={() => runDesktopMenuAction(() => openDockTab('dsl'))}>
-                    <span>Panel: DSL</span>
+                    <span>Panel: SJV Script</span>
                   </button>
                   <button type="button" role="menuitem" onClick={() => runDesktopMenuAction(() => openDockTab('help'))}>
                     <span>Panel: Help</span>
@@ -3629,7 +3628,7 @@ function App() {
                       })
                     }
                   >
-                    <span>Open DSL Editor</span>
+                    <span>Open SJV Script Editor</span>
                   </button>
                   <button
                     type="button"
@@ -3713,10 +3712,10 @@ function App() {
           {!immersiveMode ? dockHeaderBar : null}
           {!presentationMode ? (
             <div className="mode-indicators">
-              <span className={activeTool === 'connector' ? 'mode-pill mode-pill-active' : 'mode-pill'}>
-                {activeTool === 'connector' ? 'Modo: Connector' : 'Modo: Select'}
+                <span className={activeTool === 'connector' ? 'mode-pill mode-pill-active' : 'mode-pill'}>
+                {activeTool === 'connector' ? 'Mode: Connector' : 'Mode: Select'}
               </span>
-              <span className="mode-pill">Camada: {currentViewModeLabel}</span>
+              <span className="mode-pill">Layer: {currentViewModeLabel}</span>
               <span className={immersiveMode ? 'mode-pill mode-pill-active' : 'mode-pill'}>
                 View: {presentationMode ? 'Presentation' : focusMode ? 'Focus' : 'Studio'}
               </span>
@@ -3759,7 +3758,7 @@ function App() {
                   }
                 }}
               >
-                <option value="">Player: selecione jornada</option>
+                <option value="">Player: select journey</option>
                 {viewJourneys.map((journey) => (
                   <option key={journey.id} value={journey.id}>
                     {journey.name}
@@ -3771,26 +3770,26 @@ function App() {
                 value={playerAnimationPreset}
                 onChange={(event) => applyPlayerAnimationPreset(event.target.value as PlayerAnimationPreset)}
               >
-                <option value="cinematic">Animação: Cinematic</option>
-                <option value="orb">Animação: Orb only</option>
-                <option value="minimal">Animação: Minimal</option>
+                <option value="cinematic">Animation: Cinematic</option>
+                <option value="orb">Animation: Orb only</option>
+                <option value="minimal">Animation: Minimal</option>
               </select>
-              <div className="journey-player-actions journey-player-actions-iconic" role="group" aria-label="Controles do player">
-                <button type="button" disabled={!playerJourney} onClick={() => prevPlayerStep()} aria-label="Passo anterior">
+              <div className="journey-player-actions journey-player-actions-iconic" role="group" aria-label="Player controls">
+                <button type="button" disabled={!playerJourney} onClick={() => prevPlayerStep()} aria-label="Previous step">
                   <SkipBack size={15} />
                 </button>
                 <button
                   type="button"
                   disabled={!playerJourney}
                   onClick={() => setPlayerRunning(!playerIsRunning)}
-                  aria-label={playerIsRunning ? 'Pausar player' : 'Iniciar player'}
+                  aria-label={playerIsRunning ? 'Pause player' : 'Start player'}
                 >
                   {playerIsRunning ? <Pause size={16} /> : <Play size={16} />}
                 </button>
-                <button type="button" disabled={!playerJourney} onClick={() => stepPlayer()} aria-label="Próximo passo">
+                <button type="button" disabled={!playerJourney} onClick={() => stepPlayer()} aria-label="Next step">
                   <SkipForward size={15} />
                 </button>
-                <button type="button" disabled={!playerJourney} onClick={() => resetPlayer()} aria-label="Resetar player">
+                <button type="button" disabled={!playerJourney} onClick={() => resetPlayer()} aria-label="Reset player">
                   <RotateCcw size={15} />
                 </button>
               </div>
@@ -3813,7 +3812,7 @@ function App() {
                   void exportAnimatedFromCanvas('gif')
                 }}
               >
-                {animatedExportRunning ? 'Exportando...' : 'Exportar GIF'}
+                {animatedExportRunning ? 'Exporting...' : 'Export GIF'}
               </button>
               <button
                 type="button"
@@ -3823,7 +3822,7 @@ function App() {
                   void exportAnimatedFromCanvas('mp4')
                 }}
               >
-                {animatedExportRunning ? 'Exportando...' : 'Exportar MP4'}
+                {animatedExportRunning ? 'Exporting...' : 'Export MP4'}
               </button>
               <button
                 type="button"
@@ -3833,10 +3832,10 @@ function App() {
                   void exportAnimatedFromCanvas('svg')
                 }}
               >
-                {animatedExportRunning ? 'Exportando...' : 'Exportar SVG animado'}
+                {animatedExportRunning ? 'Exporting...' : 'Export Animated SVG'}
               </button>
               <button type="button" className="focus-toggle-button" onClick={() => togglePresentationMode()}>
-                Sair apresentação
+                Exit presentation
               </button>
             </div>
           ) : (
@@ -3889,7 +3888,7 @@ function App() {
                 type="button"
                 className="icon-toggle-button"
                 onClick={() => setGridEnabled(!gridEnabled)}
-                title={gridEnabled ? 'Ocultar grid' : 'Mostrar grid'}
+                title={gridEnabled ? 'Hide grid' : 'Show grid'}
               >
                 <Dock size={14} />
                 <span>{gridEnabled ? 'Grid on' : 'Grid off'}</span>
@@ -3898,7 +3897,7 @@ function App() {
                 type="button"
                 className="icon-toggle-button"
                 onClick={() => setSnapEnabled(!snapEnabled)}
-                title={snapEnabled ? 'Desabilitar snap' : 'Habilitar snap'}
+                title={snapEnabled ? 'Disable snap' : 'Enable snap'}
               >
                 {snapEnabled ? <Eye size={14} /> : <EyeOff size={14} />}
                 <span>{snapEnabled ? 'Snap on' : 'Snap off'}</span>
@@ -3907,7 +3906,7 @@ function App() {
                 type="button"
                 className="icon-toggle-button"
                 onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-                title={theme === 'dark' ? 'Tema claro' : 'Tema escuro'}
+                title={theme === 'dark' ? 'Light theme' : 'Dark theme'}
               >
                 <span>{theme === 'dark' ? 'Dark' : 'Light'}</span>
               </button>
@@ -3915,7 +3914,7 @@ function App() {
                 type="button"
                 className="icon-toggle-button"
                 onClick={() => toggleLeftSidebar()}
-                title={leftSidebarCollapsed ? 'Mostrar paleta' : 'Ocultar paleta'}
+                title={leftSidebarCollapsed ? 'Show palette' : 'Hide palette'}
               >
                 {leftSidebarCollapsed ? <PanelLeftOpen size={15} /> : <PanelLeftClose size={15} />}
               </button>
@@ -3923,7 +3922,7 @@ function App() {
                 type="button"
                 className="icon-toggle-button"
                 onClick={() => toggleDockPanel()}
-                title={dockCollapsed ? 'Mostrar dock' : 'Ocultar dock'}
+                title={dockCollapsed ? 'Show dock' : 'Hide dock'}
               >
                 {dockPosition === 'bottom' ? (
                   dockCollapsed ? (
@@ -3949,16 +3948,16 @@ function App() {
                 type="button"
                 className="icon-toggle-button"
                 onClick={() => toggleWorkbench()}
-                title={drawerCollapsed ? 'Mostrar workbench' : 'Ocultar workbench'}
+                title={drawerCollapsed ? 'Show workbench' : 'Hide workbench'}
               >
                 {drawerCollapsed ? <PanelBottomOpen size={15} /> : <PanelBottomClose size={15} />}
               </button>
               <button type="button" className="focus-toggle-button" onClick={() => toggleFocusMode()}>
-                {focusMode ? 'Sair foco' : 'Foco'}
+                {focusMode ? 'Exit focus' : 'Focus'}
               </button>
               <button type="button" className="focus-toggle-button" onClick={() => togglePresentationMode()}>
                 <Presentation size={14} />
-                <span>{presentationMode ? 'Sair apresentação' : 'Presentation mode'}</span>
+                <span>{presentationMode ? 'Exit presentation' : 'Presentation mode'}</span>
               </button>
             </>
           )}
@@ -4009,7 +4008,7 @@ function App() {
       {!immersiveMode && leftPanelVisible ? (
         <aside className="left-sidebar">
           <h2>Palette</h2>
-          <p>Arraste para o canvas:</p>
+          <p>Drag to canvas:</p>
           {Object.entries(nodePresetsByCategory).map(([category, presets]) => (
             <div key={category} className="toolbox-group">
               <h3>{category}</h3>
@@ -4040,17 +4039,17 @@ function App() {
         {!presentationMode && activeTool === 'connector' ? (
           <p className="canvas-hint">
             {pendingConnectionFrom
-              ? `Selecione destino para conectar a partir de ${pendingConnectionFrom}${pendingConnectionPortId ? `:${pendingConnectionPortId}` : ''}`
-              : 'Arraste de uma alça para outra alça para criar edge'}
+              ? `Select a destination to connect from ${pendingConnectionFrom}${pendingConnectionPortId ? `:${pendingConnectionPortId}` : ''}`
+              : 'Drag from one handle to another to create an edge'}
           </p>
         ) : null}
         {!presentationMode && currentView.kind === 'container' ? (
           <p className="canvas-hint secondary-hint">
-            Double-click abre drilldown existente. Ctrl+Alt+double-click cria drilldown novo.
+            Double-click opens existing drilldown. Ctrl+Alt+double-click creates a new drilldown.
           </p>
         ) : !presentationMode && currentView.kind === 'component' ? (
           <p className="canvas-hint secondary-hint">
-            Double-click abre drilldown existente. Ctrl+Alt+double-click cria drilldown novo.
+            Double-click opens existing drilldown. Ctrl+Alt+double-click creates a new drilldown.
           </p>
         ) : null}
         <DiagramCanvas
@@ -4130,7 +4129,7 @@ function App() {
               className={drawerTab === 'dsl' ? 'drawer-tab drawer-tab-active' : 'drawer-tab'}
               onClick={() => switchDrawerTab('dsl')}
             >
-              DSL
+              SJV Script
             </button>
             <button
               type="button"
@@ -4151,7 +4150,7 @@ function App() {
             <span className="drawer-tabs-spacer" />
             {drawerTab === 'dsl' ? (
               <button type="button" className="drawer-maximize-button" onClick={() => toggleDslMaximized()}>
-                {dslMaximized ? 'Restaurar DSL' : 'Maximizar DSL'}
+                {dslMaximized ? 'Restore SJV Script' : 'Maximize SJV Script'}
               </button>
             ) : null}
           </div>
@@ -4162,9 +4161,9 @@ function App() {
           ) : drawerTab === 'help' ? (
             helpPanelContent
           ) : dockPosition === 'bottom' ? (
-            dockCollapsed ? <p>Dock oculto. Use o atalho na topbar para reabrir.</p> : dockPanel
+            dockCollapsed ? <p>Dock is hidden. Use the topbar toggle to reopen it.</p> : dockPanel
           ) : (
-            <p>Dock está no modo lateral.</p>
+            <p>Dock is in side mode.</p>
           )}
         </section>
       ) : null}

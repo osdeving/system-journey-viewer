@@ -419,7 +419,7 @@ const createCompositionRenderer = (
   canvas.height = height
   const context = canvas.getContext('2d')
   if (!context) {
-    throw new Error('Falha ao criar contexto para export animado.')
+    throw new Error('Failed to create canvas context for animated export.')
   }
   const themeMode = resolveThemeMode(svg, canvasPanel)
   return {
@@ -711,7 +711,7 @@ export const exportAnimatedJourneyGif = async ({
   })
 
   if (!rgbaFrames.length) {
-    throw new Error('Falha ao capturar frames para o GIF animado.')
+    throw new Error('Failed to capture frames for animated GIF export.')
   }
 
   const paletteInput = buildGifPaletteInput(rgbaFrames)
@@ -758,7 +758,7 @@ export const exportAnimatedJourneyVideo = async ({
   allowFallback = true,
 }: ExportAnimatedVideoOptions): Promise<VideoMimeSelection> => {
   if (typeof MediaRecorder === 'undefined') {
-    throw new Error('Seu navegador não suporta export de vídeo via MediaRecorder.')
+    throw new Error('Your browser does not support video export via MediaRecorder.')
   }
   const mime = resolveVideoMimeType(
     (candidate) => MediaRecorder.isTypeSupported(candidate),
@@ -767,10 +767,10 @@ export const exportAnimatedJourneyVideo = async ({
   if (!mime) {
     if (preferredExtension === 'mp4') {
       throw new Error(
-        'Este navegador não suporta gravação MP4/H.264. Para vídeo compatível com mobile, exporte em Safari/Edge ou use GIF.',
+        'This browser does not support MP4/H.264 recording. For mobile-compatible video, export in Safari/Edge or use GIF.',
       )
     }
-    throw new Error('Navegador sem suporte para codecs de vídeo compatíveis (MP4/WebM).')
+    throw new Error('Browser has no supported compatible video codecs (MP4/WebM).')
   }
 
   const renderer = createCompositionRenderer(svg, trailCanvas, canvasPanel)
@@ -788,7 +788,7 @@ export const exportAnimatedJourneyVideo = async ({
       }
     }
     recorder.onerror = (event) => {
-      reject(event.error ?? new Error('Falha ao gravar vídeo.'))
+      reject(event.error ?? new Error('Failed to record video.'))
     }
     recorder.onstop = () => resolve()
   })
@@ -826,7 +826,7 @@ export const exportAnimatedJourneySvg = ({
   const curves =
     renderedCurves.length > 0 ? renderedCurves : resolveJourneyStepCurves(workspace, journey)
   if (!curves.length) {
-    throw new Error('A jornada selecionada não possui passos válidos para SVG animado.')
+    throw new Error('The selected journey has no valid steps for animated SVG export.')
   }
 
   const { width, height } = resolveSvgDimensions(svg)

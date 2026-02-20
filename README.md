@@ -2,16 +2,16 @@
 
 System Journey Viewer is an open-source visual editor to model architecture and execution journeys in a single artifact.
 
-It supports multi-layer modeling (`Container`, `Component`, `Hex`), animated journey playback, and textual modeling through `JourneyScript` (DSL LITE).
+It supports multi-layer modeling (`Container`, `Component`, `Hex`), animated journey playback, and textual modeling through `SJV Script`.
 
 ## Highlights
 
 - Visual architecture editor with ports, snap/grid, pan/zoom, and drill-down.
 - Journey timeline and player with animated flow playback.
-- Dockable workspaces (`Inspector`, `Journeys`, `Timeline`, `DSL`, `Help`) with left/right/bottom/floating layouts and resizable dock panes.
-- `JourneyScript` DSL editor with Monaco-based syntax highlighting.
+- Dockable workspaces (`Inspector`, `Journeys`, `Timeline`, `SJV Script`, `Help`) with left/right/bottom/floating layouts and resizable dock panes.
+- `SJV Script` editor with Monaco-based syntax highlighting.
 - Multi-format export: `SVG`, `PNG`, `PDF`, plus animated `GIF`, `MP4`, and animated `SVG`.
-- Optional Codex-assisted DSL refinement through a secure gateway.
+- Optional Codex-assisted SJV Script refinement through a secure gateway.
 - Dark/light themes and presentation mode for demos.
 - Built-in markdown Help panel and local recent-file memory (up to 3 workspace snapshots).
 
@@ -40,7 +40,7 @@ It supports multi-layer modeling (`Container`, `Component`, `Hex`), animated jou
 ## Repository Structure
 
 - `apps/web`: React + Vite web editor.
-- `apps/codex-gateway`: Node.js server-side gateway for Codex DSL assistance.
+- `apps/codex-gateway`: Node.js server-side gateway for Codex SJV Script assistance.
 - `docs`: product and engineering documentation.
 
 ## Quick Start
@@ -102,7 +102,7 @@ If you deploy the gateway in another environment, use variables documented in `.
 ### 3. Notes
 
 - The web app can run without the gateway.
-- DSL assist is optional and only used when the user triggers Codex refinement.
+- SJV Script assist is optional and only used when the user triggers Codex refinement.
 
 ## Generate Demo Media with Playwright (Optional)
 
@@ -139,7 +139,7 @@ Generated files:
 ## Documentation Map
 
 - `docs/UI_JOURNEYS_CAPABILITIES.md`: UI usage guide and current capabilities.
-- `docs/DSL_LITE_SPEC.md`: official DSL LITE grammar and semantics.
+- `docs/SJV_SCRIPT_SPEC.md`: official SJV Script grammar and semantics.
 - `docs/DECISIONS.md`: architecture and product decisions.
 - `docs/AI_STATE.md`: current implementation state snapshot.
 - `docs/WORKLOG.md`: chronological engineering change log.

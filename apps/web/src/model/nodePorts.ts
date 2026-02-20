@@ -58,7 +58,13 @@ const buildSidePorts = (
       y,
     }))
 
-export const resolveNodePorts = (bounds: Pick<NodeBounds, 'w' | 'h'>): PortModel[] => {
+export const resolveNodePorts = (
+  bounds: Pick<NodeBounds, 'w' | 'h'>,
+  kind?: WorkspaceModel['nodes'][string]['kind'],
+): PortModel[] => {
+  if (kind === 'note') {
+    return []
+  }
   const width = Math.max(80, bounds.w)
   const height = Math.max(80, bounds.h)
   const horizontalPositions = distributedRatios(width, HORIZONTAL_SPACING)
@@ -74,7 +80,7 @@ export const resolveNodePorts = (bounds: Pick<NodeBounds, 'w' | 'h'>): PortModel
 
 export const normalizeWorkspaceNodePorts = (workspace: WorkspaceModel): WorkspaceModel => {
   for (const node of Object.values(workspace.nodes)) {
-    node.ports = resolveNodePorts(node.bounds)
+    node.ports = resolveNodePorts(node.bounds, node.kind)
   }
   return workspace
 }

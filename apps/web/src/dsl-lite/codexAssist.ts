@@ -25,7 +25,7 @@ const extractFromFencedBlock = (text: string, regex: RegExp): string | null => {
 }
 
 export const extractDslFromCodexResponse = (responseText: string): string | null => {
-  const dslBlock = extractFromFencedBlock(responseText, /```dsl\s*([\s\S]*?)```/i)
+  const dslBlock = extractFromFencedBlock(responseText, /```(?:sjv|sjv-script|dsl)\s*([\s\S]*?)```/i)
   if (dslBlock) {
     return dslBlock
   }
@@ -65,10 +65,14 @@ export const requestCodexDslAssist = async ({
   }
 
   if (!response.ok) {
-    throw new Error(payload && 'error' in payload ? payload.error || 'Falha no gateway Codex.' : 'Falha no gateway Codex.')
+    throw new Error(
+      payload && 'error' in payload
+        ? payload.error || 'Codex gateway request failed.'
+        : 'Codex gateway request failed.',
+    )
   }
   if (!payload || !('finalResponse' in payload) || typeof payload.finalResponse !== 'string') {
-    throw new Error('Resposta inválida do gateway Codex.')
+    throw new Error('Invalid response from Codex gateway.')
   }
 
   return {

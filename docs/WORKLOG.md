@@ -2,20 +2,88 @@
 
 Chronological engineering log. Entries are kept concise and focused on behavior and validation.
 
-## 2026-02-20 - DSL specification expansion (keywords vs conventions, advanced examples, drilldown, metadata)
+## 2026-02-20 - SJV Script v2 migration, notes support, and full English UI/docs
 
 ### Scope
 
-- Clarify what in DSL is keyword/syntax and what is naming convention.
-- Expand documentation with minimal, practical, and advanced (“cabuloso”) examples.
+- Replace legacy text-format semantics with deterministic SJV Script v2 grammar.
+- Add first-class attached notes behavior across parser/converter/store/canvas.
+- Standardize all product-facing text/documentation to English and use `SJV Script` naming.
+
+### Changes
+
+- Script grammar and conversion:
+  - runtime edges now use explicit edge IDs (`edgeId: from -> to : protocol \"label\"`);
+  - journey steps are ordered by line position and reference edge IDs directly (no numeric prefixes);
+  - metadata edge layout references edge IDs;
+  - note declarations supported (`note <alias> on <targetAlias> \"text\"`);
+  - files:
+    - `apps/web/src/dsl-lite/types.ts`
+    - `apps/web/src/dsl-lite/parser.ts`
+    - `apps/web/src/dsl-lite/convert.ts`
+    - `apps/web/src/dsl-lite/monacoJourneyScript.ts`
+
+- Notes in editor behavior:
+  - new `note` node kind and presets;
+  - note attachments rendered as dashed non-arrow links;
+  - dropped/dragged notes can auto-attach and auto-place around target nodes;
+  - notes are excluded from regular edge connections and runtime journeys;
+  - files:
+    - `apps/web/src/model/types.ts`
+    - `apps/web/src/model/nodePorts.ts`
+    - `apps/web/src/presets/nodePresets.json`
+    - `apps/web/src/presets/techPresets.json`
+    - `apps/web/src/store/useEditorStore.ts`
+    - `apps/web/src/components/DiagramCanvas.tsx`
+    - `apps/web/src/App.css`
+
+- UI/documentation language and naming:
+  - UI copy translated to English;
+  - user-facing naming standardized to `SJV Script`;
+  - spec renamed to `docs/SJV_SCRIPT_SPEC.md` and rewritten for v2 grammar;
+  - showcase script rebuilt in v2 syntax:
+    - `docs/cim.sjv`;
+  - related docs updated:
+    - `README.md`
+    - `apps/web/README.md`
+    - `docs/UI_JOURNEYS_CAPABILITIES.md`
+    - `docs/DECISIONS.md`
+    - `docs/AI_STATE.md`
+    - `INTRUCTIONS.md`
+    - `CONTRIBUTING.md`
+    - `.github/pull_request_template.md`
+
+### Tests
+
+- Updated parser/codex tests for SJV Script v2 output expectations:
+  - `apps/web/src/dsl-lite/parser.test.ts`
+  - `apps/web/src/dsl-lite/codexAssist.test.ts`
+- Added store coverage for note behavior:
+  - `apps/web/src/store/useEditorStore.test.ts`
+
+### Validation
+
+- `npm --workspace @sjv/web run lint`
+- `npm --workspace @sjv/web run test:run`
+- `npm --workspace @sjv/web run test:run -- src/dsl-lite/parser.test.ts src/dsl-lite/codexAssist.test.ts src/dsl-lite/journeyDslSync.test.ts src/dsl-lite/sync.test.ts src/store/useEditorStore.test.ts`
+- `npm --workspace @sjv/web run test:run -- src/store/useEditorStore.test.ts`
+- `npm run test:run:gateway`
+- `npm --workspace @sjv/web run build`
+
+## 2026-02-20 - SJV Script specification expansion (keywords vs conventions, advanced examples, drilldown, metadata)
+
+### Scope
+
+- Clarify what in SJV Script is keyword/syntax and what is naming convention.
+- Expand documentation with minimal, practical, and advanced examples.
 - Add dedicated sections for drilldown, colors, metadata, tolerance rules, and app sync/import behavior.
 
 ### Changes
 
-- Rewrote and expanded DSL reference:
-  - `docs/DSL_LITE_SPEC.md`
+- Rewrote and expanded SJV Script reference:
+  - `docs/SJV_SCRIPT_SPEC.md`
   - new structure includes:
-    - quick answer for `view v_main container` vs arbitrary IDs (`view batatinha container`),
+    - quick answer for `view v_main container` vs arbitrary IDs (`view payments_main container`),
     - keywords vs conventions section,
     - identifier/token rules,
     - complete syntax blocks (`workspace`, `view`, `node`, `edge`, `journey`, `metadata ui-layout`),
@@ -34,18 +102,18 @@ Chronological engineering log. Entries are kept concise and focused on behavior 
 
 - Documentation-only change (no runtime behavior changed).
 
-## 2026-02-20 - DSL editor full-height layout in dock/floating/bottom contexts
+## 2026-02-20 - SJV Script editor full-height layout in dock/floating/bottom contexts
 
 ### Scope
 
-- Fix DSL editor panel so Monaco occupies full available vertical space.
+- Fix SJV Script editor panel so Monaco occupies full available vertical space.
 - Ensure toolbar controls stay pinned at the top and editor consumes remaining area.
-- Fix bottom dock rendering where DSL content looked vertically centered and wasted space.
+- Fix bottom dock rendering where SJV Script content looked vertically centered and wasted space.
 
 ### Changes
 
-- Dock body + DSL fill behavior:
-  - added DSL-aware dock body class to force full-height content area:
+- Dock body + SJV Script fill behavior:
+  - added SJV Script-aware dock body class to force full-height content area:
     - `apps/web/src/App.tsx`
     - `apps/web/src/App.css`
   - `dock-tab-body` now uses grid stretching with child `min-height: 0` to avoid collapse.
@@ -57,7 +125,7 @@ Chronological engineering log. Entries are kept concise and focused on behavior 
     - `apps/web/src/App.css`
   - ensures dock panel fills full bottom drawer height instead of staying compact.
 
-- DSL panel sizing:
+- SJV Script panel sizing:
   - `dsl-panel` now always uses `auto / minmax(0,1fr) / auto` rows and `height: 100%`:
     - keeps controls at top and status at bottom while Monaco fills center.
   - file:
@@ -67,7 +135,7 @@ Chronological engineering log. Entries are kept concise and focused on behavior 
 
 - Updated:
   - `apps/web/src/App.styles.test.ts`
-    - asserts new selectors for DSL dock full-height layout.
+    - asserts new selectors for SJV Script dock full-height layout.
 
 ### Validation
 
@@ -76,13 +144,13 @@ Chronological engineering log. Entries are kept concise and focused on behavior 
 - `npm --workspace @sjv/web run test:run -- --maxWorkers=1`
 - `npm --workspace @sjv/web run build`
 
-## 2026-02-20 - DSL typing sync direction fix, presentation shortcut cleanup, and theme-safe DSL import
+## 2026-02-20 - SJV Script typing sync direction fix, presentation shortcut cleanup, and theme-safe SJV Script import
 
 ### Scope
 
 - Remove `P` keyboard shortcut that was interrupting normal typing.
-- Fix `Sync com editor` behavior so DSL typing updates the canvas view in real time.
-- Ensure DSL import preserves currently selected app theme instead of forcing light.
+- Fix `Sync with editor` behavior so SJV Script typing updates the canvas view in real time.
+- Ensure SJV Script import preserves currently selected app theme instead of forcing light.
 
 ### Changes
 
@@ -93,23 +161,23 @@ Chronological engineering log. Entries are kept concise and focused on behavior 
   - wired in app:
     - `apps/web/src/App.tsx`
 
-- DSL sync behavior:
-  - replaced old workspace->DSL mirror flow with DSL->workspace live apply flow.
-  - sync now keeps editor editable and applies valid DSL changes to view while typing.
+- SJV Script sync behavior:
+  - replaced old workspace->SJV Script mirror flow with SJV Script->workspace live apply flow.
+  - sync now keeps editor editable and applies valid SJV Script changes to view while typing.
   - file:
     - `apps/web/src/App.tsx`
 
-- Theme-safe DSL import:
-  - extracted helper to parse DSL and force current app theme on imported workspace:
+- Theme-safe SJV Script import:
+  - extracted helper to parse SJV Script and force current app theme on imported workspace:
     - `apps/web/src/dsl-lite/sync.ts`
   - applied in:
-    - DSL panel `Importar DSL` action,
-    - file open fallback when payload is DSL.
+    - SJV Script panel `Import SJV Script` action,
+    - file open fallback when payload is SJV Script.
   - file:
     - `apps/web/src/App.tsx`
 
 - Help update:
-  - clarified sync semantics as live DSL-to-view updates.
+  - clarified sync semantics as live SJV Script-to-view updates.
   - file:
     - `apps/web/src/help/help.md`
 
@@ -127,12 +195,12 @@ Chronological engineering log. Entries are kept concise and focused on behavior 
 - `npm --workspace @sjv/web run test:run -- --maxWorkers=1`
 - `npm --workspace @sjv/web run build`
 
-## 2026-02-20 - Edge arrow orientation fix, DSL live sync, stronger edge-handle visibility, and node text color controls
+## 2026-02-20 - Edge arrow orientation fix, SJV Script live sync, stronger edge-handle visibility, and node text color controls
 
 ### Scope
 
 - Fix edge arrowheads that were visually constrained to left/right orientation.
-- Add optional live DSL sync from canvas/editor changes.
+- Add optional live SJV Script sync from canvas/editor changes.
 - Improve hover/discoverability for edge endpoint drag handles.
 - Refresh node color presets for light/dark themes and allow editing node text color.
 
@@ -146,9 +214,9 @@ Chronological engineering log. Entries are kept concise and focused on behavior 
     - `apps/web/src/components/DiagramCanvas.tsx`
     - `apps/web/src/export/animatedExport.ts`
 
-- DSL panel sync:
-  - added `Sync com editor` toggle in DSL toolbar.
-  - when enabled, DSL panel mirrors workspace edits in real time and editor switches to read-only mirror mode.
+- SJV Script panel sync:
+  - added `Sync with editor` toggle in SJV Script toolbar.
+  - when enabled, SJV Script panel mirrors workspace edits in real time and editor switches to read-only mirror mode.
   - extracted sync helper:
     - `apps/web/src/dsl-lite/sync.ts`
   - wired in UI:
@@ -174,7 +242,7 @@ Chronological engineering log. Entries are kept concise and focused on behavior 
     - `apps/web/src/store/useEditorStore.ts`
 
 - Help update:
-  - documented DSL sync and easier edge endpoint handle interaction.
+  - documented SJV Script sync and easier edge endpoint handle interaction.
   - file:
     - `apps/web/src/help/help.md`
 
@@ -250,7 +318,7 @@ Chronological engineering log. Entries are kept concise and focused on behavior 
 
 - Apply requested startup defaults for journey playback/focus.
 - Expand dock/view workflow with floating dock and panel visibility controls.
-- Add edge-label rotation shortcut and persist angle in DSL/layout metadata.
+- Add edge-label rotation shortcut and persist angle in SJV Script/layout metadata.
 - Add local recent-workspace memory (up to 3 entries) in File menu.
 - Add in-app markdown Help panel and update repository capability docs.
 
@@ -278,7 +346,7 @@ Chronological engineering log. Entries are kept concise and focused on behavior 
   - hold selected edge label + wheel => font size.
   - hold selected edge label + `Alt` + wheel => rotation angle.
   - added `edge.style.labelAngle` with schema validation and persistence.
-  - DSL UI metadata now supports optional `angle` on edges.
+  - SJV Script UI metadata now supports optional `angle` on edges.
   - files:
     - `apps/web/src/components/DiagramCanvas.tsx`
     - `apps/web/src/components/JourneyEdge.tsx`
@@ -303,7 +371,7 @@ Chronological engineering log. Entries are kept concise and focused on behavior 
     - `apps/web/src/App.css`
 
 - Dock/view system improvements:
-  - dock tabs expanded to `Inspector`, `Journeys`, `Timeline`, `DSL`, `Help`.
+  - dock tabs expanded to `Inspector`, `Journeys`, `Timeline`, `SJV Script`, `Help`.
   - dock placement controls for right/bottom/floating.
   - floating dock window with draggable header and viewport clamp.
   - menu actions to show/hide palette, dock, and workbench similar to desktop creative apps.
@@ -414,7 +482,7 @@ Chronological engineering log. Entries are kept concise and focused on behavior 
   - Added store action:
     - `setEdgeLabelFontSize(edgeId, fontSize)` with clamping.
 
-- DSL UI metadata:
+- SJV Script UI metadata:
   - Added optional UI metadata parsing/export for edge label font size:
     - `apps/web/src/dsl-lite/types.ts`
     - `apps/web/src/dsl-lite/parser.ts`
@@ -481,7 +549,7 @@ Chronological engineering log. Entries are kept concise and focused on behavior 
     - `apps/web/src/model/schema.ts`
   - Extended layout persistence to save/restore side + position:
     - `apps/web/src/store/layoutPersistence.ts`
-- DSL metadata support:
+- SJV Script metadata support:
   - `metadata ui-layout` edge lines now support optional side:
     - `edge <from> -> <to> label <position> side <left|right>`
   - Implemented parse/export/import wiring in:
@@ -546,7 +614,7 @@ Chronological engineering log. Entries are kept concise and focused on behavior 
 - `npm --workspace @sjv/web run test:run`
 - `npm --workspace @sjv/web run build`
 
-## 2026-02-17 - Journey-focused layout modes, compact export, and DSL UI metadata
+## 2026-02-17 - Journey-focused layout modes, compact export, and SJV Script UI metadata
 
 ### Scope
 
@@ -554,7 +622,7 @@ Chronological engineering log. Entries are kept concise and focused on behavior 
 - Enable scoped auto-layout behavior during journey focus (`manual` apply vs `always` on filter).
 - Keep journey exports concise by forcing compact visual focus for animated export.
 - Persist and exchange UI geometry (node bounds and edge-label positions) using:
-  - optional DSL metadata block (`metadata ui-layout`),
+  - optional SJV Script metadata block (`metadata ui-layout`),
   - local browser persistence keyed by workspace id.
 
 ### Changes
@@ -593,7 +661,7 @@ Chronological engineering log. Entries are kept concise and focused on behavior 
 - Compact journey export:
   - `apps/web/src/App.tsx`
     - animated export now temporarily forces focused render for selected journey, restoring state afterwards.
-- DSL metadata for UI geometry:
+- SJV Script metadata for UI geometry:
   - `apps/web/src/dsl-lite/types.ts`
   - `apps/web/src/dsl-lite/parser.ts`
   - `apps/web/src/dsl-lite/convert.ts`
@@ -602,12 +670,12 @@ Chronological engineering log. Entries are kept concise and focused on behavior 
       - `edge <from> -> <to> label <position>`
     - applies metadata on import after structural conversion.
   - Spec updated:
-    - `docs/DSL_LITE_SPEC.md`
+    - `docs/SJV_SCRIPT_SPEC.md`
 - Local layout persistence:
   - Added `apps/web/src/store/layoutPersistence.ts`
   - Integrated in `apps/web/src/App.tsx`:
     - debounced save to localStorage,
-    - auto-apply saved layout when importing DSL.
+    - auto-apply saved layout when importing SJV Script.
 
 ### Tests
 
@@ -627,23 +695,23 @@ Chronological engineering log. Entries are kept concise and focused on behavior 
 - `npm --workspace @sjv/web run test:run`
 - `npm --workspace @sjv/web run build`
 
-## 2026-02-16 - DSL hierarchy-safe import and intelligent auto-arrange
+## 2026-02-16 - SJV Script hierarchy-safe import and intelligent auto-arrange
 
 ### Scope
 
-- Ensure complex DSL files preserve drilldown hierarchy semantics on import.
-- Improve file-open workflow to support both snapshot JSON and raw DSL (`.sjv`/`.dsl`/text).
+- Ensure complex SJV Script files preserve drilldown hierarchy semantics on import.
+- Improve file-open workflow to support both snapshot JSON and raw SJV Script (`.sjv`/`.dsl`/text).
 - Add optional best-effort auto-arrange for view layout quality (nodes + edge labels).
 
 ### Changes
 
-- DSL hierarchy import hardening:
+- SJV Script hierarchy import hardening:
   - `apps/web/src/App.tsx`
     - added root view resolver based on drilldown graph (prefers top-level `container/system-context`);
-    - DSL import from editor now opens the resolved hierarchy entry view instead of arbitrary first key.
+    - SJV Script import from editor now opens the resolved hierarchy entry view instead of arbitrary first key.
   - Added file import fallback:
     - tries snapshot parser first (`.sjv.json/.json`);
-    - falls back to DSL parser+converter when snapshot parsing fails;
+    - falls back to SJV Script parser+converter when snapshot parsing fails;
     - supports `.sjv`, `.dsl`, `.txt` in picker/input accept lists.
 - Auto-arrange (best-effort document formatting):
   - Added `apps/web/src/layout/autoArrange.ts`:
@@ -739,7 +807,7 @@ Chronological engineering log. Entries are kept concise and focused on behavior 
 - Improve journey authoring directly from canvas edges.
 - Allow timeline step reordering with automatic renumbering.
 - Add shortcut-driven drilldown creation during modeling.
-- Keep journey/drilldown changes synchronized with DSL roundtrips.
+- Keep journey/drilldown changes synchronized with SJV Script roundtrips.
 - Improve file save workflow with reusable handle on `Ctrl/Cmd+S`.
 
 ### Changes
@@ -758,7 +826,7 @@ Chronological engineering log. Entries are kept concise and focused on behavior 
 - Updated UI styles/tests:
   - `apps/web/src/App.css` and `apps/web/src/App.styles.test.ts` for edge-drop-target and draggable-step affordances.
 - Added sync regression tests:
-  - `apps/web/src/dsl-lite/journeyDslSync.test.ts` for journey order and drilldown persistence across DSL conversion.
+  - `apps/web/src/dsl-lite/journeyDslSync.test.ts` for journey order and drilldown persistence across SJV Script conversion.
   - expanded `apps/web/src/store/useEditorStore.test.ts` coverage for journey reordering and drilldown creation behavior.
 
 ### Validation
@@ -977,7 +1045,7 @@ Chronological engineering log. Entries are kept concise and focused on behavior 
   - `apps/web/README.md`
   - `docs/DECISIONS.md`
   - `docs/UI_JOURNEYS_CAPABILITIES.md`
-  - `docs/DSL_LITE_SPEC.md`
+  - `docs/SJV_SCRIPT_SPEC.md`
   - `docs/AI_STATE.md`
   - `docs/WORKLOG.md`
   - `AGENTS.md`
@@ -1019,12 +1087,12 @@ Chronological engineering log. Entries are kept concise and focused on behavior 
 - `npm --workspace @sjv/web run test:run`
 - `npm --workspace @sjv/web run build`
 
-## 2026-02-15 - UI polish, dockable workflows, Monaco DSL editor
+## 2026-02-15 - UI polish, dockable workflows, Monaco SJV Script editor
 
 ### Highlights
 
 - Introduced desktop-style menubar behavior and dock controls.
-- Added `JourneyScript` naming and Monaco syntax highlighting.
+- Added `SJV Script` naming and Monaco syntax highlighting.
 - Added dockable `Inspector/Journeys` with draggable tabs and side/bottom docking.
 - Upgraded player controls with icon-based transport actions.
 
@@ -1039,9 +1107,9 @@ Chronological engineering log. Entries are kept concise and focused on behavior 
 ### Highlights
 
 - Built editor core (nodes/edges, snap/grid, presets, journeys, player, drill-down).
-- Implemented FULL model and DSL LITE conversion pipeline.
+- Implemented FULL model and SJV Script conversion pipeline.
 - Added static export (SVG/PNG/PDF).
-- Added Codex gateway integration for DSL assistance.
+- Added Codex gateway integration for SJV Script assistance.
 
 ### Validation
 

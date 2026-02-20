@@ -20,6 +20,7 @@ export type NodeKind =
   | 'load-balancer'
   | 'gateway'
   | 'security'
+  | 'note'
 
 export interface NodeBounds {
   x: number
@@ -58,6 +59,7 @@ export interface NodeModel {
   ports: PortModel[]
   children: string[]
   drilldownRef?: string
+  noteTargetNodeId?: string
 }
 
 export interface EdgeEndpoint {

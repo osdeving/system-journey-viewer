@@ -148,5 +148,15 @@
     "iconKey": "queue",
     "defaultWidth": 210,
     "defaultHeight": 100
+  },
+  {
+    "id": "note",
+    "kind": "note",
+    "label": "Note",
+    "category": "C4",
+    "defaultTechId": "note",
+    "iconKey": "component",
+    "defaultWidth": 230,
+    "defaultHeight": 96
   }
 ]

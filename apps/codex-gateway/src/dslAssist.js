@@ -1,26 +1,26 @@
 const MAX_FIELD_LENGTH = 60_000
 const DEFAULT_INSTRUCTION =
-  'Refine this DSL LITE while preserving behavior and improving clarity, naming, and consistency.'
+  'Refine this SJV Script while preserving behavior and improving clarity, naming, and consistency.'
 
 const isObject = (value) => typeof value === 'object' && value !== null
 
 const normalizeStringField = (value, fieldName) => {
   if (typeof value !== 'string') {
-    throw new Error(`Campo "${fieldName}" deve ser string.`)
+    throw new Error(`Field "${fieldName}" must be a string.`)
   }
   const normalized = value.trim()
   if (!normalized) {
-    throw new Error(`Campo "${fieldName}" não pode ser vazio.`)
+    throw new Error(`Field "${fieldName}" cannot be empty.`)
   }
   if (normalized.length > MAX_FIELD_LENGTH) {
-    throw new Error(`Campo "${fieldName}" excede o limite de ${MAX_FIELD_LENGTH} caracteres.`)
+    throw new Error(`Field "${fieldName}" exceeds the ${MAX_FIELD_LENGTH} character limit.`)
   }
   return normalized
 }
 
 export const parseDslAssistRequest = (payload) => {
   if (!isObject(payload)) {
-    throw new Error('Payload JSON inválido.')
+    throw new Error('Invalid JSON payload.')
   }
   const dslText = normalizeStringField(payload.dslText, 'dslText')
   const instruction =
@@ -37,29 +37,29 @@ export const parseDslAssistRequest = (payload) => {
 }
 
 export const buildDslAssistPrompt = ({ instruction, dslText }) => `
-You are helping with a DSL editor called "System Journey Viewer".
+You are helping with a text editor called "System Journey Viewer" that uses SJV Script.
 
 Task:
-- Apply the user request to the current DSL.
+- Apply the user request to the current SJV Script.
 - Preserve semantic behavior unless the user explicitly asks to change behavior.
-- Keep the DSL valid and complete.
+- Keep the script valid and complete.
 - Preserve hierarchy links when present:
   - node-level \`drilldown <viewId>\`
   - view-level \`parent <viewId> via <alias>\`
 - Preserve boundary grouping when present:
   - \`boundary ... contains alias1,alias2,...\`
-- Multi-view workspace is allowed and expected in a single DSL file.
+- Multi-view workspace is allowed and expected in a single SJV Script file.
 
 User request:
 ${instruction}
 
 Return format (strict):
 1. First line: short summary in plain text.
-2. Then a single fenced block with language tag \`dsl\` containing the full updated DSL.
-3. Do not omit any required section from the DSL.
+2. Then a single fenced block with language tag \`sjv\` containing the full updated SJV Script.
+3. Do not omit any required section from the SJV Script.
 
-Current DSL:
-\`\`\`dsl
+Current SJV Script:
+\`\`\`sjv
 ${dslText}
 \`\`\`
 `.trim()

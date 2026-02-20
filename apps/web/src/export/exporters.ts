@@ -61,7 +61,7 @@ const toPngBlob = async (svg: SVGSVGElement): Promise<Blob> => {
   canvas.height = height
   const context = canvas.getContext('2d')
   if (!context) {
-    throw new Error('Falha ao exportar PNG: contexto canvas indisponível.')
+    throw new Error('Failed to export PNG: canvas context unavailable.')
   }
   context.fillStyle = '#ffffff'
   context.fillRect(0, 0, width, height)
@@ -69,7 +69,7 @@ const toPngBlob = async (svg: SVGSVGElement): Promise<Blob> => {
   return new Promise((resolve, reject) => {
     canvas.toBlob((blob) => {
       if (!blob) {
-        reject(new Error('Falha ao gerar PNG.'))
+        reject(new Error('Failed to generate PNG.'))
         return
       }
       resolve(blob)

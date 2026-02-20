@@ -25,7 +25,7 @@ npm install
 npm run dev
 ```
 
-Optional gateway for DSL assist:
+Optional gateway for SJV Script assist:
 
 ```bash
 npm run dev:gateway
@@ -80,7 +80,7 @@ Use clear, scoped messages, for example:
 
 - `feat(web): add journey export speed controls`
 - `fix(player): gate next step by visual arrival`
-- `docs: rewrite DSL spec in English`
+- `docs: rewrite SJV Script spec in English`
 
 ## Documentation Expectations
 
@@ -88,7 +88,7 @@ If you change product behavior or workflows, update:
 
 - `README.md`
 - `docs/UI_JOURNEYS_CAPABILITIES.md`
-- `docs/DSL_LITE_SPEC.md` (if DSL semantics changed)
+- `docs/SJV_SCRIPT_SPEC.md` (if SJV Script semantics changed)
 - `docs/DECISIONS.md` (if architecture decisions changed)
 - `docs/WORKLOG.md`
 - `docs/AI_STATE.md` (if implementation state changed)

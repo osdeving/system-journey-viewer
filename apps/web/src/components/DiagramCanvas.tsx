@@ -478,6 +478,8 @@ export const DiagramCanvas = ({
   const createDrilldownForNode = useEditorStore((state) => state.createDrilldownForNode)
   const setNodeBounds = useEditorStore((state) => state.setNodeBounds)
   const setNodesBounds = useEditorStore((state) => state.setNodesBounds)
+  const addAttachedNote = useEditorStore((state) => state.addAttachedNote)
+  const attachNoteToNode = useEditorStore((state) => state.attachNoteToNode)
   const setNodeName = useEditorStore((state) => state.setNodeName)
   const setNodeTech = useEditorStore((state) => state.setNodeTech)
   const addNode = useEditorStore((state) => state.addNode)
@@ -617,6 +619,26 @@ export const DiagramCanvas = ({
     }
     return nodes.filter((node) => focusedNodeIdSet.has(node.id))
   }, [effectiveOffscopeRenderMode, focusedNodeIdSet, nodes])
+  const noteLinkItems = useMemo(
+    () =>
+      visibleNodes
+        .filter((node) => node.kind === 'note' && !!node.noteTargetNodeId)
+        .map((noteNode) => {
+          const targetNode = noteNode.noteTargetNodeId
+            ? workspace.nodes[noteNode.noteTargetNodeId]
+            : undefined
+          if (!targetNode || !visibleNodes.some((node) => node.id === targetNode.id)) {
+            return null
+          }
+          return {
+            key: `note-link-${noteNode.id}-${targetNode.id}`,
+            from: nodeCenter(noteNode),
+            to: nodeCenter(targetNode),
+          }
+        })
+        .filter((item): item is { key: string; from: { x: number; y: number }; to: { x: number; y: number } } => !!item),
+    [visibleNodes, workspace.nodes],
+  )
   const selectedNodeIdSet = useMemo(() => new Set(selectedNodeIds), [selectedNodeIds])
   const edgeRenderItems = useMemo(
     () =>
@@ -1152,9 +1174,19 @@ export const DiagramCanvas = ({
     }
   }
 
-  const resolveNodeAtPoint = (point: { x: number; y: number }): NodeModel | null => {
+  const resolveNodeAtPoint = (
+    point: { x: number; y: number },
+    options?: { excludeNodeId?: string; includeNotes?: boolean },
+  ): NodeModel | null => {
+    const includeNotes = options?.includeNotes ?? true
     for (let index = visibleNodes.length - 1; index >= 0; index -= 1) {
       const node = visibleNodes[index]
+      if (options?.excludeNodeId && node.id === options.excludeNodeId) {
+        continue
+      }
+      if (!includeNotes && node.kind === 'note') {
+        continue
+      }
       if (
         point.x >= node.bounds.x &&
         point.x <= node.bounds.x + node.bounds.w &&
@@ -1207,8 +1239,11 @@ export const DiagramCanvas = ({
     if (exactPort) {
       return exactPort
     }
-    const targetNode = resolveNodeAtPoint(point)
-    if (!targetNode || targetNode.id === sourceNodeId) {
+    const targetNode = resolveNodeAtPoint(point, {
+      excludeNodeId: sourceNodeId,
+      includeNotes: false,
+    })
+    if (!targetNode) {
       return null
     }
     const nearestPort = nearestPortId(targetNode, point) ?? targetNode.ports[0]?.id
@@ -1228,7 +1263,7 @@ export const DiagramCanvas = ({
     if (exactPort) {
       return exactPort
     }
-    const targetNode = resolveNodeAtPoint(point)
+    const targetNode = resolveNodeAtPoint(point, { includeNotes: false })
     if (!targetNode) {
       return null
     }
@@ -1542,6 +1577,9 @@ export const DiagramCanvas = ({
     event.preventDefault()
     event.stopPropagation()
     if (isConnectorMode) {
+      if (node.kind === 'note') {
+        return
+      }
       const worldPoint = clientToWorld(event.clientX, event.clientY)
       const sourcePortId =
         (worldPoint ? nearestPortId(node, worldPoint) : nearestPortId(node, nodeCenter(node))) ??
@@ -1698,6 +1736,19 @@ export const DiagramCanvas = ({
     const drag = nodeDragStateRef.current
     if (!drag || drag.pointerId !== event.pointerId) {
       return
+    }
+    const draggedNode = workspace.nodes[drag.primaryNodeId]
+    if (drag.mode === 'move' && draggedNode?.kind === 'note') {
+      const world = clientToWorld(event.clientX, event.clientY)
+      if (world) {
+        const targetNode = resolveNodeAtPoint(world, {
+          excludeNodeId: draggedNode.id,
+          includeNotes: false,
+        })
+        if (targetNode) {
+          attachNoteToNode(draggedNode.id, targetNode.id)
+        }
+      }
     }
     nodeDragStateRef.current = null
     setDragCursor(null)
@@ -1952,6 +2003,19 @@ export const DiagramCanvas = ({
     const rect = container.getBoundingClientRect()
     const px = event.clientX - rect.left
     const py = event.clientY - rect.top
+    const worldPoint = {
+      x: (px - viewport.x) / viewport.zoom,
+      y: (py - viewport.y) / viewport.zoom,
+    }
+    if (presetId === 'note') {
+      const targetNode = resolveNodeAtPoint(worldPoint, { includeNotes: false })
+      if (targetNode) {
+        const attachedNoteId = addAttachedNote(targetNode.id)
+        if (attachedNoteId) {
+          return
+        }
+      }
+    }
     const rawX = (px - viewport.x) / viewport.zoom - 110
     const rawY = (py - viewport.y) / viewport.zoom - 60
     const x = snapEnabled ? Math.round(rawX / DEFAULT_GRID_SIZE) * DEFAULT_GRID_SIZE : rawX
@@ -2044,6 +2108,16 @@ export const DiagramCanvas = ({
               fill="url(#grid-pattern)"
             />
           ) : null}
+          {noteLinkItems.map((link) => (
+            <line
+              key={link.key}
+              x1={link.from.x}
+              y1={link.from.y}
+              x2={link.to.x}
+              y2={link.to.y}
+              className="note-link"
+            />
+          ))}
           {edgeRenderItems.map(({ edge, curve, path }) => (
             <JourneyEdge
               key={edge.id}
@@ -2125,6 +2199,7 @@ export const DiagramCanvas = ({
             const nodeClassName = [
               'node',
               node.kind === 'boundary' ? 'node-boundary' : '',
+              node.kind === 'note' ? 'node-note' : '',
               isPendingConnection ? 'node-pending' : '',
               isConnectionTarget ? 'node-connection-target' : '',
               isSelected ? 'node-selected' : '',
@@ -2155,13 +2230,23 @@ export const DiagramCanvas = ({
                 : null
             const connectorIconX = node.bounds.w - 34
             const connectorIconY = 12
-            const labelLayout = resolveNodeLabelLayout(node, shouldRenderHexagon)
+            const labelLayout =
+              node.kind === 'note'
+                ? {
+                    titleX: node.bounds.w / 2,
+                    titleY: node.bounds.h / 2 + 4,
+                    subtitleX: node.bounds.w / 2,
+                    subtitleY: node.bounds.h / 2 + 4,
+                    textAnchor: 'middle' as const,
+                    maxTitleWidth: Math.max(84, node.bounds.w - 28),
+                    maxSubtitleWidth: Math.max(84, node.bounds.w - 28),
+                  }
+                : resolveNodeLabelLayout(node, shouldRenderHexagon)
             const nodeTitleText = truncateCanvasText(node.name, labelLayout.maxTitleWidth, 14)
-            const nodeSubtitleText = truncateCanvasText(
-              node.tech?.label ?? node.kind,
-              labelLayout.maxSubtitleWidth,
-              12,
-            )
+            const nodeSubtitleText =
+              node.kind === 'note'
+                ? ''
+                : truncateCanvasText(node.tech?.label ?? node.kind, labelLayout.maxSubtitleWidth, 12)
             return (
               <g
                 key={node.id}
@@ -2177,7 +2262,7 @@ export const DiagramCanvas = ({
                 }}
                 onDoubleClick={(event) => {
                   const modifiersPressed = (event.ctrlKey || event.metaKey) && event.altKey
-                  if (!presentationMode && modifiersPressed) {
+                  if (!presentationMode && modifiersPressed && node.kind !== 'note') {
                     createDrilldownForNode(node.id)
                     return
                   }
@@ -2319,24 +2404,26 @@ export const DiagramCanvas = ({
                 >
                   {iconForKey(node.tech?.iconKey)} {nodeTitleText}
                 </CanvasText>
-                <CanvasText
-                  x={labelLayout.subtitleX}
-                  y={labelLayout.subtitleY}
-                  className={[
-                    'node-subtitle',
-                    shouldRenderHexagon ? 'node-subtitle-hex' : '',
-                    !presentationMode ? 'canvas-text-editable' : '',
-                  ]
-                    .filter(Boolean)
-                    .join(' ')}
-                  textAnchor={labelLayout.textAnchor}
-                  style={nodeTextColor ? { fill: nodeTextColor } : undefined}
-                  onDoubleClick={(event) => {
-                    startNodeInlineEdit(event, node, 'node-tech', labelLayout)
-                  }}
-                >
-                  {nodeSubtitleText}
-                </CanvasText>
+                {nodeSubtitleText ? (
+                  <CanvasText
+                    x={labelLayout.subtitleX}
+                    y={labelLayout.subtitleY}
+                    className={[
+                      'node-subtitle',
+                      shouldRenderHexagon ? 'node-subtitle-hex' : '',
+                      !presentationMode ? 'canvas-text-editable' : '',
+                    ]
+                      .filter(Boolean)
+                      .join(' ')}
+                    textAnchor={labelLayout.textAnchor}
+                    style={nodeTextColor ? { fill: nodeTextColor } : undefined}
+                    onDoubleClick={(event) => {
+                      startNodeInlineEdit(event, node, 'node-tech', labelLayout)
+                    }}
+                  >
+                    {nodeSubtitleText}
+                  </CanvasText>
+                ) : null}
                 {!presentationMode
                   ? node.ports.map((port) => (
                       <circle

@@ -8,7 +8,7 @@ Web editor for System Journey Viewer.
 - TypeScript
 - Vite
 - Zustand
-- Monaco Editor (`JourneyScript` DSL)
+- Monaco Editor (`SJV Script`)
 
 ## Development
 
@@ -52,4 +52,4 @@ The output directory is `apps/web/dist`.
 
 - `../../README.md`
 - `../../docs/UI_JOURNEYS_CAPABILITIES.md`
-- `../../docs/DSL_LITE_SPEC.md`
+- `../../docs/SJV_SCRIPT_SPEC.md`

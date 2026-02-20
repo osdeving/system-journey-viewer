@@ -47,7 +47,7 @@ const readJsonBody = async (req) =>
     req.on('data', (chunk) => {
       bytes += Buffer.byteLength(chunk, 'utf8')
       if (bytes > MAX_BODY_BYTES) {
-        reject(new Error('Payload excede limite de 1MB.'))
+        reject(new Error('Payload exceeds 1MB limit.'))
         req.destroy()
         return
       }
@@ -58,7 +58,7 @@ const readJsonBody = async (req) =>
       try {
         resolve(body ? JSON.parse(body) : {})
       } catch {
-        reject(new Error('Payload JSON inválido.'))
+        reject(new Error('Invalid JSON payload.'))
       }
     })
     req.on('error', (error) => reject(error))
@@ -81,7 +81,7 @@ const handleDslAssist = async (req, res) => {
 
 const server = createServer(async (req, res) => {
   if (!req.url || !req.method) {
-    writeJson(res, 400, { error: 'Requisição inválida.' })
+    writeJson(res, 400, { error: 'Invalid request.' })
     return
   }
   if (req.method === 'OPTIONS') {
@@ -100,9 +100,9 @@ const server = createServer(async (req, res) => {
       await handleDslAssist(req, res)
       return
     }
-    writeJson(res, 404, { error: 'Rota não encontrada.' })
+    writeJson(res, 404, { error: 'Route not found.' })
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Falha interna no gateway Codex.'
+    const message = error instanceof Error ? error.message : 'Internal Codex gateway failure.'
     writeJson(res, 400, { error: message })
   }
 })

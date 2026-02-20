@@ -13,12 +13,12 @@ Quick operational reference for what the UI currently supports.
 - Center (`Canvas`):
   - visual editing, edge manipulation, playback rendering
 - Dock panel:
-  - tabs for `Inspector`, `Journeys`, `Timeline`, `DSL`, and `Help`
+  - tabs for `Inspector`, `Journeys`, `Timeline`, `SJV Script`, and `Help`
   - draggable tab ordering
   - placement in left side, right side, bottom drawer, or floating window
   - side-dock width resize and floating all-direction resize
 - Bottom workbench drawer:
-  - `Journey Timeline`, `JourneyScript`, and `Help` tabs
+  - `Journey Timeline`, `SJV Script`, and `Help` tabs
 
 ## 2) Primary User Flow
 
@@ -81,11 +81,11 @@ Quick operational reference for what the UI currently supports.
   - optional trail toggle (orb-only mode)
 - Drill-down:
   - Container -> Component -> Hex navigation
-- DSL:
-  - full workspace export to DSL LITE
-  - import DSL LITE into full workspace
+- SJV Script:
+  - full workspace export to SJV Script
+  - import SJV Script into full workspace
   - optional Codex assistance via gateway
-  - Monaco syntax highlighting for `JourneyScript`
+  - Monaco syntax highlighting for `SJV Script`
 - Persistence:
   - save/reload and debounced local autosave
   - recent workspace memory in localStorage (up to 3 entries)
@@ -99,7 +99,6 @@ Quick operational reference for what the UI currently supports.
 - No dedicated edge-delete command from the UI.
   - Edge removal currently happens through node deletion or journey-step removal.
 - No complete journey administration yet (rename/delete in all flows).
-- No undo/redo stack exposed in UI.
 - No copy/paste workflow for selected nodes.
 - Connector mode is handle-based; body-click connecting is not supported.
 
@@ -111,10 +110,8 @@ Quick operational reference for what the UI currently supports.
 - View transitions (drill-down/back):
   - stop active playback
   - re-align player context for current view
-- `Import DSL`:
+- `Import SJV Script`:
   - replaces current workspace with imported model
-- `P`:
-  - toggles presentation mode
 
 ## 6) Quick Checklist
 
@@ -127,6 +124,6 @@ Quick operational reference for what the UI currently supports.
 - Explore levels:
   - double-click drill-down + `Back`
 - Work text-first:
-  - `JourneyScript` tab
+  - `SJV Script` tab
 - Share output:
   - static or animated export actions

@@ -10,6 +10,7 @@
   - versioned FULL model (`schemaVersion: 1.0`) as source of truth,
   - DSL LITE (`JourneyScript`) for text import/export.
 - Optional Codex assistance integrated via server-side gateway (`apps/codex-gateway`).
+- DSL reference documentation now includes explicit syntax-vs-convention guidance plus expanded advanced examples and metadata/drilldown coverage (`docs/DSL_LITE_SPEC.md`).
 
 ## Implemented Product Flows
 

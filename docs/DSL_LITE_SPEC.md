@@ -1,201 +1,490 @@
-# DSL LITE Specification (System Journey Viewer)
+# DSL LITE Specification (JourneyScript / System Journey Viewer)
 
 Official specification for the DSL LITE format used by the editor.
 
 Purpose:
-- provide a clear contract for humans and AI tools to generate valid DSL;
-- document real semantics for hierarchy, drill-down, and boundary grouping.
+- define what is syntax vs convention;
+- describe the real runtime semantics used by parser/converter;
+- provide copy-paste examples from minimal to advanced.
 
-Status:
-- source of truth implementation: `apps/web/src/dsl-lite/parser.ts` and `apps/web/src/dsl-lite/convert.ts`;
-- this document reflects current runtime behavior.
+Source of truth implementation:
+- parser: `apps/web/src/dsl-lite/parser.ts`
+- converter: `apps/web/src/dsl-lite/convert.ts`
 
-## 1. Overview (Human-Readable)
+## 1. Quick Answer: `view v_main container`
 
-DSL LITE supports a **single file with multiple views**.
+`v_main` is **not mandatory**. It is a naming convention.
 
-Each view can declare:
-- nodes
-- edges
-- journeys
-- parent/via hierarchy
-
-Workspace can also declare:
-- optional `metadata ui-layout` (UI-only node positions and edge label geometry).
-
-Nodes can declare:
-- `drilldown <viewId>`
-- `contains a,b,c` (group boundary)
-
-Short example:
+This is valid:
 
 ```dsl
-workspace "Orders" {
-  view v_container container {
-    boundary core "Core Services" contains api,worker,orders
-    container api "orders-api" tech spring-boot drilldown v_component_api
-    container worker "fulfillment-worker" tech spring-boot
-    db orders "orders-db" tech postgres
+view batatinha container {
+  container app "App"
+}
+```
+
+What is fixed (keyword): `view`, `container`.  
+What is free (identifier): `batatinha`.
+
+## 2. Keywords vs Conventions
+
+### 2.1 Keywords (syntax)
+
+These tokens have structural meaning in DSL:
+
+- `workspace`
+- `view`
+- `parent`
+- `via`
+- `journey`
+- `color`
+- `tech`
+- `drilldown`
+- `contains`
+- `metadata`
+- `ui-layout`
+- `node`
+- `edge`
+- `at`
+- `size`
+- `label`
+- `side`
+- `font`
+- `angle`
+
+Also part of syntax:
+- symbols: `{`, `}`, `->`, `:`, `"`, `,`
+- view kinds: `system-context`, `container`, `component`, `hex`
+- metadata edge side: `left`, `right`
+
+### 2.2 Conventions (recommended, not required)
+
+- View IDs like `v_main`, `v_container`, `v_component_api`.
+- Node aliases prefixed by role, e.g. `api`, `worker`, `orders_db`.
+- Edge labels using protocol/domain action names.
+
+You can use any valid identifier style as long as it matches parser rules.
+
+## 3. Identifier and Token Rules
+
+### 3.1 Identifier format
+
+Identifiers (view IDs, aliases, tech/protocol tokens) support:
+- letters, numbers, `_`, `-`
+
+Regex equivalent:
+- `[A-Za-z0-9_-]+`
+
+### 3.2 String format
+
+Human names/labels are double-quoted:
+
+```dsl
+container api "Orders API"
+```
+
+### 3.3 Comments
+
+Supported comment lines:
+- `// comment`
+- `# comment`
+
+Only lines starting with these prefixes are ignored.
+
+## 4. File Structure
+
+A full file usually looks like:
+
+```dsl
+workspace "My Workspace" {
+  view v_main container {
+    ...
   }
 
-  view v_component_api component parent v_container via api {
-    component app "CreateOrderService" tech application-service
+  view v_component component parent v_main via api {
+    ...
+  }
+
+  metadata ui-layout {
+    view v_main {
+      ...
+    }
   }
 }
 ```
 
-## 2. EBNF
+## 5. Core Syntax Blocks
 
-```ebnf
-dsl              = ws, workspaceDecl, ws ;
+### 5.1 Workspace
 
-workspaceDecl    = "workspace", ws1, string, ws, "{", ws, { workspaceStatement, ws }, "}" ;
-
-viewDecl         = modernViewDecl | legacyViewDecl ;
-modernViewDecl   = "view", ws1, viewId, ws1, viewKind,
-                   [ ws1, "parent", ws1, viewId, ws1, "via", ws1, alias ],
-                   ws, "{", ws, { statement, ws }, "}" ;
-legacyViewDecl   = "view", ws1, viewKind, ws, "{", ws, { statement, ws }, "}" ;
-
-workspaceStatement = viewDecl | metadataDecl ;
-statement        = nodeDecl | edgeDecl | journeyDecl ;
-
-metadataDecl     = "metadata", ws1, "ui-layout", ws, "{", ws, { metadataViewDecl, ws }, "}" ;
-metadataViewDecl = "view", ws1, viewId, ws, "{", ws, { metadataNodeDecl | metadataEdgeDecl, ws }, "}" ;
-metadataNodeDecl = "node", ws1, alias, ws1, "at", ws1, number, ws1, number,
-                   ws1, "size", ws1, number, ws1, number ;
-metadataEdgeDecl = "edge", ws1, alias, ws, "->", ws, alias, ws1, "label", ws1, number,
-                   [ ws1, "side", ws1, ("left" | "right") ] ;
-
-nodeDecl         = kind, ws1, alias, ws1, string,
-                   [ ws1, "tech", ws1, techId ],
-                   [ ws1, "drilldown", ws1, viewId ],
-                   [ ws1, "contains", ws1, aliasList ] ;
-
-aliasList        = alias, { ws?, ",", ws?, alias } ;
-
-edgeDecl         = alias, ws, "->", ws, alias,
-                   [ ws, ":", ws, protocolId, [ ws1, string ] ] ;
-
-journeyDecl      = "journey", ws1, string, [ ws1, "color", ws1, colorToken ],
-                   ws, "{", ws, { journeyStep, ws }, "}" ;
-
-journeyStep      = integer, ws, ":", ws, alias, ws, "->", ws, alias ;
-
-viewKind         = "system-context" | "container" | "component" | "hex" ;
-viewId           = id ;
-kind             = id ;
-techId           = id ;
-protocolId       = id ;
-alias            = id ;
-colorToken       = idOrHash ;
-
-id               = ( letter | digit | "_" | "-" ), { letter | digit | "_" | "-" } ;
-idOrHash         = ( letter | digit | "_" | "-" | "#" ),
-                   { letter | digit | "_" | "-" | "#" } ;
-integer          = digit, { digit } ;
-number           = [ "-" ], digit, { digit }, [ ".", digit, { digit } ] ;
-
-string           = "\"", { stringChar }, "\"" ;
-stringChar       = ? any char except " ? ;
-
-ws               = { " " | "\t" | "\r" | "\n" } ;
-ws1              = ( " " | "\t" ), { " " | "\t" } ;
-ws?              = { " " | "\t" } ;
+```dsl
+workspace "Name" {
+  ...
+}
 ```
 
-## 3. Semantic Rules
+### 5.2 View (modern syntax)
 
-### 3.1 Workspace and views
-- `workspace "..." { ... }` defines workspace name.
-- multiple views are allowed in a single file.
-- recommended modern format:
-  - `view <viewId> <viewKind> { ... }`
-- legacy format is still accepted:
-  - `view <viewKind> { ... }`
-  - parser auto-generates view id (`v_<kind>`).
+```dsl
+view <viewId> <viewKind> {
+  ...
+}
+```
 
-### 3.2 View scope
-- node aliases are local to each view.
-- edges and journey steps must reference aliases from the same view.
-- edges with unknown aliases are discarded during conversion.
+With hierarchy declaration:
 
-### 3.3 Nodes
-- format:
-  - `<kind> <alias> "Name" [tech <techId>] [drilldown <viewId>] [contains a,b,c]`
-- unknown `kind`: falls back to `container` preset.
-- unknown `techId`: parser keeps node valid; tech may remain unresolved.
+```dsl
+view <viewId> <viewKind> parent <parentViewId> via <parentNodeAlias> {
+  ...
+}
+```
 
-### 3.4 Drill-down and hierarchy
-- parent/child links can be declared in two ways:
-  1. node-level: `drilldown <childViewId>`
-  2. child view-level: `parent <parentViewId> via <parentAlias>`
-- full-model conversion behavior:
-  - UI uses `node.drilldownRef` for double-click navigation;
-  - `parent/via` also sets `drilldownRef` in the parent node.
-- in case of conflict, converter avoids overwriting a pre-existing `drilldownRef` targeting another view.
+### 5.3 View (legacy syntax, still accepted)
 
-### 3.5 Group boundary (`contains`)
-- use on `boundary` nodes:
-  - `boundary core "Core Services" contains api,worker,orders`
-- import effect:
-  - `boundary.children` is populated from listed aliases;
-  - boundary bounds are recalculated to wrap children with padding.
-- UI effect:
-  - boundary renders as a grouped container around its children.
+```dsl
+view container {
+  ...
+}
+```
 
-### 3.6 Edges
-- format:
-  - `<fromAlias> -> <toAlias> [: <protocolId> ["Label"]]`
-- defaults:
-  - protocol = `http`
-  - label = `request`
+Converter auto-generates view IDs (`v_<kind>`, `v_<kind>_2`, ...).
 
-### 3.7 Journeys
-- format:
-  - `journey "Name" [color <token>] { ... }`
-  - step: `<n>: <fromAlias> -> <toAlias>`
-- default color: `#2563eb`
-- a step is kept only when matching edge (`fromAlias -> toAlias`) exists in the same view.
+### 5.4 Node
 
-### 3.8 Minimum validation
-- if total node count is zero:
-  - error: `Invalid DSL LITE: no nodes found.`
+```dsl
+<kind> <alias> "Display Name" [tech <techId>] [drilldown <viewId>] [contains a,b,c]
+```
 
-### 3.9 UI layout metadata
-- optional block:
-  - `metadata ui-layout { ... }`
-- purpose:
-  - preserve UI geometry without changing architecture semantics.
-- supported entries per view:
-  - `node <alias> at <x> <y> size <w> <h>`
-  - `edge <fromAlias> -> <toAlias> label <position> [side <left|right>]`
-- conversion behavior:
-  - import applies node bounds, edge label positions, and optional edge label side after structural conversion;
-  - export includes this metadata block by default for all emitted views.
+Examples:
 
-## 4. Import/Export in the Editor
+```dsl
+container api "Orders API" tech spring-boot
+container backend "Backend" tech spring-boot drilldown v_component_backend
+boundary core "Core Services" contains api,worker,orders
+```
 
-- `Export full workspace`:
-  - generates one DSL file containing all views;
-  - includes `parent ... via ...` when drill-down relation exists.
-- `Import DSL`:
-  - reconstructs FULL workspace with multi-view hierarchy;
-  - applies drill-down and grouped boundaries.
-- synchronization remains manual:
-  - editing text does not update canvas until `Import DSL` is executed.
+### 5.5 Edge
 
-## 5. Parser Tolerance Rules
+```dsl
+<fromAlias> -> <toAlias> [: <protocolId> ["Label"]]
+```
 
-- empty lines are ignored.
-- lines starting with `//` or `#` are ignored.
-- unknown lines are ignored (not an error by themselves).
-- unclosed `journey` blocks are implicitly closed at EOF.
-- declarations outside any view create an implicit `v_container` view.
+Examples:
 
-## 6. Recommended Catalog (UI values)
+```dsl
+api -> worker : kafka-event "order.created"
+api -> orders : sql "insert order"
+ui -> api
+```
 
-### 6.1 Node `kind`
+If protocol/label are omitted:
+- protocol defaults to `http`
+- label defaults to `request`
+
+### 5.6 Journey
+
+```dsl
+journey "Name" [color <colorToken>] {
+  <n>: <fromAlias> -> <toAlias>
+}
+```
+
+Example:
+
+```dsl
+journey "Checkout Flow" color #2563eb {
+  1: web -> api
+  2: api -> orders
+}
+```
+
+### 5.7 UI Metadata (`metadata ui-layout`)
+
+This section stores **UI geometry only**.
+
+```dsl
+metadata ui-layout {
+  view <viewId> {
+    node <alias> at <x> <y> size <w> <h>
+    edge <fromAlias> -> <toAlias> label <position> [side left|right] [font <size>] [angle <deg>]
+  }
+}
+```
+
+Examples:
+
+```dsl
+metadata ui-layout {
+  view v_main {
+    node api at 520 240 size 300 130
+    edge web -> api label 0.34 side left font 13 angle -12
+  }
+}
+```
+
+## 6. Semantics (Runtime Behavior)
+
+### 6.1 Scope
+
+- Node aliases are scoped per view.
+- Edges and journey steps must reference aliases from the same view.
+
+### 6.2 Implicit view behavior
+
+If declarations appear outside `view { ... }`, parser creates an implicit `v_container`.
+
+### 6.3 Unknown values and fallback
+
+- Unknown `view kind` -> falls back to `container`.
+- Unknown node `kind` -> converter falls back to container preset.
+- Unknown `tech` token -> node remains valid; tech may stay unresolved.
+
+### 6.4 Drilldown model
+
+Drilldown can be declared in two ways:
+
+1. Node-level:
+- `drilldown <childViewId>` inside parent node declaration.
+
+2. Child view-level:
+- `view <child> ... parent <parentViewId> via <parentAlias>`.
+
+Converter behavior:
+- maps drilldown into `node.drilldownRef`.
+- if both styles exist and conflict, converter avoids overriding an already-set drilldown to another target.
+
+### 6.5 Boundary grouping (`contains`)
+
+When used on `boundary` node:
+- converter resolves aliases to child node IDs;
+- boundary `children` is populated;
+- boundary bounds are recomputed to wrap children.
+
+### 6.6 Journey step matching
+
+Journey step `<from> -> <to>` is kept only if matching edge exists in that view.
+
+### 6.7 Color behavior
+
+Currently in DSL LITE:
+- color token is supported on journeys (`journey ... color <token>`).
+- default journey color: `#2563eb`.
+
+Important:
+- node fill color and node text color are currently edited in UI/Inspector, not in DSL LITE syntax.
+- use valid CSS color values for journey color (hex recommended).
+
+### 6.8 Metadata behavior
+
+`metadata ui-layout` affects rendering/layout only:
+- node positions and sizes;
+- edge label position/side/font/angle.
+
+It does not alter architecture semantics (nodes/edges/journeys meaning).
+
+## 7. Import/Export/Sync in the App
+
+### 7.1 Export full workspace
+
+`Exportar workspace completo`:
+- generates all views into one DSL file;
+- includes `metadata ui-layout`.
+
+### 7.2 Import DSL
+
+`Importar DSL`:
+- parses DSL into FULL workspace;
+- applies drilldown/group boundaries;
+- applies `metadata ui-layout`;
+- preserves current app theme during import flow.
+
+### 7.3 Sync mode
+
+`Sync com editor`:
+- keeps Monaco editable;
+- applies valid DSL changes to view in real time while typing;
+- if current text is invalid, sync shows parse error and keeps last valid canvas state.
+
+## 8. Validation and Tolerance Rules
+
+- Empty lines ignored.
+- Lines starting with `//` or `#` ignored.
+- Unknown lines ignored (not immediate fatal error).
+- Unclosed journey block is implicitly closed at EOF.
+- If no nodes are found in the whole file, parser throws:
+  - `DSL LITE inválida: nenhum node encontrado.`
+
+## 9. Examples
+
+### 9.1 Minimum possible example
+
+```dsl
+workspace "Tiny" {
+  view batatinha container {
+    container app "App"
+  }
+}
+```
+
+### 9.2 Minimum useful example (edge + journey)
+
+```dsl
+workspace "Tiny Flow" {
+  view v_main container {
+    container app "App" tech react
+    db orders "Orders DB" tech postgres
+    app -> orders : sql "select order"
+
+    journey "Smoke Test" color #0ea5e9 {
+      1: app -> orders
+    }
+  }
+}
+```
+
+### 9.3 Legacy implicit-view style
+
+```dsl
+workspace "Legacy" {
+  container app "App"
+  queue bus "Bus" tech kafka
+  app -> bus : kafka-event "event"
+}
+```
+
+This is still accepted and mapped to an implicit `v_container`.
+
+### 9.4 Drilldown via node-level `drilldown`
+
+```dsl
+workspace "Node Drilldown" {
+  view v_container container {
+    container api "Orders API" tech spring-boot drilldown v_component_api
+  }
+
+  view v_component_api component {
+    component use_case "CreateOrderService" tech application-service
+  }
+}
+```
+
+### 9.5 Drilldown via `parent ... via ...`
+
+```dsl
+workspace "Parent Via Drilldown" {
+  view v_container container {
+    container api "Orders API" tech spring-boot
+  }
+
+  view v_component_api component parent v_container via api {
+    component use_case "CreateOrderService" tech application-service
+  }
+}
+```
+
+### 9.6 Metadata example (labels with side/font/angle)
+
+```dsl
+workspace "Layout Metadata" {
+  view v_main container {
+    container web "Web App" tech react
+    container api "API" tech spring-boot
+    web -> api : http "GET /status"
+  }
+
+  metadata ui-layout {
+    view v_main {
+      node web at 140 220 size 280 120
+      node api at 560 220 size 300 130
+      edge web -> api label 0.72 side right font 14 angle -18
+    }
+  }
+}
+```
+
+### 9.7 Advanced example ("cabuloso")
+
+```dsl
+workspace "CIM + SAGA + Finish - System Journey" {
+  view v_main container {
+    system guardian "Guardian" tech system
+    system autopilot "Autopilot" tech system
+    gateway api_gateway "Xway" tech nginx
+    security oam "OAM" tech oauth2
+
+    boundary core "Core Services" contains cim,saga,finish
+    container cim "CIM - Customer Interaction Management" tech spring-boot drilldown v_component_cim
+    container saga "CIM-SAGA - Stateful Orchestrator" tech spring-boot drilldown v_component_saga
+    container finish "MS Finish Interaction" tech spring-boot drilldown v_component_finish
+    queue kafka "Kafka" tech kafka
+    db orders "Orders DB" tech postgres
+
+    guardian -> api_gateway : http "authenticate"
+    api_gateway -> cim : http "start interaction"
+    cim -> saga : internal-call "orchestrate"
+    saga -> kafka : kafka-event "cim.protocol.created"
+    finish -> orders : sql "persist result"
+
+    journey "Create + Orchestrate + Finish" color #22c55e {
+      1: guardian -> api_gateway
+      2: api_gateway -> cim
+      3: cim -> saga
+      4: saga -> kafka
+      5: finish -> orders
+    }
+  }
+
+  view v_component_cim component parent v_main via cim {
+    component entry "InteractionController" tech component
+    component use_case "CreateInteraction" tech application-service drilldown v_hex_cim
+    component repo "InteractionRepository" tech component
+    entry -> use_case : internal-call "handle request"
+    use_case -> repo : internal-call "save interaction"
+  }
+
+  view v_hex_cim hex parent v_component_cim via use_case {
+    domain core_domain "InteractionDomain" tech domain
+    port-in app_in "CreateInteractionIn" tech port-in
+    port-out app_out "InteractionOut" tech port-out
+    adapter-in rest_in "RestController" tech adapter-in
+    adapter-out db_out "MongoAdapter" tech adapter-out
+    rest_in -> app_in : internal-call "invoke"
+    app_in -> core_domain : internal-call "apply rules"
+    core_domain -> app_out : internal-call "emit result"
+    app_out -> db_out : internal-call "persist"
+  }
+
+  view v_component_saga component parent v_main via saga {
+    component orchestrator "SagaOrchestrator" tech component
+  }
+
+  view v_component_finish component parent v_main via finish {
+    component finisher "FinishInteractionService" tech component
+  }
+
+  metadata ui-layout {
+    view v_main {
+      node guardian at 80 130 size 220 110
+      node api_gateway at 360 130 size 220 110
+      node cim at 660 120 size 280 120
+      node saga at 980 120 size 280 120
+      node finish at 1310 120 size 280 120
+      node kafka at 1000 340 size 260 120
+      node orders at 1310 340 size 260 120
+      edge guardian -> api_gateway label 0.42 side left
+      edge api_gateway -> cim label 0.4 side left font 13
+      edge cim -> saga label 0.47 side left font 13 angle -8
+      edge saga -> kafka label 0.58 side right
+      edge finish -> orders label 0.46 side left
+    }
+  }
+}
+```
+
+## 10. Recommended Catalog Tokens
+
+### 10.1 Node kinds
+
 - `system`
 - `container`
 - `component`
@@ -211,7 +500,8 @@ ws?              = { " " | "\t" } ;
 - `adapter-in`
 - `adapter-out`
 
-### 6.2 `protocolId`
+### 10.2 Protocol IDs
+
 - `http`
 - `internal-call`
 - `grpc`
@@ -219,7 +509,8 @@ ws?              = { " " | "\t" } ;
 - `sql`
 - `oauth2-token`
 
-### 6.3 `techId`
+### 10.3 Tech IDs
+
 - `system`
 - `react`
 - `spring-boot`
@@ -239,39 +530,14 @@ ws?              = { " " | "\t" } ;
 - `redis`
 - `elasticsearch`
 
-## 7. Complete Example (Multi-View + Hierarchy + Boundary)
-
-```dsl
-workspace "Orders" {
-  view v_container container {
-    boundary core "Core Services" contains api,worker,orders
-    container api "orders-api" tech spring-boot
-    container worker "fulfillment-worker" tech spring-boot
-    db orders "orders-db" tech postgres
-
-    api -> worker : kafka-event "order.created"
-    api -> orders : sql "insert order"
-  }
-
-  view v_component_api component parent v_container via api {
-    component app "CreateOrderService" tech application-service drilldown v_hex_api
-    component repo "OrderRepo" tech component
-    app -> repo : internal-call "save"
-  }
-
-  view v_hex_api hex parent v_component_api via app {
-    domain core_domain "OrderDomain" tech domain
-  }
-}
-```
-
-## 8. Checklist for AI DSL Generation
+## 11. DSL Authoring Checklist
 
 Before importing:
 1. `workspace "..." {` exists.
-2. each modern view has a unique `viewId`.
-3. file contains at least one node.
-4. each edge alias exists as a node in the same view.
-5. journey steps reference existing edges in the same view.
-6. `drilldown` and `parent/via` reference valid view IDs and aliases.
-7. `contains` only lists aliases from the same view.
+2. each modern view has unique `viewId`.
+3. there is at least one node in total.
+4. every edge alias exists as node alias in same view.
+5. journey steps map to existing edges in same view.
+6. `drilldown` / `parent via` references are valid.
+7. `contains` aliases exist in same view.
+8. if using `metadata ui-layout`, view IDs and aliases match declared elements.

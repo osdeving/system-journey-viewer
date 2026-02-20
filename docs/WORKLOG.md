@@ -2,6 +2,38 @@
 
 Chronological engineering log. Entries are kept concise and focused on behavior and validation.
 
+## 2026-02-20 - DSL specification expansion (keywords vs conventions, advanced examples, drilldown, metadata)
+
+### Scope
+
+- Clarify what in DSL is keyword/syntax and what is naming convention.
+- Expand documentation with minimal, practical, and advanced (“cabuloso”) examples.
+- Add dedicated sections for drilldown, colors, metadata, tolerance rules, and app sync/import behavior.
+
+### Changes
+
+- Rewrote and expanded DSL reference:
+  - `docs/DSL_LITE_SPEC.md`
+  - new structure includes:
+    - quick answer for `view v_main container` vs arbitrary IDs (`view batatinha container`),
+    - keywords vs conventions section,
+    - identifier/token rules,
+    - complete syntax blocks (`workspace`, `view`, `node`, `edge`, `journey`, `metadata ui-layout`),
+    - runtime semantics and fallback behavior from parser/converter,
+    - import/export/sync behavior aligned with current app implementation,
+    - detailed examples:
+      - absolute minimum,
+      - minimum useful flow,
+      - legacy implicit view,
+      - drilldown by `drilldown`,
+      - drilldown by `parent/via`,
+      - metadata with `side/font/angle`,
+      - large multi-view advanced example.
+
+### Validation
+
+- Documentation-only change (no runtime behavior changed).
+
 ## 2026-02-20 - DSL editor full-height layout in dock/floating/bottom contexts
 
 ### Scope

@@ -60,9 +60,9 @@ Default playback/focus state:
 
 - Static: `SVG`, `PNG`, `PDF`.
 - Animated: `GIF`, `MP4`, animated `SVG`.
-- DSL panel:
-  - `Exportar workspace completo` snapshots current workspace into JourneyScript.
-  - `Sync com editor` applies valid DSL edits to the canvas view in real time while you type.
+- SJV Script panel:
+  - `Export full workspace` snapshots current workspace into SJV Script.
+  - `Sync with editor` applies valid SJV Script edits to the canvas view in real time while you type.
 
 ## Inspector Colors
 
@@ -78,7 +78,7 @@ Default playback/focus state:
 ## Dock and View Layout
 
 - Open panels from **View** menu:
-  - `Inspector`, `Journeys`, `Timeline`, `DSL`, `Help`
+  - `Inspector`, `Journeys`, `Timeline`, `SJV Script`, `Help`
 - Dock positions:
   - `Left`, `Right`, `Bottom`, `Floating`
 - Side docks are resizable in the dock direction:

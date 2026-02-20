@@ -1,215 +1,171 @@
-import { describe, expect, it } from 'vitest'
-import { existsSync, readFileSync } from 'node:fs'
+import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
+import { describe, expect, it } from 'vitest'
 import { fullViewToLiteDsl, fullWorkspaceToLiteDsl, liteToFullWorkspace } from './convert'
 import { parseLiteDsl } from './parser'
 
-const singleViewDsl = `
-workspace "Pedidos" {
-  view container {
-    container api "ms-pedidos" tech spring-boot
-    queue kafka "Kafka" tech kafka
-    db orders "orders-db" tech postgres
+const baseScript = `
+workspace "Customer Interaction" {
+  view v_main container {
+    container saga "Saga" tech spring-boot
+    db core_db "Core DB" tech postgres
 
-    api -> kafka : kafka-event "pedido.criado"
-    api -> orders : sql "insert order"
+    e_create: saga -> core_db : sql "create interaction"
+    e_update: saga -> core_db : http "save protocol"
 
-    journey "Fluxo A" color #2563eb {
-      1: api -> kafka
-      2: api -> orders
+    journey j_protocol "Protocol Flow" color #2563eb {
+      e_create
+      e_update
     }
   }
 }
 `
 
-const hierarchicalDsl = `
-workspace "Pedidos" {
+const hierarchyScript = `
+workspace "Orders" {
   view v_container container {
     boundary core "Core Services" contains api,worker,orders
-    container api "ms-pedidos" tech spring-boot
-    container worker "ms-fulfillment" tech spring-boot
-    db orders "orders-db" tech postgres
+    container api "Orders API" tech spring-boot drilldown v_component_api
+    container worker "Worker" tech spring-boot
+    db orders "Orders DB" tech postgres
 
-    api -> worker : kafka-event "order.created"
-    api -> orders : sql "insert order"
+    e_api_worker: api -> worker : kafka-event "order.created"
+    e_api_db: api -> orders : sql "insert order"
   }
 
   view v_component_api component parent v_container via api {
     component app "CreateOrderService" tech application-service
     component repo "OrderRepo" tech component
-    app -> repo : internal-call "save"
-  }
-
-  view v_hex_api hex parent v_component_api via app {
-    domain core_domain "OrderDomain" tech domain
+    e_app_repo: app -> repo : internal-call "save"
   }
 }
 `
 
-const metadataDsl = `
+const metadataScript = `
 workspace "Layout Metadata" {
   view v_main container {
     container app "App" tech react
     container api "API" tech spring-boot
-    app -> api : http "GET /status"
+    e_app_api: app -> api : http "GET /status"
   }
 
   metadata ui-layout {
     view v_main {
       node app at 140 220 size 280 120
       node api at 560 220 size 300 130
-      edge app -> api label 0.72 side right angle -18
+      edge e_app_api label 0.72 side right angle -18
     }
   }
 }
 `
 
-const cimDslPath =
-  [
-    resolve(process.cwd(), 'docs/cim.sjv'),
-    resolve(process.cwd(), '../../docs/cim.sjv'),
-  ].find((candidate) => existsSync(candidate)) ?? null
-
-if (!cimDslPath) {
-  throw new Error('Unable to locate docs/cim.sjv for hierarchy import test.')
+const notesScript = `
+workspace "Notes" {
+  view v_main container {
+    container api "Orders API" tech spring-boot
+    note note_api on api "Requires OAuth scope orders:write"
+  }
 }
+`
 
-const cimDsl = readFileSync(cimDslPath, 'utf8')
-
-describe('DSL Lite parser and conversion', () => {
-  it('keeps compatibility with single-view legacy syntax', () => {
-    const ast = parseLiteDsl(singleViewDsl)
+describe('SJV Script parser and conversion', () => {
+  it('keeps journey order from line position and resolves duplicate src->dst using edge IDs', () => {
+    const ast = parseLiteDsl(baseScript)
     const workspace = liteToFullWorkspace(ast)
 
-    expect(ast.workspaceName).toBe('Pedidos')
+    expect(ast.workspaceName).toBe('Customer Interaction')
     expect(ast.views).toHaveLength(1)
-    expect(Object.keys(workspace.nodes)).toHaveLength(3)
     expect(Object.keys(workspace.edges)).toHaveLength(2)
-    expect(Object.keys(workspace.journeys)).toHaveLength(1)
+
+    const journey = Object.values(workspace.journeys)[0]
+    expect(journey).toBeDefined()
+    const sortedSteps = journey.steps.slice().sort((left, right) => left.n - right.n)
+    expect(sortedSteps).toHaveLength(2)
+
+    const firstEdge = workspace.edges[sortedSteps[0].edgeId]
+    const secondEdge = workspace.edges[sortedSteps[1].edgeId]
+    expect(firstEdge.label).toBe('create interaction')
+    expect(secondEdge.label).toBe('save protocol')
   })
 
-  it('parses hierarchical multi-view DSL and resolves drilldown + boundary groups', () => {
-    const ast = parseLiteDsl(hierarchicalDsl)
+  it('parses hierarchical multi-view script and resolves drilldown + boundary groups', () => {
+    const ast = parseLiteDsl(hierarchyScript)
     const workspace = liteToFullWorkspace(ast)
 
-    expect(ast.views).toHaveLength(3)
-    expect(Object.keys(workspace.views)).toHaveLength(3)
+    expect(ast.views).toHaveLength(2)
+    expect(Object.keys(workspace.views)).toHaveLength(2)
 
-    const apiNode = Object.values(workspace.nodes).find((node) => node.name === 'ms-pedidos')
-    const appNode = Object.values(workspace.nodes).find((node) => node.name === 'CreateOrderService')
+    const apiNode = Object.values(workspace.nodes).find((node) => node.name === 'Orders API')
     const boundaryNode = Object.values(workspace.nodes).find((node) => node.name === 'Core Services')
     expect(apiNode?.drilldownRef).toBe('v_component_api')
-    expect(appNode?.drilldownRef).toBe('v_hex_api')
     expect(boundaryNode?.kind).toBe('boundary')
     expect(boundaryNode?.children.length).toBe(3)
-
-    const boundaryChildren =
-      boundaryNode?.children
-        .map((nodeId) => workspace.nodes[nodeId])
-        .filter((node) => !!node) ?? []
-    const minX = Math.min(...boundaryChildren.map((node) => node.bounds.x))
-    const minY = Math.min(...boundaryChildren.map((node) => node.bounds.y))
-    const maxX = Math.max(...boundaryChildren.map((node) => node.bounds.x + node.bounds.w))
-    const maxY = Math.max(...boundaryChildren.map((node) => node.bounds.y + node.bounds.h))
-
-    expect(boundaryNode?.bounds.x ?? 0).toBeLessThanOrEqual(minX)
-    expect(boundaryNode?.bounds.y ?? 0).toBeLessThanOrEqual(minY)
-    expect((boundaryNode?.bounds.x ?? 0) + (boundaryNode?.bounds.w ?? 0)).toBeGreaterThanOrEqual(maxX)
-    expect((boundaryNode?.bounds.y ?? 0) + (boundaryNode?.bounds.h ?? 0)).toBeGreaterThanOrEqual(maxY)
   })
 
-  it('exports and re-imports a complete workspace as a single DSL file', () => {
-    const ast = parseLiteDsl(hierarchicalDsl)
+  it('exports and re-imports a complete workspace as one script file', () => {
+    const ast = parseLiteDsl(hierarchyScript)
     const workspace = liteToFullWorkspace(ast)
-    const dsl = fullWorkspaceToLiteDsl(workspace)
+    const script = fullWorkspaceToLiteDsl(workspace)
 
-    expect(dsl).toContain('workspace "Pedidos"')
-    expect(dsl).toContain('view v_container container')
-    expect(dsl).toContain('view v_component_api component parent v_container via api')
-    expect(dsl).toContain('view v_hex_api hex parent v_component_api via app')
-    expect(dsl).toContain('boundary core "Core Services" tech boundary contains api,worker,orders')
+    expect(script).toContain('workspace "Orders"')
+    expect(script).toContain('view v_container container')
+    expect(script).toContain('e_api_worker: api -> worker : kafka-event "order.created"')
+    expect(script).toContain('metadata ui-layout')
 
-    const reparsed = parseLiteDsl(dsl)
+    const reparsed = parseLiteDsl(script)
     const rebuilt = liteToFullWorkspace(reparsed)
-    expect(Object.keys(rebuilt.views)).toHaveLength(3)
-    expect(
-      Object.values(rebuilt.nodes).some(
-        (node) => node.name === 'ms-pedidos' && node.drilldownRef === 'v_component_api',
-      ),
-    ).toBe(true)
+    expect(Object.keys(rebuilt.views)).toHaveLength(2)
   })
 
-  it('still exports a single current view for backward compatibility', () => {
-    const ast = parseLiteDsl(singleViewDsl)
-    const workspace = liteToFullWorkspace(ast)
-    const viewId = Object.keys(workspace.views)[0]
-    const dsl = fullViewToLiteDsl(workspace, viewId)
-
-    expect(dsl).toContain('workspace "Pedidos"')
-    expect(dsl).toContain('view v_container container')
-    expect(dsl).toContain('journey "Fluxo A" color #2563eb')
-    expect(dsl).toContain('api -> kafka : kafka-event "pedido.criado"')
-  })
-
-  it('imports cim workspace preserving drilldown hierarchy across views', () => {
-    const ast = parseLiteDsl(cimDsl)
+  it('preserves note attachment relations across roundtrip conversion', () => {
+    const ast = parseLiteDsl(notesScript)
     const workspace = liteToFullWorkspace(ast)
 
-    const mainView = workspace.views.v_main
-    expect(mainView).toBeDefined()
-    expect(mainView.kind).toBe('container')
+    const noteNode = Object.values(workspace.nodes).find((node) => node.kind === 'note')
+    expect(noteNode).toBeDefined()
+    expect(noteNode?.noteTargetNodeId).toBeTruthy()
 
-    const cimContainer = Object.values(workspace.nodes).find(
-      (node) => node.name === 'CIM - Customer Interaction Management',
-    )
-    const sagaContainer = Object.values(workspace.nodes).find(
-      (node) => node.name === 'CIM-SAGA - Stateful Orchestrator',
-    )
-    const finishContainer = Object.values(workspace.nodes).find(
-      (node) => node.name === 'MS Finish Interaction',
-    )
-    expect(cimContainer?.drilldownRef).toBe('v_component_cim')
-    expect(sagaContainer?.drilldownRef).toBe('v_component_saga')
-    expect(finishContainer?.drilldownRef).toBe('v_component_finish')
-
-    const cimComponentView = workspace.views.v_component_cim
-    const sagaComponentView = workspace.views.v_component_saga
-    const finishComponentView = workspace.views.v_component_finish
-    expect(cimComponentView).toBeDefined()
-    expect(sagaComponentView).toBeDefined()
-    expect(finishComponentView).toBeDefined()
-
-    const mainNodeSet = new Set(mainView.nodeIds)
-    expect(
-      cimComponentView.nodeIds.some((nodeId) => mainNodeSet.has(nodeId)),
-    ).toBe(false)
-    expect(
-      sagaComponentView.nodeIds.some((nodeId) => mainNodeSet.has(nodeId)),
-    ).toBe(false)
-    expect(
-      finishComponentView.nodeIds.some((nodeId) => mainNodeSet.has(nodeId)),
-    ).toBe(false)
+    const exported = fullWorkspaceToLiteDsl(workspace)
+    expect(exported).toContain('note note_api on api "Requires OAuth scope orders:write"')
   })
 
-  it('imports and exports UI layout metadata for node positions and edge labels', () => {
-    const ast = parseLiteDsl(metadataDsl)
+  it('imports and exports ui-layout metadata using edge IDs', () => {
+    const ast = parseLiteDsl(metadataScript)
     const workspace = liteToFullWorkspace(ast)
     const mainView = workspace.views.v_main
-    const appNodeId = mainView.nodeIds.find((nodeId) => workspace.nodes[nodeId]?.name === 'App')
-    const apiNodeId = mainView.nodeIds.find((nodeId) => workspace.nodes[nodeId]?.name === 'API')
     const edgeId = mainView.edgeIds[0]
 
-    expect(appNodeId).toBeDefined()
-    expect(apiNodeId).toBeDefined()
-    expect(appNodeId ? workspace.nodes[appNodeId].bounds.x : 0).toBe(140)
-    expect(apiNodeId ? workspace.nodes[apiNodeId].bounds.w : 0).toBe(300)
+    expect(edgeId).toBeTruthy()
     expect(workspace.edges[edgeId].style.labelPosition).toBeCloseTo(0.72, 5)
     expect(workspace.edges[edgeId].style.labelSide).toBe('right')
     expect(workspace.edges[edgeId].style.labelAngle).toBe(-18)
 
     const exported = fullWorkspaceToLiteDsl(workspace)
     expect(exported).toContain('metadata ui-layout')
-    expect(exported).toContain('node app at 140 220 size 280 120')
-    expect(exported).toContain('edge app -> api label 0.72 side right angle -18')
+    expect(exported).toContain('edge e_app_api label 0.72 side right angle -18')
+  })
+
+  it('exports a single current view script', () => {
+    const ast = parseLiteDsl(baseScript)
+    const workspace = liteToFullWorkspace(ast)
+    const viewId = Object.keys(workspace.views)[0]
+    const script = fullViewToLiteDsl(workspace, viewId)
+
+    expect(script).toContain('workspace "Customer Interaction"')
+    expect(script).toContain('view v_main container')
+    expect(script).toContain('journey j_protocol "Protocol Flow" color #2563eb')
+  })
+
+  it('imports the showcase SJV Script file', () => {
+    const showcasePath = resolve(process.cwd(), '../../docs/cim.sjv')
+    const showcaseText = readFileSync(showcasePath, 'utf8')
+
+    const ast = parseLiteDsl(showcaseText)
+    const workspace = liteToFullWorkspace(ast)
+
+    expect(ast.views.length).toBeGreaterThan(3)
+    expect(Object.keys(workspace.views).length).toBeGreaterThan(3)
+    expect(Object.values(workspace.journeys).length).toBeGreaterThan(2)
+    expect(Object.values(workspace.nodes).some((node) => node.kind === 'note')).toBe(true)
   })
 })

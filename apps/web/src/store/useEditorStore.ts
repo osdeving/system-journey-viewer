@@ -74,6 +74,8 @@ interface EditorState {
   removeEdge: (edgeId: string) => void
   setNodeBounds: (nodeId: string, bounds: NodeBounds) => void
   setNodesBounds: (updates: Array<{ nodeId: string; bounds: NodeBounds }>) => void
+  addAttachedNote: (targetNodeId: string) => string | null
+  attachNoteToNode: (noteNodeId: string, targetNodeId: string, autoPlace?: boolean) => void
   moveNode: (nodeId: string, dx: number, dy: number) => void
   setNodeName: (nodeId: string, name: string) => void
   setNodeTech: (nodeId: string, techLabel: string) => void
@@ -231,7 +233,8 @@ const nextNumericId = (
 
 const createNode = (id: string, presetId: string, x: number, y: number): NodeModel => {
   const preset = resolveNodePreset(presetId) ?? resolveNodePreset('container')
-  const techPreset = preset ? resolveTechPreset(preset.defaultTechId) : undefined
+  const techPreset =
+    preset && preset.kind !== 'note' ? resolveTechPreset(preset.defaultTechId) : undefined
   const bounds = {
     x,
     y,
@@ -248,7 +251,7 @@ const createNode = (id: string, presetId: string, x: number, y: number): NodeMod
       ? { id: techPreset.id, label: techPreset.label, iconKey: techPreset.iconKey }
       : undefined,
     bounds,
-    ports: resolveNodePorts(bounds),
+    ports: resolveNodePorts(bounds, (preset?.kind ?? 'container') as NodeModel['kind']),
     children: [],
   }
 }
@@ -257,7 +260,7 @@ const applyNodeBounds = (node: NodeModel, bounds: NodeBounds): void => {
   const sizeChanged = node.bounds.w !== bounds.w || node.bounds.h !== bounds.h
   node.bounds = bounds
   if (sizeChanged) {
-    node.ports = resolveNodePorts(bounds)
+    node.ports = resolveNodePorts(bounds, node.kind)
   }
 }
 
@@ -334,6 +337,100 @@ const resolveUniqueId = (
     suffix += 1
   }
   return candidate
+}
+
+const NOTE_ATTACH_GAP = 36
+const NOTE_COLLISION_PADDING = 18
+
+const resolveOverlapArea = (left: NodeBounds, right: NodeBounds): number => {
+  const overlapX = Math.max(
+    0,
+    Math.min(left.x + left.w, right.x + right.w) - Math.max(left.x, right.x),
+  )
+  const overlapY = Math.max(
+    0,
+    Math.min(left.y + left.h, right.y + right.h) - Math.max(left.y, right.y),
+  )
+  return overlapX * overlapY
+}
+
+const resolveAttachedNoteBounds = (
+  workspace: WorkspaceModel,
+  viewId: string,
+  targetNodeId: string,
+  noteSize: Pick<NodeBounds, 'w' | 'h'>,
+  options?: { ignoreNodeId?: string },
+): NodeBounds | null => {
+  const view = workspace.views[viewId]
+  const targetNode = workspace.nodes[targetNodeId]
+  if (!view || !targetNode) {
+    return null
+  }
+
+  const target = targetNode.bounds
+  const candidates: NodeBounds[] = [
+    {
+      x: target.x + target.w + NOTE_ATTACH_GAP,
+      y: target.y + (target.h - noteSize.h) / 2,
+      w: noteSize.w,
+      h: noteSize.h,
+    },
+    {
+      x: target.x - noteSize.w - NOTE_ATTACH_GAP,
+      y: target.y + (target.h - noteSize.h) / 2,
+      w: noteSize.w,
+      h: noteSize.h,
+    },
+    {
+      x: target.x + (target.w - noteSize.w) / 2,
+      y: target.y + target.h + NOTE_ATTACH_GAP,
+      w: noteSize.w,
+      h: noteSize.h,
+    },
+    {
+      x: target.x + (target.w - noteSize.w) / 2,
+      y: target.y - noteSize.h - NOTE_ATTACH_GAP,
+      w: noteSize.w,
+      h: noteSize.h,
+    },
+  ]
+
+  const otherNodes = view.nodeIds
+    .map((nodeId) => workspace.nodes[nodeId])
+    .filter(
+      (node): node is NodeModel =>
+        !!node &&
+        node.id !== targetNodeId &&
+        node.id !== options?.ignoreNodeId,
+    )
+
+  let best: NodeBounds | null = null
+  let bestScore = Number.POSITIVE_INFINITY
+
+  for (const candidate of candidates) {
+    const collisionScore = otherNodes.reduce((score, node) => {
+      const expanded = {
+        x: node.bounds.x - NOTE_COLLISION_PADDING,
+        y: node.bounds.y - NOTE_COLLISION_PADDING,
+        w: node.bounds.w + NOTE_COLLISION_PADDING * 2,
+        h: node.bounds.h + NOTE_COLLISION_PADDING * 2,
+      }
+      return score + resolveOverlapArea(candidate, expanded)
+    }, 0)
+    const targetCenterX = target.x + target.w / 2
+    const targetCenterY = target.y + target.h / 2
+    const noteCenterX = candidate.x + candidate.w / 2
+    const noteCenterY = candidate.y + candidate.h / 2
+    const distanceScore = Math.hypot(noteCenterX - targetCenterX, noteCenterY - targetCenterY)
+    const score = collisionScore * 1000 + distanceScore
+
+    if (score < bestScore) {
+      best = candidate
+      bestScore = score
+    }
+  }
+
+  return best
 }
 
 const syncPlayerForJourneySteps = (
@@ -582,11 +679,11 @@ export const useEditorStore = create<EditorState>()(
             presetId: 'boundary',
             kind: 'boundary',
             name: `${sourceNode.name} Boundary`,
-            tags: ['drilldown-root'],
-            bounds: boundaryBounds,
-            ports: resolveNodePorts(boundaryBounds),
-            children: [],
-          }
+              tags: ['drilldown-root'],
+              bounds: boundaryBounds,
+              ports: resolveNodePorts(boundaryBounds, 'boundary'),
+              children: [],
+            }
           state.workspace.views[targetViewId] = {
             id: targetViewId,
             kind: nextKind,
@@ -702,31 +799,44 @@ export const useEditorStore = create<EditorState>()(
           return
         }
 
-        const connectedEdgeIds: string[] = []
+        const attachedNotes = Object.values(state.workspace.nodes)
+          .filter((node) => node.kind === 'note' && node.noteTargetNodeId === nodeId)
+          .map((node) => node.id)
+
+        const nodesToRemove = new Set([nodeId, ...attachedNotes])
+        const connectedEdgeIds = new Set<string>()
         for (const [edgeId, edge] of Object.entries(state.workspace.edges)) {
-          if (edge.from.nodeId === nodeId || edge.to.nodeId === nodeId) {
-            connectedEdgeIds.push(edgeId)
+          if (nodesToRemove.has(edge.from.nodeId) || nodesToRemove.has(edge.to.nodeId)) {
+            connectedEdgeIds.add(edgeId)
           }
         }
 
         for (const view of Object.values(state.workspace.views)) {
-          view.nodeIds = view.nodeIds.filter((candidate) => candidate !== nodeId)
+          view.nodeIds = view.nodeIds.filter((candidate) => !nodesToRemove.has(candidate))
         }
 
         for (const edgeId of connectedEdgeIds) {
           removeEdgeFromWorkspaceState(state, edgeId)
         }
 
-        delete state.workspace.nodes[nodeId]
+        for (const candidateId of nodesToRemove) {
+          delete state.workspace.nodes[candidateId]
+        }
 
-        if (state.pendingConnectionFrom === nodeId) {
+        for (const node of Object.values(state.workspace.nodes)) {
+          if (node.noteTargetNodeId && nodesToRemove.has(node.noteTargetNodeId)) {
+            node.noteTargetNodeId = undefined
+          }
+        }
+
+        if (state.pendingConnectionFrom && nodesToRemove.has(state.pendingConnectionFrom)) {
           state.pendingConnectionFrom = null
         }
-        if (state.selectedNodeId === nodeId) {
+        if (state.selectedNodeId && nodesToRemove.has(state.selectedNodeId)) {
           state.selectedNodeId = null
         }
-        if (state.selectedNodeIds.includes(nodeId)) {
-          state.selectedNodeIds = state.selectedNodeIds.filter((candidate) => candidate !== nodeId)
+        if (state.selectedNodeIds.some((candidate) => nodesToRemove.has(candidate))) {
+          state.selectedNodeIds = state.selectedNodeIds.filter((candidate) => !nodesToRemove.has(candidate))
           if (!state.selectedNodeId) {
             state.selectedNodeId = state.selectedNodeIds[state.selectedNodeIds.length - 1] ?? null
           }
@@ -759,6 +869,76 @@ export const useEditorStore = create<EditorState>()(
         }
       })
     },
+    addAttachedNote: (targetNodeId) => {
+      let createdNoteId: string | null = null
+      set((state) => {
+        const view = state.workspace.views[state.currentViewId]
+        const targetNode = state.workspace.nodes[targetNodeId]
+        if (!view || !targetNode || !view.nodeIds.includes(targetNodeId) || targetNode.kind === 'note') {
+          return
+        }
+
+        const noteNodeId = nextNumericId(state.workspace.nodes, 'n')
+        const baseX = targetNode.bounds.x + targetNode.bounds.w + NOTE_ATTACH_GAP
+        const baseY = targetNode.bounds.y
+        const noteNode = createNode(noteNodeId, 'note', baseX, baseY)
+        noteNode.noteTargetNodeId = targetNodeId
+
+        const autoBounds = resolveAttachedNoteBounds(
+          state.workspace,
+          state.currentViewId,
+          targetNodeId,
+          { w: noteNode.bounds.w, h: noteNode.bounds.h },
+        )
+        if (autoBounds) {
+          noteNode.bounds = autoBounds
+          noteNode.ports = resolveNodePorts(autoBounds, noteNode.kind)
+        }
+
+        state.workspace.nodes[noteNodeId] = noteNode
+        view.nodeIds.push(noteNodeId)
+        state.selectedNodeId = noteNodeId
+        state.selectedNodeIds = [noteNodeId]
+        state.selectedEdgeId = null
+        createdNoteId = noteNodeId
+      })
+      return createdNoteId
+    },
+    attachNoteToNode: (noteNodeId, targetNodeId, autoPlace = true) => {
+      set((state) => {
+        const view = state.workspace.views[state.currentViewId]
+        const noteNode = state.workspace.nodes[noteNodeId]
+        const targetNode = state.workspace.nodes[targetNodeId]
+        if (
+          !view ||
+          !noteNode ||
+          !targetNode ||
+          noteNode.kind !== 'note' ||
+          targetNode.kind === 'note' ||
+          !view.nodeIds.includes(noteNodeId) ||
+          !view.nodeIds.includes(targetNodeId)
+        ) {
+          return
+        }
+
+        noteNode.noteTargetNodeId = targetNodeId
+        if (!autoPlace) {
+          return
+        }
+        const nextBounds = resolveAttachedNoteBounds(
+          state.workspace,
+          state.currentViewId,
+          targetNodeId,
+          { w: noteNode.bounds.w, h: noteNode.bounds.h },
+          { ignoreNodeId: noteNode.id },
+        )
+        if (!nextBounds) {
+          return
+        }
+        noteNode.bounds = nextBounds
+        noteNode.ports = resolveNodePorts(nextBounds, noteNode.kind)
+      })
+    },
     moveNode: (nodeId, dx, dy) => {
       set((state) => {
         const node = state.workspace.nodes[nodeId]
@@ -781,7 +961,7 @@ export const useEditorStore = create<EditorState>()(
     setNodeTech: (nodeId, techLabel) => {
       set((state) => {
         const node = state.workspace.nodes[nodeId]
-        if (!node) {
+        if (!node || node.kind === 'note') {
           return
         }
         node.tech = {
@@ -845,6 +1025,11 @@ export const useEditorStore = create<EditorState>()(
           state.pendingConnectionPortId = null
           return
         }
+        if (fromNode.kind === 'note' || targetNode.kind === 'note') {
+          state.pendingConnectionFrom = null
+          state.pendingConnectionPortId = null
+          return
+        }
         const resolvedFromPortId = fromPortId ?? nearestPortId(fromNode, nodeCenter(targetNode))
         const toPortId = targetPortId ?? nearestPortId(targetNode, nodeCenter(fromNode))
         const edgeId = nextNumericId(state.workspace.edges, 'e')
@@ -875,7 +1060,7 @@ export const useEditorStore = create<EditorState>()(
       set((state) => {
         const edge = state.workspace.edges[edgeId]
         const targetNode = state.workspace.nodes[targetNodeId]
-        if (!edge || !targetNode) {
+        if (!edge || !targetNode || targetNode.kind === 'note') {
           return
         }
 
@@ -1012,13 +1197,29 @@ export const useEditorStore = create<EditorState>()(
               id: clonedNodeId,
               name: `${sourceNode.name} Copy`,
               bounds: clonedBounds,
-              ports: resolveNodePorts(clonedBounds),
+              ports: resolveNodePorts(clonedBounds, sourceNode.kind),
               children: [],
               drilldownRef: undefined,
             }
             view.nodeIds.push(clonedNodeId)
             sourceToCloneNodeId.set(nodeId, clonedNodeId)
             duplicatedNodeIds.push(clonedNodeId)
+          }
+
+          for (const sourceNodeId of selectedNodeIds) {
+            const sourceNode = state.workspace.nodes[sourceNodeId]
+            const clonedNodeId = sourceToCloneNodeId.get(sourceNodeId)
+            if (!sourceNode || !clonedNodeId) {
+              continue
+            }
+            const clonedNode = state.workspace.nodes[clonedNodeId]
+            if (!clonedNode || clonedNode.kind !== 'note') {
+              continue
+            }
+            const mappedTargetId = sourceNode.noteTargetNodeId
+              ? sourceToCloneNodeId.get(sourceNode.noteTargetNodeId) ?? sourceNode.noteTargetNodeId
+              : undefined
+            clonedNode.noteTargetNodeId = mappedTargetId
           }
 
           for (const edgeId of view.edgeIds.slice()) {
@@ -1117,7 +1318,7 @@ export const useEditorStore = create<EditorState>()(
             continue
           }
           node.bounds = bounds
-          node.ports = resolveNodePorts(bounds)
+          node.ports = resolveNodePorts(bounds, node.kind)
         }
 
         for (const [edgeId, labelPosition] of Object.entries(result.edgeLabelPositionById)) {

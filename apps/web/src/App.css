@@ -941,6 +941,21 @@
   transition: filter 0.2s ease, stroke-color 0.2s ease, transform 0.2s ease;
 }
 
+.node-note {
+  fill: #fef3c7;
+  stroke: #d97706;
+  stroke-width: 1.4;
+  stroke-dasharray: 5 3;
+}
+
+.note-link {
+  fill: none;
+  stroke: rgba(14, 116, 144, 0.75);
+  stroke-width: 1.5;
+  stroke-dasharray: 6 6;
+  pointer-events: none;
+}
+
 .node-boundary {
   fill: none;
   stroke-dasharray: 3 7;
@@ -2115,6 +2130,15 @@
 .theme-dark .node {
   fill: var(--sjv-node-fill);
   stroke: var(--sjv-node-stroke);
+}
+
+.theme-dark .node-note {
+  fill: rgba(120, 53, 15, 0.62);
+  stroke: rgba(251, 191, 36, 0.9);
+}
+
+.theme-dark .note-link {
+  stroke: rgba(125, 211, 252, 0.8);
 }
 
 .theme-dark .node-boundary {

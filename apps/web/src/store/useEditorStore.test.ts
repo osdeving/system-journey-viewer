@@ -36,6 +36,37 @@ describe('useEditorStore', () => {
     expect(updated.selectedNodeId).toBe('n_kafka')
   })
 
+  it('creates an attached note bound to a target node', () => {
+    const state = useEditorStore.getState()
+
+    const noteId = state.addAttachedNote('n_api')
+    const updated = useEditorStore.getState()
+    const note = noteId ? updated.workspace.nodes[noteId] : undefined
+
+    expect(noteId).toBeTruthy()
+    expect(note?.kind).toBe('note')
+    expect(note?.noteTargetNodeId).toBe('n_api')
+    expect(note?.ports).toEqual([])
+    expect(noteId ? updated.workspace.views[updated.currentViewId].nodeIds.includes(noteId) : false).toBe(true)
+  })
+
+  it('does not allow creating regular edges that start or end on notes', () => {
+    const state = useEditorStore.getState()
+    const noteId = state.addAttachedNote('n_api')
+    expect(noteId).toBeTruthy()
+
+    const noteNodeId = noteId ?? ''
+    const beforeEdgeCount = useEditorStore.getState().workspace.views.v_container.edgeIds.length
+
+    state.beginConnection(noteNodeId)
+    state.connectPendingTo('n_kafka')
+    state.beginConnection('n_api')
+    state.connectPendingTo(noteNodeId)
+
+    const updated = useEditorStore.getState()
+    expect(updated.workspace.views.v_container.edgeIds.length).toBe(beforeEdgeCount)
+  })
+
   it('updates node fill color from inspector action', () => {
     const state = useEditorStore.getState()
 

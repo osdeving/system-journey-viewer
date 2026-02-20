@@ -4,13 +4,13 @@
 
 - Roadmap milestones `M0 -> M9` were implemented.
 - Feature branches were promoted without merge commits using cherry-pick flow.
-- Latest UI increment (2026-02-20) fixed edge-arrow orientation by port direction, corrected DSL sync to apply typed DSL directly into view, removed `P` presentation shortcut, improved edge-handle discoverability, enabled node text color editing with theme-aware palettes, and normalized full-height DSL editor layout across dock/floating/bottom contexts.
+- Latest script/UI increment (2026-02-20) introduced breaking **SJV Script v2** semantics (explicit edge IDs, ordered journey steps by line position, attached notes), removed Portuguese UI copy, and standardized user-facing naming to **SJV Script**.
 - Architecture baseline:
   - custom SVG editor engine (internal adapter, no paid lock-in),
   - versioned FULL model (`schemaVersion: 1.0`) as source of truth,
-  - DSL LITE (`JourneyScript`) for text import/export.
+  - SJV Script for text import/export.
 - Optional Codex assistance integrated via server-side gateway (`apps/codex-gateway`).
-- DSL reference documentation now includes explicit syntax-vs-convention guidance plus expanded advanced examples and metadata/drilldown coverage (`docs/DSL_LITE_SPEC.md`).
+- SJV Script reference documentation now includes explicit syntax-vs-convention guidance plus expanded advanced examples and metadata/drilldown coverage (`docs/SJV_SCRIPT_SPEC.md`).
 
 ## Implemented Product Flows
 
@@ -32,8 +32,16 @@
 - Drill-down navigation (`Container -> Component -> Hex`) with breadcrumb.
 - Shortcut-assisted drilldown modeling:
   - `Ctrl/Cmd+Alt+double-click` converts a node into a drilldown boundary entry and opens its new detail view.
-- DSL LITE <-> FULL conversion with auto-layout.
-- DSL LITE now supports optional UI-only geometry metadata:
+- SJV Script <-> FULL conversion with auto-layout.
+- SJV Script v2 modeling semantics:
+  - runtime edges are declared as `<edgeId>: <from> -> <to> ...`,
+  - journey steps reference edge IDs in file order,
+  - metadata edge layout is keyed by edge ID.
+- Notes:
+  - `note <alias> on <targetAlias> "text"` supported in parser/converter,
+  - rendered as dashed non-arrow attachments,
+  - auto-attach and auto-place behavior when dropping/dragging notes onto nodes.
+- SJV Script now supports optional UI-only geometry metadata:
   - `metadata ui-layout` for node bounds and edge label positions.
   - edge metadata now supports label side (`left|right`) in addition to label progress.
   - edge metadata also supports optional label font size.
@@ -42,9 +50,9 @@
 - Presentation mode with clean rendering and export-focused controls.
 - Workspace file lifecycle in-browser UI:
   - `New File` (blank workspace),
-  - `Open File` (snapshot or DSL import: `.json/.sjv/.dsl/.txt`),
+  - `Open File` (snapshot or SJV Script import: `.json/.sjv/.dsl/.txt`),
   - `Save File` with File System Access API support (handle reuse on `Ctrl/Cmd+S` and Save As on `Ctrl/Cmd+Shift+S`, with download fallback as `.sjv.json`).
-  - entry view selection for DSL import now respects drilldown hierarchy (root/top-level view first, instead of arbitrary view key order).
+  - entry view selection for SJV Script import now respects drilldown hierarchy (root/top-level view first, instead of arbitrary view key order).
 - View hierarchy selector in topbar allows direct navigation across all nested views.
 - `replaceWorkspace`/`goToView` now rebuild breadcrumb-compatible history from hierarchy, so `Back` works even when opening a deep view directly.
 
@@ -90,7 +98,7 @@
   - `load-balancer`.
 - Dockable side panel (`Inspector` / `Journeys`) with tab drag and position switching.
 - Dock/workbench now supports broader panel layout control:
-  - dock tabs include `Inspector`, `Journeys`, `Timeline`, `DSL`, `Help`,
+  - dock tabs include `Inspector`, `Journeys`, `Timeline`, `SJV Script`, `Help`,
   - dock can be placed on left, right, bottom, or floating window,
   - side docks are resizable on their docking edge (left/right width control),
   - floating dock is draggable, resizable from all sides/corners, and clamped to viewport bounds,
@@ -121,11 +129,11 @@
   - hexagon infra nodes now render centered/top labels with truncation to avoid overflow.
   - inspector now supports explicit node text color customization (persisted in workspace model).
 - Node fill presets are now theme-aware (light/dark Tailwind-inspired palettes) for stronger contrast in dark-mode workflows.
-- Monaco-based `JourneyScript` editor with custom highlighting theme.
-- DSL panel now includes `Sync com editor` mode:
-  - when enabled, valid DSL edits are applied to the view in real time while typing,
-  - import flow preserves current app theme (prevents forced light-theme fallback on DSL load/import).
-- DSL editor layout now enforces top-pinned controls and full-height Monaco area in:
+- Monaco-based `SJV Script` editor with custom highlighting theme.
+- SJV Script panel now includes `Sync with editor` mode:
+  - when enabled, valid SJV Script edits are applied to the view in real time while typing,
+  - import flow preserves current app theme (prevents forced light-theme fallback on SJV Script load/import).
+- SJV Script editor layout now enforces top-pinned controls and full-height Monaco area in:
   - side dock,
   - floating dock,
   - bottom drawer dock mode.
@@ -146,8 +154,8 @@
 
 - Layout persistence now has dual path:
   - full snapshot persistence (`persist/hydrate`) for editor session state;
-  - dedicated UI layout persistence in localStorage by `workspaceId` (node bounds + edge label positions), auto-applied on DSL import.
-- Edge label angle is now part of persisted UI layout and DSL UI metadata import/export.
+  - dedicated UI layout persistence in localStorage by `workspaceId` (node bounds + edge label positions), auto-applied on SJV Script import.
+- Edge label angle is now part of persisted UI layout and SJV Script UI metadata import/export.
 - File menu includes local recents memory (up to 3 saved snapshots) for quick reopen.
 
 ## Open Source / Delivery Readiness (2026-02-16)

@@ -5,9 +5,11 @@ export interface LiteNode {
   techId?: string
   drilldownToViewId?: string
   containsAliases?: string[]
+  noteTargetAlias?: string
 }
 
 export interface LiteEdge {
+  id: string
   fromAlias: string
   toAlias: string
   protocol: string
@@ -15,12 +17,11 @@ export interface LiteEdge {
 }
 
 export interface LiteJourneyStep {
-  n: number
-  fromAlias: string
-  toAlias: string
+  edgeId: string
 }
 
 export interface LiteJourney {
+  id: string
   name: string
   color: string
   steps: LiteJourneyStep[]
@@ -49,8 +50,7 @@ export interface LiteUiLayoutNode {
 }
 
 export interface LiteUiLayoutEdge {
-  fromAlias: string
-  toAlias: string
+  edgeId: string
   labelPosition: number
   labelSide?: 'left' | 'right'
   labelFontSize?: number

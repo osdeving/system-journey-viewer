@@ -6,9 +6,6 @@ import type {
   LiteWorkspaceAst,
 } from './types'
 
-const DEFAULT_VIEW_ID = 'v_container'
-const DEFAULT_VIEW_KIND: LiteViewAst['kind'] = 'container'
-
 const toViewKind = (raw: string): LiteViewAst['kind'] => {
   if (raw === 'system-context' || raw === 'container' || raw === 'component' || raw === 'hex') {
     return raw
@@ -53,27 +50,15 @@ export const parseLiteDsl = (input: string): LiteWorkspaceAst => {
   }
 
   let openView: LiteViewAst | null = null
-  let implicitView: LiteViewAst | null = null
   let openJourney: LiteJourney | null = null
   let openUiLayout = false
   let openUiLayoutView: LiteUiLayoutView | null = null
-  let legacyViewIndex = 0
-
-  const activeView = (): LiteViewAst | null => openView ?? implicitView
-
-  const ensureImplicitView = (): LiteViewAst => {
-    if (!implicitView) {
-      implicitView = createViewAst(DEFAULT_VIEW_ID, DEFAULT_VIEW_KIND)
-    }
-    return implicitView
-  }
 
   const closeJourney = () => {
-    if (!openJourney) {
+    if (!openJourney || !openView) {
       return
     }
-    const view = activeView() ?? ensureImplicitView()
-    view.journeys.push(openJourney)
+    openView.journeys.push(openJourney)
     openJourney = null
   }
 
@@ -125,8 +110,8 @@ export const parseLiteDsl = (input: string): LiteWorkspaceAst => {
 
     const uiLayoutMatch = line.match(/^metadata\s+ui-layout\s*\{$/)
     if (uiLayoutMatch) {
-      closeView()
       closeJourney()
+      closeView()
       closeUiLayoutView()
       openUiLayout = true
       continue
@@ -160,21 +145,20 @@ export const parseLiteDsl = (input: string): LiteWorkspaceAst => {
         }
 
         const uiEdgeMatch = line.match(
-          /^edge\s+([A-Za-z0-9_-]+)\s*->\s*([A-Za-z0-9_-]+)\s+label\s+(-?\d+(?:\.\d+)?)(?:\s+side\s+(left|right))?(?:\s+font\s+(\d+(?:\.\d+)?))?(?:\s+angle\s+(-?\d+(?:\.\d+)?))?$/,
+          /^edge\s+([A-Za-z0-9_-]+)\s+label\s+(-?\d+(?:\.\d+)?)(?:\s+side\s+(left|right))?(?:\s+font\s+(\d+(?:\.\d+)?))?(?:\s+angle\s+(-?\d+(?:\.\d+)?))?$/,
         )
         if (uiEdgeMatch) {
           openUiLayoutView.edges.push({
-            fromAlias: uiEdgeMatch[1],
-            toAlias: uiEdgeMatch[2],
-            labelPosition: Number(uiEdgeMatch[3]),
-            labelSide: uiEdgeMatch[4] === 'right' ? 'right' : 'left',
+            edgeId: uiEdgeMatch[1],
+            labelPosition: Number(uiEdgeMatch[2]),
+            labelSide: uiEdgeMatch[3] === 'right' ? 'right' : 'left',
             labelFontSize:
-              uiEdgeMatch[5] && Number.isFinite(Number(uiEdgeMatch[5]))
-                ? Number(uiEdgeMatch[5])
+              uiEdgeMatch[4] && Number.isFinite(Number(uiEdgeMatch[4]))
+                ? Number(uiEdgeMatch[4])
                 : undefined,
             labelAngle:
-              uiEdgeMatch[6] && Number.isFinite(Number(uiEdgeMatch[6]))
-                ? Number(uiEdgeMatch[6])
+              uiEdgeMatch[5] && Number.isFinite(Number(uiEdgeMatch[5]))
+                ? Number(uiEdgeMatch[5])
                 : undefined,
           })
           continue
@@ -183,51 +167,53 @@ export const parseLiteDsl = (input: string): LiteWorkspaceAst => {
       continue
     }
 
-    const viewWithIdMatch = line.match(
+    const viewMatch = line.match(
       /^view\s+([A-Za-z0-9_-]+)\s+([a-z-]+)(?:\s+parent\s+([A-Za-z0-9_-]+)\s+via\s+([A-Za-z0-9_-]+))?\s*\{$/,
     )
-    if (viewWithIdMatch) {
+    if (viewMatch) {
       closeView()
       const parent =
-        viewWithIdMatch[3] && viewWithIdMatch[4]
-          ? { viewId: viewWithIdMatch[3], viaAlias: viewWithIdMatch[4] }
+        viewMatch[3] && viewMatch[4]
+          ? { viewId: viewMatch[3], viaAlias: viewMatch[4] }
           : undefined
-      openView = createViewAst(viewWithIdMatch[1], toViewKind(viewWithIdMatch[2]), parent)
+      openView = createViewAst(viewMatch[1], toViewKind(viewMatch[2]), parent)
       continue
     }
 
-    const legacyViewMatch = line.match(/^view\s+([a-z-]+)\s*\{$/)
-    if (legacyViewMatch) {
-      closeView()
-      legacyViewIndex += 1
-      const kind = toViewKind(legacyViewMatch[1])
-      const viewId = legacyViewIndex === 1 ? `v_${kind}` : `v_${kind}_${legacyViewIndex}`
-      openView = createViewAst(viewId, kind)
+    if (!openView) {
       continue
     }
-
-    const view = activeView() ?? ensureImplicitView()
 
     if (openJourney) {
-      const stepMatch = line.match(/^(\d+)\s*:\s*([A-Za-z0-9_-]+)\s*->\s*([A-Za-z0-9_-]+)$/)
+      const stepMatch = line.match(/^([A-Za-z0-9_-]+)$/)
       if (stepMatch) {
-        openJourney.steps.push({
-          n: Number(stepMatch[1]),
-          fromAlias: stepMatch[2],
-          toAlias: stepMatch[3],
-        })
+        openJourney.steps.push({ edgeId: stepMatch[1] })
         continue
       }
     }
 
-    const journeyMatch = line.match(/^journey\s+"([^"]+)"(?:\s+color\s+([#A-Za-z0-9_-]+))?\s*\{$/)
+    const journeyMatch = line.match(
+      /^journey\s+([A-Za-z0-9_-]+)\s+"([^"]+)"(?:\s+color\s+([#A-Za-z0-9_-]+))?\s*\{$/,
+    )
     if (journeyMatch) {
       closeJourney()
       openJourney = {
-        name: journeyMatch[1],
-        color: journeyMatch[2] ?? '#2563eb',
+        id: journeyMatch[1],
+        name: journeyMatch[2],
+        color: journeyMatch[3] ?? '#2563eb',
         steps: [],
       }
+      continue
+    }
+
+    const noteMatch = line.match(/^note\s+([A-Za-z0-9_-]+)\s+on\s+([A-Za-z0-9_-]+)\s+"([^"]+)"$/)
+    if (noteMatch) {
+      openView.nodes.push({
+        kind: 'note',
+        alias: noteMatch[1],
+        name: noteMatch[3],
+        noteTargetAlias: noteMatch[2],
+      })
       continue
     }
 
@@ -235,7 +221,7 @@ export const parseLiteDsl = (input: string): LiteWorkspaceAst => {
       /^([a-z-]+)\s+([A-Za-z0-9_-]+)\s+"([^"]+)"(?:\s+tech\s+([A-Za-z0-9_-]+))?(?:\s+drilldown\s+([A-Za-z0-9_-]+))?(?:\s+contains\s+([A-Za-z0-9_,-\s]+))?$/,
     )
     if (nodeMatch) {
-      view.nodes.push({
+      openView.nodes.push({
         kind: nodeMatch[1],
         alias: nodeMatch[2],
         name: nodeMatch[3],
@@ -247,14 +233,15 @@ export const parseLiteDsl = (input: string): LiteWorkspaceAst => {
     }
 
     const edgeMatch = line.match(
-      /^([A-Za-z0-9_-]+)\s*->\s*([A-Za-z0-9_-]+)(?:\s*:\s*([A-Za-z0-9_-]+)(?:\s*"([^"]*)")?)?$/,
+      /^([A-Za-z0-9_-]+)\s*:\s*([A-Za-z0-9_-]+)\s*->\s*([A-Za-z0-9_-]+)(?:\s*:\s*([A-Za-z0-9_-]+)(?:\s*"([^"]*)")?)?$/,
     )
     if (edgeMatch) {
-      view.edges.push({
-        fromAlias: edgeMatch[1],
-        toAlias: edgeMatch[2],
-        protocol: edgeMatch[3] ?? 'http',
-        label: edgeMatch[4] ?? 'request',
+      openView.edges.push({
+        id: edgeMatch[1],
+        fromAlias: edgeMatch[2],
+        toAlias: edgeMatch[3],
+        protocol: edgeMatch[4] ?? 'http',
+        label: edgeMatch[5] ?? 'request',
       })
       continue
     }
@@ -263,13 +250,14 @@ export const parseLiteDsl = (input: string): LiteWorkspaceAst => {
   closeView()
   closeJourney()
   closeUiLayoutView()
-  if (implicitView) {
-    result.views.push(implicitView)
+
+  if (!result.views.length) {
+    throw new Error('SJV Script invalid: no views found.')
   }
 
   const totalNodeCount = result.views.reduce((sum, view) => sum + view.nodes.length, 0)
   if (totalNodeCount === 0) {
-    throw new Error('DSL LITE inválida: nenhum node encontrado.')
+    throw new Error('SJV Script invalid: no nodes found.')
   }
 
   return result
@@ -280,13 +268,13 @@ const aliasByNodeId = (nodeId: string): string => {
   return value.length ? value : nodeId
 }
 
-export const toJourneyStepText = (step: LiteJourneyStep): string =>
-  `${step.n}: ${step.fromAlias} -> ${step.toAlias}`
+export const toJourneyStepText = (step: LiteJourneyStep): string => step.edgeId
 
 export type NodeLineTextOptions = {
   techId?: string
   drilldownToViewId?: string
   containsAliases?: string[]
+  noteTargetAlias?: string
 }
 
 export const toNodeLineText = (
@@ -295,6 +283,9 @@ export const toNodeLineText = (
   name: string,
   options?: NodeLineTextOptions,
 ): string => {
+  if (kind === 'note') {
+    return `note ${alias} on ${options?.noteTargetAlias ?? 'unknown'} "${name}"`
+  }
   const suffix = [
     options?.techId ? ` tech ${options.techId}` : '',
     options?.drilldownToViewId ? ` drilldown ${options.drilldownToViewId}` : '',
@@ -304,10 +295,11 @@ export const toNodeLineText = (
 }
 
 export const toEdgeLineText = (
+  edgeId: string,
   fromAlias: string,
   toAlias: string,
   protocol: string,
   label: string,
-): string => `${fromAlias} -> ${toAlias} : ${protocol} "${label}"`
+): string => `${edgeId}: ${fromAlias} -> ${toAlias} : ${protocol} "${label}"`
 
 export const fallbackAliasFromNodeId = aliasByNodeId

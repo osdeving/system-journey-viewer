@@ -15,6 +15,7 @@
   { "id": "port-out", "label": "Port Out", "iconKey": "queue" },
   { "id": "adapter-in", "label": "Adapter In", "iconKey": "gateway" },
   { "id": "adapter-out", "label": "Adapter Out", "iconKey": "queue" },
+  { "id": "note", "label": "Note", "iconKey": "component" },
   { "id": "observability", "label": "Observability", "iconKey": "search" },
   { "id": "redis", "label": "Redis", "iconKey": "cache" },
   { "id": "elasticsearch", "label": "Elasticsearch", "iconKey": "search" }

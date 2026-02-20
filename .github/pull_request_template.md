@@ -32,7 +32,7 @@ Attach before/after assets.
 
 - [ ] `README.md` updated (if needed)
 - [ ] `docs/UI_JOURNEYS_CAPABILITIES.md` updated (if behavior changed)
-- [ ] `docs/DSL_LITE_SPEC.md` updated (if DSL semantics changed)
+- [ ] `docs/SJV_SCRIPT_SPEC.md` updated (if SJV Script semantics changed)
 - [ ] `docs/DECISIONS.md` updated (if architecture decision changed)
 - [ ] `docs/WORKLOG.md` updated
 - [ ] `docs/AI_STATE.md` updated (if context/state changed)

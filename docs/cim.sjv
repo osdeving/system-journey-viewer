@@ -1,357 +1,171 @@
-workspace "CIM + CIM-SAGA + Finish - System Journey" {
+workspace "Customer Interaction Management - System Journey" {
   view v_main container {
-    boundary channels "External Channels" tech boundary contains guardian,autopilot,channel
-    system guardian "Guardian Channel (Mock)" tech system
-    system autopilot "Autopilot Channel (Mock)" tech system
-    system channel "Channel Generic" tech system
+    system guardian "Guardian" tech system
+    system autopilot "Autopilot" tech system
+    gateway api_gateway "Axway" tech nginx
+    security oam "OAM" tech oauth2
 
-    gateway api_gateway "API Gateway (Axway)" tech nginx
-    security oam "OAM (OAuth2 Client Credentials)" tech oauth2
-
-    boundary cim_boundary "ms-customer-interaction-management (CIM)" tech boundary contains cim
     container cim "CIM - Customer Interaction Management" tech spring-boot drilldown v_component_cim
+    container saga "CIM Saga" tech spring-boot drilldown v_component_saga
+    container finish "Finish Interaction Service" tech spring-boot drilldown v_component_finish
 
-    boundary saga_boundary "ms-customer-interaction-management-saga (CIM-SAGA)" tech boundary contains saga
-    container saga "CIM-SAGA - Stateful Orchestrator" tech spring-boot drilldown v_component_saga
+    db core_db "Saga Database" tech postgres
+    system protocol "Party Interaction" tech system
 
-    boundary finish_boundary "ms-finish-interaction" tech boundary contains finish
-    container finish "MS Finish Interaction" tech spring-boot drilldown v_component_finish
+    queue topic_protocol_create "cim.protocol.create" tech kafka
+    queue topic_protocol_created "cim.protocol.created" tech kafka
+    queue topic_interaction "ci.interaction" tech kafka
 
-    db core_db "PostgreSQL Core (schema: saga + finish)" tech postgres
-    system protocol "Customer Protocol (Mock)" tech system
+    note note_auth on cim "Requires OAuth2 client credentials"
+    note note_events on saga "Saga consumes and publishes Kafka events"
 
-    queue topic_protocol_create "ci.protocol.create.cmd" tech kafka
-    queue topic_protocol_created "ci.protocol.created.evt" tech kafka
-    queue topic_palitagem_create "ci.palitagem.create.cmd" tech kafka
-    queue topic_palitagem_created "ci.palitagem.created.evt" tech kafka
-    queue topic_interacao "ci.interacao" tech kafka
+    e_guardian_gateway: guardian -> api_gateway : http "start interaction"
+    e_gateway_cim: api_gateway -> cim : http "forward payload"
+    e_cim_oam: cim -> oam : oauth2-token "validate token"
+    e_cim_saga: cim -> saga : http "start orchestration"
+    e_saga_db_create: saga -> core_db : sql "persist CALL_STARTED"
+    e_saga_topic_create: saga -> topic_protocol_create : kafka-event "request protocol creation"
+    e_protocol_consume_create: protocol -> topic_protocol_create : kafka-event "consume protocol request"
+    e_protocol_publish_created: protocol -> topic_protocol_created : kafka-event "publish protocol created"
+    e_saga_consume_created: saga -> topic_protocol_created : kafka-event "consume protocol created"
+    e_saga_db_update: saga -> core_db : http "persist protocol"
+    e_saga_cim_return: saga -> cim : http "return interaction_id"
+    e_cim_gateway_return: cim -> api_gateway : http "return interaction_id"
+    e_gateway_guardian_return: api_gateway -> guardian : http "return interaction_id"
+    e_guardian_autopilot: guardian -> autopilot : http "dispatch interaction"
+    e_finish_topic_interaction: finish -> topic_interaction : kafka-event "publish interaction completed"
 
-    container bdi_subscriber "BDI Subscriber (interaction-data-service)" tech spring-boot
-    db bdi "BDI (MongoDB)" tech system
-
-    guardian -> api_gateway : http "POST /gateway/interactions (triage + externalCorrelationId)"
-    api_gateway -> cim : http "POST /v1/interactions"
-    cim -> oam : oauth2-token "POST token_url (client_credentials when enabled)"
-    cim -> saga : http "POST /v1/interactions"
-    saga -> core_db : sql "save interaction_instance + interaction_document"
-
-    saga -> topic_protocol_create : kafka-event "PUB ci.protocol.create.cmd"
-    topic_protocol_create -> protocol : kafka-event "SUB ci.protocol.create.cmd"
-    protocol -> topic_protocol_created : kafka-event "PUB ci.protocol.created.evt"
-    topic_protocol_created -> saga : kafka-event "SUB ci.protocol.created.evt"
-    saga -> cim : http "POST /v1/internal/interactions/{interactionId}/protocol-ready"
-    cim -> autopilot : http "POST webhook PROTOCOL_READY (optional)"
-
-    autopilot -> api_gateway : http "GET /gateway/interactions/{interactionId}"
-    api_gateway -> cim : http "GET /v1/interactions/{interactionId}"
-    cim -> saga : http "GET /v1/interactions/{interactionId}"
-
-    autopilot -> api_gateway : http "PATCH /gateway/interactions/{interactionId}"
-    api_gateway -> cim : http "PATCH /v1/interactions/{interactionId}"
-    cim -> saga : http "PATCH /v1/interactions/{interactionId}"
-    autopilot -> channel : internal-call "handoff interactionId"
-
-    channel -> api_gateway : http "POST /gateway/interactions/{interactionId}/subscriptions"
-    api_gateway -> cim : http "POST /v1/interactions/{interactionId}/subscriptions"
-    cim -> saga : http "POST /v1/interactions/{interactionId}/subscriptions"
-
-    channel -> api_gateway : http "POST /gateway/interactions/{interactionId}/palitagem"
-    api_gateway -> cim : http "POST /v1/interactions/{interactionId}/palitagem"
-    cim -> saga : http "POST /v1/interactions/{interactionId}/palitagem"
-    saga -> topic_palitagem_create : kafka-event "PUB ci.palitagem.create.cmd"
-    topic_palitagem_create -> protocol : kafka-event "SUB ci.palitagem.create.cmd"
-    protocol -> topic_palitagem_created : kafka-event "PUB ci.palitagem.created.evt"
-    topic_palitagem_created -> saga : kafka-event "SUB ci.palitagem.created.evt"
-    saga -> cim : http "POST /v1/internal/interactions/{interactionId}/protocol-ready (child protocol)"
-    cim -> channel : http "POST webhook PROTOCOL_READY (optional)"
-
-    channel -> api_gateway : http "POST /gateway/interactions/{interactionId}/close"
-    api_gateway -> cim : http "POST /v1/interactions/{interactionId}/close"
-    cim -> saga : http "POST /v1/interactions/{interactionId}/close"
-    saga -> core_db : sql "update interaction_instance.status=CLOSED"
-    saga -> finish : http "POST /v1/finish/interactions"
-    finish -> topic_interacao : kafka-event "PUB ci.interacao (Avro)"
-    topic_interacao -> bdi_subscriber : kafka-event "SUB ci.interacao"
-    bdi_subscriber -> bdi : sql "persist final interaction history"
-
-    channel -> api_gateway : http "GET /gateway/history/interactions/{interactionId}"
-    api_gateway -> bdi_subscriber : http "GET /interactions/{interactionId}"
-
-    journey "Start + Protocol Parent Ready" color #2563eb {
-      1: guardian -> api_gateway
-      2: api_gateway -> cim
-      3: cim -> oam
-      4: cim -> saga
-      5: saga -> core_db
-      6: saga -> topic_protocol_create
-      7: topic_protocol_create -> protocol
-      8: protocol -> topic_protocol_created
-      9: topic_protocol_created -> saga
-      10: saga -> cim
-      11: cim -> autopilot
-      12: autopilot -> api_gateway
-      13: api_gateway -> cim
-      14: cim -> saga
+    journey j_call_start "Call Start + Protocol" color #2563eb {
+      e_guardian_gateway
+      e_gateway_cim
+      e_cim_oam
+      e_cim_saga
+      e_saga_db_create
+      e_saga_topic_create
+      e_protocol_consume_create
+      e_protocol_publish_created
+      e_saga_consume_created
+      e_saga_db_update
+      e_saga_cim_return
+      e_cim_gateway_return
+      e_gateway_guardian_return
+      e_guardian_autopilot
     }
 
-    journey "Subscription + Webhook Delegation" color #0f766e {
-      1: channel -> api_gateway
-      2: api_gateway -> cim
-      3: cim -> saga
-      4: saga -> cim
-      5: cim -> channel
-    }
-
-    journey "Palitagem Async + Child Protocol Ready" color #ea580c {
-      1: channel -> api_gateway
-      2: api_gateway -> cim
-      3: cim -> saga
-      4: saga -> topic_palitagem_create
-      5: topic_palitagem_create -> protocol
-      6: protocol -> topic_palitagem_created
-      7: topic_palitagem_created -> saga
-      8: saga -> cim
-      9: cim -> channel
-    }
-
-    journey "Close + Finish + BDI" color #dc2626 {
-      1: channel -> api_gateway
-      2: api_gateway -> cim
-      3: cim -> saga
-      4: saga -> core_db
-      5: saga -> finish
-      6: finish -> topic_interacao
-      7: topic_interacao -> bdi_subscriber
-      8: bdi_subscriber -> bdi
-      9: channel -> api_gateway
-      10: api_gateway -> bdi_subscriber
+    journey j_finish "Finish Interaction" color #16a34a {
+      e_guardian_autopilot
+      e_finish_topic_interaction
     }
   }
 
   view v_component_cim component parent v_main via cim {
-    boundary cim_hex "CIM Hexagonal Components" tech boundary contains cim_adapter_in,cim_port_in,cim_app,cim_port_out,cim_adapter_out,cim_internal_adapter_in,cim_internal_port_in,cim_internal_service,cim_webhook_port_out,cim_webhook_adapter_out
+    boundary cim_core "CIM Core" contains cim_app,cim_repo,cim_events
 
-    adapter-in cim_adapter_in "InteractionControllerImpl" tech adapter-in
-    port-in cim_port_in "InteractionPortIn" tech port-in
-    application-service cim_app "InteractionService" tech application-service drilldown v_hex_cim
-    port-out cim_port_out "SagaPortOut" tech port-out
-    adapter-out cim_adapter_out "SagaHttpAdapter" tech adapter-out
+    component cim_app "InteractionApplicationService" tech application-service drilldown v_hex_cim
+    component cim_repo "InteractionRepository" tech component
+    component cim_events "InteractionEventPublisher" tech adapter-out
 
-    adapter-in cim_internal_adapter_in "InternalNotificationController" tech adapter-in
-    port-in cim_internal_port_in "InternalNotificationPortIn" tech port-in
-    application-service cim_internal_service "InternalNotificationService" tech application-service
-    port-out cim_webhook_port_out "WebhookDeliveryPortOut" tech port-out
-    adapter-out cim_webhook_adapter_out "WebhookHttpAdapter" tech adapter-out
+    note note_cim_validation on cim_app "Input validation and idempotency checks"
 
-    cim_adapter_in -> cim_port_in : internal-call "REST /v1/interactions/*"
-    cim_port_in -> cim_app : internal-call "start|get|patch|palitagem|subscriptions|close"
-    cim_app -> cim_port_out : internal-call "SagaPortOut.*"
-    cim_port_out -> cim_adapter_out : http "POST/GET/PATCH /v1/interactions*"
+    e_cim_app_repo: cim_app -> cim_repo : internal-call "save aggregate"
+    e_cim_app_events: cim_app -> cim_events : internal-call "publish domain event"
 
-    cim_internal_adapter_in -> cim_internal_port_in : internal-call "POST /v1/internal/interactions/{interactionId}/protocol-ready"
-    cim_internal_port_in -> cim_internal_service : internal-call "notifyProtocolReady"
-    cim_internal_service -> cim_webhook_port_out : internal-call "deliver webhook with retry/backoff"
-    cim_webhook_port_out -> cim_webhook_adapter_out : http "POST callback webhookUrl"
-
-    journey "CIM Component Flow" color #2563eb {
-      1: cim_adapter_in -> cim_port_in
-      2: cim_port_in -> cim_app
-      3: cim_app -> cim_port_out
-      4: cim_port_out -> cim_adapter_out
-      5: cim_internal_adapter_in -> cim_internal_port_in
-      6: cim_internal_port_in -> cim_internal_service
-      7: cim_internal_service -> cim_webhook_port_out
-      8: cim_webhook_port_out -> cim_webhook_adapter_out
-    }
-  }
-
-  view v_hex_cim hex parent v_component_cim via cim_app {
-    port-in cim_hex_port_in "InteractionPortIn (driving)" tech port-in
-    application-service cim_hex_app "InteractionService (use case)" tech application-service
-    domain cim_domain "Stateless interaction orchestration" tech domain
-    port-out cim_hex_port_out "SagaPortOut (driven)" tech port-out
-    adapter-out cim_hex_adapter_out "SagaHttpAdapter" tech adapter-out
-    security cim_hex_oam "OAM token endpoint" tech oauth2
-
-    cim_hex_port_in -> cim_hex_app : internal-call "driving operations"
-    cim_hex_app -> cim_domain : internal-call "input validation + orchestration"
-    cim_hex_app -> cim_hex_port_out : internal-call "delegate to saga"
-    cim_hex_port_out -> cim_hex_adapter_out : http "REST /v1/interactions*"
-    cim_hex_adapter_out -> cim_hex_oam : oauth2-token "client_credentials when enabled"
-
-    journey "CIM Hex Flow" color #1d4ed8 {
-      1: cim_hex_port_in -> cim_hex_app
-      2: cim_hex_app -> cim_domain
-      3: cim_hex_app -> cim_hex_port_out
-      4: cim_hex_port_out -> cim_hex_adapter_out
-      5: cim_hex_adapter_out -> cim_hex_oam
+    journey j_cim_component "CIM Component Flow" color #22c55e {
+      e_cim_app_repo
+      e_cim_app_events
     }
   }
 
   view v_component_saga component parent v_main via saga {
-    boundary saga_hex "CIM-SAGA Hexagonal Components" tech boundary contains saga_adapter_in_rest,saga_adapter_in_kafka,saga_inbox,saga_port_in,saga_app,saga_persistence_port,saga_persistence_adapter,saga_outbox_port,saga_outbox_adapter,saga_outbox_publisher,saga_finish_port,saga_finish_adapter,saga_cim_notify_port,saga_cim_notify_adapter
+    boundary saga_core "Saga Core" contains saga_app,saga_repo,saga_handlers
 
-    adapter-in saga_adapter_in_rest "SagaController" tech adapter-in
-    adapter-in saga_adapter_in_kafka "SagaLifecycleConsumer" tech adapter-in
-    adapter-out saga_inbox "InboxService" tech adapter-out
-    port-in saga_port_in "SagaUseCase" tech port-in
-    application-service saga_app "SagaApplicationService" tech application-service drilldown v_hex_saga
+    component saga_app "SagaApplicationService" tech application-service drilldown v_hex_saga
+    component saga_repo "SagaRepository" tech component
+    component saga_handlers "SagaKafkaHandlers" tech adapter-in
 
-    port-out saga_persistence_port "SagaPersistencePort" tech port-out
-    adapter-out saga_persistence_adapter "SagaPersistenceAdapter" tech adapter-out
+    e_saga_handlers_app: saga_handlers -> saga_app : internal-call "consume command"
+    e_saga_app_repo: saga_app -> saga_repo : internal-call "persist state"
 
-    port-out saga_outbox_port "OutboxEventPort" tech port-out
-    adapter-out saga_outbox_adapter "SagaOutboxAdapter" tech adapter-out
-    adapter-out saga_outbox_publisher "OutboxPublisher" tech adapter-out
-
-    port-out saga_finish_port "FinishPort" tech port-out
-    adapter-out saga_finish_adapter "FinishHttpAdapter" tech adapter-out
-
-    port-out saga_cim_notify_port "CimNotificationPort" tech port-out
-    adapter-out saga_cim_notify_adapter "CimNotificationHttpAdapter" tech adapter-out
-
-    saga_adapter_in_rest -> saga_port_in : internal-call "REST /v1/interactions/*"
-    saga_adapter_in_kafka -> saga_inbox : kafka-event "consume ci.*.created.evt"
-    saga_inbox -> saga_port_in : internal-call "dedup + dispatch onEvent"
-    saga_port_in -> saga_app : internal-call "start|get|update|palitagem|subscriptions|close|onEvent"
-
-    saga_app -> saga_persistence_port : internal-call "save/find instance+document+subscriptions"
-    saga_persistence_port -> saga_persistence_adapter : sql "interaction_instance + interaction_document + subscriptions"
-
-    saga_app -> saga_outbox_port : internal-call "enqueueJson(ci.protocol/palitagem topics)"
-    saga_outbox_port -> saga_outbox_adapter : internal-call "OutboxService.enqueue"
-    saga_outbox_adapter -> saga_outbox_publisher : kafka-event "publish outbox batch"
-
-    saga_app -> saga_cim_notify_port : internal-call "notifyProtocolReady(interaction, subscriptions)"
-    saga_cim_notify_port -> saga_cim_notify_adapter : http "POST /v1/internal/interactions/{interactionId}/protocol-ready"
-
-    saga_app -> saga_finish_port : internal-call "requestFinish(externalCorrelationId, interactionId, reason, payload)"
-    saga_finish_port -> saga_finish_adapter : http "POST /v1/finish/interactions"
-
-    journey "CIM-SAGA Component Flow" color #16a34a {
-      1: saga_adapter_in_rest -> saga_port_in
-      2: saga_port_in -> saga_app
-      3: saga_app -> saga_persistence_port
-      4: saga_persistence_port -> saga_persistence_adapter
-      5: saga_app -> saga_outbox_port
-      6: saga_outbox_port -> saga_outbox_adapter
-      7: saga_outbox_adapter -> saga_outbox_publisher
-      8: saga_adapter_in_kafka -> saga_inbox
-      9: saga_inbox -> saga_port_in
-      10: saga_app -> saga_cim_notify_port
-      11: saga_cim_notify_port -> saga_cim_notify_adapter
-      12: saga_app -> saga_finish_port
-      13: saga_finish_port -> saga_finish_adapter
-    }
-  }
-
-  view v_hex_saga hex parent v_component_saga via saga_app {
-    port-in saga_hex_port_in "SagaUseCase (driving)" tech port-in
-    application-service saga_hex_app "SagaApplicationService" tech application-service
-    domain saga_domain "Saga state machine + aggregate merge" tech domain
-
-    port-out saga_hex_persistence_port "SagaPersistencePort" tech port-out
-    adapter-out saga_hex_persistence_adapter "SagaPersistenceAdapter" tech adapter-out
-
-    port-out saga_hex_outbox_port "OutboxEventPort" tech port-out
-    adapter-out saga_hex_outbox_adapter "SagaOutboxAdapter + OutboxPublisher" tech adapter-out
-
-    port-out saga_hex_notify_port "CimNotificationPort" tech port-out
-    adapter-out saga_hex_notify_adapter "CimNotificationHttpAdapter" tech adapter-out
-
-    port-out saga_hex_finish_port "FinishPort" tech port-out
-    adapter-out saga_hex_finish_adapter "FinishHttpAdapter" tech adapter-out
-
-    saga_hex_port_in -> saga_hex_app : internal-call "driving operations + onEvent"
-    saga_hex_app -> saga_domain : internal-call "transition status + protocol updates"
-    saga_hex_app -> saga_hex_persistence_port : internal-call "persist aggregate"
-    saga_hex_persistence_port -> saga_hex_persistence_adapter : sql "persist instance/document/subscriptions"
-    saga_hex_app -> saga_hex_outbox_port : internal-call "enqueue ci.protocol/ci.palitagem commands"
-    saga_hex_outbox_port -> saga_hex_outbox_adapter : kafka-event "publish via polling outbox"
-    saga_hex_app -> saga_hex_notify_port : internal-call "delegate protocol ready callback"
-    saga_hex_notify_port -> saga_hex_notify_adapter : http "call CIM internal notification endpoint"
-    saga_hex_app -> saga_hex_finish_port : internal-call "close -> requestFinish"
-    saga_hex_finish_port -> saga_hex_finish_adapter : http "POST /v1/finish/interactions"
-
-    journey "CIM-SAGA Hex Flow" color #15803d {
-      1: saga_hex_port_in -> saga_hex_app
-      2: saga_hex_app -> saga_domain
-      3: saga_hex_app -> saga_hex_persistence_port
-      4: saga_hex_persistence_port -> saga_hex_persistence_adapter
-      5: saga_hex_app -> saga_hex_outbox_port
-      6: saga_hex_outbox_port -> saga_hex_outbox_adapter
-      7: saga_hex_app -> saga_hex_notify_port
-      8: saga_hex_notify_port -> saga_hex_notify_adapter
-      9: saga_hex_app -> saga_hex_finish_port
-      10: saga_hex_finish_port -> saga_hex_finish_adapter
+    journey j_saga_component "Saga Component Flow" color #f59e0b {
+      e_saga_handlers_app
+      e_saga_app_repo
     }
   }
 
   view v_component_finish component parent v_main via finish {
-    boundary finish_hex "Finish Hexagonal Components" tech boundary contains finish_adapter_in,finish_port_in,finish_app,finish_mapper,finish_record_port,finish_record_adapter,finish_publish_port,finish_publish_adapter,finish_outbox_publisher
+    component finish_app "FinishApplicationService" tech application-service drilldown v_hex_finish
+    component finish_publisher "FinishPublisher" tech adapter-out
 
-    adapter-in finish_adapter_in "FinishController" tech adapter-in
-    port-in finish_port_in "FinalizeInteractionUseCase" tech port-in
-    application-service finish_app "FinishApplicationService" tech application-service drilldown v_hex_finish
-    domain finish_mapper "InteractionAvroCodec + payload mapping" tech domain
+    e_finish_publish: finish_app -> finish_publisher : internal-call "emit completion event"
 
-    port-out finish_record_port "FinishRecordPort" tech port-out
-    adapter-out finish_record_adapter "FinishRecordPersistenceAdapter" tech adapter-out
-
-    port-out finish_publish_port "PublishInteractionFinishedPort" tech port-out
-    adapter-out finish_publish_adapter "InteractionEventOutboxAdapter" tech adapter-out
-    adapter-out finish_outbox_publisher "OutboxPublisher" tech adapter-out
-
-    finish_adapter_in -> finish_port_in : internal-call "POST /v1/finish/interactions"
-    finish_port_in -> finish_app : internal-call "finalizeInteraction"
-    finish_app -> finish_record_port : internal-call "find/save finish_record"
-    finish_record_port -> finish_record_adapter : sql "finish_record table"
-    finish_app -> finish_mapper : internal-call "normalize payload + map InteractionAvroEvent"
-    finish_app -> finish_publish_port : internal-call "publish topic=ci.interacao"
-    finish_mapper -> finish_publish_port : internal-call "supply avro payload"
-    finish_publish_port -> finish_publish_adapter : internal-call "enqueue(topic,key,bytes,headers)"
-    finish_publish_adapter -> finish_outbox_publisher : kafka-event "publish outbox batch to broker"
-
-    journey "Finish Component Flow" color #dc2626 {
-      1: finish_adapter_in -> finish_port_in
-      2: finish_port_in -> finish_app
-      3: finish_app -> finish_record_port
-      4: finish_record_port -> finish_record_adapter
-      5: finish_app -> finish_mapper
-      6: finish_mapper -> finish_publish_port
-      7: finish_publish_port -> finish_publish_adapter
-      8: finish_publish_adapter -> finish_outbox_publisher
+    journey j_finish_component "Finish Component Flow" color #a855f7 {
+      e_finish_publish
     }
   }
 
+  view v_hex_cim hex parent v_component_cim via cim_app {
+    domain cim_domain "Interaction Domain" tech domain
+    port-in cim_in "CreateInteractionUseCase" tech port-in
+    port-out cim_out "InteractionPersistencePort" tech port-out
+    adapter-in cim_rest "InteractionController" tech adapter-in
+    adapter-out cim_mongo "MongoInteractionRepository" tech adapter-out
+
+    e_cim_rest_in: cim_rest -> cim_in : http "invoke use case"
+    e_cim_in_domain: cim_in -> cim_domain : internal-call "execute domain logic"
+    e_cim_domain_out: cim_domain -> cim_out : internal-call "request persistence"
+    e_cim_out_mongo: cim_out -> cim_mongo : internal-call "save document"
+  }
+
+  view v_hex_saga hex parent v_component_saga via saga_app {
+    domain saga_domain "Saga Domain" tech domain
+    port-in saga_in "AdvanceSagaUseCase" tech port-in
+    port-out saga_out "SagaStorePort" tech port-out
+    adapter-in saga_kafka_in "SagaKafkaConsumer" tech adapter-in
+    adapter-out saga_pg "PostgresSagaStore" tech adapter-out
+
+    e_saga_kafka_in: saga_kafka_in -> saga_in : kafka-event "consume event"
+    e_saga_in_domain: saga_in -> saga_domain : internal-call "advance saga"
+    e_saga_domain_out: saga_domain -> saga_out : internal-call "persist state"
+    e_saga_out_pg: saga_out -> saga_pg : sql "update record"
+  }
+
   view v_hex_finish hex parent v_component_finish via finish_app {
-    port-in finish_hex_port_in "FinalizeInteractionUseCase (driving)" tech port-in
-    application-service finish_hex_app "FinishApplicationService" tech application-service
-    domain finish_hex_domain "Finish domain + InteractionAvroEvent" tech domain
+    domain finish_domain "Finish Domain" tech domain
+    port-in finish_in "FinishInteractionUseCase" tech port-in
+    port-out finish_out "PublishInteractionPort" tech port-out
+    adapter-in finish_http "FinishController" tech adapter-in
+    adapter-out finish_kafka "KafkaInteractionPublisher" tech adapter-out
 
-    port-out finish_hex_record_port "FinishRecordPort" tech port-out
-    adapter-out finish_hex_record_adapter "FinishRecordPersistenceAdapter" tech adapter-out
+    e_finish_http_in: finish_http -> finish_in : http "finish interaction"
+    e_finish_in_domain: finish_in -> finish_domain : internal-call "validate transition"
+    e_finish_domain_out: finish_domain -> finish_out : internal-call "publish outcome"
+    e_finish_out_kafka: finish_out -> finish_kafka : kafka-event "publish event"
+  }
 
-    port-out finish_hex_publish_port "PublishInteractionFinishedPort" tech port-out
-    adapter-out finish_hex_publish_adapter "InteractionEventOutboxAdapter" tech adapter-out
-    queue finish_hex_topic "ci.interacao" tech kafka
-
-    finish_hex_port_in -> finish_hex_app : internal-call "finalizeInteraction(externalCorrelationId, interactionId, reason, payload)"
-    finish_hex_app -> finish_hex_domain : internal-call "map aggregate to avro event"
-    finish_hex_app -> finish_hex_record_port : internal-call "idempotency + persistence"
-    finish_hex_record_port -> finish_hex_record_adapter : sql "finish_record"
-    finish_hex_app -> finish_hex_publish_port : internal-call "publish ci.interacao"
-    finish_hex_publish_port -> finish_hex_publish_adapter : internal-call "outbox enqueue bytes"
-    finish_hex_publish_adapter -> finish_hex_topic : kafka-event "PUB ci.interacao (Avro)"
-
-    journey "Finish Hex Flow" color #b91c1c {
-      1: finish_hex_port_in -> finish_hex_app
-      2: finish_hex_app -> finish_hex_domain
-      3: finish_hex_app -> finish_hex_record_port
-      4: finish_hex_record_port -> finish_hex_record_adapter
-      5: finish_hex_app -> finish_hex_publish_port
-      6: finish_hex_publish_port -> finish_hex_publish_adapter
-      7: finish_hex_publish_adapter -> finish_hex_topic
+  metadata ui-layout {
+    view v_main {
+      node guardian at 80 100 size 220 120
+      node autopilot at 80 340 size 220 120
+      node api_gateway at 360 100 size 220 120
+      node cim at 640 100 size 260 130
+      node saga at 960 100 size 240 130
+      node finish at 1260 100 size 240 130
+      node core_db at 960 330 size 240 120
+      node protocol at 1260 330 size 220 120
+      node topic_protocol_create at 640 330 size 260 110
+      node topic_protocol_created at 1260 520 size 260 110
+      node topic_interaction at 1560 330 size 240 110
+      node note_auth at 640 20 size 260 90
+      node note_events at 960 20 size 280 90
+      edge e_guardian_gateway label 0.5 side left
+      edge e_gateway_cim label 0.5 side left
+      edge e_cim_saga label 0.46 side left
+      edge e_saga_db_create label 0.45 side left
+      edge e_saga_topic_create label 0.52 side left
+      edge e_protocol_publish_created label 0.48 side right
+      edge e_saga_db_update label 0.58 side right
+      edge e_guardian_autopilot label 0.5 side left
+      edge e_finish_topic_interaction label 0.5 side left
     }
   }
 }

@@ -1,26 +1,29 @@
 import type { Monaco } from '@monaco-editor/react'
 
 export const JOURNEY_SCRIPT_LANGUAGE_ID = 'journey-script'
-export const JOURNEY_SCRIPT_NAME = 'JourneyScript'
+export const JOURNEY_SCRIPT_NAME = 'SJV Script'
 
 const KEYWORDS = [
   'workspace',
-  'settings',
   'view',
-  'node',
-  'edge',
-  'journey',
-  'step',
-  'drilldown',
   'parent',
   'via',
-  'boundary',
+  'tech',
+  'drilldown',
   'contains',
-  'grid',
-  'snap',
-  'theme',
-  'true',
-  'false',
+  'journey',
+  'color',
+  'metadata',
+  'ui-layout',
+  'edge',
+  'note',
+  'on',
+  'label',
+  'at',
+  'size',
+  'side',
+  'font',
+  'angle',
 ]
 
 const THEME_LIGHT = 'sjv-journeyscript-light'
@@ -75,7 +78,7 @@ export const registerJourneyScriptLanguage = (monaco: Monaco): void => {
           {
             cases: {
               '@keywords': 'keyword',
-              'container|component|system-context|hex|system|boundary|domain|application-service|port-in|port-out|adapter-in|adapter-out|db|queue|gateway|security':
+              'container|component|system-context|hex|system|boundary|domain|application-service|port-in|port-out|adapter-in|adapter-out|db|queue|gateway|security|note':
                 'type',
               '@default': 'identifier',
             },

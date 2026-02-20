@@ -4,7 +4,7 @@
 
 - Roadmap milestones `M0 -> M9` were implemented.
 - Feature branches were promoted without merge commits using cherry-pick flow.
-- Latest UI increment (2026-02-19) added stronger dock/view controls, local recents memory, and in-app markdown help.
+- Latest UI increment (2026-02-20) fixed edge-arrow orientation by port direction, added DSL live-sync mode, improved edge-handle discoverability, and enabled node text color editing with theme-aware palettes.
 - Architecture baseline:
   - custom SVG editor engine (internal adapter, no paid lock-in),
   - versioned FULL model (`schemaVersion: 1.0`) as source of truth,
@@ -114,10 +114,16 @@
   - click-hold + mouse wheel to increase/decrease edge label font size,
   - click-hold + `Alt` + mouse wheel to rotate edge label text with faster angle step,
   - double-click inline edge label editing.
+  - edge endpoint drag handles now use larger capture area and stronger visual indicator.
 - Node text editing and layout:
   - double-click inline editing for node title and subtitle/tech text,
   - hexagon infra nodes now render centered/top labels with truncation to avoid overflow.
+  - inspector now supports explicit node text color customization (persisted in workspace model).
+- Node fill presets are now theme-aware (light/dark Tailwind-inspired palettes) for stronger contrast in dark-mode workflows.
 - Monaco-based `JourneyScript` editor with custom highlighting theme.
+- DSL panel now includes `Sync com editor` mode:
+  - when enabled, DSL content mirrors workspace changes in real time,
+  - DSL editor becomes read-only while sync is active.
 - Focus/presentation workflows for demo-friendly screen usage.
 - Presentation mode center indicators now show both `Step X/Y` and the currently animated step label.
 - Presentation step label pill now keeps single-line behavior and playing-color parity with the step counter.

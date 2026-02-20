@@ -1,7 +1,7 @@
 import { curveToSvgPath } from '../components/edgePresentation'
 import { STEP_ARRIVAL_HOLD_MS } from '../components/playerStepTimeline'
-import { nearestPortId, nodeCenter, portWorldPosition } from '../engine/geometry'
-import type { EdgeModel, JourneyModel, NodeModel, WorkspaceModel } from '../model/types'
+import { resolveEdgeCurve } from '../engine/edgeCurve'
+import type { JourneyModel, WorkspaceModel } from '../model/types'
 import { GIFEncoder, applyPalette, quantize } from 'gifenc'
 
 const DEFAULT_FRAME_RATE_GIF = 16
@@ -628,7 +628,7 @@ const resolveJourneyStepCurves = (
     if (!edge) {
       continue
     }
-    const curve = resolveCurveFromEdge(edge, workspace.nodes)
+    const curve = resolveEdgeCurve(edge, workspace.nodes)
     if (!curve) {
       continue
     }
@@ -671,34 +671,6 @@ const resolveJourneyStepPathsFromRenderedSvg = (
     })
   }
   return resolved
-}
-
-const resolveCurveFromEdge = (
-  edge: EdgeModel,
-  nodes: Record<string, NodeModel>,
-): {
-  start: { x: number; y: number }
-  control1: { x: number; y: number }
-  control2: { x: number; y: number }
-  end: { x: number; y: number }
-} | null => {
-  const from = nodes[edge.from.nodeId]
-  const to = nodes[edge.to.nodeId]
-  if (!from || !to) {
-    return null
-  }
-
-  const fromPortId = edge.from.portId ?? nearestPortId(from, nodeCenter(to))
-  const toPortId = edge.to.portId ?? nearestPortId(to, nodeCenter(from))
-  const start = portWorldPosition(from, fromPortId)
-  const end = portWorldPosition(to, toPortId)
-  const middleX = (start.x + end.x) / 2
-  return {
-    start,
-    control1: { x: middleX, y: start.y },
-    control2: { x: middleX, y: end.y },
-    end,
-  }
 }
 
 const resolveSvgPathLength = (pathData: string): number => {

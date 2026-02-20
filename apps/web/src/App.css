@@ -999,15 +999,16 @@
 .node-port {
   fill: #fff;
   stroke: color-mix(in srgb, var(--sjv-node-stroke) 84%, #0f172a);
-  stroke-width: 1.2;
-  filter: drop-shadow(0 0 2px rgba(14, 165, 233, 0.22));
+  stroke-width: 1.35;
+  filter: drop-shadow(0 0 4px rgba(14, 165, 233, 0.32));
+  transition: fill 0.15s ease, stroke 0.15s ease, filter 0.15s ease;
 }
 
 .node-port-highlight {
   fill: color-mix(in srgb, var(--sjv-edge-preview) 66%, #ffffff);
   stroke: color-mix(in srgb, var(--sjv-edge-preview) 82%, #ffffff);
-  stroke-width: 1.8;
-  filter: drop-shadow(0 0 6px color-mix(in srgb, var(--sjv-edge-preview) 65%, transparent));
+  stroke-width: 2.2;
+  filter: drop-shadow(0 0 8px color-mix(in srgb, var(--sjv-edge-preview) 72%, transparent));
 }
 
 .node-border-hitarea {
@@ -1173,18 +1174,21 @@
 }
 
 .edge-anchor-handle {
-  fill: color-mix(in srgb, var(--sjv-edge-preview) 12%, transparent);
-  stroke: transparent;
-  stroke-width: 1.1;
+  fill: color-mix(in srgb, var(--sjv-edge-preview) 26%, transparent);
+  stroke: color-mix(in srgb, var(--sjv-edge-preview) 58%, #ffffff);
+  stroke-width: 1.4;
   cursor: grab;
-  opacity: 0.5;
-  transition: opacity 0.15s ease, fill 0.15s ease, stroke 0.15s ease;
+  opacity: 0.76;
+  filter: drop-shadow(0 0 6px color-mix(in srgb, var(--sjv-edge-preview) 44%, transparent));
+  transition: opacity 0.15s ease, fill 0.15s ease, stroke 0.15s ease, filter 0.15s ease;
 }
 
 .edge-anchor-handle-active {
-  fill: color-mix(in srgb, var(--sjv-edge-preview) 28%, transparent);
+  fill: color-mix(in srgb, var(--sjv-edge-preview) 44%, transparent);
   stroke: color-mix(in srgb, var(--sjv-edge-preview) 84%, #fff);
-  opacity: 0.95;
+  stroke-width: 2;
+  opacity: 1;
+  filter: drop-shadow(0 0 9px color-mix(in srgb, var(--sjv-edge-preview) 72%, transparent));
 }
 
 .resize-handle {
@@ -1630,6 +1634,19 @@
   color: #0369a1;
 }
 
+.dsl-sync-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #334155;
+}
+
+.dsl-sync-toggle input {
+  accent-color: #0284c7;
+}
+
 .dsl-toolbar button {
   border: 1px solid #cbd5e1;
   background: linear-gradient(180deg, #ffffff, #e2e8f0);
@@ -2038,6 +2055,10 @@
   color: #7dd3fc;
 }
 
+.theme-dark .dsl-sync-toggle {
+  color: #cbd5e1;
+}
+
 .theme-dark .dsl-codex-status,
 .theme-dark .dsl-codex-thread {
   color: #cbd5e1;
@@ -2091,7 +2112,7 @@
 
 .theme-dark .node-port {
   fill: #0f151f;
-  stroke: #8193a8;
+  stroke: #93a7bc;
 }
 
 .theme-dark .node-shape-detail {

@@ -13,6 +13,7 @@ import {
   portWorldPosition,
   snapBounds,
 } from '../engine/geometry'
+import { resolveEdgeCurve, type ResolvedEdgeCurve } from '../engine/edgeCurve'
 import type { EdgeModel, NodeModel } from '../model/types'
 import { resolveJourneyFocusScope } from '../journeys/focus'
 import { protocolPresets } from '../presets/catalog'
@@ -96,11 +97,6 @@ type EdgeReconnectState = {
   fixedPoint: { x: number; y: number }
 }
 
-type ResolvedEdgeCurve = EdgeCurvePath & {
-  fromPortId?: string
-  toPortId?: string
-}
-
 type EdgeRenderItem = {
   edge: EdgeModel
   curve: ResolvedEdgeCurve
@@ -146,6 +142,7 @@ type InlineTextEditState = {
   textAnchor: 'start' | 'middle' | 'end'
   width: number
   fontSize: number
+  textColor?: string
 }
 
 type NodeLabelLayout = {
@@ -169,9 +166,9 @@ const TRAIL_MIN_SPACING = 1.1
 const MAX_TRAILS = 700
 const MIN_NODE_SIZE = 80
 const RESIZE_BORDER_HIT_SIZE = 10
-const EDGE_ANCHOR_CAPTURE_RADIUS = 11
-const EDGE_ANCHOR_RESOLVE_RADIUS = 12
-const CONNECTION_TARGET_HOVER_RADIUS = 18
+const EDGE_ANCHOR_CAPTURE_RADIUS = 15
+const EDGE_ANCHOR_RESOLVE_RADIUS = 16
+const CONNECTION_TARGET_HOVER_RADIUS = 24
 const PLAYER_TRACK_BASE_ALPHA = 0.18
 const PLAYER_TRACK_PROGRESS_ALPHA = 0.88
 const TRAIL_CANVAS_MAX_PIXEL_RATIO = 1.5
@@ -240,32 +237,6 @@ interface DiagramCanvasProps {
     edgeId: string,
     event: ReactPointerEvent<SVGGElement>,
   ) => void
-}
-
-const resolveCurveFromEdge = (
-  edge: EdgeModel,
-  nodes: Record<string, NodeModel>,
-): ResolvedEdgeCurve | null => {
-  const from = nodes[edge.from.nodeId]
-  const to = nodes[edge.to.nodeId]
-  if (!from || !to) {
-    return null
-  }
-
-  const fromPortId = edge.from.portId ?? nearestPortId(from, nodeCenter(to))
-  const toPortId = edge.to.portId ?? nearestPortId(to, nodeCenter(from))
-  const start = portWorldPosition(from, fromPortId)
-  const end = portWorldPosition(to, toPortId)
-  const middleX = (start.x + end.x) / 2
-
-  return {
-    start,
-    control1: { x: middleX, y: start.y },
-    control2: { x: middleX, y: end.y },
-    end,
-    fromPortId,
-    toPortId,
-  }
 }
 
 const resolveNearestCurveProgress = (
@@ -651,7 +622,7 @@ export const DiagramCanvas = ({
     () =>
       visibleEdges
         .map((edge): EdgeRenderItem | null => {
-          const curve = resolveCurveFromEdge(edge, workspace.nodes)
+          const curve = resolveEdgeCurve(edge, workspace.nodes)
           if (!curve) {
             return null
           }
@@ -746,7 +717,7 @@ export const DiagramCanvas = ({
       return null
     }
     const edge = workspace.edges[currentPlayerEdgeId]
-    return edge ? resolveCurveFromEdge(edge, workspace.nodes) : null
+    return edge ? resolveEdgeCurve(edge, workspace.nodes) : null
   }, [currentPlayerEdgeId, workspace.edges, workspace.nodes])
   const currentPlayerColor = playerJourney?.colorKey ?? '#f59e0b'
   const animatedEdgeIdSet = useMemo(() => {
@@ -1312,6 +1283,7 @@ export const DiagramCanvas = ({
       textAnchor: layout.textAnchor,
       width: isNodeName ? layout.maxTitleWidth : layout.maxSubtitleWidth,
       fontSize: isNodeName ? 14 : 12,
+      textColor: node.style?.textColor,
     })
   }
 
@@ -2018,6 +1990,7 @@ export const DiagramCanvas = ({
       width: `${width}px`,
       transform: `translate(${translateX}, -50%)`,
       fontSize: `${Math.max(11, inlineTextEdit.fontSize * viewport.zoom)}px`,
+      color: inlineTextEdit.textColor,
     }
   }, [inlineTextEdit, viewport.x, viewport.y, viewport.zoom])
 
@@ -2163,6 +2136,7 @@ export const DiagramCanvas = ({
               .join(' ')
             const nodeFillColor =
               node.kind === 'boundary' ? undefined : node.style?.fillColor
+            const nodeTextColor = node.style?.textColor
             const dbShape = resolveDbCylinderShape(node.bounds.w, node.bounds.h)
             const queueShape = resolveQueueCylinderShape(node.bounds.w, node.bounds.h)
             const shouldRenderHexagon =
@@ -2338,6 +2312,7 @@ export const DiagramCanvas = ({
                     .filter(Boolean)
                     .join(' ')}
                   textAnchor={labelLayout.textAnchor}
+                  style={nodeTextColor ? { fill: nodeTextColor } : undefined}
                   onDoubleClick={(event) => {
                     startNodeInlineEdit(event, node, 'node-name', labelLayout)
                   }}
@@ -2355,6 +2330,7 @@ export const DiagramCanvas = ({
                     .filter(Boolean)
                     .join(' ')}
                   textAnchor={labelLayout.textAnchor}
+                  style={nodeTextColor ? { fill: nodeTextColor } : undefined}
                   onDoubleClick={(event) => {
                     startNodeInlineEdit(event, node, 'node-tech', labelLayout)
                   }}
@@ -2373,7 +2349,7 @@ export const DiagramCanvas = ({
                         }
                         cx={node.bounds.w * port.x}
                         cy={node.bounds.h * port.y}
-                        r={3}
+                        r={4}
                         onPointerDown={(event) => onPortPointerDown(event, node, port.id)}
                       />
                     ))

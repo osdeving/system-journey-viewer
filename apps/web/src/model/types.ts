@@ -36,6 +36,7 @@ export interface NodeTech {
 
 export interface NodeStyle {
   fillColor?: string
+  textColor?: string
 }
 
 export interface PortModel {

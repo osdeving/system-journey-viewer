@@ -2,6 +2,73 @@
 
 Chronological engineering log. Entries are kept concise and focused on behavior and validation.
 
+## 2026-02-20 - Edge arrow orientation fix, DSL live sync, stronger edge-handle visibility, and node text color controls
+
+### Scope
+
+- Fix edge arrowheads that were visually constrained to left/right orientation.
+- Add optional live DSL sync from canvas/editor changes.
+- Improve hover/discoverability for edge endpoint drag handles.
+- Refresh node color presets for light/dark themes and allow editing node text color.
+
+### Changes
+
+- Edge curve routing/orientation:
+  - extracted shared curve resolver:
+    - `apps/web/src/engine/edgeCurve.ts`
+  - curve control points now follow source/target port directions, so marker tangents can resolve vertical and horizontal orientations correctly.
+  - diagram and animated export now share the same curve logic:
+    - `apps/web/src/components/DiagramCanvas.tsx`
+    - `apps/web/src/export/animatedExport.ts`
+
+- DSL panel sync:
+  - added `Sync com editor` toggle in DSL toolbar.
+  - when enabled, DSL panel mirrors workspace edits in real time and editor switches to read-only mirror mode.
+  - extracted sync helper:
+    - `apps/web/src/dsl-lite/sync.ts`
+  - wired in UI:
+    - `apps/web/src/App.tsx`
+    - `apps/web/src/App.css`
+
+- Edge-handle visibility:
+  - increased capture/resolve radii for edge anchor handles and connection target hover.
+  - increased port visual radius and strengthened handle contrast/glow.
+  - files:
+    - `apps/web/src/components/DiagramCanvas.tsx`
+    - `apps/web/src/App.css`
+
+- Node palette and text color:
+  - replaced generic fill presets with theme-aware Tailwind-inspired dark/light sets.
+  - added inspector controls for node text color (picker + presets).
+  - persisted node `textColor` in model/store/schema.
+  - files:
+    - `apps/web/src/App.tsx`
+    - `apps/web/src/components/DiagramCanvas.tsx`
+    - `apps/web/src/model/types.ts`
+    - `apps/web/src/model/schema.ts`
+    - `apps/web/src/store/useEditorStore.ts`
+
+- Help update:
+  - documented DSL sync and easier edge endpoint handle interaction.
+  - file:
+    - `apps/web/src/help/help.md`
+
+### Tests
+
+- Added:
+  - `apps/web/src/engine/edgeCurve.test.ts`
+  - `apps/web/src/dsl-lite/sync.test.ts`
+- Updated:
+  - `apps/web/src/store/useEditorStore.test.ts`
+  - `apps/web/src/model/schema.test.ts`
+
+### Validation
+
+- `npm --workspace @sjv/web run lint`
+- `npm --workspace @sjv/web run test:run -- src/engine/edgeCurve.test.ts src/dsl-lite/sync.test.ts src/store/useEditorStore.test.ts src/model/schema.test.ts`
+- `npm --workspace @sjv/web run test:run -- --maxWorkers=1`
+- `npm --workspace @sjv/web run build`
+
 ## 2026-02-19 - Full dock resizing model (left/right/bottom/floating) and faster edge-label rotation
 
 ### Scope

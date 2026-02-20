@@ -36,6 +36,7 @@ Default playback/focus state:
 - Click-hold label + `Alt` + scroll: rotate label angle.
 - Rotation step is intentionally faster for quicker horizontal/vertical orientation changes.
 - Drag label to move along edge and switch side.
+- Edge endpoint drag handles were enlarged and made more visible for easier reconnect by port.
 
 ## Journey Timeline
 
@@ -59,6 +60,14 @@ Default playback/focus state:
 
 - Static: `SVG`, `PNG`, `PDF`.
 - Animated: `GIF`, `MP4`, animated `SVG`.
+- DSL panel:
+  - `Exportar workspace completo` snapshots current workspace into JourneyScript.
+  - `Sync com editor` keeps DSL in real-time sync with canvas edits (read-only while enabled).
+
+## Inspector Colors
+
+- Node fill presets now adapt to light/dark theme with Tailwind-inspired palettes.
+- Node text color can be customized from Inspector using color picker + quick presets.
 
 ## Persistence
 

@@ -35,6 +35,7 @@ import {
   requestCodexDslAssist,
 } from './dsl-lite/codexAssist'
 import { fullWorkspaceToLiteDsl, liteToFullWorkspace } from './dsl-lite/convert'
+import { resolveDslPanelText } from './dsl-lite/sync'
 import {
   JOURNEY_SCRIPT_LANGUAGE_ID,
   JOURNEY_SCRIPT_NAME,
@@ -94,18 +95,32 @@ const MIN_CANVAS_HEIGHT = 220
 const MIN_DOCK_HEIGHT = 260
 const DEFAULT_FILE_VIEWPORT = { x: 100, y: 80, zoom: 1 }
 const DEFAULT_FLOATING_DOCK_RECT = { x: 28, y: 108, width: 480, height: 420 }
-const DEFAULT_NODE_COLOR_PRESETS = [
-  '#ffffff',
-  '#dbeafe',
-  '#dcfce7',
-  '#fde68a',
-  '#fecaca',
-  '#fae8ff',
-  '#cffafe',
-  '#fee2e2',
-  '#e0e7ff',
-  '#fef3c7',
+const LIGHT_NODE_COLOR_PRESETS = [
+  '#2563eb',
+  '#0891b2',
+  '#059669',
+  '#65a30d',
+  '#d97706',
+  '#ea580c',
+  '#e11d48',
+  '#7c3aed',
+  '#4f46e5',
+  '#475569',
 ]
+const DARK_NODE_COLOR_PRESETS = [
+  '#1d4ed8',
+  '#0e7490',
+  '#047857',
+  '#0f766e',
+  '#b45309',
+  '#c2410c',
+  '#be123c',
+  '#6d28d9',
+  '#4338ca',
+  '#334155',
+]
+const LIGHT_TEXT_COLOR_PRESETS = ['#0f172a', '#1e293b', '#334155', '#475569', '#64748b', '#ffffff']
+const DARK_TEXT_COLOR_PRESETS = ['#ffffff', '#f8fafc', '#e2e8f0', '#cbd5e1', '#94a3b8', '#0f172a']
 
 const MonacoEditor = lazy(() => import('@monaco-editor/react'))
 
@@ -311,6 +326,7 @@ function App() {
   const setNodeName = useEditorStore((state) => state.setNodeName)
   const setNodeTech = useEditorStore((state) => state.setNodeTech)
   const setNodeColor = useEditorStore((state) => state.setNodeColor)
+  const setNodeTextColor = useEditorStore((state) => state.setNodeTextColor)
   const setEdgeProtocol = useEditorStore((state) => state.setEdgeProtocol)
   const setEdgeLabel = useEditorStore((state) => state.setEdgeLabel)
   const setEdgeLabelPosition = useEditorStore((state) => state.setEdgeLabelPosition)
@@ -341,6 +357,7 @@ function App() {
   const resetPlayer = useEditorStore((state) => state.resetPlayer)
   const [journeyDraftName, setJourneyDraftName] = useState('')
   const [dslText, setDslText] = useState('')
+  const [dslSyncEnabled, setDslSyncEnabled] = useState(false)
   const [dslError, setDslError] = useState<string | null>(null)
   const [dslCodexInstruction, setDslCodexInstruction] = useState(
     'Refine o DSL preservando comportamento e melhorando legibilidade.',
@@ -383,6 +400,7 @@ function App() {
         .filter((node): node is NonNullable<typeof selectedNode> => !!node),
     [selectedNodeIds, workspace.nodes],
   )
+  const defaultNodeColorPresets = theme === 'dark' ? DARK_NODE_COLOR_PRESETS : LIGHT_NODE_COLOR_PRESETS
   const nodeColorPresets = useMemo(() => {
     const usedColors = Object.values(workspace.nodes)
       .map((node) => node.style?.fillColor?.trim())
@@ -391,9 +409,21 @@ function App() {
     const recentUnique = Array.from(new Set(usedColors))
     return [
       ...recentUnique,
-      ...DEFAULT_NODE_COLOR_PRESETS.filter((color) => !recentUnique.includes(color)),
+      ...defaultNodeColorPresets.filter((color) => !recentUnique.includes(color)),
     ].slice(0, 10)
-  }, [workspace.nodes])
+  }, [defaultNodeColorPresets, workspace.nodes])
+  const defaultTextColorPresets = theme === 'dark' ? DARK_TEXT_COLOR_PRESETS : LIGHT_TEXT_COLOR_PRESETS
+  const nodeTextColorPresets = useMemo(() => {
+    const usedTextColors = Object.values(workspace.nodes)
+      .map((node) => node.style?.textColor?.trim())
+      .filter((value): value is string => isHexColor(value))
+      .reverse()
+    const recentUnique = Array.from(new Set(usedTextColors))
+    return [
+      ...recentUnique,
+      ...defaultTextColorPresets.filter((color) => !recentUnique.includes(color)),
+    ].slice(0, 10)
+  }, [defaultTextColorPresets, workspace.nodes])
   const resolveEntryViewId = useCallback(
     (workspaceModel: WorkspaceModel): string =>
       resolvePreferredEntryViewId(workspaceModel) || BLANK_WORKSPACE_VIEW_ID,
@@ -1581,6 +1611,13 @@ function App() {
   }, [workspace])
 
   useEffect(() => {
+    setDslText((current) => resolveDslPanelText(workspace, current, dslSyncEnabled))
+    if (dslSyncEnabled) {
+      setDslError(null)
+    }
+  }, [dslSyncEnabled, workspace])
+
+  useEffect(() => {
     if (historyApplyingRef.current) {
       return
     }
@@ -2233,6 +2270,14 @@ function App() {
     <div className={`dsl-panel ${dslMaximized ? 'dsl-panel-maximized' : ''}`}>
       <div className="dsl-toolbar">
         <strong>{JOURNEY_SCRIPT_NAME} DSL</strong>
+        <label className="dsl-sync-toggle">
+          <input
+            type="checkbox"
+            checked={dslSyncEnabled}
+            onChange={(event) => setDslSyncEnabled(event.target.checked)}
+          />
+          Sync com editor
+        </label>
         <button
           type="button"
           onClick={() => {
@@ -2257,6 +2302,7 @@ function App() {
               setDslError(error instanceof Error ? error.message : 'Falha ao importar DSL.')
             }
           }}
+          disabled={dslSyncEnabled}
         >
           Importar DSL
         </button>
@@ -2265,8 +2311,13 @@ function App() {
           value={dslCodexInstruction}
           onChange={(event) => setDslCodexInstruction(event.target.value)}
           placeholder="Instrução para o Codex (ex.: separar fluxos async por boundary)"
+          disabled={dslSyncEnabled}
         />
-        <button type="button" onClick={() => void runCodexAssistForDsl()} disabled={dslCodexRunning}>
+        <button
+          type="button"
+          onClick={() => void runCodexAssistForDsl()}
+          disabled={dslCodexRunning || dslSyncEnabled}
+        >
           {dslCodexRunning ? 'Codex executando...' : 'Refinar com Codex'}
         </button>
         <button
@@ -2275,7 +2326,7 @@ function App() {
             setDslCodexThreadId(null)
             setDslCodexStatus('Contexto do thread Codex limpo.')
           }}
-          disabled={!dslCodexThreadId || dslCodexRunning}
+          disabled={!dslCodexThreadId || dslCodexRunning || dslSyncEnabled}
         >
           Limpar contexto Codex
         </button>
@@ -2298,10 +2349,12 @@ function App() {
               automaticLayout: true,
               smoothScrolling: true,
               cursorBlinking: 'phase',
+              readOnly: dslSyncEnabled,
             }}
           />
         </Suspense>
       </div>
+      {dslSyncEnabled ? <p className="dsl-codex-status">Sync ativo: DSL espelha o editor em tempo real.</p> : null}
       {dslCodexThreadId ? <p className="dsl-codex-thread">Thread Codex: {dslCodexThreadId}</p> : null}
       {dslCodexStatus ? <p className="dsl-codex-status">{dslCodexStatus}</p> : null}
       {dslError ? <p className="dsl-error">{dslError}</p> : null}
@@ -2374,18 +2427,18 @@ function App() {
           />
           {selectedNode.kind !== 'boundary' ? (
             <>
-              <label htmlFor="node-color">Cor</label>
+              <label htmlFor="node-color">Cor do node</label>
               <input
                 id="node-color"
                 type="color"
                 value={
                   isHexColor(selectedNode.style?.fillColor)
-                    ? selectedNode.style?.fillColor ?? '#ffffff'
-                    : '#ffffff'
+                    ? selectedNode.style?.fillColor ?? '#2563eb'
+                    : '#2563eb'
                 }
                 onChange={(event) => setNodeColor(selectedNode.id, event.target.value)}
               />
-              <label>Últimas 10 cores</label>
+              <label>Paleta sugerida ({theme === 'dark' ? 'Tailwind dark' : 'Tailwind light'})</label>
               <div className="node-color-presets">
                 {nodeColorPresets.map((color) => (
                   <button
@@ -2404,6 +2457,36 @@ function App() {
               </div>
             </>
           ) : null}
+          <label htmlFor="node-text-color">Cor do texto</label>
+          <input
+            id="node-text-color"
+            type="color"
+            value={
+              isHexColor(selectedNode.style?.textColor)
+                ? selectedNode.style?.textColor ?? (theme === 'dark' ? '#f8fafc' : '#0f172a')
+                : theme === 'dark'
+                  ? '#f8fafc'
+                  : '#0f172a'
+            }
+            onChange={(event) => setNodeTextColor(selectedNode.id, event.target.value)}
+          />
+          <label>Paleta de texto</label>
+          <div className="node-color-presets">
+            {nodeTextColorPresets.map((color) => (
+              <button
+                key={color}
+                type="button"
+                className={
+                  selectedNode.style?.textColor === color
+                    ? 'node-color-chip node-color-chip-active'
+                    : 'node-color-chip'
+                }
+                style={{ background: color }}
+                title={color}
+                onClick={() => setNodeTextColor(selectedNode.id, color)}
+              />
+            ))}
+          </div>
           <div className="inspector-actions">
             <button type="button" onClick={() => duplicateCurrentSelection()}>
               Duplicate

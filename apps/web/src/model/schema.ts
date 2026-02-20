@@ -23,6 +23,7 @@ export const nodeSchema = z.object({
   style: z
     .object({
       fillColor: z.string().min(1).optional(),
+      textColor: z.string().min(1).optional(),
     })
     .optional(),
   bounds: z.object({

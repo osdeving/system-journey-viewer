@@ -4,7 +4,7 @@
 
 - Roadmap milestones `M0 -> M9` were implemented.
 - Feature branches were promoted without merge commits using cherry-pick flow.
-- Latest UI increment (2026-02-20) fixed edge-arrow orientation by port direction, added DSL live-sync mode, improved edge-handle discoverability, and enabled node text color editing with theme-aware palettes.
+- Latest UI increment (2026-02-20) fixed edge-arrow orientation by port direction, corrected DSL sync to apply typed DSL directly into view, removed `P` presentation shortcut, improved edge-handle discoverability, and enabled node text color editing with theme-aware palettes.
 - Architecture baseline:
   - custom SVG editor engine (internal adapter, no paid lock-in),
   - versioned FULL model (`schemaVersion: 1.0`) as source of truth,
@@ -122,8 +122,9 @@
 - Node fill presets are now theme-aware (light/dark Tailwind-inspired palettes) for stronger contrast in dark-mode workflows.
 - Monaco-based `JourneyScript` editor with custom highlighting theme.
 - DSL panel now includes `Sync com editor` mode:
-  - when enabled, DSL content mirrors workspace changes in real time,
-  - DSL editor becomes read-only while sync is active.
+  - when enabled, valid DSL edits are applied to the view in real time while typing,
+  - import flow preserves current app theme (prevents forced light-theme fallback on DSL load/import).
+- Keyboard mode shortcuts no longer bind presentation toggle to `P` to avoid conflicts with text typing.
 - Focus/presentation workflows for demo-friendly screen usage.
 - Presentation mode center indicators now show both `Step X/Y` and the currently animated step label.
 - Presentation step label pill now keeps single-line behavior and playing-color parity with the step counter.

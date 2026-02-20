@@ -1,24 +1,24 @@
 import { describe, expect, it } from 'vitest'
 import { createDefaultWorkspace } from '../model/defaultWorkspace'
 import { fullWorkspaceToLiteDsl } from './convert'
-import { resolveDslPanelText } from './sync'
+import { applyThemeToWorkspace, parseDslToWorkspaceWithTheme } from './sync'
 
-describe('resolveDslPanelText', () => {
-  it('keeps current text when sync is disabled', () => {
+describe('dsl sync helpers', () => {
+  it('applies the selected app theme over imported DSL workspace', () => {
     const workspace = createDefaultWorkspace()
-    const currentText = 'workspace "Draft" {\n}\n'
+    workspace.settings.theme = 'light'
 
-    const resolved = resolveDslPanelText(workspace, currentText, false)
+    const themed = applyThemeToWorkspace(workspace, 'dark')
 
-    expect(resolved).toBe(currentText)
+    expect(themed.settings.theme).toBe('dark')
   })
 
-  it('returns workspace DSL when sync is enabled', () => {
+  it('parses DSL and preserves current app theme', () => {
     const workspace = createDefaultWorkspace()
-    const expectedDsl = fullWorkspaceToLiteDsl(workspace)
+    workspace.settings.theme = 'light'
+    const dsl = fullWorkspaceToLiteDsl(workspace)
+    const imported = parseDslToWorkspaceWithTheme(dsl, 'dark')
 
-    const resolved = resolveDslPanelText(workspace, 'old content', true)
-
-    expect(resolved).toBe(expectedDsl)
+    expect(imported.settings.theme).toBe('dark')
   })
 })

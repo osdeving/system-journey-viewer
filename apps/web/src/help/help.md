@@ -62,7 +62,7 @@ Default playback/focus state:
 - Animated: `GIF`, `MP4`, animated `SVG`.
 - DSL panel:
   - `Exportar workspace completo` snapshots current workspace into JourneyScript.
-  - `Sync com editor` keeps DSL in real-time sync with canvas edits (read-only while enabled).
+  - `Sync com editor` applies valid DSL edits to the canvas view in real time while you type.
 
 ## Inspector Colors
 

@@ -5,6 +5,7 @@
 - Roadmap milestones `M0 -> M9` were implemented.
 - Feature branches were promoted without merge commits using cherry-pick flow.
 - Latest script/UI increment (2026-02-21) refined **SJV Script v2** and notes UX with escaped multiline text support, semantic export IDs for generic showcase tokens, sticky-note rendering (fold + pin), and multiline note editing in canvas/inspector.
+- Latest desktop UX increment (2026-02-21, evening pass) added bilingual showcase/tutorial loaders, startup splash/about metadata, preferences floating window, export gallery in help, dynamic topbar height layout, drilldown badge rendering, and expanded showcase drilldown coverage for all showcased microservices.
 - Architecture baseline:
   - custom SVG editor engine (internal adapter, no paid lock-in),
   - versioned FULL model (`schemaVersion: 1.0`) as source of truth,
@@ -142,6 +143,18 @@
   - side dock,
   - floating dock,
   - bottom drawer dock mode.
+- Desktop shell enhancements:
+  - dynamic topbar height measurement prevents overflow/wrap regressions from shrinking canvas/drawer space,
+  - toolbar is now grouped and rendered in a dedicated row with section-level visibility preferences,
+  - tooltips are user-configurable from settings/preferences.
+- Help and onboarding enhancements:
+  - help panel now has `Guide`, `Export Gallery`, and `About` sections,
+  - startup splash presents app identity/version (`MVP Beta`) and ownership label (`Willams Sousa`),
+  - showcase/tutorial loading supports `EN` and `PT` variants from menus/preferences.
+- Drilldown affordance enhancement:
+  - nodes with drilldown now render a top-right external-link style badge.
+- Connector ergonomics enhancement:
+  - edge endpoint reconnect handles and hover resolution radius were increased for easier pointer targeting.
 - Keyboard mode shortcuts no longer bind presentation toggle to `P` to avoid conflicts with text typing.
 - Focus/presentation workflows for demo-friendly screen usage.
 - Presentation mode center indicators now show both `Step X/Y` and the currently animated step label.

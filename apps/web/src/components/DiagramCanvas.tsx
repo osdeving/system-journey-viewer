@@ -167,9 +167,9 @@ const TRAIL_MIN_SPACING = 1.1
 const MAX_TRAILS = 700
 const MIN_NODE_SIZE = 80
 const RESIZE_BORDER_HIT_SIZE = 10
-const EDGE_ANCHOR_CAPTURE_RADIUS = 15
-const EDGE_ANCHOR_RESOLVE_RADIUS = 16
-const CONNECTION_TARGET_HOVER_RADIUS = 24
+const EDGE_ANCHOR_CAPTURE_RADIUS = 21
+const EDGE_ANCHOR_RESOLVE_RADIUS = 20
+const CONNECTION_TARGET_HOVER_RADIUS = 30
 const PLAYER_TRACK_BASE_ALPHA = 0.18
 const PLAYER_TRACK_PROGRESS_ALPHA = 0.88
 const TRAIL_CANVAS_MAX_PIXEL_RATIO = 1.5
@@ -2302,6 +2302,8 @@ export const DiagramCanvas = ({
                 : null
             const connectorIconX = node.bounds.w - 34
             const connectorIconY = 12
+            const drilldownBadgeX = node.bounds.w - (connectorRole ? 56 : 26)
+            const drilldownBadgeY = 8
             const labelLayout =
               node.kind === 'note'
                 ? {
@@ -2440,6 +2442,26 @@ export const DiagramCanvas = ({
                       onPointerLeave={onNodeBorderPointerLeave}
                     />
                   )
+                ) : null}
+                {node.drilldownRef && node.kind !== 'note' ? (
+                  <g className="node-drilldown-badge" aria-hidden="true">
+                    <rect
+                      x={drilldownBadgeX}
+                      y={drilldownBadgeY}
+                      width={16}
+                      height={16}
+                      rx={3}
+                      className="node-drilldown-badge-shell"
+                    />
+                    <path
+                      d={`M ${drilldownBadgeX + 5} ${drilldownBadgeY + 11} L ${drilldownBadgeX + 11} ${
+                        drilldownBadgeY + 5
+                      } M ${drilldownBadgeX + 8} ${drilldownBadgeY + 5} H ${
+                        drilldownBadgeX + 11
+                      } V ${drilldownBadgeY + 8}`}
+                      className="node-drilldown-badge-glyph"
+                    />
+                  </g>
                 ) : null}
                 {connectorRole === 'female' ? (
                   <g className="node-connector-icon node-connector-female">

@@ -107,5 +107,35 @@ Default playback/focus state:
 - **Edit**: undo/redo/selection tools.
 - **View**: focus/presentation/layout/panel visibility.
 - **Journey**: filters, player, animation controls.
-- **Insert**: quick panel/navigation actions.
-- **Help**: this markdown guide.
+- **Insert**: showcase/tutorial loaders and quick panel/navigation actions.
+- **Settings**: preferences window, startup splash toggle, tooltip toggle, toolbar section visibility.
+- **Help**: guide, export gallery, and about information.
+
+## Showcase and Tutorial
+
+- `Load Showcase (EN/PT)` loads the complete feature workspace in the selected language.
+- `Load Tutorial (EN/PT)` loads the guided variant with walkthrough notes.
+- The preferred showcase language can be changed in `Settings > Preferences`.
+
+## Export Gallery
+
+- Open from **Help > Open Export Gallery**.
+- Includes sample GIF/MP4 exports and a static UI reference image.
+- Gallery actions can trigger live export (`GIF`, `MP4`, animated `SVG`) from your current workspace.
+
+## Preferences Window
+
+- Open from **Settings > Open Preferences**.
+- Controls:
+  - Tooltip enable/disable.
+  - Startup splash enable/disable.
+  - Showcase language (`EN` / `PT`).
+  - Toolbar section visibility (`Navigation`, `Editing`, `Viewport`, `Panels`, `Modes`).
+
+## Startup Splash and About
+
+- Startup splash appears once on load (if enabled in preferences).
+- Splash/About include:
+  - App name: `System Journey Viewer`
+  - Version label: `MVP Beta`
+  - Copyright: `Willams Sousa`

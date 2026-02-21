@@ -1163,3 +1163,78 @@ Chronological engineering log. Entries are kept concise and focused on behavior 
 ### Validation
 
 - Iterative lint/test/build checks per milestone branch.
+
+## 2026-02-21 - Desktop UX pass, showcase/tutorial variants, drilldown visuals
+
+### Scope
+
+- Completed the pending desktop-oriented UX package requested for MVP polish:
+  - startup splash + about metadata,
+  - preferences floating window,
+  - toolbar section visibility controls,
+  - tooltip opt-in/opt-out,
+  - showcase/tutorial loaders in EN/PT,
+  - help panel tabs for guide/export gallery/about,
+  - drilldown visual badge,
+  - stronger edge endpoint drag handles,
+  - richer default showcase with drilldowns for all showcased microservices.
+
+### Changes
+
+- Workspace/showcase model updates:
+  - `apps/web/src/model/defaultWorkspace.ts`
+    - expanded showcase structure with `ms-fulfillment` component + hex drilldown views,
+    - attached notes across views,
+    - stronger semantic edge labels,
+    - curated node/text color examples,
+    - tutorial note in container view,
+    - drilldown coverage for all showcased microservices.
+  - `apps/web/src/model/showcaseWorkspace.ts` (new)
+    - locale/mode factory for `showcase|tutorial` and `en|pt` variants.
+  - `apps/web/src/model/showcaseWorkspace.test.ts` (new)
+    - coverage for EN/PT and showcase/tutorial variants.
+
+- Store behavior updates:
+  - `apps/web/src/store/useEditorStore.ts`
+    - `loadShowcaseWorkspace` now accepts `{ locale, mode }`,
+    - preserves the active app theme while loading showcase/tutorial variants.
+  - `apps/web/src/store/useEditorStore.test.ts`
+    - adjusted drilldown expectation for preconfigured worker drilldown,
+    - added localized tutorial load + theme-preservation test.
+
+- Canvas/interaction updates:
+  - `apps/web/src/components/DiagramCanvas.tsx`
+    - added top-right drilldown badge (external-link style) on nodes with `drilldownRef`,
+    - increased edge anchor and connection hover radii for easier endpoint reconnection.
+  - `apps/web/src/App.css`
+    - visual tuning for anchor prominence,
+    - drilldown badge styles (light/dark).
+
+- Desktop shell and Help UX:
+  - `apps/web/src/App.tsx`
+    - new `Settings` desktop menu with preferences actions,
+    - bilingual showcase/tutorial actions in `Insert` and `Help` menus,
+    - help sections (`Guide`, `Export Gallery`, `About`),
+    - startup splash (`MVP Beta`, `Willams Sousa`),
+    - floating preferences window,
+    - tooltip gating,
+    - toolbar section grouping/visibility support,
+    - topbar height is now measured dynamically for stable canvas/drawer sizing,
+    - SJV editor status stack and single-line toolbar behavior improved for full-height editor usage.
+  - `apps/web/src/help/help.md`
+    - documented preferences, export gallery, showcase/tutorial variants, and splash/about behavior.
+
+- Static media for in-app export gallery:
+  - `apps/web/public/gallery/readme-live-demo.gif`
+  - `apps/web/public/gallery/orders-platform-showcase-order-creation-sync-event.mp4`
+  - `apps/web/public/gallery/print-ui.png`
+
+- Test updates for hierarchy/DSL expectations after new drilldown defaults:
+  - `apps/web/src/viewHierarchy.test.ts`
+  - `apps/web/src/dsl-lite/journeyDslSync.test.ts`
+
+### Validation
+
+- `npm --workspace @sjv/web run lint`
+- `npm --workspace @sjv/web run test:run`
+- `npm --workspace @sjv/web run build`

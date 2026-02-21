@@ -29,10 +29,12 @@ describe('viewHierarchy', () => {
 
     expect(options.map((option) => option.viewId)).toEqual([
       'v_container',
+      'v_components_worker',
+      'v_hex_worker',
       'v_components_api',
       'v_hex_api',
     ])
-    expect(options.map((option) => option.depth)).toEqual([0, 1, 2])
+    expect(options.map((option) => option.depth)).toEqual([0, 1, 2, 1, 2])
   })
 
   it('prefers a container or system-context root as entry view', () => {

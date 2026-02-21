@@ -80,6 +80,7 @@ import {
   buildViewHierarchyOptions,
   resolvePreferredEntryViewId,
 } from './viewHierarchy'
+import type { ShowcaseLocale, ShowcaseMode } from './model/showcaseWorkspace'
 
 const DEBOUNCE_SAVE_MS = 900
 const DEFAULT_LEFT_SIDEBAR_WIDTH = 240
@@ -89,12 +90,15 @@ const MIN_LEFT_SIDEBAR_WIDTH = 180
 const MAX_LEFT_SIDEBAR_WIDTH = 440
 const MIN_DOCK_SIDE_WIDTH = 260
 const MIN_JOURNEY_HEIGHT = 160
-const TOPBAR_HEIGHT = 80
+const DEFAULT_TOPBAR_HEIGHT = 108
 const MIN_CANVAS_WIDTH = 320
 const MIN_CANVAS_HEIGHT = 220
 const MIN_DOCK_HEIGHT = 260
 const DEFAULT_FILE_VIEWPORT = { x: 100, y: 80, zoom: 1 }
 const DEFAULT_FLOATING_DOCK_RECT = { x: 28, y: 108, width: 480, height: 420 }
+const UI_PREFERENCES_STORAGE_KEY = 'sjv-ui-preferences-v1'
+const APP_VERSION_LABEL = 'MVP Beta'
+const APP_COPYRIGHT_LABEL = 'Willams Sousa'
 const LIGHT_NODE_COLOR_PRESETS = [
   '#2563eb',
   '#0891b2',
@@ -134,10 +138,19 @@ const viewKindLabel: Record<string, string> = {
 type DrawerTab = 'journeys' | 'dsl' | 'dock' | 'help'
 type DockTab = 'inspector' | 'journeys' | 'timeline' | 'dsl' | 'help'
 type DockPosition = 'left' | 'right' | 'bottom' | 'floating'
-type DesktopMenuId = 'file' | 'edit' | 'view' | 'journey' | 'insert' | 'help'
+type DesktopMenuId = 'file' | 'edit' | 'view' | 'journey' | 'insert' | 'settings' | 'help'
 type PlayerAnimationPreset = 'cinematic' | 'orb' | 'minimal'
 type FileWriteMode = 'prompt' | 'reuse'
 type StepDragState = { journeyId: string; edgeId: string }
+type HelpSection = 'guide' | 'gallery' | 'about'
+type ToolbarSectionId = 'navigation' | 'editing' | 'viewport' | 'panels' | 'modes'
+
+type UiPreferences = {
+  tooltipsEnabled: boolean
+  splashEnabled: boolean
+  showcaseLocale: ShowcaseLocale
+  toolbarVisibility: Record<ToolbarSectionId, boolean>
+}
 
 type HistoryStoreSnapshot = {
   workspace: WorkspaceModel
@@ -208,9 +221,56 @@ type WorkspaceWindow = Window & {
   showSaveFilePicker?: (options?: unknown) => Promise<WorkspaceFileHandle>
 }
 
-const DESKTOP_MENU_ORDER: DesktopMenuId[] = ['file', 'edit', 'view', 'journey', 'insert', 'help']
+const DESKTOP_MENU_ORDER: DesktopMenuId[] = ['file', 'edit', 'view', 'journey', 'insert', 'settings', 'help']
 const DEFAULT_DOCK_TAB_ORDER: DockTab[] = ['inspector', 'journeys', 'timeline', 'dsl', 'help']
 const HISTORY_LIMIT = 120
+const DEFAULT_UI_PREFERENCES: UiPreferences = {
+  tooltipsEnabled: true,
+  splashEnabled: true,
+  showcaseLocale: 'en',
+  toolbarVisibility: {
+    navigation: true,
+    editing: true,
+    viewport: true,
+    panels: true,
+    modes: true,
+  },
+}
+
+const resolveInitialUiPreferences = (): UiPreferences => {
+  if (typeof window === 'undefined') {
+    return DEFAULT_UI_PREFERENCES
+  }
+  try {
+    const raw = window.localStorage.getItem(UI_PREFERENCES_STORAGE_KEY)
+    if (!raw) {
+      return DEFAULT_UI_PREFERENCES
+    }
+    const parsed = JSON.parse(raw) as Partial<UiPreferences>
+    return {
+      tooltipsEnabled: parsed.tooltipsEnabled ?? DEFAULT_UI_PREFERENCES.tooltipsEnabled,
+      splashEnabled: parsed.splashEnabled ?? DEFAULT_UI_PREFERENCES.splashEnabled,
+      showcaseLocale:
+        parsed.showcaseLocale === 'pt' || parsed.showcaseLocale === 'en'
+          ? parsed.showcaseLocale
+          : DEFAULT_UI_PREFERENCES.showcaseLocale,
+      toolbarVisibility: {
+        navigation:
+          parsed.toolbarVisibility?.navigation ?? DEFAULT_UI_PREFERENCES.toolbarVisibility.navigation,
+        editing:
+          parsed.toolbarVisibility?.editing ?? DEFAULT_UI_PREFERENCES.toolbarVisibility.editing,
+        viewport:
+          parsed.toolbarVisibility?.viewport ?? DEFAULT_UI_PREFERENCES.toolbarVisibility.viewport,
+        panels:
+          parsed.toolbarVisibility?.panels ?? DEFAULT_UI_PREFERENCES.toolbarVisibility.panels,
+        modes:
+          parsed.toolbarVisibility?.modes ?? DEFAULT_UI_PREFERENCES.toolbarVisibility.modes,
+      },
+    }
+  } catch {
+    return DEFAULT_UI_PREFERENCES
+  }
+}
 
 const isTextInputTarget = (target: EventTarget | null): boolean => {
   if (!(target instanceof HTMLElement)) {
@@ -248,6 +308,7 @@ const resolvePlayerAnimationPreset = (
 
 function App() {
   const layoutRef = useRef<HTMLDivElement | null>(null)
+  const topbarRef = useRef<HTMLElement | null>(null)
   const desktopMenuBarRef = useRef<HTMLDivElement | null>(null)
   const snapshotFileInputRef = useRef<HTMLInputElement | null>(null)
   const canvasPanelRef = useRef<HTMLElement | null>(null)
@@ -390,6 +451,12 @@ function App() {
   const [openDesktopMenu, setOpenDesktopMenu] = useState<DesktopMenuId | null>(null)
   const [canUndo, setCanUndo] = useState(false)
   const [canRedo, setCanRedo] = useState(false)
+  const initialUiPreferences = useMemo(() => resolveInitialUiPreferences(), [])
+  const [topbarHeight, setTopbarHeight] = useState(DEFAULT_TOPBAR_HEIGHT)
+  const [helpSection, setHelpSection] = useState<HelpSection>('guide')
+  const [preferencesOpen, setPreferencesOpen] = useState(false)
+  const [uiPreferences, setUiPreferences] = useState<UiPreferences>(initialUiPreferences)
+  const [splashVisible, setSplashVisible] = useState(initialUiPreferences.splashEnabled)
   const lastJourneyAutoLayoutKeyRef = useRef<string | null>(null)
 
   const selectedNode = selectedNodeId ? workspace.nodes[selectedNodeId] : undefined
@@ -495,23 +562,23 @@ function App() {
       rect: candidate,
       viewportWidth: layoutRect?.width ?? window.innerWidth,
       viewportHeight: layoutRect?.height ?? window.innerHeight,
-      topbarHeight: TOPBAR_HEIGHT,
+      topbarHeight,
     })
-  }, [])
+  }, [topbarHeight])
 
   const layoutStyle = useMemo(
     () =>
       immersiveMode
         ? {
             gridTemplateColumns: '1fr',
-            gridTemplateRows: `${TOPBAR_HEIGHT}px 1fr`,
+            gridTemplateRows: `${topbarHeight}px 1fr`,
             gridTemplateAreas: `'topbar' 'main'`,
           }
         : {
             gridTemplateColumns: `${leftDockVisible ? leftDockWidth : leftPanelVisible ? leftSidebarWidth : 0}px 1fr ${
               rightDockVisible ? rightDockWidth : 0
             }px`,
-            gridTemplateRows: `${TOPBAR_HEIGHT}px 1fr ${drawerVisible ? journeyHeight : 0}px`,
+            gridTemplateRows: `${topbarHeight}px 1fr ${drawerVisible ? journeyHeight : 0}px`,
           },
     [
       drawerVisible,
@@ -523,12 +590,23 @@ function App() {
       leftSidebarWidth,
       rightDockVisible,
       rightDockWidth,
+      topbarHeight,
     ],
   )
 
   const playerAnimationPreset = useMemo(
     () => resolvePlayerAnimationPreset(playerTrailEnabled, playerHighlightNodes),
     [playerHighlightNodes, playerTrailEnabled],
+  )
+  const withTooltip = useCallback(
+    (label: string): string | undefined =>
+      uiPreferences.tooltipsEnabled ? label : undefined,
+    [uiPreferences.tooltipsEnabled],
+  )
+  const toolbarVisibility = uiPreferences.toolbarVisibility
+  const hasVisibleToolbarSection = useMemo(
+    () => Object.values(toolbarVisibility).some(Boolean),
+    [toolbarVisibility],
   )
 
   const activateJourneyPlayback = useCallback((journeyId: string | null) => {
@@ -663,7 +741,7 @@ function App() {
     if (layoutHeight <= 0) {
       return journeyHeight
     }
-    return Math.max(MIN_JOURNEY_HEIGHT, layoutHeight - TOPBAR_HEIGHT - MIN_CANVAS_HEIGHT)
+    return Math.max(MIN_JOURNEY_HEIGHT, layoutHeight - topbarHeight - MIN_CANVAS_HEIGHT)
   }
 
   const getMaxDockSideWidth = useCallback(
@@ -759,10 +837,37 @@ function App() {
     setOpenDesktopMenu(null)
   }
 
+  const openHelpPanelSection = (section: HelpSection) => {
+    setHelpSection(section)
+    setFocusMode(false)
+    setPresentationMode(false)
+    setDrawerCollapsed(false)
+    switchDrawerTab('help')
+    openDockTab('help')
+  }
+
+  const toggleToolbarSection = useCallback((sectionId: ToolbarSectionId) => {
+    setUiPreferences((current) => ({
+      ...current,
+      toolbarVisibility: {
+        ...current.toolbarVisibility,
+        [sectionId]: !current.toolbarVisibility[sectionId],
+      },
+    }))
+  }, [])
+
   const setTransientStatus = useCallback((message: string, timeoutMs = 2800) => {
     setExportStatus(message)
     window.setTimeout(() => setExportStatus(null), timeoutMs)
   }, [])
+
+  const loadShowcasePreset = useCallback((mode: ShowcaseMode, locale: ShowcaseLocale) => {
+    loadShowcaseWorkspace({ mode, locale })
+    setTransientStatus(
+      `${mode === 'tutorial' ? 'Tutorial' : 'Showcase'} loaded (${locale.toUpperCase()}).`,
+    )
+    setExportError(null)
+  }, [loadShowcaseWorkspace, setTransientStatus])
 
   const buildEditorSnapshot = useCallback(
     (): EditorSnapshot => ({
@@ -1608,6 +1713,54 @@ function App() {
   }, [getMaxDockSideWidth])
 
   useEffect(() => {
+    const topbarElement = topbarRef.current
+    if (!topbarElement) {
+      return
+    }
+
+    const updateTopbarHeight = () => {
+      const nextHeight = Math.ceil(topbarElement.getBoundingClientRect().height)
+      setTopbarHeight(Math.max(DEFAULT_TOPBAR_HEIGHT, nextHeight))
+    }
+
+    updateTopbarHeight()
+    window.addEventListener('resize', updateTopbarHeight)
+    let observer: ResizeObserver | null = null
+    if (typeof ResizeObserver !== 'undefined') {
+      observer = new ResizeObserver(() => {
+        updateTopbarHeight()
+      })
+      observer.observe(topbarElement)
+    }
+
+    return () => {
+      window.removeEventListener('resize', updateTopbarHeight)
+      observer?.disconnect()
+    }
+  }, [hasVisibleToolbarSection, presentationMode, uiPreferences.toolbarVisibility])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return
+    }
+    window.localStorage.setItem(
+      UI_PREFERENCES_STORAGE_KEY,
+      JSON.stringify(uiPreferences),
+    )
+  }, [uiPreferences])
+
+  useEffect(() => {
+    if (!initialUiPreferences.splashEnabled) {
+      setSplashVisible(false)
+      return
+    }
+    const timeout = window.setTimeout(() => {
+      setSplashVisible(false)
+    }, 2200)
+    return () => window.clearTimeout(timeout)
+  }, [initialUiPreferences.splashEnabled])
+
+  useEffect(() => {
     const timeout = window.setTimeout(() => persist(), DEBOUNCE_SAVE_MS)
     return () => window.clearTimeout(timeout)
   }, [workspace, currentViewId, viewport, persist])
@@ -1851,6 +2004,7 @@ function App() {
   useEffect(() => {
     if (immersiveMode) {
       setOpenDesktopMenu(null)
+      setPreferencesOpen(false)
     }
   }, [immersiveMode])
 
@@ -2273,7 +2427,7 @@ function App() {
           <input
             type="checkbox"
             checked={dslSyncEnabled}
-            onChange={(event) => {
+          onChange={(event) => {
               const enabled = event.target.checked
               setDslSyncEnabled(enabled)
               dslSyncLastAppliedTextRef.current = enabled ? dslText : null
@@ -2290,6 +2444,7 @@ function App() {
             setDslText(fullWorkspaceToLiteDsl(workspace))
             setDslError(null)
           }}
+          title={withTooltip('Generate SJV Script from the current workspace state')}
         >
           Export full workspace
         </button>
@@ -2305,6 +2460,7 @@ function App() {
             }
           }}
           disabled={dslSyncEnabled}
+          title={withTooltip('Apply SJV Script content to the current workspace')}
         >
           Import SJV Script
         </button>
@@ -2319,6 +2475,7 @@ function App() {
           type="button"
           onClick={() => void runCodexAssistForDsl()}
           disabled={dslCodexRunning || dslSyncEnabled}
+          title={withTooltip('Send the current SJV Script and instruction to Codex')}
         >
           {dslCodexRunning ? 'Running Codex...' : 'Refine with Codex'}
         </button>
@@ -2329,6 +2486,7 @@ function App() {
             setDslCodexStatus('Codex thread context cleared.')
           }}
           disabled={!dslCodexThreadId || dslCodexRunning || dslSyncEnabled}
+          title={withTooltip('Reset Codex conversation memory for SJV Script refinement')}
         >
           Clear Codex context
         </button>
@@ -2355,18 +2513,104 @@ function App() {
           />
         </Suspense>
       </div>
-      {dslSyncEnabled ? (
-        <p className="dsl-codex-status">Sync active: valid SJV Script changes are applied to the view in real time.</p>
-      ) : null}
-      {dslCodexThreadId ? <p className="dsl-codex-thread">Thread Codex: {dslCodexThreadId}</p> : null}
-      {dslCodexStatus ? <p className="dsl-codex-status">{dslCodexStatus}</p> : null}
-      {dslError ? <p className="dsl-error">{dslError}</p> : null}
+      <div className="dsl-status-stack">
+        {dslSyncEnabled ? (
+          <p className="dsl-codex-status">Sync active: valid SJV Script changes are applied to the view in real time.</p>
+        ) : null}
+        {dslCodexThreadId ? <p className="dsl-codex-thread">Thread Codex: {dslCodexThreadId}</p> : null}
+        {dslCodexStatus ? <p className="dsl-codex-status">{dslCodexStatus}</p> : null}
+        {dslError ? <p className="dsl-error">{dslError}</p> : null}
+      </div>
     </div>
   )
 
   const helpPanelContent = (
     <section className="help-panel">
-      <ReactMarkdown>{helpGuideMarkdown}</ReactMarkdown>
+      <div className="help-section-tabs">
+        <button
+          type="button"
+          className={helpSection === 'guide' ? 'help-section-tab help-section-tab-active' : 'help-section-tab'}
+          onClick={() => setHelpSection('guide')}
+        >
+          Guide
+        </button>
+        <button
+          type="button"
+          className={helpSection === 'gallery' ? 'help-section-tab help-section-tab-active' : 'help-section-tab'}
+          onClick={() => setHelpSection('gallery')}
+        >
+          Export Gallery
+        </button>
+        <button
+          type="button"
+          className={helpSection === 'about' ? 'help-section-tab help-section-tab-active' : 'help-section-tab'}
+          onClick={() => setHelpSection('about')}
+        >
+          About
+        </button>
+      </div>
+      {helpSection === 'guide' ? <ReactMarkdown>{helpGuideMarkdown}</ReactMarkdown> : null}
+      {helpSection === 'gallery' ? (
+        <div className="help-gallery">
+          <p>
+            Sample animated exports and live actions from the current workspace.
+          </p>
+          <div className="help-gallery-grid">
+            <article className="help-gallery-card">
+              <h3>Live Demo GIF</h3>
+              <img src="/gallery/readme-live-demo.gif" alt="Sample GIF export playback" loading="lazy" />
+            </article>
+            <article className="help-gallery-card">
+              <h3>Order Creation MP4</h3>
+              <video src="/gallery/orders-platform-showcase-order-creation-sync-event.mp4" controls muted loop preload="metadata" />
+            </article>
+            <article className="help-gallery-card">
+              <h3>UI Screenshot</h3>
+              <img src="/gallery/print-ui.png" alt="SJV interface screenshot" loading="lazy" />
+            </article>
+          </div>
+          <div className="help-gallery-actions">
+            <button
+              type="button"
+              disabled={animatedExportRunning}
+              onClick={() => {
+                void exportAnimatedFromCanvas('gif')
+              }}
+            >
+              {animatedExportRunning ? 'Exporting...' : 'Export GIF now'}
+            </button>
+            <button
+              type="button"
+              disabled={animatedExportRunning}
+              onClick={() => {
+                void exportAnimatedFromCanvas('mp4')
+              }}
+            >
+              {animatedExportRunning ? 'Exporting...' : 'Export MP4 now'}
+            </button>
+            <button
+              type="button"
+              disabled={animatedExportRunning}
+              onClick={() => {
+                void exportAnimatedFromCanvas('svg')
+              }}
+            >
+              {animatedExportRunning ? 'Exporting...' : 'Export Animated SVG now'}
+            </button>
+          </div>
+        </div>
+      ) : null}
+      {helpSection === 'about' ? (
+        <div className="help-about">
+          <h3>System Journey Viewer</h3>
+          <p>Version: {APP_VERSION_LABEL}</p>
+          <p>Copyright: {APP_COPYRIGHT_LABEL}</p>
+          <p>
+            SJV is a desktop-inspired modeling canvas for architecture, journeys,
+            drilldown navigation, and animated exports.
+          </p>
+        </div>
+      ) : null}
     </section>
   )
 
@@ -2462,7 +2706,7 @@ function App() {
                         : 'node-color-chip'
                     }
                     style={{ background: color }}
-                    title={color}
+                    title={withTooltip(color)}
                     onClick={() => setNodeColor(selectedNode.id, color)}
                   />
                 ))}
@@ -2494,7 +2738,7 @@ function App() {
                     : 'node-color-chip'
                 }
                 style={{ background: color }}
-                title={color}
+                title={withTooltip(color)}
                 onClick={() => setNodeTextColor(selectedNode.id, color)}
               />
             ))}
@@ -2846,7 +3090,7 @@ function App() {
           type="button"
           className={dockPosition === 'left' ? 'dock-placement dock-placement-active' : 'dock-placement'}
           onClick={() => moveDockToLeft()}
-          title="Dock left"
+          title={withTooltip('Dock left')}
           aria-label="Dock left"
         >
           <PanelLeftOpen size={14} />
@@ -2855,7 +3099,7 @@ function App() {
           type="button"
           className={dockPosition === 'right' ? 'dock-placement dock-placement-active' : 'dock-placement'}
           onClick={() => moveDockToRight()}
-          title="Dock right"
+          title={withTooltip('Dock right')}
           aria-label="Dock right"
         >
           <PanelRightOpen size={14} />
@@ -2864,7 +3108,7 @@ function App() {
           type="button"
           className={dockPosition === 'bottom' ? 'dock-placement dock-placement-active' : 'dock-placement'}
           onClick={() => moveDockToBottom()}
-          title="Dock bottom"
+          title={withTooltip('Dock bottom')}
           aria-label="Dock bottom"
         >
           <PanelBottomOpen size={14} />
@@ -2873,7 +3117,7 @@ function App() {
           type="button"
           className={dockPosition === 'floating' ? 'dock-placement dock-placement-active' : 'dock-placement'}
           onClick={() => moveDockToFloating()}
-          title="Floating dock"
+          title={withTooltip('Floating dock')}
           aria-label="Floating dock"
         >
           <Dock size={14} />
@@ -2924,7 +3168,37 @@ function App() {
           void onWorkspaceFileInputChange(event)
         }}
       />
-      <header className="topbar">
+      {splashVisible ? (
+        <div className="splash-screen" role="status" aria-live="polite">
+          <div className="splash-card">
+            <div className="app-logo-badge splash-logo" aria-hidden="true">
+              <svg viewBox="0 0 64 64">
+                <defs>
+                  <linearGradient id="sjvSplashGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stopColor="#38bdf8" />
+                    <stop offset="100%" stopColor="#22c55e" />
+                  </linearGradient>
+                </defs>
+                <rect x="6" y="6" width="52" height="52" rx="14" fill="url(#sjvSplashGradient)" opacity="0.18" />
+                <path
+                  d="M17 20 H29 M35 20 H47 M17 44 H29 M35 44 H47 M23 20 V44 M41 20 V44"
+                  stroke="url(#sjvSplashGradient)"
+                  strokeWidth="3.2"
+                  strokeLinecap="round"
+                />
+                <circle cx="23" cy="20" r="4.2" fill="#38bdf8" />
+                <circle cx="41" cy="20" r="4.2" fill="#22c55e" />
+                <circle cx="23" cy="44" r="4.2" fill="#22c55e" />
+                <circle cx="41" cy="44" r="4.2" fill="#38bdf8" />
+              </svg>
+            </div>
+            <h2>System Journey Viewer</h2>
+            <p>{APP_VERSION_LABEL}</p>
+            <small>Copyright {APP_COPYRIGHT_LABEL}</small>
+          </div>
+        </div>
+      ) : null}
+      <header ref={topbarRef} className="topbar">
         <div className="topbar-meta">
           <div className="topbar-brand-row">
             <div className="app-logo-badge" aria-hidden="true">
@@ -3001,7 +3275,7 @@ function App() {
                       type="button"
                       role="menuitem"
                       onClick={() => runDesktopMenuAction(() => openRecentWorkspace(entry))}
-                      title={new Date(entry.savedAtIso).toLocaleString()}
+                      title={withTooltip(new Date(entry.savedAtIso).toLocaleString())}
                     >
                       <span>Recent: {entry.name}</span>
                     </button>
@@ -3605,9 +3879,39 @@ function App() {
                   <button
                     type="button"
                     role="menuitem"
-                    onClick={() => runDesktopMenuAction(() => loadShowcaseWorkspace())}
+                    onClick={() =>
+                      runDesktopMenuAction(() => loadShowcasePreset('showcase', uiPreferences.showcaseLocale))
+                    }
                   >
-                    <span>Load Showcase</span>
+                    <span>Load Showcase ({uiPreferences.showcaseLocale.toUpperCase()})</span>
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => runDesktopMenuAction(() => loadShowcasePreset('showcase', 'en'))}
+                  >
+                    <span>Load Showcase (EN)</span>
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => runDesktopMenuAction(() => loadShowcasePreset('showcase', 'pt'))}
+                  >
+                    <span>Load Showcase (PT)</span>
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => runDesktopMenuAction(() => loadShowcasePreset('tutorial', 'en'))}
+                  >
+                    <span>Load Tutorial (EN)</span>
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => runDesktopMenuAction(() => loadShowcasePreset('tutorial', 'pt'))}
+                  >
+                    <span>Load Tutorial (PT)</span>
                   </button>
                   <button
                     type="button"
@@ -3644,15 +3948,22 @@ function App() {
                     role="menuitem"
                     onClick={() =>
                       runDesktopMenuAction(() => {
-                        setFocusMode(false)
-                        setPresentationMode(false)
-                        setDrawerCollapsed(false)
-                        switchDrawerTab('help')
-                        openDockTab('help')
+                        openHelpPanelSection('guide')
                       })
                     }
                   >
                     <span>Open Help</span>
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() =>
+                      runDesktopMenuAction(() => {
+                        openHelpPanelSection('gallery')
+                      })
+                    }
+                  >
+                    <span>Open Export Gallery</span>
                   </button>
                   <button
                     type="button"
@@ -3666,6 +3977,86 @@ function App() {
                     }
                   >
                     <span>Open Dock Panel</span>
+                  </button>
+                </div>
+              ) : null}
+            </div>
+            <div
+              className={openDesktopMenu === 'settings' ? 'desktop-menu desktop-menu-open' : 'desktop-menu'}
+              onMouseEnter={() => {
+                if (openDesktopMenu) {
+                  setOpenDesktopMenu('settings')
+                }
+              }}
+            >
+              <button
+                type="button"
+                className="desktop-menu-trigger"
+                aria-haspopup="menu"
+                aria-expanded={openDesktopMenu === 'settings'}
+                aria-controls="desktop-menu-settings"
+                onClick={() => toggleDesktopMenu('settings')}
+              >
+                Settings
+              </button>
+              {openDesktopMenu === 'settings' ? (
+                <div id="desktop-menu-settings" className="desktop-menu-list" role="menu" aria-label="Settings menu">
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => runDesktopMenuAction(() => setPreferencesOpen(true))}
+                  >
+                    <span>Open Preferences</span>
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() =>
+                      runDesktopMenuAction(() =>
+                        setUiPreferences((current) => ({
+                          ...current,
+                          tooltipsEnabled: !current.tooltipsEnabled,
+                        })),
+                      )
+                    }
+                  >
+                    <span>{uiPreferences.tooltipsEnabled ? 'Disable Tooltips' : 'Enable Tooltips'}</span>
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() =>
+                      runDesktopMenuAction(() =>
+                        setUiPreferences((current) => ({
+                          ...current,
+                          splashEnabled: !current.splashEnabled,
+                        })),
+                      )
+                    }
+                  >
+                    <span>{uiPreferences.splashEnabled ? 'Disable Startup Splash' : 'Enable Startup Splash'}</span>
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() =>
+                      runDesktopMenuAction(() =>
+                        setUiPreferences((current) => ({ ...current, showcaseLocale: 'en' })),
+                      )
+                    }
+                  >
+                    <span>Showcase Language: English{uiPreferences.showcaseLocale === 'en' ? ' (active)' : ''}</span>
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() =>
+                      runDesktopMenuAction(() =>
+                        setUiPreferences((current) => ({ ...current, showcaseLocale: 'pt' })),
+                      )
+                    }
+                  >
+                    <span>Showcase Language: Portuguese{uiPreferences.showcaseLocale === 'pt' ? ' (active)' : ''}</span>
                   </button>
                 </div>
               ) : null}
@@ -3695,30 +4086,67 @@ function App() {
                     role="menuitem"
                     onClick={() =>
                       runDesktopMenuAction(() => {
-                        setDrawerCollapsed(false)
-                        switchDrawerTab('help')
+                        openHelpPanelSection('guide')
                       })
                     }
                   >
-                    <span>Open Help Panel</span>
+                    <span>Open Help Guide</span>
                   </button>
                   <button
                     type="button"
                     role="menuitem"
                     onClick={() =>
                       runDesktopMenuAction(() => {
-                        openDockTab('help')
+                        openHelpPanelSection('gallery')
                       })
                     }
                   >
-                    <span>Open Help in Dock</span>
+                    <span>Open Export Gallery</span>
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() =>
+                      runDesktopMenuAction(() => {
+                        openHelpPanelSection('about')
+                      })
+                    }
+                  >
+                    <span>Open About</span>
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => runDesktopMenuAction(() => loadShowcasePreset('showcase', 'en'))}
+                  >
+                    <span>Load Showcase (EN)</span>
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => runDesktopMenuAction(() => loadShowcasePreset('showcase', 'pt'))}
+                  >
+                    <span>Load Showcase (PT)</span>
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => runDesktopMenuAction(() => loadShowcasePreset('tutorial', 'en'))}
+                  >
+                    <span>Load Tutorial (EN)</span>
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => runDesktopMenuAction(() => loadShowcasePreset('tutorial', 'pt'))}
+                  >
+                    <span>Load Tutorial (PT)</span>
                   </button>
                 </div>
               ) : null}
             </div>
             </nav>
           ) : null}
-          {!immersiveMode ? dockHeaderBar : null}
           {!presentationMode ? (
             <div className="mode-indicators">
                 <span className={activeTool === 'connector' ? 'mode-pill mode-pill-active' : 'mode-pill'}>
@@ -3745,7 +4173,7 @@ function App() {
                       ? 'mode-pill mode-pill-playing mode-pill-step-name'
                       : 'mode-pill mode-pill-step-name'
                   }
-                  title={currentPlayerStepLabel}
+                  title={withTooltip(currentPlayerStepLabel)}
                 >
                   {currentPlayerStepLabel}
                 </span>
@@ -3849,135 +4277,271 @@ function App() {
             </div>
           ) : (
             <>
-              <label className="view-hierarchy-control">
-                View
-                <select
-                  className="view-hierarchy-select"
-                  value={currentViewId}
-                  onChange={(event) => goToView(event.target.value)}
-                >
-                  {viewHierarchyOptions.map((option) => {
-                    const view = workspace.views[option.viewId]
-                    const prefix = `${'\u00A0\u00A0'.repeat(option.depth)}${option.depth > 0 ? '\u21B3 ' : ''}`
-                    return (
-                      <option key={option.viewId} value={option.viewId}>
-                        {`${prefix}${view?.name ?? option.viewId}`}
-                      </option>
-                    )
-                  })}
-                </select>
-              </label>
-              <button type="button" onClick={() => navigateBack()} disabled={!viewHistory.length}>
-                Back
-              </button>
-              <button
-                type="button"
-                className={activeTool === 'select' ? 'tool-button tool-active' : 'tool-button'}
-                onClick={() => setActiveTool('select')}
-              >
-                Select
-              </button>
-              <button
-                type="button"
-                className={activeTool === 'connector' ? 'tool-button tool-active' : 'tool-button'}
-                onClick={() => setActiveTool('connector')}
-              >
-                Connector
-              </button>
-              <button type="button" onClick={() => zoomByFactor(1.1)}>
-                Zoom +
-              </button>
-              <button type="button" onClick={() => zoomByFactor(0.9)}>
-                Zoom -
-              </button>
-              <button type="button" onClick={() => runAutoArrange()}>
-                Auto layout
-              </button>
-              <button
-                type="button"
-                className="icon-toggle-button"
-                onClick={() => setGridEnabled(!gridEnabled)}
-                title={gridEnabled ? 'Hide grid' : 'Show grid'}
-              >
-                <Dock size={14} />
-                <span>{gridEnabled ? 'Grid on' : 'Grid off'}</span>
-              </button>
-              <button
-                type="button"
-                className="icon-toggle-button"
-                onClick={() => setSnapEnabled(!snapEnabled)}
-                title={snapEnabled ? 'Disable snap' : 'Enable snap'}
-              >
-                {snapEnabled ? <Eye size={14} /> : <EyeOff size={14} />}
-                <span>{snapEnabled ? 'Snap on' : 'Snap off'}</span>
-              </button>
-              <button
-                type="button"
-                className="icon-toggle-button"
-                onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-                title={theme === 'dark' ? 'Light theme' : 'Dark theme'}
-              >
-                <span>{theme === 'dark' ? 'Dark' : 'Light'}</span>
-              </button>
-              <button
-                type="button"
-                className="icon-toggle-button"
-                onClick={() => toggleLeftSidebar()}
-                title={leftSidebarCollapsed ? 'Show palette' : 'Hide palette'}
-              >
-                {leftSidebarCollapsed ? <PanelLeftOpen size={15} /> : <PanelLeftClose size={15} />}
-              </button>
-              <button
-                type="button"
-                className="icon-toggle-button"
-                onClick={() => toggleDockPanel()}
-                title={dockCollapsed ? 'Show dock' : 'Hide dock'}
-              >
-                {dockPosition === 'bottom' ? (
-                  dockCollapsed ? (
-                    <PanelBottomOpen size={15} />
-                  ) : (
-                    <PanelBottomClose size={15} />
-                  )
-                ) : dockPosition === 'floating' ? (
-                  <Dock size={15} />
-                ) : dockPosition === 'left' ? (
-                  dockCollapsed ? (
-                    <PanelLeftOpen size={15} />
-                  ) : (
-                    <PanelLeftClose size={15} />
-                  )
-                ) : dockCollapsed ? (
-                  <PanelRightOpen size={15} />
-                ) : (
-                  <PanelRightClose size={15} />
-                )}
-              </button>
-              <button
-                type="button"
-                className="icon-toggle-button"
-                onClick={() => toggleWorkbench()}
-                title={drawerCollapsed ? 'Show workbench' : 'Hide workbench'}
-              >
-                {drawerCollapsed ? <PanelBottomOpen size={15} /> : <PanelBottomClose size={15} />}
-              </button>
-              <button type="button" className="focus-toggle-button" onClick={() => toggleFocusMode()}>
-                {focusMode ? 'Exit focus' : 'Focus'}
-              </button>
-              <button type="button" className="focus-toggle-button" onClick={() => togglePresentationMode()}>
-                <Presentation size={14} />
-                <span>{presentationMode ? 'Exit presentation' : 'Presentation mode'}</span>
-              </button>
+              {toolbarVisibility.navigation ? (
+                <div className="toolbar-group">
+                  <label className="view-hierarchy-control">
+                    View
+                    <select
+                      className="view-hierarchy-select"
+                      value={currentViewId}
+                      onChange={(event) => goToView(event.target.value)}
+                    >
+                      {viewHierarchyOptions.map((option) => {
+                        const view = workspace.views[option.viewId]
+                        const prefix = `${'\u00A0\u00A0'.repeat(option.depth)}${option.depth > 0 ? '\u21B3 ' : ''}`
+                        return (
+                          <option key={option.viewId} value={option.viewId}>
+                            {`${prefix}${view?.name ?? option.viewId}`}
+                          </option>
+                        )
+                      })}
+                    </select>
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => navigateBack()}
+                    disabled={!viewHistory.length}
+                    title={withTooltip('Navigate to previous view in drilldown history')}
+                  >
+                    Back
+                  </button>
+                </div>
+              ) : null}
+              {toolbarVisibility.editing ? (
+                <div className="toolbar-group">
+                  <button
+                    type="button"
+                    className={activeTool === 'select' ? 'tool-button tool-active' : 'tool-button'}
+                    onClick={() => setActiveTool('select')}
+                    title={withTooltip('Select and move nodes or edges')}
+                  >
+                    Select
+                  </button>
+                  <button
+                    type="button"
+                    className={activeTool === 'connector' ? 'tool-button tool-active' : 'tool-button'}
+                    onClick={() => setActiveTool('connector')}
+                    title={withTooltip('Connect nodes by dragging from one port to another')}
+                  >
+                    Connector
+                  </button>
+                </div>
+              ) : null}
+              {toolbarVisibility.viewport ? (
+                <div className="toolbar-group">
+                  <button type="button" onClick={() => zoomByFactor(1.1)} title={withTooltip('Zoom in canvas')}>
+                    Zoom +
+                  </button>
+                  <button type="button" onClick={() => zoomByFactor(0.9)} title={withTooltip('Zoom out canvas')}>
+                    Zoom -
+                  </button>
+                  <button type="button" onClick={() => runAutoArrange()} title={withTooltip('Apply auto layout')}>
+                    Auto layout
+                  </button>
+                  <button
+                    type="button"
+                    className="icon-toggle-button"
+                    onClick={() => setGridEnabled(!gridEnabled)}
+                    title={withTooltip(gridEnabled ? 'Hide grid' : 'Show grid')}
+                  >
+                    <Dock size={14} />
+                    <span>{gridEnabled ? 'Grid on' : 'Grid off'}</span>
+                  </button>
+                  <button
+                    type="button"
+                    className="icon-toggle-button"
+                    onClick={() => setSnapEnabled(!snapEnabled)}
+                    title={withTooltip(snapEnabled ? 'Disable snap' : 'Enable snap')}
+                  >
+                    {snapEnabled ? <Eye size={14} /> : <EyeOff size={14} />}
+                    <span>{snapEnabled ? 'Snap on' : 'Snap off'}</span>
+                  </button>
+                  <button
+                    type="button"
+                    className="icon-toggle-button"
+                    onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+                    title={withTooltip(theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme')}
+                  >
+                    <span>{theme === 'dark' ? 'Dark' : 'Light'}</span>
+                  </button>
+                </div>
+              ) : null}
+              {toolbarVisibility.panels ? (
+                <div className="toolbar-group toolbar-group-panels">
+                  <button
+                    type="button"
+                    className="icon-toggle-button"
+                    onClick={() => toggleLeftSidebar()}
+                    title={withTooltip(leftSidebarCollapsed ? 'Show palette' : 'Hide palette')}
+                  >
+                    {leftSidebarCollapsed ? <PanelLeftOpen size={15} /> : <PanelLeftClose size={15} />}
+                  </button>
+                  <button
+                    type="button"
+                    className="icon-toggle-button"
+                    onClick={() => toggleDockPanel()}
+                    title={withTooltip(dockCollapsed ? 'Show dock panel' : 'Hide dock panel')}
+                  >
+                    {dockPosition === 'bottom' ? (
+                      dockCollapsed ? (
+                        <PanelBottomOpen size={15} />
+                      ) : (
+                        <PanelBottomClose size={15} />
+                      )
+                    ) : dockPosition === 'floating' ? (
+                      <Dock size={15} />
+                    ) : dockPosition === 'left' ? (
+                      dockCollapsed ? (
+                        <PanelLeftOpen size={15} />
+                      ) : (
+                        <PanelLeftClose size={15} />
+                      )
+                    ) : dockCollapsed ? (
+                      <PanelRightOpen size={15} />
+                    ) : (
+                      <PanelRightClose size={15} />
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    className="icon-toggle-button"
+                    onClick={() => toggleWorkbench()}
+                    title={withTooltip(drawerCollapsed ? 'Show workbench' : 'Hide workbench')}
+                  >
+                    {drawerCollapsed ? <PanelBottomOpen size={15} /> : <PanelBottomClose size={15} />}
+                  </button>
+                  {!immersiveMode ? dockHeaderBar : null}
+                </div>
+              ) : null}
+              {toolbarVisibility.modes ? (
+                <div className="toolbar-group">
+                  <button type="button" className="focus-toggle-button" onClick={() => toggleFocusMode()} title={withTooltip('Toggle focus mode')}>
+                    {focusMode ? 'Exit focus' : 'Focus'}
+                  </button>
+                  <button
+                    type="button"
+                    className="focus-toggle-button"
+                    onClick={() => togglePresentationMode()}
+                    title={withTooltip('Toggle presentation mode')}
+                  >
+                    <Presentation size={14} />
+                    <span>{presentationMode ? 'Exit presentation' : 'Presentation mode'}</span>
+                  </button>
+                </div>
+              ) : null}
+              {!hasVisibleToolbarSection ? <p className="toolbar-empty-label">Enable toolbar sections in Settings.</p> : null}
             </>
           )}
         </div>
         {exportError ? <p className="topbar-error">{exportError}</p> : null}
         {!exportError && exportStatus ? <p className="topbar-status">{exportStatus}</p> : null}
       </header>
+      {preferencesOpen ? (
+        <section
+          className="preferences-window"
+          role="dialog"
+          aria-modal="false"
+          aria-label="Preferences"
+          style={{ top: `${topbarHeight + 10}px` }}
+        >
+          <div className="preferences-header">
+            <strong>Preferences</strong>
+            <button type="button" onClick={() => setPreferencesOpen(false)}>
+              Close
+            </button>
+          </div>
+          <div className="preferences-body">
+            <label className="preferences-toggle">
+              <input
+                type="checkbox"
+                checked={uiPreferences.tooltipsEnabled}
+                onChange={(event) =>
+                  setUiPreferences((current) => ({
+                    ...current,
+                    tooltipsEnabled: event.target.checked,
+                  }))
+                }
+              />
+              Enable tooltips
+            </label>
+            <label className="preferences-toggle">
+              <input
+                type="checkbox"
+                checked={uiPreferences.splashEnabled}
+                onChange={(event) =>
+                  setUiPreferences((current) => ({
+                    ...current,
+                    splashEnabled: event.target.checked,
+                  }))
+                }
+              />
+              Show startup splash
+            </label>
+            <label className="preferences-select">
+              Showcase language
+              <select
+                value={uiPreferences.showcaseLocale}
+                onChange={(event) =>
+                  setUiPreferences((current) => ({
+                    ...current,
+                    showcaseLocale: event.target.value as ShowcaseLocale,
+                  }))
+                }
+              >
+                <option value="en">English</option>
+                <option value="pt">Portuguese</option>
+              </select>
+            </label>
+            <fieldset className="preferences-fieldset">
+              <legend>Toolbar sections</legend>
+              <label className="preferences-toggle">
+                <input
+                  type="checkbox"
+                  checked={uiPreferences.toolbarVisibility.navigation}
+                  onChange={() => toggleToolbarSection('navigation')}
+                />
+                Navigation
+              </label>
+              <label className="preferences-toggle">
+                <input
+                  type="checkbox"
+                  checked={uiPreferences.toolbarVisibility.editing}
+                  onChange={() => toggleToolbarSection('editing')}
+                />
+                Editing
+              </label>
+              <label className="preferences-toggle">
+                <input
+                  type="checkbox"
+                  checked={uiPreferences.toolbarVisibility.viewport}
+                  onChange={() => toggleToolbarSection('viewport')}
+                />
+                Viewport
+              </label>
+              <label className="preferences-toggle">
+                <input
+                  type="checkbox"
+                  checked={uiPreferences.toolbarVisibility.panels}
+                  onChange={() => toggleToolbarSection('panels')}
+                />
+                Panels
+              </label>
+              <label className="preferences-toggle">
+                <input
+                  type="checkbox"
+                  checked={uiPreferences.toolbarVisibility.modes}
+                  onChange={() => toggleToolbarSection('modes')}
+                />
+                Modes
+              </label>
+            </fieldset>
+          </div>
+        </section>
+      ) : null}
       {!immersiveMode && leftPanelVisible ? (
         <div
           className="layout-splitter layout-splitter-left"
-          style={{ left: leftSidebarWidth - 3, top: TOPBAR_HEIGHT, bottom: drawerVisible ? journeyHeight : 0 }}
+          style={{ left: leftSidebarWidth - 3, top: topbarHeight, bottom: drawerVisible ? journeyHeight : 0 }}
           onPointerDown={onLeftSplitterPointerDown}
           onPointerMove={onLeftSplitterPointerMove}
           onPointerUp={stopLeftResize}
@@ -3987,7 +4551,7 @@ function App() {
       {!immersiveMode && leftDockVisible ? (
         <div
           className="layout-splitter layout-splitter-left"
-          style={{ left: leftDockWidth - 3, top: TOPBAR_HEIGHT, bottom: drawerVisible ? journeyHeight : 0 }}
+          style={{ left: leftDockWidth - 3, top: topbarHeight, bottom: drawerVisible ? journeyHeight : 0 }}
           onPointerDown={(event) => onDockSideSplitterPointerDown('left', event)}
           onPointerMove={onDockSideSplitterPointerMove}
           onPointerUp={stopDockSideResize}
@@ -3997,7 +4561,7 @@ function App() {
       {!immersiveMode && rightDockVisible ? (
         <div
           className="layout-splitter layout-splitter-right"
-          style={{ right: rightDockWidth - 3, top: TOPBAR_HEIGHT, bottom: drawerVisible ? journeyHeight : 0 }}
+          style={{ right: rightDockWidth - 3, top: topbarHeight, bottom: drawerVisible ? journeyHeight : 0 }}
           onPointerDown={(event) => onDockSideSplitterPointerDown('right', event)}
           onPointerMove={onDockSideSplitterPointerMove}
           onPointerUp={stopDockSideResize}

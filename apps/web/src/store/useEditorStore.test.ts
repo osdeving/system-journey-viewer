@@ -425,9 +425,9 @@ describe('useEditorStore', () => {
     expect(reordered.map((step) => step.n)).toEqual([1, 2, 3])
   })
 
-  it('creates drilldown view with boundary root and opens it', () => {
+  it('opens existing drilldown view and preserves boundary conversion behavior', () => {
     const state = useEditorStore.getState()
-    expect(state.workspace.nodes.n_worker.drilldownRef).toBeUndefined()
+    expect(state.workspace.nodes.n_worker.drilldownRef).toBe('v_components_worker')
 
     const createdViewId = state.createDrilldownForNode('n_worker')
     const updated = useEditorStore.getState()
@@ -439,9 +439,8 @@ describe('useEditorStore', () => {
     const createdView = createdViewId ? updated.workspace.views[createdViewId] : undefined
     expect(createdView).toBeDefined()
     expect(createdView?.kind).toBe('component')
-    expect(createdView?.nodeIds.length).toBe(1)
-    const rootNodeId = createdView?.nodeIds[0]
-    expect(rootNodeId ? updated.workspace.nodes[rootNodeId].kind : '').toBe('boundary')
+    expect(createdView?.nodeIds.length).toBeGreaterThanOrEqual(1)
+    expect(createdView?.nodeIds.includes('n_worker_comp_app')).toBe(true)
   })
 
   it('stops player and emits confetti when journey reaches end', () => {
@@ -541,6 +540,17 @@ describe('useEditorStore', () => {
     expect(updated.workspace.workspace.name).toBe('Orders Platform Showcase')
     expect(updated.workspace.views.v_container.journeyIds.length).toBeGreaterThanOrEqual(3)
     expect(updated.activeJourneyId).toBe('j_c_1')
+  })
+
+  it('loads localized tutorial showcase while preserving active theme', () => {
+    const state = useEditorStore.getState()
+    state.setTheme('light')
+    state.loadShowcaseWorkspace({ locale: 'pt', mode: 'tutorial' })
+
+    const updated = useEditorStore.getState()
+    expect(updated.workspace.workspace.id).toBe('workspace-tutorial-pt')
+    expect(updated.workspace.workspace.name).toBe('Plataforma de Pedidos - Tutorial Guiado')
+    expect(updated.workspace.settings.theme).toBe('light')
   })
 
   it('supports drilldown navigation with breadcrumb history', () => {

@@ -36,19 +36,19 @@ describe('journey and drilldown DSL sync', () => {
 
   it('keeps ctrl+alt drilldown creation synchronized with DSL roundtrip', () => {
     const state = useEditorStore.getState()
-    state.createDrilldownForNode('n_worker')
+    state.createDrilldownForNode('n_kafka')
 
     const workspace = useEditorStore.getState().workspace
     const dsl = fullWorkspaceToLiteDsl(workspace)
     const roundtrip = liteToFullWorkspace(parseLiteDsl(dsl))
-    const fulfillmentNode = Object.values(roundtrip.nodes).find(
-      (node) => node.name === 'ms-fulfillment',
+    const kafkaNode = Object.values(roundtrip.nodes).find(
+      (node) => node.name === 'Kafka',
     )
 
-    expect(fulfillmentNode).toBeDefined()
-    expect(fulfillmentNode?.kind).toBe('boundary')
-    expect(fulfillmentNode?.drilldownRef).toBeTruthy()
-    const detailViewId = fulfillmentNode?.drilldownRef ?? ''
+    expect(kafkaNode).toBeDefined()
+    expect(kafkaNode?.kind).toBe('boundary')
+    expect(kafkaNode?.drilldownRef).toBeTruthy()
+    const detailViewId = kafkaNode?.drilldownRef ?? ''
     const detailView = roundtrip.views[detailViewId]
     expect(detailView).toBeDefined()
     expect(detailView?.nodeIds.length).toBeGreaterThan(0)

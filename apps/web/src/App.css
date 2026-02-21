@@ -367,6 +367,7 @@
 .journey-side-filter select:hover,
 .journey-side-player select:hover,
 .inspector-form input:hover,
+.inspector-form textarea:hover,
 .inspector-form select:hover,
 .drawer-tab:hover,
 .drawer-maximize-button:hover,
@@ -908,6 +909,13 @@
   line-height: 1.2;
 }
 
+.canvas-inline-editor-textarea {
+  resize: none;
+  min-height: 74px;
+  line-height: 1.34;
+  white-space: pre-wrap;
+}
+
 .diagram-canvas {
   position: relative;
   z-index: 1;
@@ -942,17 +950,50 @@
 }
 
 .node-note {
-  fill: #fef3c7;
-  stroke: #d97706;
+  fill: #fde68a;
+  stroke: #b45309;
   stroke-width: 1.4;
-  stroke-dasharray: 5 3;
+}
+
+.node-note-fold {
+  fill: #fcd34d;
+  stroke: #b45309;
+  stroke-width: 1.1;
+  pointer-events: none;
+}
+
+.node-note-pin {
+  pointer-events: none;
+}
+
+.node-note-pin-head {
+  fill: #dc2626;
+  stroke: #7f1d1d;
+  stroke-width: 0.9;
+}
+
+.node-note-pin-needle {
+  fill: none;
+  stroke: #374151;
+  stroke-width: 1.2;
+  stroke-linecap: round;
+}
+
+.node-note-pin-tip {
+  fill: #111827;
+}
+
+.node-note-title {
+  font-size: 13px;
+  letter-spacing: 0.01em;
 }
 
 .note-link {
   fill: none;
-  stroke: rgba(14, 116, 144, 0.75);
-  stroke-width: 1.5;
-  stroke-dasharray: 6 6;
+  stroke: rgba(14, 116, 144, 0.82);
+  stroke-width: 1.7;
+  stroke-dasharray: 4 6;
+  stroke-linecap: round;
   pointer-events: none;
 }
 
@@ -1234,12 +1275,14 @@
   font-weight: 600;
 }
 
-.inspector-form input {
+.inspector-form input,
+.inspector-form textarea {
   width: 100%;
   border: 1px solid #cbd5e1;
   border-radius: 6px;
   padding: 7px 8px;
   font-size: 13px;
+  font: inherit;
 }
 
 .inspector-form input[type='color'] {
@@ -1286,7 +1329,8 @@
   background: #fff;
 }
 
-.inspector-form input:disabled {
+.inspector-form input:disabled,
+.inspector-form textarea:disabled {
   background: #f1f5f9;
   margin: 0;
 }
@@ -2073,6 +2117,7 @@
 }
 
 .theme-dark .inspector-form input,
+.theme-dark .inspector-form textarea,
 .theme-dark .inspector-form select,
 .theme-dark .journey-side-create input,
 .theme-dark .journey-side-filter select,
@@ -2104,7 +2149,8 @@
   background: rgba(153, 27, 27, 0.24);
 }
 
-.theme-dark .inspector-form input:disabled {
+.theme-dark .inspector-form input:disabled,
+.theme-dark .inspector-form textarea:disabled {
   background: #334155;
 }
 
@@ -2133,12 +2179,30 @@
 }
 
 .theme-dark .node-note {
-  fill: rgba(120, 53, 15, 0.62);
+  fill: rgba(161, 98, 7, 0.55);
   stroke: rgba(251, 191, 36, 0.9);
 }
 
+.theme-dark .node-note-fold {
+  fill: rgba(234, 179, 8, 0.72);
+  stroke: rgba(252, 211, 77, 0.9);
+}
+
+.theme-dark .node-note-pin-head {
+  fill: #f87171;
+  stroke: #991b1b;
+}
+
+.theme-dark .node-note-pin-needle {
+  stroke: #e2e8f0;
+}
+
+.theme-dark .node-note-pin-tip {
+  fill: #f8fafc;
+}
+
 .theme-dark .note-link {
-  stroke: rgba(125, 211, 252, 0.8);
+  stroke: rgba(125, 211, 252, 0.9);
 }
 
 .theme-dark .node-boundary {

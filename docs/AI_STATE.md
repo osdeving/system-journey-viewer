@@ -4,7 +4,7 @@
 
 - Roadmap milestones `M0 -> M9` were implemented.
 - Feature branches were promoted without merge commits using cherry-pick flow.
-- Latest script/UI increment (2026-02-20) introduced breaking **SJV Script v2** semantics (explicit edge IDs, ordered journey steps by line position, attached notes), removed Portuguese UI copy, and standardized user-facing naming to **SJV Script**.
+- Latest script/UI increment (2026-02-21) refined **SJV Script v2** and notes UX with escaped multiline text support, semantic export IDs for generic showcase tokens, sticky-note rendering (fold + pin), and multiline note editing in canvas/inspector.
 - Architecture baseline:
   - custom SVG editor engine (internal adapter, no paid lock-in),
   - versioned FULL model (`schemaVersion: 1.0`) as source of truth,
@@ -39,8 +39,13 @@
   - metadata edge layout is keyed by edge ID.
 - Notes:
   - `note <alias> on <targetAlias> "text"` supported in parser/converter,
-  - rendered as dashed non-arrow attachments,
+  - rendered as sticky notes with folded corner and pin plus dashed non-arrow attachments,
   - auto-attach and auto-place behavior when dropping/dragging notes onto nodes.
+- Multiline text:
+  - escaped text roundtrip in SJV Script (`\n`, `\r`, `\t`, `\"`, `\\`) for workspace, node, note, edge label, and journey names.
+  - multiline note text editing supported in canvas inline editor and inspector.
+- Semantic script export:
+  - when internal IDs are generic (e.g., `e_c_1`, `j_c_1`), SJV Script export infers semantic edge/journey tokens from labels/names.
 - SJV Script now supports optional UI-only geometry metadata:
   - `metadata ui-layout` for node bounds and edge label positions.
   - edge metadata now supports label side (`left|right`) in addition to label progress.

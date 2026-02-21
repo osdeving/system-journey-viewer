@@ -2411,11 +2411,20 @@ function App() {
           <label htmlFor="node-kind">Type</label>
           <input id="node-kind" value={selectedNode.kind} disabled />
           <label htmlFor="node-name">Name</label>
-          <input
-            id="node-name"
-            value={selectedNode.name}
-            onChange={(event) => setNodeName(selectedNode.id, event.target.value)}
-          />
+          {selectedNode.kind === 'note' ? (
+            <textarea
+              id="node-name"
+              rows={4}
+              value={selectedNode.name}
+              onChange={(event) => setNodeName(selectedNode.id, event.target.value)}
+            />
+          ) : (
+            <input
+              id="node-name"
+              value={selectedNode.name}
+              onChange={(event) => setNodeName(selectedNode.id, event.target.value)}
+            />
+          )}
           <label htmlFor="node-preset">Preset</label>
           <input
             id="node-preset"

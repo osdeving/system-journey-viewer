@@ -35,6 +35,7 @@ export const nodeSchema = z.object({
   ports: z.array(portSchema),
   children: z.array(z.string()),
   drilldownRef: z.string().min(1).optional(),
+  noteTargetNodeId: z.string().min(1).optional(),
 })
 
 export const edgeSchema = z.object({

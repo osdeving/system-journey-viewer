@@ -23,6 +23,15 @@ Default playback/focus state:
 - Delete selection: `Delete` / `Backspace`.
 - Duplicate selection: `Cmd/Ctrl + D`.
 
+## Notes
+
+- Notes render as sticky notes with folded corner + pin.
+- Double-click note text for inline edit.
+- Note text supports multiple lines.
+- In inline multiline edit:
+  - `Enter` adds a new line.
+  - `Ctrl/Cmd + Enter` commits changes.
+
 ## Drilldown
 
 - Double-click a boundary-enabled node to open drilldown.
@@ -63,6 +72,7 @@ Default playback/focus state:
 - SJV Script panel:
   - `Export full workspace` snapshots current workspace into SJV Script.
   - `Sync with editor` applies valid SJV Script edits to the canvas view in real time while you type.
+  - Use escaped line breaks (`\n`) inside quoted text when editing multiline node/note labels in script form.
 
 ## Inspector Colors
 

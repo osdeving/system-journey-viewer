@@ -2,6 +2,55 @@
 
 Chronological engineering log. Entries are kept concise and focused on behavior and validation.
 
+## 2026-02-21 - Sticky note UX, multiline SJV text support, and semantic showcase export IDs
+
+### Scope
+
+- Improve note visual language to match sticky-note behavior.
+- Allow multiline text editing/rendering for notes and SJV Script escaped text.
+- Export semantic edge/journey IDs for showcase-style scripts when internal IDs are generic.
+
+### Changes
+
+- Note UX and multiline editing:
+  - sticky note canvas shape with folded corner and red pin styling;
+  - multiline note rendering with line breaks on canvas;
+  - inline note editor upgraded to textarea mode (`Enter` newline, `Ctrl/Cmd+Enter` commit);
+  - inspector note name editor now supports multiline textarea;
+  - files:
+    - `apps/web/src/components/DiagramCanvas.tsx`
+    - `apps/web/src/components/CanvasText.tsx`
+    - `apps/web/src/App.tsx`
+    - `apps/web/src/App.css`
+    - `apps/web/src/help/help.md`
+
+- SJV Script escaped text:
+  - parser/export now support escaped `\\n`, `\\r`, `\\t`, `\\"`, `\\\\`;
+  - workspace/journey/node/note/edge quoted text roundtrip preserved with escaping;
+  - files:
+    - `apps/web/src/dsl-lite/parser.ts`
+    - `apps/web/src/dsl-lite/convert.ts`
+    - `apps/web/src/dsl-lite/parser.test.ts`
+    - `docs/SJV_SCRIPT_SPEC.md`
+
+- Showcase semantics and note persistence:
+  - script export now infers semantic edge/journey IDs from labels/names when internal IDs are generic (`e_c_1`, `j_c_1`, etc.);
+  - default showcase workspace now includes attached notes across container/component/hex views;
+  - note target relation added to schema validation to avoid loss during persistence parse/serialize;
+  - files:
+    - `apps/web/src/model/defaultWorkspace.ts`
+    - `apps/web/src/model/schema.ts`
+    - `apps/web/src/model/schema.test.ts`
+    - `docs/cim.sjv`
+
+### Validation
+
+- `npm install`
+- `npm --workspace @sjv/web run lint`
+- `npm --workspace @sjv/web run test:run`
+- `npm --workspace @sjv/web run test:run -- src/dsl-lite/parser.test.ts src/model/schema.test.ts src/App.styles.test.ts src/store/useEditorStore.test.ts`
+- `npm --workspace @sjv/web run build`
+
 ## 2026-02-20 - SJV Script v2 migration, notes support, and full English UI/docs
 
 ### Scope

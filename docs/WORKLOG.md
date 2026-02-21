@@ -387,6 +387,32 @@ Chronological engineering log. Entries are kept concise and focused on behavior 
 - `npm --workspace @sjv/web run test:run`
 - `npm --workspace @sjv/web run build`
 
+## 2026-02-21 - Topbar clipping follow-up fix (menu + toolbar rows)
+
+### Scope
+
+- Fixed remaining topbar clipping where toolbar text/buttons could appear partially cut at the canvas edge on some viewport/layout states.
+
+### Changes
+
+- `apps/web/src/App.tsx`
+  - changed app grid top row from fixed pixel height to `auto`, removing topbar self-sizing feedback loop that could clip toolbar content.
+  - extracted row-template resolution into a dedicated helper for deterministic behavior.
+- `apps/web/src/layout/layoutGrid.ts` (new)
+  - added `resolveLayoutGridTemplateRows` helper for immersive/studio row templates.
+- `apps/web/src/layout/layoutGrid.test.ts` (new)
+  - added unit coverage for immersive and drawer-visible/drawer-hidden row composition.
+- `apps/web/src/App.css`
+  - updated `.topbar-actions` to allow wrapping with visible overflow, avoiding clipped toolbar labels in dense states.
+- `apps/web/src/App.styles.test.ts`
+  - added regression assertion for `.topbar-actions` wrap/overflow behavior.
+
+### Validation
+
+- `npm --workspace @sjv/web run lint`
+- `npm --workspace @sjv/web run test:run`
+- `npm --workspace @sjv/web run build`
+
 ## 2026-02-19 - Playback defaults, dock/view upgrades, edge-label rotation, recents memory, and help guide
 
 ### Scope

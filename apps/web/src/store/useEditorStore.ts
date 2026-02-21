@@ -4,6 +4,11 @@ import { nearestPortId, nodeCenter } from '../engine/geometry'
 import { journeyColorByIndex } from '../journeys/colors'
 import { autoArrangeView } from '../layout/autoArrange'
 import { createDefaultWorkspace } from '../model/defaultWorkspace'
+import {
+  createShowcaseWorkspace,
+  type ShowcaseLocale,
+  type ShowcaseMode,
+} from '../model/showcaseWorkspace'
 import { normalizeWorkspaceNodePorts, resolveNodePorts } from '../model/nodePorts'
 import { resolveNodePreset, resolveTechPreset } from '../presets/catalog'
 import { resolveViewHistoryForView } from '../viewHierarchy'
@@ -109,7 +114,10 @@ interface EditorState {
     layoutMode: JourneyFilterLayoutMode
     autoLayoutMode: JourneyFilterAutoLayoutMode
   }>) => void
-  loadShowcaseWorkspace: () => void
+  loadShowcaseWorkspace: (options?: {
+    locale?: ShowcaseLocale
+    mode?: ShowcaseMode
+  }) => void
   createJourney: (name?: string) => string
   setActiveJourney: (journeyId: string | null) => void
   setJourneyFilter: (journeyId: string | null) => void
@@ -1367,9 +1375,14 @@ export const useEditorStore = create<EditorState>()(
         }
       })
     },
-    loadShowcaseWorkspace: () => {
+    loadShowcaseWorkspace: (options) => {
+      const currentTheme = get().workspace.settings.theme
+      const locale = options?.locale ?? 'en'
+      const mode = options?.mode ?? 'showcase'
+      const workspace = createShowcaseWorkspace(locale, mode)
+      workspace.settings.theme = currentTheme
       set({
-        workspace: createDefaultWorkspace(),
+        workspace,
         currentViewId: DEFAULT_VIEW_ID,
         viewHistory: [],
         viewport: DEFAULT_VIEWPORT,

@@ -76,7 +76,9 @@ describe('App boundary styles', () => {
   })
 
   it('includes desktop menu and advanced canvas interaction styles', () => {
+    expect(appCss).toMatch(/\.topbar\s*\{[^}]*overflow:\s*visible;[^}]*\}/s)
     expect(appCss).toContain('.desktop-menu-bar')
+    expect(appCss).toMatch(/\.desktop-menu-bar\s*\{[^}]*flex-wrap:\s*wrap;[^}]*overflow:\s*visible;[^}]*\}/s)
     expect(appCss).toContain('.desktop-menu-trigger')
     expect(appCss).toContain('.desktop-menu-open')
     expect(appCss).toContain('.app-logo-badge')

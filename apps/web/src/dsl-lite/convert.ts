@@ -1,12 +1,20 @@
 import { resolveNodePreset, resolveTechPreset } from '../presets/catalog'
 import { resolveNodePorts } from '../model/nodePorts'
-import { fallbackAliasFromNodeId, toEdgeLineText, toJourneyStepText, toNodeLineText } from './parser'
+import {
+  encodeScriptText,
+  fallbackAliasFromNodeId,
+  toEdgeLineText,
+  toJourneyStepText,
+  toNodeLineText,
+} from './parser'
 import type { LiteWorkspaceAst } from './types'
 import type { WorkspaceModel } from '../model/types'
 
 const MIN_NODE_SIZE = 80
 const MIN_EDGE_LABEL_POSITION = 0.08
 const MAX_EDGE_LABEL_POSITION = 0.92
+const GENERIC_EDGE_TOKEN_PATTERN = /^e(?:_[a-z0-9]+)?_\d+$/i
+const GENERIC_JOURNEY_TOKEN_PATTERN = /^j(?:_[a-z0-9]+)?_\d+$/i
 
 const slugify = (text: string): string =>
   text
@@ -74,6 +82,52 @@ const resolveAliasToken = (value: string, fallback: string): string => {
   return normalized || fallback
 }
 
+const isGenericEdgeToken = (value: string): boolean =>
+  GENERIC_EDGE_TOKEN_PATTERN.test(value)
+
+const isGenericJourneyToken = (value: string): boolean =>
+  GENERIC_JOURNEY_TOKEN_PATTERN.test(value)
+
+const resolveEdgeTokenBase = (
+  edge: WorkspaceModel['edges'][string],
+  fromAlias: string,
+  toAlias: string,
+): string => {
+  const explicitToken = sanitizeToken(edge.id, '')
+  if (explicitToken && !isGenericEdgeToken(explicitToken)) {
+    return explicitToken
+  }
+  const labelToken = sanitizeToken(edge.label, '')
+  if (labelToken && labelToken !== 'request') {
+    return labelToken
+  }
+  const protocolToken = sanitizeToken(edge.protocolPresetId, '')
+  return sanitizeToken(
+    `${fromAlias}_${protocolToken || 'to'}_${toAlias}`,
+    'edge',
+  )
+}
+
+const resolveJourneyTokenBase = (
+  journey: WorkspaceModel['journeys'][string],
+  viewId: string,
+  stepEdgeTokens: string[],
+): string => {
+  const explicitToken = sanitizeToken(journey.id, '')
+  if (explicitToken && !isGenericJourneyToken(explicitToken)) {
+    return explicitToken
+  }
+  const nameToken = sanitizeToken(journey.name, '')
+  if (nameToken) {
+    return nameToken
+  }
+  const firstStepToken = stepEdgeTokens[0]
+  if (firstStepToken) {
+    return sanitizeToken(`journey_${firstStepToken}`, `journey_${viewId}`)
+  }
+  return `journey_${viewId}`
+}
+
 const clampEdgeLabelPosition = (position: number): number =>
   Math.min(MAX_EDGE_LABEL_POSITION, Math.max(MIN_EDGE_LABEL_POSITION, position))
 
@@ -131,18 +185,29 @@ const buildAliasMapByView = (
 
 const buildEdgeTokenMapByView = (
   workspace: WorkspaceModel,
+  aliasByView: Record<string, Map<string, string>>,
 ): Record<string, Map<string, string>> => {
   const edgeTokensByView: Record<string, Map<string, string>> = {}
   for (const view of Object.values(workspace.views)) {
     const edgeTokens = new Map<string, string>()
     const usedTokens = new Set<string>()
+    const nodeAliasById = aliasByView[view.id] ?? new Map<string, string>()
     for (const edgeId of view.edgeIds) {
       const edge = workspace.edges[edgeId]
       if (!edge) {
         continue
       }
+      const fromAlias =
+        nodeAliasById.get(edge.from.nodeId) ??
+        resolveAliasToken(edge.from.nodeId, 'from')
+      const toAlias =
+        nodeAliasById.get(edge.to.nodeId) ??
+        resolveAliasToken(edge.to.nodeId, 'to')
       const token = resolveUniqueToken(
-        sanitizeToken(edge.id, `edge_${view.id}`),
+        sanitizeToken(
+          resolveEdgeTokenBase(edge, fromAlias, toAlias),
+          `edge_${view.id}`,
+        ),
         usedTokens,
         `edge_${view.id}`,
       )
@@ -219,25 +284,27 @@ const buildViewBlock = (
       return `    ${toEdgeLineText(edgeToken, fromAlias, toAlias, edge.protocolPresetId, edge.label)}`
     })
 
+  const usedJourneyTokens = new Set<string>()
   const journeyBlocks = view.journeyIds
     .map((journeyId) => workspace.journeys[journeyId])
     .filter((journey) => !!journey)
     .map((journey) => {
-      const journeyToken = sanitizeToken(journey.id, `journey_${view.id}`)
-      const steps = journey.steps
+      const stepTokens = journey.steps
         .slice()
         .sort((left, right) => left.n - right.n)
-        .map((step) => {
-          const edgeToken = edgeTokensById.get(step.edgeId)
-          if (!edgeToken) {
-            return null
-          }
-          return `      ${toJourneyStepText({ edgeId: edgeToken })}`
-        })
-        .filter((line): line is string => !!line)
+        .map((step) => edgeTokensById.get(step.edgeId))
+        .filter((edgeToken): edgeToken is string => !!edgeToken)
+      const journeyToken = resolveUniqueToken(
+        resolveJourneyTokenBase(journey, view.id, stepTokens),
+        usedJourneyTokens,
+        `journey_${view.id}`,
+      )
+      const steps = stepTokens.map(
+        (stepToken) => `      ${toJourneyStepText({ edgeId: stepToken })}`,
+      )
 
       return [
-        `    journey ${journeyToken} "${journey.name}" color ${journey.colorKey} {`,
+        `    journey ${journeyToken} "${encodeScriptText(journey.name)}" color ${journey.colorKey} {`,
         ...steps,
         '    }',
       ].join('\n')
@@ -634,7 +701,7 @@ export const fullWorkspaceToLiteDsl = (workspace: WorkspaceModel): string => {
   }
 
   const aliasByView = buildAliasMapByView(workspace)
-  const edgeTokensByView = buildEdgeTokenMapByView(workspace)
+  const edgeTokensByView = buildEdgeTokenMapByView(workspace, aliasByView)
   const viewBlocks = viewIds
     .map((viewId) => workspace.views[viewId])
     .filter((view) => !!view)
@@ -644,7 +711,7 @@ export const fullWorkspaceToLiteDsl = (workspace: WorkspaceModel): string => {
   })
   const sections = uiLayoutBlock ? [...viewBlocks, uiLayoutBlock] : viewBlocks
 
-  return [`workspace "${workspace.workspace.name}" {`, ...sections, '}'].join('\n\n')
+  return [`workspace "${encodeScriptText(workspace.workspace.name)}" {`, ...sections, '}'].join('\n\n')
 }
 
 export const fullViewToLiteDsl = (workspace: WorkspaceModel, viewId: string): string => {
@@ -653,12 +720,12 @@ export const fullViewToLiteDsl = (workspace: WorkspaceModel, viewId: string): st
     return ''
   }
   const aliasByView = buildAliasMapByView(workspace)
-  const edgeTokensByView = buildEdgeTokenMapByView(workspace)
+  const edgeTokensByView = buildEdgeTokenMapByView(workspace, aliasByView)
   const viewBlock = buildViewBlock(workspace, view, aliasByView, edgeTokensByView)
   const uiLayoutBlock = buildUiLayoutMetadataBlock(workspace, aliasByView, edgeTokensByView, {
     viewIds: [viewId],
   })
-  return [`workspace "${workspace.workspace.name}" {`, viewBlock, uiLayoutBlock, '}']
+  return [`workspace "${encodeScriptText(workspace.workspace.name)}" {`, viewBlock, uiLayoutBlock, '}']
     .filter((line): line is string => !!line)
     .join('\n\n')
 }

@@ -6,6 +6,49 @@ import type {
   LiteWorkspaceAst,
 } from './types'
 
+const decodeScriptText = (value: string): string => {
+  let result = ''
+  for (let index = 0; index < value.length; index += 1) {
+    const character = value[index]
+    if (character !== '\\' || index + 1 >= value.length) {
+      result += character
+      continue
+    }
+    const next = value[index + 1]
+    if (next === 'n') {
+      result += '\n'
+      index += 1
+      continue
+    }
+    if (next === 'r') {
+      result += '\r'
+      index += 1
+      continue
+    }
+    if (next === 't') {
+      result += '\t'
+      index += 1
+      continue
+    }
+    if (next === '"' || next === '\\') {
+      result += next
+      index += 1
+      continue
+    }
+    result += `\\${next}`
+    index += 1
+  }
+  return result
+}
+
+export const encodeScriptText = (value: string): string =>
+  value
+    .replace(/\\/g, '\\\\')
+    .replace(/\r/g, '\\r')
+    .replace(/\n/g, '\\n')
+    .replace(/\t/g, '\\t')
+    .replace(/"/g, '\\"')
+
 const toViewKind = (raw: string): LiteViewAst['kind'] => {
   if (raw === 'system-context' || raw === 'container' || raw === 'component' || raw === 'hex') {
     return raw
@@ -102,9 +145,9 @@ export const parseLiteDsl = (input: string): LiteWorkspaceAst => {
       continue
     }
 
-    const workspaceMatch = line.match(/^workspace\s+"([^"]+)"\s*\{$/)
+    const workspaceMatch = line.match(/^workspace\s+"((?:[^"\\]|\\.)+)"\s*\{$/)
     if (workspaceMatch) {
-      result.workspaceName = workspaceMatch[1]
+      result.workspaceName = decodeScriptText(workspaceMatch[1])
       continue
     }
 
@@ -193,38 +236,40 @@ export const parseLiteDsl = (input: string): LiteWorkspaceAst => {
     }
 
     const journeyMatch = line.match(
-      /^journey\s+([A-Za-z0-9_-]+)\s+"([^"]+)"(?:\s+color\s+([#A-Za-z0-9_-]+))?\s*\{$/,
+      /^journey\s+([A-Za-z0-9_-]+)\s+"((?:[^"\\]|\\.)+)"(?:\s+color\s+([#A-Za-z0-9_-]+))?\s*\{$/,
     )
     if (journeyMatch) {
       closeJourney()
       openJourney = {
         id: journeyMatch[1],
-        name: journeyMatch[2],
+        name: decodeScriptText(journeyMatch[2]),
         color: journeyMatch[3] ?? '#2563eb',
         steps: [],
       }
       continue
     }
 
-    const noteMatch = line.match(/^note\s+([A-Za-z0-9_-]+)\s+on\s+([A-Za-z0-9_-]+)\s+"([^"]+)"$/)
+    const noteMatch = line.match(
+      /^note\s+([A-Za-z0-9_-]+)\s+on\s+([A-Za-z0-9_-]+)\s+"((?:[^"\\]|\\.)+)"$/,
+    )
     if (noteMatch) {
       openView.nodes.push({
         kind: 'note',
         alias: noteMatch[1],
-        name: noteMatch[3],
+        name: decodeScriptText(noteMatch[3]),
         noteTargetAlias: noteMatch[2],
       })
       continue
     }
 
     const nodeMatch = line.match(
-      /^([a-z-]+)\s+([A-Za-z0-9_-]+)\s+"([^"]+)"(?:\s+tech\s+([A-Za-z0-9_-]+))?(?:\s+drilldown\s+([A-Za-z0-9_-]+))?(?:\s+contains\s+([A-Za-z0-9_,-\s]+))?$/,
+      /^([a-z-]+)\s+([A-Za-z0-9_-]+)\s+"((?:[^"\\]|\\.)+)"(?:\s+tech\s+([A-Za-z0-9_-]+))?(?:\s+drilldown\s+([A-Za-z0-9_-]+))?(?:\s+contains\s+([A-Za-z0-9_,-\s]+))?$/,
     )
     if (nodeMatch) {
       openView.nodes.push({
         kind: nodeMatch[1],
         alias: nodeMatch[2],
-        name: nodeMatch[3],
+        name: decodeScriptText(nodeMatch[3]),
         techId: nodeMatch[4],
         drilldownToViewId: nodeMatch[5],
         containsAliases: parseAliasList(nodeMatch[6]),
@@ -233,7 +278,7 @@ export const parseLiteDsl = (input: string): LiteWorkspaceAst => {
     }
 
     const edgeMatch = line.match(
-      /^([A-Za-z0-9_-]+)\s*:\s*([A-Za-z0-9_-]+)\s*->\s*([A-Za-z0-9_-]+)(?:\s*:\s*([A-Za-z0-9_-]+)(?:\s*"([^"]*)")?)?$/,
+      /^([A-Za-z0-9_-]+)\s*:\s*([A-Za-z0-9_-]+)\s*->\s*([A-Za-z0-9_-]+)(?:\s*:\s*([A-Za-z0-9_-]+)(?:\s*"((?:[^"\\]|\\.)*)")?)?$/,
     )
     if (edgeMatch) {
       openView.edges.push({
@@ -241,7 +286,7 @@ export const parseLiteDsl = (input: string): LiteWorkspaceAst => {
         fromAlias: edgeMatch[2],
         toAlias: edgeMatch[3],
         protocol: edgeMatch[4] ?? 'http',
-        label: edgeMatch[5] ?? 'request',
+        label: edgeMatch[5] ? decodeScriptText(edgeMatch[5]) : 'request',
       })
       continue
     }
@@ -284,14 +329,14 @@ export const toNodeLineText = (
   options?: NodeLineTextOptions,
 ): string => {
   if (kind === 'note') {
-    return `note ${alias} on ${options?.noteTargetAlias ?? 'unknown'} "${name}"`
+    return `note ${alias} on ${options?.noteTargetAlias ?? 'unknown'} "${encodeScriptText(name)}"`
   }
   const suffix = [
     options?.techId ? ` tech ${options.techId}` : '',
     options?.drilldownToViewId ? ` drilldown ${options.drilldownToViewId}` : '',
     options?.containsAliases?.length ? ` contains ${options.containsAliases.join(',')}` : '',
   ].join('')
-  return `${kind} ${alias} "${name}"${suffix}`
+  return `${kind} ${alias} "${encodeScriptText(name)}"${suffix}`
 }
 
 export const toEdgeLineText = (
@@ -300,6 +345,6 @@ export const toEdgeLineText = (
   toAlias: string,
   protocol: string,
   label: string,
-): string => `${edgeId}: ${fromAlias} -> ${toAlias} : ${protocol} "${label}"`
+): string => `${edgeId}: ${fromAlias} -> ${toAlias} : ${protocol} "${encodeScriptText(label)}"`
 
 export const fallbackAliasFromNodeId = aliasByNodeId

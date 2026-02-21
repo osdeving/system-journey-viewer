@@ -16,8 +16,8 @@ workspace "Customer Interaction Management - System Journey" {
     queue topic_protocol_created "cim.protocol.created" tech kafka
     queue topic_interaction "ci.interaction" tech kafka
 
-    note note_auth on cim "Requires OAuth2 client credentials"
-    note note_events on saga "Saga consumes and publishes Kafka events"
+    note note_auth on cim "Requires OAuth2 client credentials\nToken must include cim:write scope"
+    note note_events on saga "Saga consumes and publishes Kafka events\nRetry policy: exponential backoff"
 
     e_guardian_gateway: guardian -> api_gateway : http "start interaction"
     e_gateway_cim: api_gateway -> cim : http "forward payload"
@@ -65,7 +65,7 @@ workspace "Customer Interaction Management - System Journey" {
     component cim_repo "InteractionRepository" tech component
     component cim_events "InteractionEventPublisher" tech adapter-out
 
-    note note_cim_validation on cim_app "Input validation and idempotency checks"
+    note note_cim_validation on cim_app "Input validation and idempotency checks\nRequest hash used for replay protection"
 
     e_cim_app_repo: cim_app -> cim_repo : internal-call "save aggregate"
     e_cim_app_events: cim_app -> cim_events : internal-call "publish domain event"
@@ -109,6 +109,7 @@ workspace "Customer Interaction Management - System Journey" {
     port-out cim_out "InteractionPersistencePort" tech port-out
     adapter-in cim_rest "InteractionController" tech adapter-in
     adapter-out cim_mongo "MongoInteractionRepository" tech adapter-out
+    note note_hex_boundary on cim_domain "Hex boundary\nPorts isolate infrastructure adapters"
 
     e_cim_rest_in: cim_rest -> cim_in : http "invoke use case"
     e_cim_in_domain: cim_in -> cim_domain : internal-call "execute domain logic"

@@ -137,6 +137,7 @@ type InlineTextEditState = {
   mode: InlineTextEditMode
   targetId: string
   value: string
+  multiline?: boolean
   worldX: number
   worldY: number
   textAnchor: 'start' | 'middle' | 'end'
@@ -201,6 +202,44 @@ const truncateCanvasText = (
     nextValue = nextValue.slice(0, -1)
   }
   return `${nextValue}\u2026`
+}
+
+const truncateCanvasMultilineText = (
+  value: string,
+  maxWidth: number,
+  fontSize: number,
+  maxLines: number,
+): string => {
+  const lines = value.replace(/\r/g, '').split('\n')
+  if (!lines.length) {
+    return ''
+  }
+  const limited = lines.slice(0, Math.max(1, maxLines)).map((line) => truncateCanvasText(line, maxWidth, fontSize))
+  if (lines.length > limited.length) {
+    const lastIndex = limited.length - 1
+    let lastLine = limited[lastIndex]
+    while (lastLine.length > 1 && estimateTextWidth(`${lastLine}\u2026`, fontSize) > maxWidth) {
+      lastLine = lastLine.slice(0, -1)
+    }
+    limited[lastIndex] = `${lastLine}\u2026`
+  }
+  return limited.join('\n')
+}
+
+type StickyNoteShape = {
+  shellPath: string
+  foldPath: string
+}
+
+const resolveStickyNoteShape = (
+  width: number,
+  height: number,
+): StickyNoteShape => {
+  const foldSize = Math.max(14, Math.min(24, Math.round(Math.min(width, height) * 0.2)))
+  return {
+    shellPath: `M 0 0 H ${width - foldSize} L ${width} ${foldSize} V ${height} H 0 Z`,
+    foldPath: `M ${width - foldSize} 0 L ${width - foldSize} ${foldSize} L ${width} ${foldSize} Z`,
+  }
 }
 
 const resolveNodeLabelLayout = (
@@ -446,6 +485,7 @@ export const DiagramCanvas = ({
   const lastTrailPositionRef = useRef<{ x: number; y: number } | null>(null)
   const edgeLabelZoomRef = useRef<{ edgeId: string; pointerId: number } | null>(null)
   const inlineTextInputRef = useRef<HTMLInputElement | null>(null)
+  const inlineTextTextareaRef = useRef<HTMLTextAreaElement | null>(null)
   const [connectionPreview, setConnectionPreview] = useState<DragPreviewState>(null)
   const [hoverCursor, setHoverCursor] = useState<string | null>(null)
   const [dragCursor, setDragCursor] = useState<string | null>(null)
@@ -854,8 +894,11 @@ export const DiagramCanvas = ({
       return
     }
     const frameId = window.requestAnimationFrame(() => {
-      inlineTextInputRef.current?.focus()
-      inlineTextInputRef.current?.select()
+      const editorElement = inlineTextEdit.multiline
+        ? inlineTextTextareaRef.current
+        : inlineTextInputRef.current
+      editorElement?.focus()
+      editorElement?.select()
     })
     return () => {
       window.cancelAnimationFrame(frameId)
@@ -1279,18 +1322,21 @@ export const DiagramCanvas = ({
       return
     }
     if (commitChanges) {
-      const nextValue = inlineTextEdit.value.trim()
+      const nextValue = inlineTextEdit.multiline
+        ? inlineTextEdit.value.replace(/\r/g, '')
+        : inlineTextEdit.value.trim()
+      const hasVisibleValue = nextValue.trim().length > 0
       if (inlineTextEdit.mode === 'edge-label') {
         setEdgeLabel(inlineTextEdit.targetId, nextValue)
       } else if (inlineTextEdit.mode === 'node-name') {
         const node = workspace.nodes[inlineTextEdit.targetId]
         if (node) {
-          setNodeName(inlineTextEdit.targetId, nextValue || node.name)
+          setNodeName(inlineTextEdit.targetId, hasVisibleValue ? nextValue : node.name)
         }
       } else if (inlineTextEdit.mode === 'node-tech') {
         const node = workspace.nodes[inlineTextEdit.targetId]
         if (node) {
-          setNodeTech(inlineTextEdit.targetId, nextValue || node.tech?.label || node.kind)
+          setNodeTech(inlineTextEdit.targetId, hasVisibleValue ? nextValue : node.tech?.label || node.kind)
         }
       }
     }
@@ -1309,10 +1355,12 @@ export const DiagramCanvas = ({
     event.preventDefault()
     event.stopPropagation()
     const isNodeName = mode === 'node-name'
+    const isMultilineNote = isNodeName && node.kind === 'note'
     setInlineTextEdit({
       mode,
       targetId: node.id,
       value: isNodeName ? node.name : node.tech?.label ?? node.kind,
+      multiline: isMultilineNote,
       worldX: node.bounds.x + (isNodeName ? layout.titleX : layout.subtitleX),
       worldY: node.bounds.y + (isNodeName ? layout.titleY : layout.subtitleY),
       textAnchor: layout.textAnchor,
@@ -1936,7 +1984,11 @@ export const DiagramCanvas = ({
 
   const onWheel = (event: WheelEvent<HTMLDivElement>): void => {
     const wheelTarget = event.target
-    if (wheelTarget instanceof HTMLInputElement && wheelTarget.classList.contains('canvas-inline-editor-input')) {
+    if (
+      (wheelTarget instanceof HTMLInputElement ||
+        wheelTarget instanceof HTMLTextAreaElement) &&
+      wheelTarget.classList.contains('canvas-inline-editor-input')
+    ) {
       return
     }
     const zoomEdgeLabel = edgeLabelZoomRef.current
@@ -2027,8 +2079,17 @@ export const DiagramCanvas = ({
     event.preventDefault()
   }
 
-  const onInlineTextInputKeyDown = (event: ReactKeyboardEvent<HTMLInputElement>): void => {
+  const onInlineTextInputKeyDown = (
+    event: ReactKeyboardEvent<HTMLInputElement | HTMLTextAreaElement>,
+  ): void => {
     if (event.key === 'Enter') {
+      if (inlineTextEdit?.multiline) {
+        if (event.metaKey || event.ctrlKey) {
+          event.preventDefault()
+          closeInlineTextEditor(true)
+        }
+        return
+      }
       event.preventDefault()
       closeInlineTextEditor(true)
       return
@@ -2048,12 +2109,19 @@ export const DiagramCanvas = ({
     const width = Math.max(120, inlineTextEdit.width * viewport.zoom)
     const translateX =
       inlineTextEdit.textAnchor === 'middle' ? '-50%' : inlineTextEdit.textAnchor === 'end' ? '-100%' : '0'
+    const baseFontSize = Math.max(11, inlineTextEdit.fontSize * viewport.zoom)
+    const inlineRows = inlineTextEdit.multiline
+      ? Math.max(3, Math.min(10, inlineTextEdit.value.split('\n').length + 1))
+      : 1
     return {
       left: `${left}px`,
       top: `${top}px`,
       width: `${width}px`,
-      transform: `translate(${translateX}, -50%)`,
-      fontSize: `${Math.max(11, inlineTextEdit.fontSize * viewport.zoom)}px`,
+      minHeight: inlineTextEdit.multiline
+        ? `${Math.round(baseFontSize * 1.35 * inlineRows)}px`
+        : undefined,
+      transform: `translate(${translateX}, ${inlineTextEdit.multiline ? '-44%' : '-50%'})`,
+      fontSize: `${baseFontSize}px`,
       color: inlineTextEdit.textColor,
     }
   }, [inlineTextEdit, viewport.x, viewport.y, viewport.zoom])
@@ -2224,6 +2292,10 @@ export const DiagramCanvas = ({
             const hexagonBorderShape = shouldRenderHexagon
               ? resolveHexagonShape(node.bounds.w, node.bounds.h, 2.5)
               : null
+            const stickyNoteShape =
+              node.kind === 'note'
+                ? resolveStickyNoteShape(node.bounds.w, node.bounds.h)
+                : null
             const connectorRole =
               currentView.kind === 'hex'
                 ? resolveHexConnectorRole(node.kind)
@@ -2233,16 +2305,24 @@ export const DiagramCanvas = ({
             const labelLayout =
               node.kind === 'note'
                 ? {
-                    titleX: node.bounds.w / 2,
-                    titleY: node.bounds.h / 2 + 4,
-                    subtitleX: node.bounds.w / 2,
-                    subtitleY: node.bounds.h / 2 + 4,
-                    textAnchor: 'middle' as const,
-                    maxTitleWidth: Math.max(84, node.bounds.w - 28),
-                    maxSubtitleWidth: Math.max(84, node.bounds.w - 28),
+                    titleX: 15,
+                    titleY: 38,
+                    subtitleX: 15,
+                    subtitleY: 38,
+                    textAnchor: 'start' as const,
+                    maxTitleWidth: Math.max(84, node.bounds.w - 30),
+                    maxSubtitleWidth: Math.max(84, node.bounds.w - 30),
                   }
                 : resolveNodeLabelLayout(node, shouldRenderHexagon)
-            const nodeTitleText = truncateCanvasText(node.name, labelLayout.maxTitleWidth, 14)
+            const nodeTitleText =
+              node.kind === 'note'
+                ? truncateCanvasMultilineText(
+                    node.name,
+                    labelLayout.maxTitleWidth,
+                    13,
+                    Math.max(2, Math.floor((node.bounds.h - 46) / 17)),
+                  )
+                : truncateCanvasText(node.name, labelLayout.maxTitleWidth, 14)
             const nodeSubtitleText =
               node.kind === 'note'
                 ? ''
@@ -2271,7 +2351,34 @@ export const DiagramCanvas = ({
                   }
                 }}
               >
-                {node.kind === 'db' ? (
+                {node.kind === 'note' && stickyNoteShape ? (
+                  <g>
+                    <path
+                      d={stickyNoteShape.shellPath}
+                      className={nodeClassName}
+                      style={nodeFillColor ? { fill: nodeFillColor } : undefined}
+                    />
+                    <path d={stickyNoteShape.foldPath} className="node-note-fold" />
+                    <g className="node-note-pin" aria-hidden="true">
+                      <circle
+                        cx={node.bounds.w / 2}
+                        cy={13}
+                        r={6}
+                        className="node-note-pin-head"
+                      />
+                      <path
+                        d={`M ${node.bounds.w / 2} 19 L ${node.bounds.w / 2 + 1.5} 30`}
+                        className="node-note-pin-needle"
+                      />
+                      <circle
+                        cx={node.bounds.w / 2 + 1.5}
+                        cy={30}
+                        r={1.5}
+                        className="node-note-pin-tip"
+                      />
+                    </g>
+                  </g>
+                ) : node.kind === 'db' ? (
                   <g>
                     <path
                       d={dbShape.shellPath}
@@ -2391,6 +2498,7 @@ export const DiagramCanvas = ({
                   y={labelLayout.titleY}
                   className={[
                     'node-title',
+                    node.kind === 'note' ? 'node-note-title' : '',
                     shouldRenderHexagon ? 'node-title-hex' : '',
                     !presentationMode ? 'canvas-text-editable' : '',
                   ]
@@ -2402,7 +2510,7 @@ export const DiagramCanvas = ({
                     startNodeInlineEdit(event, node, 'node-name', labelLayout)
                   }}
                 >
-                  {iconForKey(node.tech?.iconKey)} {nodeTitleText}
+                  {node.kind === 'note' ? nodeTitleText : `${iconForKey(node.tech?.iconKey)} ${nodeTitleText}`}
                 </CanvasText>
                 {nodeSubtitleText ? (
                   <CanvasText
@@ -2449,30 +2557,57 @@ export const DiagramCanvas = ({
       <canvas ref={trailCanvasRef} className="trail-canvas" />
       {!presentationMode && inlineTextEdit && inlineTextEditStyle ? (
         <div className="canvas-inline-editor" style={inlineTextEditStyle}>
-          <input
-            ref={inlineTextInputRef}
-            className="canvas-inline-editor-input"
-            value={inlineTextEdit.value}
-            onChange={(event) => {
-              const nextValue = event.target.value
-              setInlineTextEdit((current) =>
-                current
-                  ? {
-                      ...current,
-                      value: nextValue,
-                    }
-                  : current,
-              )
-            }}
-            onKeyDown={onInlineTextInputKeyDown}
-            onBlur={() => closeInlineTextEditor(true)}
-            onPointerDown={(event) => {
-              event.stopPropagation()
-            }}
-            onWheel={(event) => {
-              event.stopPropagation()
-            }}
-          />
+          {inlineTextEdit.multiline ? (
+            <textarea
+              ref={inlineTextTextareaRef}
+              className="canvas-inline-editor-input canvas-inline-editor-textarea"
+              value={inlineTextEdit.value}
+              onChange={(event) => {
+                const nextValue = event.target.value
+                setInlineTextEdit((current) =>
+                  current
+                    ? {
+                        ...current,
+                        value: nextValue,
+                      }
+                    : current,
+                )
+              }}
+              onKeyDown={onInlineTextInputKeyDown}
+              onBlur={() => closeInlineTextEditor(true)}
+              onPointerDown={(event) => {
+                event.stopPropagation()
+              }}
+              onWheel={(event) => {
+                event.stopPropagation()
+              }}
+            />
+          ) : (
+            <input
+              ref={inlineTextInputRef}
+              className="canvas-inline-editor-input"
+              value={inlineTextEdit.value}
+              onChange={(event) => {
+                const nextValue = event.target.value
+                setInlineTextEdit((current) =>
+                  current
+                    ? {
+                        ...current,
+                        value: nextValue,
+                      }
+                    : current,
+                )
+              }}
+              onKeyDown={onInlineTextInputKeyDown}
+              onBlur={() => closeInlineTextEditor(true)}
+              onPointerDown={(event) => {
+                event.stopPropagation()
+              }}
+              onWheel={(event) => {
+                event.stopPropagation()
+              }}
+            />
+          )}
         </div>
       ) : null}
     </div>

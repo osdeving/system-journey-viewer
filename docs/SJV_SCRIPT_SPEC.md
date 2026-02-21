@@ -154,6 +154,28 @@ Notes:
 - Metadata is UI-only and optional.
 - Runtime semantics are not changed by metadata.
 
+## 3.7 Escaped text and line breaks
+
+Quoted text fields support escape sequences:
+- `\n` line break
+- `\r` carriage return
+- `\t` tab
+- `\"` quote
+- `\\` backslash
+
+Supported fields include:
+- workspace name
+- node display name
+- note text
+- edge label
+- journey name
+
+Example:
+
+```sjv
+note note_policy on api "Auth policy\nToken must include orders:write"
+```
+
 ## 4. Minimal Example
 
 ```sjv
@@ -251,7 +273,7 @@ workspace "Customer Interaction Management - System Journey" {
     e_gateway_cim: api_gateway -> cim : http "forward interaction"
     e_cim_oam: cim -> oam : oauth2-token "validate token"
     e_cim_saga: cim -> saga : http "start orchestration"
-    e_saga_db_create: saga -> core_db : sql "persist CHAMADA_INICIADA"
+    e_saga_db_create: saga -> core_db : sql "persist CALL_STARTED"
     e_saga_topic_create: saga -> topic_protocol_create : kafka-event "request protocol"
     e_protocol_consume: topic_protocol_create -> saga : kafka-event "protocol requested"
     e_protocol_publish: saga -> topic_protocol_created : kafka-event "protocol created"
@@ -315,4 +337,3 @@ Recommended authoring checks:
 - Export full workspace: writes all views plus optional `metadata ui-layout`.
 - Import script: rebuilds full workspace model, preserving current app theme.
 - Sync with editor: keeps editor writable and applies valid script changes live to the current view state.
-

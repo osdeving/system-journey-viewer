@@ -129,4 +129,30 @@ describe('workspaceSchema', () => {
       expect(parsed.data.edges.e_c_1.style.labelAngle).toBe(-24)
     }
   })
+
+  it('accepts note attachment node references', () => {
+    const workspace = createDefaultWorkspace()
+    const parsed = workspaceSchema.safeParse({
+      ...workspace,
+      nodes: {
+        ...workspace.nodes,
+        n_note_test: {
+          id: 'n_note_test',
+          presetId: 'note',
+          kind: 'note',
+          name: 'Note',
+          tags: [],
+          bounds: { x: 10, y: 20, w: 220, h: 100 },
+          ports: [],
+          children: [],
+          noteTargetNodeId: 'n_api',
+        },
+      },
+    })
+
+    expect(parsed.success).toBe(true)
+    if (parsed.success) {
+      expect(parsed.data.nodes.n_note_test.noteTargetNodeId).toBe('n_api')
+    }
+  })
 })

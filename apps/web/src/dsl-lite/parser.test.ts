@@ -3,6 +3,7 @@ import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { fullViewToLiteDsl, fullWorkspaceToLiteDsl, liteToFullWorkspace } from './convert'
 import { parseLiteDsl } from './parser'
+import { createDefaultWorkspace } from '../model/defaultWorkspace'
 
 const baseScript = `
 workspace "Customer Interaction" {
@@ -68,6 +69,22 @@ workspace "Notes" {
 }
 `
 
+const escapedTextScript = `
+workspace "Escaped \\"Workspace\\"" {
+  view v_main container {
+    container api "Orders\\nAPI" tech spring-boot
+    db core "Core\\\\DB" tech postgres
+    note note_api on api "Owner: Team\\\\Blue\\nSecond line"
+
+    e_fetch_orders: api -> core : sql "load \\"orders\\" from C:\\\\tmp"
+
+    journey j_fetch_orders "Fetch\\nOrders" color #2563eb {
+      e_fetch_orders
+    }
+  }
+}
+`
+
 describe('SJV Script parser and conversion', () => {
   it('keeps journey order from line position and resolves duplicate src->dst using edge IDs', () => {
     const ast = parseLiteDsl(baseScript)
@@ -129,6 +146,28 @@ describe('SJV Script parser and conversion', () => {
     expect(exported).toContain('note note_api on api "Requires OAuth scope orders:write"')
   })
 
+  it('parses and exports escaped multiline text values', () => {
+    const ast = parseLiteDsl(escapedTextScript)
+    const workspace = liteToFullWorkspace(ast)
+
+    expect(ast.workspaceName).toBe('Escaped "Workspace"')
+    const mainView = ast.views[0]
+    const api = mainView?.nodes.find((node) => node.alias === 'api')
+    const note = mainView?.nodes.find((node) => node.alias === 'note_api')
+    const journey = mainView?.journeys[0]
+    expect(api?.name).toBe('Orders\nAPI')
+    expect(note?.name).toBe('Owner: Team\\Blue\nSecond line')
+    expect(journey?.name).toBe('Fetch\nOrders')
+
+    const exported = fullWorkspaceToLiteDsl(workspace)
+    expect(exported).toContain('workspace "Escaped \\"Workspace\\""')
+    expect(exported).toContain('container api "Orders\\nAPI" tech spring-boot')
+    expect(exported).toContain('db core "Core\\\\DB" tech postgres')
+    expect(exported).toContain('note note_api on api "Owner: Team\\\\Blue\\nSecond line"')
+    expect(exported).toContain('e_fetch_orders: api -> core : sql "load \\"orders\\" from C:\\\\tmp"')
+    expect(exported).toContain('journey j_fetch_orders "Fetch\\nOrders" color #2563eb')
+  })
+
   it('imports and exports ui-layout metadata using edge IDs', () => {
     const ast = parseLiteDsl(metadataScript)
     const workspace = liteToFullWorkspace(ast)
@@ -143,6 +182,16 @@ describe('SJV Script parser and conversion', () => {
     const exported = fullWorkspaceToLiteDsl(workspace)
     expect(exported).toContain('metadata ui-layout')
     expect(exported).toContain('edge e_app_api label 0.72 side right angle -18')
+  })
+
+  it('exports semantic edge and journey IDs when internal IDs are generic', () => {
+    const workspace = createDefaultWorkspace()
+    const exported = fullWorkspaceToLiteDsl(workspace)
+
+    expect(exported).not.toContain('e_c_1:')
+    expect(exported).not.toContain('journey j_c_1 ')
+    expect(exported).toContain('validate-token: gateway -> auth')
+    expect(exported).toContain('journey order-creation-sync-event "Order Creation (Sync + Event)"')
   })
 
   it('exports a single current view script', () => {

@@ -70,6 +70,7 @@ import {
   type DockSide,
   type FloatingDockResizeHandle,
 } from './layout/dockSizing'
+import { resolveLayoutGridTemplateRows } from './layout/layoutGrid'
 import { clampFloatingDockRect, type FloatingDockRect } from './layout/floatingDock'
 import { resolveTopbarHeight } from './layout/topbarSizing'
 import { BLANK_WORKSPACE_VIEW_ID, createBlankWorkspace } from './model/blankWorkspace'
@@ -572,14 +573,22 @@ function App() {
       immersiveMode
         ? {
             gridTemplateColumns: '1fr',
-            gridTemplateRows: `${topbarHeight}px 1fr`,
+            gridTemplateRows: resolveLayoutGridTemplateRows({
+              immersiveMode: true,
+              drawerVisible,
+              journeyHeight,
+            }),
             gridTemplateAreas: `'topbar' 'main'`,
           }
         : {
             gridTemplateColumns: `${leftDockVisible ? leftDockWidth : leftPanelVisible ? leftSidebarWidth : 0}px 1fr ${
               rightDockVisible ? rightDockWidth : 0
             }px`,
-            gridTemplateRows: `${topbarHeight}px 1fr ${drawerVisible ? journeyHeight : 0}px`,
+            gridTemplateRows: resolveLayoutGridTemplateRows({
+              immersiveMode: false,
+              drawerVisible,
+              journeyHeight,
+            }),
           },
     [
       drawerVisible,
@@ -591,7 +600,6 @@ function App() {
       leftSidebarWidth,
       rightDockVisible,
       rightDockWidth,
-      topbarHeight,
     ],
   )
 

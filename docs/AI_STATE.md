@@ -7,6 +7,7 @@
 - Latest script/UI increment (2026-02-21) refined **SJV Script v2** and notes UX with escaped multiline text support, semantic export IDs for generic showcase tokens, sticky-note rendering (fold + pin), and multiline note editing in canvas/inspector.
 - Latest desktop UX increment (2026-02-21, evening pass) added bilingual showcase/tutorial loaders, startup splash/about metadata, preferences floating window, export gallery in help, dynamic topbar height layout, drilldown badge rendering, and expanded showcase drilldown coverage for all showcased microservices.
 - Latest desktop hotfix (2026-02-21, late pass) fixed menubar dropdown clipping and restored full toolbar visibility by combining visible menu overflow with content-based topbar height measurement.
+- Latest topbar hotfix follow-up (2026-02-21, night pass) removed fixed top-row sizing (now `auto`) and updated toolbar row wrapping/overflow so menu + toolbar content no longer clips at the canvas edge.
 - Architecture baseline:
   - custom SVG editor engine (internal adapter, no paid lock-in),
   - versioned FULL model (`schemaVersion: 1.0`) as source of truth,
@@ -151,6 +152,9 @@
 - Menubar/toolbar regression fix:
   - desktop menu dropdowns are no longer clipped by topbar/menu container overflow,
   - topbar height now expands to fit wrapped content using scroll-height-aware measurement.
+- Topbar layout follow-up:
+  - app shell grid now uses `auto` for the topbar row to avoid fixed-height clipping loops,
+  - toolbar row now wraps with visible overflow so labels/buttons remain fully visible.
 - Help and onboarding enhancements:
   - help panel now has `Guide`, `Export Gallery`, and `About` sections,
   - startup splash presents app identity/version (`MVP Beta`) and ownership label (`Willams Sousa`),

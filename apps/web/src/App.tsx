@@ -71,6 +71,7 @@ import {
   type FloatingDockResizeHandle,
 } from './layout/dockSizing'
 import { clampFloatingDockRect, type FloatingDockRect } from './layout/floatingDock'
+import { resolveTopbarHeight } from './layout/topbarSizing'
 import { BLANK_WORKSPACE_VIEW_ID, createBlankWorkspace } from './model/blankWorkspace'
 import type { EditorSnapshot, ViewportState, WorkspaceModel } from './model/types'
 import { nodePresetsByCategory, protocolPresets, resolveNodePreset } from './presets/catalog'
@@ -1719,8 +1720,12 @@ function App() {
     }
 
     const updateTopbarHeight = () => {
-      const nextHeight = Math.ceil(topbarElement.getBoundingClientRect().height)
-      setTopbarHeight(Math.max(DEFAULT_TOPBAR_HEIGHT, nextHeight))
+      const nextHeight = resolveTopbarHeight({
+        minHeight: DEFAULT_TOPBAR_HEIGHT,
+        renderedHeight: topbarElement.getBoundingClientRect().height,
+        scrollHeight: topbarElement.scrollHeight,
+      })
+      setTopbarHeight((current) => (current === nextHeight ? current : nextHeight))
     }
 
     updateTopbarHeight()

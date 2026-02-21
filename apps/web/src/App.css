@@ -87,7 +87,7 @@
   position: relative;
   z-index: 180;
   isolation: isolate;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .topbar h1 {
@@ -158,12 +158,12 @@
 
 .desktop-menu-bar {
   display: flex;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
   align-items: center;
   gap: 8px;
   width: 100%;
   max-width: 100%;
-  overflow-x: auto;
+  overflow: visible;
   padding: 5px;
   border-radius: 14px;
   border: 1px solid #d5deeb;

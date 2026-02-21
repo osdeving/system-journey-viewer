@@ -361,6 +361,32 @@ Chronological engineering log. Entries are kept concise and focused on behavior 
 - `npm --workspace @sjv/web run test:run`
 - `npm --workspace @sjv/web run build`
 
+## 2026-02-21 - Menubar dropdown and toolbar visibility regression hotfix
+
+### Scope
+
+- Fixed a post-desktop-polish regression where top menu dropdowns were not visible and toolbar rows could be visually clipped.
+
+### Changes
+
+- `apps/web/src/App.css`
+  - restored visible overflow behavior for topbar/menu container to avoid clipping desktop menu dropdowns;
+  - restored wrapping behavior in `.desktop-menu-bar` so menu rows can grow vertically instead of forcing clipped overflow.
+- `apps/web/src/App.tsx`
+  - topbar height measurement now considers both rendered height and `scrollHeight` so wrapped/stacked topbar content expands layout correctly.
+- `apps/web/src/layout/topbarSizing.ts` (new)
+  - extracted topbar-height resolution logic into a dedicated utility.
+- `apps/web/src/layout/topbarSizing.test.ts` (new)
+  - added focused unit coverage for topbar height resolution edge cases.
+- `apps/web/src/App.styles.test.ts`
+  - added style assertions to prevent regressions in topbar/menu overflow and wrapping behavior.
+
+### Validation
+
+- `npm --workspace @sjv/web run lint`
+- `npm --workspace @sjv/web run test:run`
+- `npm --workspace @sjv/web run build`
+
 ## 2026-02-19 - Playback defaults, dock/view upgrades, edge-label rotation, recents memory, and help guide
 
 ### Scope

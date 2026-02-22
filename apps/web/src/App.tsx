@@ -661,6 +661,7 @@ function App() {
   const guidedTutorialEventCountsRef = useRef<Record<string, number>>({})
   const guidedTutorialStepEventBaselineRef = useRef<Record<string, number>>({})
   const lastGuidedTutorialSelectedNodeIdRef = useRef<string | null>(selectedNodeId)
+  const lastGuidedTutorialSelectedEdgeIdRef = useRef<string | null>(selectedEdgeId)
 
   const selectedNode = selectedNodeId ? workspace.nodes[selectedNodeId] : undefined
   const selectedEdge = selectedEdgeId ? workspace.edges[selectedEdgeId] : undefined
@@ -1116,6 +1117,16 @@ function App() {
     setNodeName(nodeId, nextName)
   }
 
+  const setEdgeLabelWithTutorialTracking = (edgeId: string, nextLabel: string) => {
+    recordGuidedTutorialEvent('inspector-edge-label-edit')
+    setEdgeLabel(edgeId, nextLabel)
+  }
+
+  const setEdgeProtocolWithTutorialTracking = (edgeId: string, nextProtocolId: string) => {
+    recordGuidedTutorialEvent('inspector-edge-protocol-edit')
+    setEdgeProtocol(edgeId, nextProtocolId)
+  }
+
   const openManagedFloatingWindow = (windowId: ManagedWindowId) => {
     recordGuidedTutorialEvent(`open-window:${windowId}`)
     setManagedWindows((current) => floatManagedWindow(current, windowId))
@@ -1220,6 +1231,14 @@ function App() {
     }
     lastGuidedTutorialSelectedNodeIdRef.current = selectedNodeId
   }, [recordGuidedTutorialEvent, selectedNodeId])
+
+  useEffect(() => {
+    const previousSelectedEdgeId = lastGuidedTutorialSelectedEdgeIdRef.current
+    if (selectedEdgeId && selectedEdgeId !== previousSelectedEdgeId) {
+      recordGuidedTutorialEvent('edge-select')
+    }
+    lastGuidedTutorialSelectedEdgeIdRef.current = selectedEdgeId
+  }, [recordGuidedTutorialEvent, selectedEdgeId])
 
   const runGuidedTutorialStepSetup = (setupAction: GuidedTutorialStepSetupAction | undefined) => {
     switch (setupAction) {
@@ -3468,14 +3487,16 @@ function App() {
           <label htmlFor="edge-label">Label</label>
           <input
             id="edge-label"
+            data-tutorial-id="inspector-edge-label"
             value={selectedEdge.label}
-            onChange={(event) => setEdgeLabel(selectedEdge.id, event.target.value)}
+            onChange={(event) => setEdgeLabelWithTutorialTracking(selectedEdge.id, event.target.value)}
           />
           <label htmlFor="edge-protocol">Protocol</label>
           <select
             id="edge-protocol"
+            data-tutorial-id="inspector-edge-protocol"
             value={selectedEdge.protocolPresetId}
-            onChange={(event) => setEdgeProtocol(selectedEdge.id, event.target.value)}
+            onChange={(event) => setEdgeProtocolWithTutorialTracking(selectedEdge.id, event.target.value)}
           >
             {protocolPresets.map((protocol) => (
               <option key={protocol.id} value={protocol.id}>
@@ -4491,7 +4512,13 @@ function App() {
                   <button
                     type="button"
                     role="menuitem"
-                    onClick={() => runDesktopMenuAction(() => openManagedDockedWindowFromDockTab('timeline'))}
+                    data-tutorial-id="window-menu-open-timeline-panel"
+                    onClick={() =>
+                      runDesktopMenuAction(() => {
+                        recordGuidedTutorialEvent('window-menu-open-panel:timeline')
+                        openManagedDockedWindowFromDockTab('timeline')
+                      })
+                    }
                   >
                     <span>Open Timeline Panel</span>
                   </button>

@@ -295,6 +295,7 @@
   - Phase 4 (`Guided Tutorial engine`): in progress. Slices 1-3 delivered the overlay tour, action-gated steps, and spotlight cutout fix; slice 4 adds task-oriented action-gated steps for opening a specific panel from the `Window` menu, selecting a node, and editing the node name in the Inspector. Remaining work still includes richer target types, more advanced action-wait predicates, and broader task walkthrough coverage.
     - Slice 5 adds dynamic menu-aware spotlight targets (`selector` unions + DOM mutation remeasure), a `Window > Open SJV Script Panel` action-gated step, and an `SJV Script` sync-toggle action-gated step.
     - Tutorial overlay now remeasures after menu/pointer interactions so the tutorial card can move away from open menus and highlighted menu content stays visible (not blurred under the overlay cutout).
+    - Slice 6 adds more action-gated workflow coverage: `Window > Open Timeline Panel`, edge selection on canvas, edge label editing, and edge protocol changes in the Inspector.
   - Phase 5 (`Density / visual refinement`): partial (several compacting tweaks exist, but no formal density system yet).
 - `Palette` no longer uses the legacy dedicated left sidebar render path; it is rendered via managed hosts/floating windows and default-opens docked left at startup.
 - Window-layout persistence now also stores managed host sizes (`managedLeftHostWidth`, `managedRightHostWidth`, `managedBottomHostHeight`) and `Restore/Reset Window Layout` applies them.

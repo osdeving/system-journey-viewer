@@ -62,8 +62,19 @@ describe('App source regressions', () => {
     expect(appSource).toContain("const DESKTOP_MENU_ORDER: DesktopMenuId[] = ['file', 'edit', 'view', 'window'")
     expect(appSource).toContain("aria-controls=\"desktop-menu-window\"")
     expect(appSource).toContain('aria-label="Window menu"')
+    expect(appSource).toContain('Open Timeline Panel')
+    expect(appSource).toContain('Open SJV Script Panel')
     expect(appSource).toContain('Open Preferences Panel')
     expect(appSource).toContain('Show Splash')
+  })
+
+  it('keeps Insert focused on showcase/tutorial content instead of window shortcuts', () => {
+    expect(appSource).toContain('aria-label="Insert menu"')
+    expect(appSource).toContain('Load Showcase (EN)')
+    expect(appSource).toContain('Load Tutorial (PT)')
+    expect(appSource).not.toContain('Open Journey Timeline')
+    expect(appSource).not.toContain('Open SJV Script Editor')
+    expect(appSource).not.toContain('Open Dock Panel')
   })
 
   it('renders managed window hosts in dedicated left/right/bottom layout regions', () => {

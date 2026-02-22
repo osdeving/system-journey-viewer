@@ -413,6 +413,37 @@ Chronological engineering log. Entries are kept concise and focused on behavior 
 - `npm --workspace @sjv/web run test:run`
 - `npm --workspace @sjv/web run build`
 
+## 2026-02-22 - Agent workflow refresh (monorepo AGENTS + local skills)
+
+### Scope
+
+- Reworked repository agent instructions to match the actual monorepo stack and recurring workflows.
+- Added local skills for common SJV tasks (UI layout regressions, SJV Script changes, PR/merge flow).
+
+### Changes
+
+- `AGENTS.md`
+  - rewritten from backend-centric assumptions to a monorepo/front-end-first policy aligned with current repository reality;
+  - added validation matrix (`docs/skills`, `apps/web`, `apps/codex-gateway`, cross-app CI);
+  - added product language consistency rule (English repo output by default);
+  - added UI shell regression discipline (menubar/toolbar/dock/workbench checks);
+  - added persisted UI state migration awareness rule;
+  - documented implemented local skills and candidate next skills.
+- `apps/web/AGENTS.md` (new)
+  - frontend-specific rules for high-risk areas, testing expectations, and manual smoke checklists for layout and SJV Script changes.
+- `skills/sjv-ui-layout-regression-fix/SKILL.md` (new)
+  - repeatable workflow for fixing desktop shell clipping/overflow/wrap regressions with regression-test guidance.
+- `skills/sjv-script-change-with-roundtrip-tests/SKILL.md` (new)
+  - SJV Script contract-change workflow covering parser/sync/export/docs/showcase alignment and roundtrip checks.
+- `skills/sjv-pr-and-merge-gh/SKILL.md` (new)
+  - standardized `gh` PR creation/check monitoring/rebase-merge workflow aligned with repo branch policy.
+
+### Validation
+
+- `git diff --check`
+- `find skills -maxdepth 2 -name SKILL.md | sort`
+- `rg -n \"^---$|^name: |^description: \" skills/*/SKILL.md`
+
 ## 2026-02-19 - Playback defaults, dock/view upgrades, edge-label rotation, recents memory, and help guide
 
 ### Scope

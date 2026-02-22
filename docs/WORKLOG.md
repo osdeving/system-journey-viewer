@@ -1418,3 +1418,33 @@ Chronological engineering log. Entries are kept concise and focused on behavior 
 - `npm --workspace @sjv/web run lint`
 - `npm --workspace @sjv/web run test:run`
 - `npm --workspace @sjv/web run build`
+
+## 2026-02-22 - Topbar presentation compaction, startup hidden panels, SJV Script Codex UI removal
+
+### Scope
+
+- Applied a UX simplification pass requested after the desktop-shell rollout:
+  - presentation mode topbar compacted to keep logo + presentation toolbar on one line,
+  - app now starts with dock and bottom workbench hidden by default,
+  - SJV Script panel no longer exposes Codex refinement controls (feature deferred).
+
+### Changes
+
+- `apps/web/src/App.tsx`
+  - changed initial UI state defaults to `dockCollapsed = true` and `drawerCollapsed = true`,
+  - removed Codex SJV Script integration from the app shell UI (`Refine with Codex`, `Clear Codex context`, related state/status handlers),
+  - kept the SJV Script toolbar focused on `Sync with editor`, `Export workspace complete`, and `Import SJV Script`.
+- `apps/web/src/App.css`
+  - tightened presentation topbar grid so logo/meta and presentation toolbar share the first row,
+  - renamed SJV Script status styling from Codex-specific classes to generic `.dsl-status-message`.
+- `apps/web/src/App.styles.test.ts`
+  - updated CSS regression expectations to match the generic SJV status class,
+  - added presentation topbar layout assertions.
+- `apps/web/src/App.source.test.ts` (new)
+  - static regression checks for startup hidden dock/workbench defaults and absence of Codex action buttons in `App.tsx`.
+
+### Validation
+
+- `npm --workspace @sjv/web run lint`
+- `npm --workspace @sjv/web run test:run`
+- `npm --workspace @sjv/web run build`

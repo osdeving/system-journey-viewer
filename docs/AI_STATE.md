@@ -162,6 +162,16 @@
   - menubar now shares the logo row,
   - topbar mode-pill row is hidden to reclaim vertical space,
   - viewport actions remain available in the main `View` menu instead of the toolbar.
+- Startup layout defaults are now more canvas-first:
+  - right dock panel starts hidden by default,
+  - bottom workbench starts hidden by default,
+  - users can reopen both via topbar panel toggles or the `View` menu.
+- Presentation topbar layout refinement:
+  - presentation mode now keeps logo/meta and the presentation toolbar in the same topbar row,
+  - status/error messages (when present) render on a separate row without breaking the primary toolbar line.
+- SJV Script panel simplification:
+  - Codex refinement controls were removed from the SJV Script panel UI for now (feature deferred),
+  - panel toolbar is focused on `Sync`, `Export`, and `Import`.
 - Help and onboarding enhancements:
   - help panel now has `Guide`, `Export Gallery`, and `About` sections,
   - startup splash presents app identity/version (`MVP Beta`) and ownership label (`Willams Sousa`),

@@ -44,8 +44,7 @@ describe('App boundary styles', () => {
     expect(appCss).toContain('.edge-label-position-value')
     expect(appCss).toContain('.dsl-monaco-editor')
     expect(appCss).toContain('.dsl-panel-maximized .dsl-monaco-editor')
-    expect(appCss).toContain('.dsl-codex-instruction')
-    expect(appCss).toContain('.dsl-codex-status')
+    expect(appCss).toContain('.dsl-status-message')
   })
 
   it('includes flow animation for player feedback', () => {
@@ -85,6 +84,12 @@ describe('App boundary styles', () => {
       /\.desktop-menu-bar\s*\{[^}]*flex-wrap:\s*wrap;[^}]*flex:\s*1 1 auto;[^}]*overflow:\s*visible;[^}]*\}/s,
     )
     expect(appCss).toMatch(/\.topbar-actions\s*\{[^}]*flex-wrap:\s*wrap;[^}]*overflow:\s*visible;[^}]*\}/s)
+    expect(appCss).toMatch(
+      /\.app-layout-presentation\s+\.topbar\s*\{[^}]*grid-template-columns:\s*auto minmax\(0,\s*1fr\);[^}]*\}/s,
+    )
+    expect(appCss).toMatch(
+      /\.app-layout-presentation\s+\.topbar-actions\s*\{[^}]*grid-column:\s*2;[^}]*grid-row:\s*1;[^}]*flex-wrap:\s*nowrap;[^}]*overflow-x:\s*auto;[^}]*\}/s,
+    )
     expect(appCss).toContain('.desktop-menu-trigger')
     expect(appCss).toContain('.desktop-menu-open')
     expect(appCss).toContain('.app-logo-badge')

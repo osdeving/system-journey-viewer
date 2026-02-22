@@ -57,14 +57,30 @@
 
 .app-layout-presentation .topbar {
   box-shadow: 0 8px 20px rgba(2, 6, 23, 0.22);
+  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-rows: auto auto;
+  column-gap: 10px;
+  row-gap: 6px;
+  align-items: center;
 }
 
 .app-layout-presentation .topbar-meta {
-  gap: 6px;
+  grid-column: 1;
+  grid-row: 1;
+  display: flex;
+  align-items: center;
+  gap: 0;
+  width: auto;
+  min-width: auto;
 }
 
 .app-layout-presentation .topbar-actions {
+  grid-column: 2;
+  grid-row: 1;
   justify-content: flex-start;
+  align-items: center;
+  flex-wrap: nowrap;
+  overflow-x: auto;
 }
 
 .app-layout-presentation .app-brand-copy h1 {
@@ -73,6 +89,11 @@
 
 .app-layout-presentation .app-brand-copy p {
   max-width: 360px;
+}
+
+.app-layout-presentation .topbar-error,
+.app-layout-presentation .topbar-status {
+  grid-column: 1 / -1;
 }
 
 .topbar {
@@ -1974,17 +1995,6 @@
   cursor: pointer;
 }
 
-.dsl-codex-instruction {
-  min-width: 280px;
-  flex: 0 0 auto;
-  width: min(520px, 40vw);
-  border: 1px solid #cbd5e1;
-  border-radius: 8px;
-  padding: 6px 8px;
-  font-size: 12px;
-  background: rgba(255, 255, 255, 0.84);
-}
-
 .dsl-monaco-editor {
   min-height: 180px;
   height: 100%;
@@ -2014,8 +2024,7 @@
   background: color-mix(in srgb, #dc2626 12%, #ffffff);
 }
 
-.dsl-codex-status,
-.dsl-codex-thread {
+.dsl-status-message {
   margin: 0;
   font-size: 12px;
   color: #334155;
@@ -2424,7 +2433,6 @@
 .theme-dark .journey-side-player select,
 .theme-dark .journey-toolbar input,
 .theme-dark .journey-toolbar select,
-.theme-dark .dsl-codex-instruction,
 .theme-dark .dsl-monaco-editor {
   background: #1e293b;
   color: #e2e8f0;
@@ -2439,8 +2447,7 @@
   color: #cbd5e1;
 }
 
-.theme-dark .dsl-codex-status,
-.theme-dark .dsl-codex-thread {
+.theme-dark .dsl-status-message {
   color: #cbd5e1;
   background: rgba(14, 116, 144, 0.22);
 }

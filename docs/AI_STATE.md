@@ -289,7 +289,7 @@
 ## Window Manager Plan Status Rebaseline (2026-02-22)
 
 - Original plan status after the latest delivery:
-  - Phase 1 (`Window Manager foundation`): mostly complete, including managed-window layout persistence (`localStorage`) and restore/reset actions for managed windows; legacy dock shell compatibility still exists and can be reduced further.
+  - Phase 1 (`Window Manager foundation`): complete for the original scope (generic managed-window model + hosts + dock/float/open/close + persistence + startup restore + restore/reset layout). Legacy dock shell compatibility still exists as a separate UX layer, but window-layout persistence/restore now also covers its current state so it is no longer a foundation blocker.
   - Phase 2 (`Migrate current panels`): `Palette` is now part of the managed-window system alongside `Inspector`, `Journeys`, `Timeline`, `SJV Script`, `Help`, and `Preferences`.
   - Phase 3 (`Menu Window/View`): in progress with a dedicated `Window` menu now implemented for panel/window actions (`open panels`, `show/hide palette/dock/workbench`, dock placement, `Restore/Reset Window Layout`, `Show Splash`); further cleanup can still reduce remaining overlap between menus as the legacy dock shell shrinks.
   - Phase 4 (`Guided Tutorial engine`): not started (current “Load Tutorial” remains showcase/tutorial content variants, not a guided overlay tour).

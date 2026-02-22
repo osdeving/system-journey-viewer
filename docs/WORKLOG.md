@@ -361,6 +361,33 @@ Chronological engineering log. Entries are kept concise and focused on behavior 
 - `npm --workspace @sjv/web run test:run`
 - `npm --workspace @sjv/web run build`
 
+## 2026-02-22 - Window manager phase 1 completion: unified window-layout bootstrap + shell persistence/restore
+
+### Scope
+
+- Finished the remaining phase-1 foundation work by making window-layout persistence cover both:
+  - managed windows (`hosts`, placements, floating rects), and
+  - the current window shell state (`dock/workbench` visibility, dock placement, floating dock rect, dock widths, dock tab state).
+- Added a unified startup bootstrap resolver so saved window layout is restored consistently without first-render overwrite races.
+- Preserved compatibility with older persisted data that stored only the managed-window state.
+
+### Changes
+
+- `apps/web/src/App.tsx`
+  - replaced the managed-window-only startup restore with a unified `WindowLayoutBootstrap` resolver,
+  - added normalization/validation helpers for persisted window-layout payloads (dock position, floating dock rect, widths/heights, dock tab state),
+  - startup now initializes managed windows and dock/workbench shell state from the same persisted snapshot,
+  - window-layout persistence now stores an envelope (`version`, `managedWindows`, dock/workbench shell fields),
+  - `Restore Window Layout` / `Reset Window Layout` now restore/reset the shell state as well (not only managed windows).
+- `apps/web/src/App.source.test.ts`
+  - updated the default-hidden regression to validate the new bootstrap-based initialization path.
+
+### Validation
+
+- `npm --workspace @sjv/web run lint`
+- `npm --workspace @sjv/web run test:run`
+- `npm --workspace @sjv/web run build`
+
 ## 2026-02-22 - Window manager phase 3 (menu UX): dedicated Window menu for panels and window-layout actions
 
 ### Scope

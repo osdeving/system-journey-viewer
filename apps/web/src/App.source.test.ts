@@ -12,8 +12,11 @@ const windowUiConfigSource = readFileSync(resolve(process.cwd(), 'src/windowing/
 
 describe('App source regressions', () => {
   it('starts with dock and workbench hidden by default', () => {
-    expect(appSource).toContain('const [dockCollapsed, setDockCollapsed] = useState(true)')
-    expect(appSource).toContain('const [drawerCollapsed, setDrawerCollapsed] = useState(true)')
+    expect(appSource).toContain('const createDefaultWindowLayoutBootstrap = (topbarHeight: number): WindowLayoutBootstrap => ({')
+    expect(appSource).toContain('dockCollapsed: true')
+    expect(appSource).toContain('drawerCollapsed: true')
+    expect(appSource).toContain('const [dockCollapsed, setDockCollapsed] = useState(windowLayoutBootstrap.dockCollapsed)')
+    expect(appSource).toContain('const [drawerCollapsed, setDrawerCollapsed] = useState(windowLayoutBootstrap.drawerCollapsed)')
   })
 
   it('keeps SJV Script panel free of Codex action buttons', () => {

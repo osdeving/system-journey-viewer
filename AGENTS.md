@@ -165,10 +165,12 @@ Prefer these when the task matches:
   - SJV Script syntax/parser/import/export/sync changes with docs/showcase/test alignment.
 - `sjv-pr-and-merge-gh`
   - Standardized branch -> validate -> PR -> checks -> merge flow using `gh`.
+- `sjv-showcase-tutorial-curation`
+  - Curating built-in showcase/tutorial content, localization parity, drilldowns, and demo coverage.
+- `sjv-docs-sync`
+  - Syncing docs/worklog/state/spec/help terminology and change summaries after feature/workflow updates.
 
 ## Candidate next skills (not yet implemented)
 
-- `sjv-showcase-tutorial-curation`
 - `sjv-export-pipeline-validation`
 - `sjv-theme-and-palette-accessibility`
-- `sjv-docs-sync`

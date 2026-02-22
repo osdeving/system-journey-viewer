@@ -265,6 +265,23 @@
   cursor: pointer;
 }
 
+.desktop-menu-item-main {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.desktop-menu-item-icon {
+  width: 15px;
+  height: 15px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #64748b;
+  flex-shrink: 0;
+}
+
 .desktop-menu-list button:hover {
   background: linear-gradient(180deg, #eff6ff, #dbeafe);
 }
@@ -362,6 +379,49 @@
   font-size: 12px;
   color: #475569;
   white-space: nowrap;
+}
+
+.overflow-strip {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 4px;
+}
+
+.overflow-strip-nav {
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid #cbd5e1;
+  border-radius: 7px;
+  background: #fff;
+  color: #475569;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.overflow-strip-nav:disabled {
+  opacity: 0.32;
+  cursor: default;
+}
+
+.overflow-strip-nav-hidden {
+  visibility: hidden;
+}
+
+.overflow-strip-viewport {
+  min-width: 0;
+  overflow: hidden;
+  mask-image: linear-gradient(90deg, transparent 0, #000 8px, #000 calc(100% - 8px), transparent 100%);
+}
+
+.overflow-strip-content {
+  min-width: 0;
+  width: max-content;
 }
 
 .splash-screen {
@@ -868,10 +928,13 @@
   min-height: 0;
   height: 100%;
   overflow: auto;
+  grid-auto-rows: min-content;
+  align-content: start;
 }
 
 .preferences-inline-action {
   justify-self: start;
+  align-self: start;
   border: 1px solid #cbd5e1;
   border-radius: 8px;
   background: linear-gradient(180deg, #ffffff, #f1f5f9);
@@ -883,6 +946,7 @@
 .preferences-toggle {
   display: inline-flex;
   align-items: center;
+  align-self: start;
   gap: 8px;
   font-size: 13px;
   color: #334155;
@@ -890,6 +954,7 @@
 
 .preferences-select {
   display: grid;
+  align-self: start;
   gap: 6px;
   font-size: 13px;
   color: #334155;
@@ -908,6 +973,8 @@
   padding: 10px;
   display: grid;
   gap: 8px;
+  align-self: start;
+  align-content: start;
 }
 
 .preferences-fieldset legend {
@@ -1412,47 +1479,16 @@
 
 .dock-host-tabs-row {
   min-width: 0;
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 4px;
-}
-
-.dock-host-tabs-nav {
-  width: 22px;
-  height: 22px;
-  padding: 0;
-  border: 1px solid #cbd5e1;
-  border-radius: 7px;
-  background: #fff;
-  color: #475569;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-}
-
-.dock-host-tabs-nav:disabled {
-  opacity: 0.32;
-  cursor: default;
-}
-
-.dock-host-tabs-nav-hidden {
-  visibility: hidden;
 }
 
 .dock-host-tabs-viewport {
   min-width: 0;
-  overflow: hidden;
-  mask-image: linear-gradient(90deg, transparent 0, #000 8px, #000 calc(100% - 8px), transparent 100%);
 }
 
 .dock-host-tabs {
-  min-width: 0;
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  width: max-content;
   overflow: visible;
   padding: 1px 0 1px 1px;
 }
@@ -2439,6 +2475,8 @@
   overflow: auto;
   display: grid;
   gap: 10px;
+  align-content: start;
+  grid-auto-rows: min-content;
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(241, 245, 249, 0.96)),
     radial-gradient(320px 180px at 8% -12%, rgba(56, 189, 248, 0.14), transparent 62%);
@@ -2448,12 +2486,14 @@
   display: inline-flex;
   gap: 8px;
   flex-wrap: wrap;
+  align-items: flex-start;
 }
 
 .help-guide-actions {
   display: flex;
   gap: 8px;
   flex-wrap: wrap;
+  align-items: flex-start;
 }
 
 .help-guide-actions button {
@@ -2516,6 +2556,7 @@
   display: flex;
   gap: 8px;
   flex-wrap: wrap;
+  align-items: flex-start;
 }
 
 .help-gallery-actions button {
@@ -2530,6 +2571,8 @@
 .help-about {
   display: grid;
   gap: 6px;
+  align-content: start;
+  justify-items: start;
 }
 
 .help-about h3,
@@ -2586,9 +2629,9 @@
   align-items: center;
   gap: 8px;
   flex-wrap: nowrap;
-  overflow-x: auto;
   white-space: nowrap;
   padding-bottom: 2px;
+  min-width: 0;
 }
 
 .dsl-toolbar strong {
@@ -2619,6 +2662,56 @@
   font-size: 12px;
   font-weight: 600;
   cursor: pointer;
+}
+
+.dsl-toolbar-overflow {
+  container-type: inline-size;
+  container-name: dsl-toolbar;
+}
+
+.dsl-toolbar-overflow .overflow-strip-nav {
+  width: 20px;
+  height: 20px;
+}
+
+.dsl-toolbar-viewport {
+  padding-bottom: 1px;
+}
+
+.dsl-toolbar .overflow-strip-content {
+  align-items: center;
+}
+
+.dsl-toolbar-label-short {
+  display: none;
+}
+
+@container dsl-toolbar (max-width: 620px) {
+  .dsl-toolbar {
+    gap: 6px;
+  }
+
+  .dsl-toolbar strong {
+    font-size: 10px;
+    letter-spacing: 0.06em;
+  }
+
+  .dsl-toolbar button {
+    padding: 5px 8px;
+  }
+
+  .dsl-sync-toggle {
+    gap: 4px;
+    font-size: 11px;
+  }
+
+  .dsl-toolbar-label-long {
+    display: none;
+  }
+
+  .dsl-toolbar-label-short {
+    display: inline;
+  }
 }
 
 .dsl-monaco-editor {
@@ -2826,6 +2919,10 @@
   color: #e2e8f0;
 }
 
+.theme-dark .desktop-menu-item-icon {
+  color: #94a3b8;
+}
+
 .theme-dark .desktop-menu-list button:hover {
   background: linear-gradient(180deg, #1e3a8a, #1d4ed8);
 }
@@ -2969,6 +3066,12 @@
   color: #e2e8f0;
 }
 
+.theme-dark .overflow-strip-nav {
+  background: #1e293b;
+  border-color: #475569;
+  color: #cbd5e1;
+}
+
 .theme-dark .help-section-tab-active {
   border-color: #60a5fa;
   background: #1e3a8a;
@@ -3022,12 +3125,6 @@
 
 .theme-dark .floating-window-header strong {
   color: #e2e8f0;
-}
-
-.theme-dark .dock-host-tabs-nav {
-  background: #1e293b;
-  border-color: #475569;
-  color: #cbd5e1;
 }
 
 .theme-dark .floating-window-close:hover {

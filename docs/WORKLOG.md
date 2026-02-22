@@ -2028,3 +2028,48 @@ Chronological engineering log. Entries are kept concise and focused on behavior 
 - `npm --workspace @sjv/web run test:run -- src/tutorial/guidedTutorial.test.ts src/App.source.test.ts`
 - `npm --workspace @sjv/web run test:run`
 - `npm --workspace @sjv/web run build`
+
+## 2026-02-22 - Phase 5 groundwork + dock host UX density pass (overflow strip, tab reorder, compact SJV Script toolbar, legacy dock shell suppression)
+
+### Scope
+
+- Focused on Phase 5 groundwork (density/space efficiency) without blocking on remaining Phase 4 tutorial slices.
+- Implemented requested UX improvements around dock-host tabs, SJV Script toolbar overflow behavior, and shell cleanup.
+- Reduced duplicate legacy dock rendering effects while preserving compatibility paths.
+
+### Changes
+
+- `apps/web/src/components/chrome/OverflowStrip.tsx`
+  - new reusable horizontal overflow component with:
+    - left/right arrow navigation,
+    - wheel-to-horizontal-scroll behavior,
+    - hidden-overflow viewport,
+    - resize-aware overflow state.
+- `apps/web/src/components/windowing/DockHost.tsx`
+  - migrated tab strip overflow handling to `OverflowStrip`,
+  - added mouse drag-and-drop tab reordering (`onTabReorder`).
+- `apps/web/src/windowing/windowManager.ts`
+  - added `reorderManagedHostTab(...)` helper for deterministic host-tab reordering.
+- `apps/web/src/windowing/windowManager.test.ts`
+  - regression coverage for managed dock-host tab reorder behavior.
+- `apps/web/src/App.tsx`
+  - wired dock-host tab reorder to managed-window state in both managed host and legacy-compat host render paths,
+  - SJV Script toolbar now uses `OverflowStrip`,
+  - SJV Script toolbar adds compact labels before overflow (`Script`, `Sync`, `Export`, `Import`),
+  - suppresses legacy dock-shell toggles/regions/actions when no legacy tabs exist (avoids duplicate empty side/bottom dock areas),
+  - added icons to key `Window` menu actions for faster visual scanning.
+- `apps/web/src/App.css`
+  - generic `OverflowStrip` styles,
+  - dock-host tab-row compatibility styles updated for new overflow component,
+  - SJV Script toolbar compact-label container-query styling,
+  - menu item icon styles,
+  - non-stretching layout tweaks for `Preferences` / `Help` floating content so controls do not expand vertically on taller windows.
+- `apps/web/src/App.styles.test.ts`
+  - updated CSS regression expectations for generic overflow nav selectors and menu item icon styling.
+
+### Validation
+
+- `npm --workspace @sjv/web run lint`
+- `npm --workspace @sjv/web run test:run -- src/windowing/windowManager.test.ts src/App.styles.test.ts src/App.source.test.ts`
+- `npm --workspace @sjv/web run test:run`
+- `npm --workspace @sjv/web run build`

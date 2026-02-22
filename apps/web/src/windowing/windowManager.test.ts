@@ -10,6 +10,7 @@ import {
   floatManagedWindow,
   openManagedWindow,
   restoreManagedWindowsState,
+  reorderManagedHostTab,
   setManagedHostActiveTab,
   setManagedWindowFloatingRect,
   setManagedWindowPlacement,
@@ -113,6 +114,19 @@ describe('windowManager helpers', () => {
 
     expect(switched.hosts.right.activeTab).toBe('help')
     expect(ignored).toBe(switched)
+  })
+
+  it('reorders tabs within the same host while preserving active tab', () => {
+    let state = createManagedWindowsState(defaults)
+    state = dockManagedWindow(state, 'palette', 'left')
+    state = dockManagedWindow(state, 'inspector', 'left')
+    state = dockManagedWindow(state, 'help', 'left')
+
+    const reordered = reorderManagedHostTab(state, 'left', 'help', 'palette')
+
+    expect(reordered.hosts.left.tabs).toEqual(['help', 'palette', 'inspector'])
+    expect(reordered.hosts.left.activeTab).toBe('help')
+    expect(reordered.windows).toBe(state.windows)
   })
 
   it('updates floating rect without mutating host layout', () => {

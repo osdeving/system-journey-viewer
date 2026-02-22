@@ -16,4 +16,10 @@ describe('App source regressions', () => {
     expect(appSource).not.toContain('Clear Codex context')
     expect(appSource).not.toContain('requestCodexDslAssist')
   })
+
+  it('renders Preferences using the reusable floating window component', () => {
+    expect(appSource).toContain("import { FloatingWindow } from './components/FloatingWindow'")
+    expect(appSource).toContain('<FloatingWindow')
+    expect(appSource).toContain('className="preferences-window"')
+  })
 })

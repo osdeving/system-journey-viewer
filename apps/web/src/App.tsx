@@ -2,13 +2,19 @@ import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } fro
 import type {
   ChangeEvent,
   PointerEvent as ReactPointerEvent,
+  ReactNode,
 } from 'react'
 import confetti from 'canvas-confetti'
 import type { Monaco } from '@monaco-editor/react'
 import ReactMarkdown from 'react-markdown'
 import {
+  CircleHelp,
+  Code2,
   Dock,
   GripVertical,
+  Link2,
+  ListOrdered,
+  MousePointer,
   PanelBottomClose,
   PanelBottomOpen,
   PanelLeftClose,
@@ -21,9 +27,13 @@ import {
   RotateCcw,
   SkipBack,
   SkipForward,
+  SlidersHorizontal,
+  Target,
+  Workflow,
 } from 'lucide-react'
 import './App.css'
 import { DiagramCanvas } from './components/DiagramCanvas'
+import { FloatingWindow } from './components/FloatingWindow'
 import {
   buildNodeConfettiBursts,
   resolveNodeConfettiAnchor,
@@ -92,6 +102,12 @@ const MIN_CANVAS_HEIGHT = 220
 const MIN_DOCK_HEIGHT = 260
 const DEFAULT_FILE_VIEWPORT = { x: 100, y: 80, zoom: 1 }
 const DEFAULT_FLOATING_DOCK_RECT = { x: 28, y: 108, width: 480, height: 420 }
+const DEFAULT_PREFERENCES_WINDOW_RECT = {
+  x: typeof window === 'undefined' ? 860 : Math.max(12, window.innerWidth - 396),
+  y: DEFAULT_TOPBAR_HEIGHT + 10,
+  width: 380,
+  height: 372,
+}
 const UI_PREFERENCES_STORAGE_KEY = 'sjv-ui-preferences-v1'
 const APP_VERSION_LABEL = 'MVP Beta'
 const APP_COPYRIGHT_LABEL = 'Willams Sousa'
@@ -445,6 +461,9 @@ function App() {
   const [topbarHeight, setTopbarHeight] = useState(DEFAULT_TOPBAR_HEIGHT)
   const [helpSection, setHelpSection] = useState<HelpSection>('guide')
   const [preferencesOpen, setPreferencesOpen] = useState(false)
+  const [preferencesWindowRect, setPreferencesWindowRect] = useState<FloatingDockRect>(
+    DEFAULT_PREFERENCES_WINDOW_RECT,
+  )
   const [uiPreferences, setUiPreferences] = useState<UiPreferences>(initialUiPreferences)
   const [splashVisible, setSplashVisible] = useState(initialUiPreferences.splashEnabled)
   const lastJourneyAutoLayoutKeyRef = useRef<string | null>(null)
@@ -857,6 +876,10 @@ function App() {
         [sectionId]: !current.toolbarVisibility[sectionId],
       },
     }))
+  }, [])
+
+  const openPreferencesWindow = useCallback(() => {
+    setPreferencesOpen(true)
   }, [])
 
   const setTransientStatus = useCallback((message: string, timeoutMs = 2800) => {
@@ -2562,6 +2585,13 @@ function App() {
     dsl: 'SJV Script',
     help: 'Help',
   }
+  const dockIconByTab: Record<DockTab, ReactNode> = {
+    inspector: <SlidersHorizontal size={13} />,
+    journeys: <Workflow size={13} />,
+    timeline: <ListOrdered size={13} />,
+    dsl: <Code2 size={13} />,
+    help: <CircleHelp size={13} />,
+  }
   const resolvedActiveDockTab = dockTabOrder.includes(activeDockTab)
     ? activeDockTab
     : dockTabOrder[0]
@@ -3014,6 +3044,8 @@ function App() {
           draggable
           className={resolvedActiveDockTab === tab ? 'dock-tab dock-tab-active' : 'dock-tab'}
           onClick={() => openDockTab(tab)}
+          title={withTooltip(`${dockLabelByTab[tab]} panel (drag to reorder)`)}
+          aria-label={dockLabelByTab[tab]}
           onDragStart={() => handleDockTabDragStart(tab)}
           onDragOver={(event) => event.preventDefault()}
           onDrop={() => handleDockTabDrop(tab)}
@@ -3021,8 +3053,10 @@ function App() {
             dockTabDragRef.current = null
           }}
         >
-          <GripVertical size={12} />
-          <span>{dockLabelByTab[tab]}</span>
+          <span className="dock-tab-icon" aria-hidden="true">
+            {dockIconByTab[tab]}
+          </span>
+          <span className="dock-tab-label">{dockLabelByTab[tab]}</span>
         </button>
       ))}
       <span className="dock-tab-spacer" />
@@ -3945,7 +3979,7 @@ function App() {
                   <button
                     type="button"
                     role="menuitem"
-                    onClick={() => runDesktopMenuAction(() => setPreferencesOpen(true))}
+                    onClick={() => runDesktopMenuAction(() => openPreferencesWindow())}
                   >
                     <span>Open Preferences</span>
                   </button>
@@ -4244,19 +4278,27 @@ function App() {
                 <div className="toolbar-group">
                   <button
                     type="button"
-                    className={activeTool === 'select' ? 'tool-button tool-active' : 'tool-button'}
+                    className={activeTool === 'select' ? 'tool-button tool-active toolbar-icon-button' : 'tool-button toolbar-icon-button'}
                     onClick={() => setActiveTool('select')}
                     title={withTooltip('Select and move nodes or edges')}
+                    aria-label="Select mode"
                   >
-                    Select
+                    <MousePointer size={14} />
+                    <span className="toolbar-button-label">Select</span>
                   </button>
                   <button
                     type="button"
-                    className={activeTool === 'connector' ? 'tool-button tool-active' : 'tool-button'}
+                    className={
+                      activeTool === 'connector'
+                        ? 'tool-button tool-active toolbar-icon-button'
+                        : 'tool-button toolbar-icon-button'
+                    }
                     onClick={() => setActiveTool('connector')}
                     title={withTooltip('Connect nodes by dragging from one port to another')}
+                    aria-label="Connector mode"
                   >
-                    Connector
+                    <Link2 size={14} />
+                    <span className="toolbar-button-label">Connector</span>
                   </button>
                 </div>
               ) : null}
@@ -4309,17 +4351,27 @@ function App() {
               ) : null}
               {toolbarVisibility.modes ? (
                 <div className="toolbar-group">
-                  <button type="button" className="focus-toggle-button" onClick={() => toggleFocusMode()} title={withTooltip('Toggle focus mode')}>
-                    {focusMode ? 'Exit focus' : 'Focus'}
+                  <button
+                    type="button"
+                    className="focus-toggle-button toolbar-icon-button"
+                    onClick={() => toggleFocusMode()}
+                    title={withTooltip('Toggle focus mode')}
+                    aria-label={focusMode ? 'Exit focus mode' : 'Focus mode'}
+                  >
+                    <Target size={14} />
+                    <span className="toolbar-button-label">{focusMode ? 'Exit focus' : 'Focus'}</span>
                   </button>
                   <button
                     type="button"
-                    className="focus-toggle-button"
+                    className="focus-toggle-button toolbar-icon-button"
                     onClick={() => togglePresentationMode()}
                     title={withTooltip('Toggle presentation mode')}
+                    aria-label={presentationMode ? 'Exit presentation mode' : 'Presentation mode'}
                   >
                     <Presentation size={14} />
-                    <span>{presentationMode ? 'Exit presentation' : 'Presentation mode'}</span>
+                    <span className="toolbar-button-label">
+                      {presentationMode ? 'Exit presentation' : 'Presentation mode'}
+                    </span>
                   </button>
                 </div>
               ) : null}
@@ -4331,19 +4383,16 @@ function App() {
         {!exportError && exportStatus ? <p className="topbar-status">{exportStatus}</p> : null}
       </header>
       {preferencesOpen ? (
-        <section
+        <FloatingWindow
+          title="Preferences"
           className="preferences-window"
-          role="dialog"
-          aria-modal="false"
-          aria-label="Preferences"
-          style={{ top: `${topbarHeight + 10}px` }}
+          rect={preferencesWindowRect}
+          onRectChange={setPreferencesWindowRect}
+          topbarHeight={topbarHeight}
+          minWidth={320}
+          minHeight={260}
+          onClose={() => setPreferencesOpen(false)}
         >
-          <div className="preferences-header">
-            <strong>Preferences</strong>
-            <button type="button" onClick={() => setPreferencesOpen(false)}>
-              Close
-            </button>
-          </div>
           <div className="preferences-body">
             <label className="preferences-toggle">
               <input
@@ -4422,7 +4471,7 @@ function App() {
               </label>
             </fieldset>
           </div>
-        </section>
+        </FloatingWindow>
       ) : null}
       {!immersiveMode && leftPanelVisible ? (
         <div

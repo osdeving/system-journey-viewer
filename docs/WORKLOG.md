@@ -424,6 +424,48 @@ Chronological engineering log. Entries are kept concise and focused on behavior 
 - `npm --workspace @sjv/web run test:run`
 - `npm --workspace @sjv/web run build`
 
+## 2026-02-22 - Guided tutorial phase 4 (slice 2): action-gated steps and non-blocking overlay interactions
+
+### Scope
+
+- Upgraded the guided tutorial to support steps that require a real UI action before `Next` can proceed.
+- Added initial action-gated behavior for:
+  - opening the `Window` menu,
+  - clicking a panel shortcut in the topbar strip,
+  - opening the `Help` window.
+
+### Changes
+
+- `apps/web/src/tutorial/guidedTutorial.ts`
+  - added `completionRule` support for steps (`desktopMenuOpen`, `event`),
+  - added `resolveGuidedTutorialStepCompletion(...)` helper to evaluate step completion from app state and event counters,
+  - updated step definitions:
+    - `window-menu` now waits for `Window` menu to be opened,
+    - `panel-shortcuts` now waits for a panel shortcut click,
+    - `help-window` now waits for the Help window to be opened (instead of auto-opening it).
+- `apps/web/src/components/tutorial/GuidedTutorialOverlay.tsx`
+  - added props for action-gated steps (`canAdvance`, `requiresAction`, `completionPrompt`),
+  - disabled `Next` while required action is incomplete,
+  - keyboard `Enter`/`Right` now respects the same gating,
+  - shows inline requirement/completion status.
+- `apps/web/src/App.tsx`
+  - added guided tutorial event counters and per-step event baselines,
+  - recorded tutorial events for managed-window opens and panel-shortcut clicks,
+  - computed current step completion status from `openDesktopMenu` + tutorial event counters,
+  - blocked tutorial advance when a required action has not been completed.
+- `apps/web/src/App.css`
+  - tutorial overlay is now non-blocking (`pointer-events: none` on overlay root, card remains interactive) so the highlighted UI can be clicked,
+  - added requirement/completion status styles.
+- `apps/web/src/tutorial/guidedTutorial.test.ts`, `apps/web/src/App.source.test.ts`, `apps/web/src/App.styles.test.ts`
+  - added regressions for completion-rule evaluation, event instrumentation hooks, and requirement styles.
+
+### Validation
+
+- `npm --workspace @sjv/web run lint`
+- `npm --workspace @sjv/web run test:run -- src/tutorial/guidedTutorial.test.ts src/App.source.test.ts src/App.styles.test.ts`
+- `npm --workspace @sjv/web run test:run`
+- `npm --workspace @sjv/web run build`
+
 ## 2026-02-22 - Window manager phase 1 completion: unified window-layout bootstrap + shell persistence/restore
 
 ### Scope

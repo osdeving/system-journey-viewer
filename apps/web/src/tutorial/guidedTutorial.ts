@@ -25,6 +25,18 @@ export type GuidedTutorialStepSetupAction =
   | 'openDslBottom'
   | 'openHelpFloating'
 
+export type GuidedTutorialStepCompletionRule =
+  | {
+      kind: 'desktopMenuOpen'
+      menuId: string
+      prompt: string
+    }
+  | {
+      kind: 'event'
+      eventId: string
+      prompt: string
+    }
+
 export type GuidedTutorialStep = {
   id: string
   title: string
@@ -32,7 +44,20 @@ export type GuidedTutorialStep = {
   placement: GuidedTutorialPlacement
   target?: GuidedTutorialTarget
   setupAction?: GuidedTutorialStepSetupAction
+  completionRule?: GuidedTutorialStepCompletionRule
   missingTargetHint?: string
+}
+
+export type GuidedTutorialCompletionContext = {
+  openDesktopMenuId: string | null
+  eventCounts: Record<string, number>
+  eventBaselineByStepId: Record<string, number>
+}
+
+export type GuidedTutorialCompletionStatus = {
+  requiresAction: boolean
+  isComplete: boolean
+  prompt: string | null
 }
 
 export type GuidedTutorialCardLayout = {
@@ -178,6 +203,36 @@ export const resolveGuidedTutorialCardLayout = ({
   }
 }
 
+export const resolveGuidedTutorialStepCompletion = (
+  step: GuidedTutorialStep,
+  context: GuidedTutorialCompletionContext,
+): GuidedTutorialCompletionStatus => {
+  const rule = step.completionRule
+  if (!rule) {
+    return {
+      requiresAction: false,
+      isComplete: true,
+      prompt: null,
+    }
+  }
+
+  if (rule.kind === 'desktopMenuOpen') {
+    return {
+      requiresAction: true,
+      isComplete: context.openDesktopMenuId === rule.menuId,
+      prompt: rule.prompt,
+    }
+  }
+
+  const currentCount = context.eventCounts[rule.eventId] ?? 0
+  const baselineCount = context.eventBaselineByStepId[step.id] ?? 0
+  return {
+    requiresAction: true,
+    isComplete: currentCount > baselineCount,
+    prompt: rule.prompt,
+  }
+}
+
 export const GUIDED_UI_TUTORIAL_STEPS: GuidedTutorialStep[] = [
   {
     id: 'welcome',
@@ -201,6 +256,11 @@ export const GUIDED_UI_TUTORIAL_STEPS: GuidedTutorialStep[] = [
       'The Window menu is the entry point to open panels, move the dock shell, restore/reset window layout, and replay the splash screen.',
     placement: 'bottom',
     target: { kind: 'selector', selector: '[data-tutorial-id="menu-window-trigger"]', padding: 8 },
+    completionRule: {
+      kind: 'desktopMenuOpen',
+      menuId: 'window',
+      prompt: 'Click the Window menu to continue.',
+    },
   },
   {
     id: 'toolbar',
@@ -217,6 +277,11 @@ export const GUIDED_UI_TUTORIAL_STEPS: GuidedTutorialStep[] = [
       'These shortcuts open managed windows (Palette, Inspector, Journeys, Timeline, SJV Script, Help) and let you reorder the shortcut strip by dragging.',
     placement: 'bottom',
     target: { kind: 'selector', selector: '[data-tutorial-id="panel-shortcuts-strip"]', padding: 8 },
+    completionRule: {
+      kind: 'event',
+      eventId: 'panel-shortcut-click',
+      prompt: 'Click any panel shortcut button in this strip to continue.',
+    },
     missingTargetHint:
       'The panel shortcut strip may be hidden if the Panels toolbar section is disabled in Preferences.',
   },
@@ -259,10 +324,16 @@ export const GUIDED_UI_TUTORIAL_STEPS: GuidedTutorialStep[] = [
     id: 'help-window',
     title: 'Help Window',
     body:
-      'Help opens as a managed window too. Guide, Export Gallery, and About live here, and any managed window can dock or float using the same window frame controls.',
+      'Help is also a managed window. Open it (from Help menu or a panel shortcut) and notice it can dock or float using the same window frame controls.',
     placement: 'right',
-    setupAction: 'openHelpFloating',
+    completionRule: {
+      kind: 'event',
+      eventId: 'open-window:help',
+      prompt: 'Open the Help window (for example from the Help menu) to continue.',
+    },
     target: { kind: 'selector', selector: '.floating-window.help-window', padding: 8 },
+    missingTargetHint:
+      'Open the Help window to reveal this target. You can use Help > Open Help Guide or a panel shortcut.',
   },
   {
     id: 'finish',

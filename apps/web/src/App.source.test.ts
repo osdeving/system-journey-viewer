@@ -80,6 +80,9 @@ describe('App source regressions', () => {
   it('includes a guided UI tutorial overlay and stable target hooks', () => {
     expect(appSource).toContain("import { GuidedTutorialOverlay } from './components/tutorial/GuidedTutorialOverlay'")
     expect(appSource).toContain('GUIDED_UI_TUTORIAL_STEPS')
+    expect(appSource).toContain('resolveGuidedTutorialStepCompletion')
+    expect(appSource).toContain('recordGuidedTutorialEvent')
+    expect(appSource).toContain("'panel-shortcut-click'")
     expect(appSource).toContain('Start Guided Tutorial')
     expect(appSource).toContain('data-tutorial-id="main-menu-bar"')
     expect(appSource).toContain('data-tutorial-id="menu-window-trigger"')

@@ -130,6 +130,8 @@ describe('App boundary styles', () => {
     expect(appCss).toContain('.guided-tutorial-spotlight')
     expect(appCss).toContain('.guided-tutorial-card')
     expect(appCss).toContain('.guided-tutorial-actions')
+    expect(appCss).toContain('.guided-tutorial-requirement')
+    expect(appCss).toContain('.guided-tutorial-requirement-complete')
     expect(appCss).toContain('.guided-tutorial-primary-button')
     expect(appCss).toContain('.help-guide-actions')
     expect(appCss).toContain('.theme-dark .help-guide-actions button')

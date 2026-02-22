@@ -2073,3 +2073,34 @@ Chronological engineering log. Entries are kept concise and focused on behavior 
 - `npm --workspace @sjv/web run test:run -- src/windowing/windowManager.test.ts src/App.styles.test.ts src/App.source.test.ts`
 - `npm --workspace @sjv/web run test:run`
 - `npm --workspace @sjv/web run build`
+
+## 2026-02-22 - Phase 5 slice: formal UI density preference + complete desktop-menu item icons
+
+### Scope
+
+- Continued Phase 5 with a formal density system (not just isolated compaction tweaks).
+- Completed menu item icons beyond `Window` so the desktop menus are visually consistent across the shell.
+
+### Changes
+
+- `apps/web/src/App.tsx`
+  - added persisted `UiDensity` preference (`comfortable | compact`) to `UiPreferences`,
+  - applied root layout density class (`app-layout-density-*`) so shell density can be token-driven,
+  - added `UI density` control in `Preferences`,
+  - added `Settings` menu quick actions for `UI Density: Comfortable/Compact`,
+  - expanded desktop menu item icon usage across `File`, `Edit`, `View`, `Journey`, `Insert`, `Settings`, and `Help`,
+  - introduced a reusable `renderDesktopMenuItem(...)` helper for icon + label + optional shortcut rendering.
+- `apps/web/src/App.css`
+  - added density tokens on `.app-layout` and a `.app-layout-density-compact` override,
+  - applied density tokens to topbar/menu shell controls, toolbar buttons, dock tabs, drawer tabs, floating window headers, and panel paddings/gaps,
+  - kept canvas behavior unchanged while tightening shell chrome in compact mode.
+- `apps/web/src/App.source.test.ts`, `apps/web/src/App.styles.test.ts`
+  - regressions for persisted density preference and root density class,
+  - regressions for density CSS tokens / compact density class.
+
+### Validation
+
+- `npm --workspace @sjv/web run lint`
+- `npm --workspace @sjv/web run test:run -- src/App.source.test.ts src/App.styles.test.ts`
+- `npm --workspace @sjv/web run test:run`
+- `npm --workspace @sjv/web run build`

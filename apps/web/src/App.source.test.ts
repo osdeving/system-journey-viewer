@@ -54,6 +54,15 @@ describe('App source regressions', () => {
     expect(appSource).toContain('Reset Window Layout')
   })
 
+  it('includes a dedicated Window desktop menu for panel and layout actions', () => {
+    expect(appSource).toContain("type DesktopMenuId = 'file' | 'edit' | 'view' | 'window'")
+    expect(appSource).toContain("const DESKTOP_MENU_ORDER: DesktopMenuId[] = ['file', 'edit', 'view', 'window'")
+    expect(appSource).toContain("aria-controls=\"desktop-menu-window\"")
+    expect(appSource).toContain('aria-label="Window menu"')
+    expect(appSource).toContain('Open Preferences Panel')
+    expect(appSource).toContain('Show Splash')
+  })
+
   it('renders managed window hosts in dedicated left/right/bottom layout regions', () => {
     expect(appSource).toContain('managedLeftHostVisible')
     expect(appSource).toContain('managedRightHostVisible')

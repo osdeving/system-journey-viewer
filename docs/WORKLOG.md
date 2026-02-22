@@ -361,6 +361,35 @@ Chronological engineering log. Entries are kept concise and focused on behavior 
 - `npm --workspace @sjv/web run test:run`
 - `npm --workspace @sjv/web run build`
 
+## 2026-02-22 - Window manager phase 3 (menu UX): dedicated Window menu for panels and window-layout actions
+
+### Scope
+
+- Continued phase 3 from the original window-manager plan by introducing a dedicated `Window` desktop menu.
+- Moved panel/window/layout actions out of the overloaded `View` menu into `Window`.
+- Kept behavior stable while improving menu organization and discoverability of window-specific actions.
+
+### Changes
+
+- `apps/web/src/App.tsx`
+  - added `window` to `DesktopMenuId` and `DESKTOP_MENU_ORDER`,
+  - added a new `Window` desktop menu containing:
+    - panel open actions for all managed windows (`Palette`, `Inspector`, `Journeys`, `Timeline`, `SJV Script`, `Help`, `Preferences`),
+    - show/hide actions for `Palette`, dock panel, and workbench,
+    - legacy dock placement actions (`left/right/bottom/floating`) while the legacy dock shell still exists,
+    - `Restore Window Layout`,
+    - `Reset Window Layout`,
+    - `Show Splash`,
+  - removed those window/panel/layout entries from the `View` menu so `View` is focused on viewport/theme/mode actions.
+- `apps/web/src/App.source.test.ts`
+  - added regressions for the dedicated `Window` menu and its key actions.
+
+### Validation
+
+- `npm --workspace @sjv/web run lint`
+- `npm --workspace @sjv/web run test:run`
+- `npm --workspace @sjv/web run build`
+
 ## 2026-02-22 - Window manager plan rebaseline: phase 2 completion (Palette migration) + phase 1 persistence closure (managed window layout)
 
 ### Scope

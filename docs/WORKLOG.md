@@ -467,6 +467,30 @@ Chronological engineering log. Entries are kept concise and focused on behavior 
 - `find skills -maxdepth 2 -name SKILL.md | sort`
 - `rg -n \"^---$|^name: |^description: \" skills/*/SKILL.md`
 
+## 2026-02-22 - Local skills expansion (export validation + theme/palette accessibility)
+
+### Scope
+
+- Added two additional local skills for recurring product-maintenance workflows:
+  - export pipeline validation,
+  - theme/palette accessibility tuning.
+
+### Changes
+
+- `skills/sjv-export-pipeline-validation/SKILL.md` (new)
+  - workflow for static/animated export changes, presentation/capture state restoration checks, and export-focused validation.
+- `skills/sjv-theme-and-palette-accessibility/SKILL.md` (new)
+  - workflow for theme tokens, node/text color presets, contrast/readability checks, and showcase demo coverage.
+- `AGENTS.md`
+  - moved both skills from candidate list to implemented local skills;
+  - replaced now-empty candidate list with a generic note about adding skills after repeated patterns emerge.
+
+### Validation
+
+- `git diff --check`
+- `find skills -maxdepth 2 -name SKILL.md | sort`
+- `rg -n \"^---$|^name: |^description: \" skills/*/SKILL.md`
+
 ## 2026-02-19 - Playback defaults, dock/view upgrades, edge-label rotation, recents memory, and help guide
 
 ### Scope

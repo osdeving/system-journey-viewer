@@ -29,4 +29,15 @@ describe('App source regressions', () => {
     expect(appSource).toContain('renderManagedDockHostInDockPanel')
     expect(appSource).toContain('setManagedHostActiveTab')
   })
+
+  it('renders managed window hosts in dedicated left/right/bottom layout regions', () => {
+    expect(appSource).toContain('managedLeftHostVisible')
+    expect(appSource).toContain('managedRightHostVisible')
+    expect(appSource).toContain('managedBottomHostVisible')
+    expect(appSource).toContain("renderManagedDockHostPanel('left')")
+    expect(appSource).toContain("renderManagedDockHostPanel('right')")
+    expect(appSource).toContain("renderManagedDockHostPanel('bottom')")
+    expect(appSource).toContain("'left managedLeft main managedRight right'")
+    expect(appSource).toContain("'managedBottom managedBottom managedBottom managedBottom managedBottom'")
+  })
 })

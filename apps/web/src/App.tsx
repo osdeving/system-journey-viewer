@@ -105,7 +105,9 @@ import {
 const DEBOUNCE_SAVE_MS = 900
 const DEFAULT_LEFT_SIDEBAR_WIDTH = 240
 const DEFAULT_DOCK_SIDE_WIDTH = 340
+const DEFAULT_MANAGED_HOST_SIDE_WIDTH = 320
 const DEFAULT_JOURNEY_HEIGHT = 220
+const DEFAULT_MANAGED_HOST_BOTTOM_HEIGHT = 240
 const MIN_LEFT_SIDEBAR_WIDTH = 180
 const MAX_LEFT_SIDEBAR_WIDTH = 440
 const MIN_DOCK_SIDE_WIDTH = 260
@@ -606,6 +608,11 @@ function App() {
   const rightDockVisible = !immersiveMode && dockPosition === 'right' && !dockCollapsed
   const floatingDockVisible = !immersiveMode && dockPosition === 'floating' && !dockCollapsed
   const drawerVisible = !immersiveMode && !drawerCollapsed
+  const managedLeftHostVisible = !immersiveMode && managedWindows.hosts.left.tabs.length > 0
+  const managedRightHostVisible = !immersiveMode && managedWindows.hosts.right.tabs.length > 0
+  const managedBottomHostVisible = !immersiveMode && managedWindows.hosts.bottom.tabs.length > 0
+  const bottomPanelsInset =
+    (managedBottomHostVisible ? DEFAULT_MANAGED_HOST_BOTTOM_HEIGHT : 0) + (drawerVisible ? journeyHeight : 0)
   const clampFloatingDockRectInLayout = useCallback((candidate: FloatingDockRect): FloatingDockRect => {
     const layoutRect = layoutRef.current?.getBoundingClientRect()
     return clampFloatingDockRect({
@@ -629,14 +636,22 @@ function App() {
             gridTemplateAreas: `'topbar' 'main'`,
           }
         : {
-            gridTemplateColumns: `${leftDockVisible ? leftDockWidth : leftPanelVisible ? leftSidebarWidth : 0}px 1fr ${
-              rightDockVisible ? rightDockWidth : 0
-            }px`,
+            gridTemplateColumns: `${
+              leftDockVisible ? leftDockWidth : leftPanelVisible ? leftSidebarWidth : 0
+            }px ${managedLeftHostVisible ? DEFAULT_MANAGED_HOST_SIDE_WIDTH : 0}px 1fr ${
+              managedRightHostVisible ? DEFAULT_MANAGED_HOST_SIDE_WIDTH : 0
+            }px ${rightDockVisible ? rightDockWidth : 0}px`,
             gridTemplateRows: resolveLayoutGridTemplateRows({
               immersiveMode: false,
               drawerVisible,
               journeyHeight,
+              managedBottomHostVisible,
+              managedBottomHostHeight: DEFAULT_MANAGED_HOST_BOTTOM_HEIGHT,
             }),
+            gridTemplateAreas: `'topbar topbar topbar topbar topbar'
+              'left managedLeft main managedRight right'
+              'managedBottom managedBottom managedBottom managedBottom managedBottom'
+              'journey journey journey journey journey'`,
           },
     [
       drawerVisible,
@@ -646,6 +661,9 @@ function App() {
       leftDockWidth,
       leftPanelVisible,
       leftSidebarWidth,
+      managedBottomHostVisible,
+      managedLeftHostVisible,
+      managedRightHostVisible,
       rightDockVisible,
       rightDockWidth,
     ],
@@ -953,15 +971,8 @@ function App() {
   ) => {
     setFocusMode(false)
     setPresentationMode(false)
-    if (placement === 'left') {
-      moveDockToLeft()
-    } else if (placement === 'right') {
-      moveDockToRight()
-    } else {
-      moveDockToBottom()
-    }
-    openDockTab(windowId === 'help' ? 'help' : 'preferences')
     setManagedWindows((current) => dockManagedWindowState(current, windowId, placement))
+    setActiveDockTab(windowId)
   }
 
   const openHelpWindow = (section: HelpSection) => {
@@ -2797,9 +2808,16 @@ function App() {
     help: <CircleHelp size={13} />,
     preferences: <SlidersHorizontal size={13} />,
   }
-  const resolvedActiveDockTab = dockTabOrder.includes(activeDockTab)
-    ? activeDockTab
-    : dockTabOrder[0]
+  const legacyDockTabOrder = dockTabOrder.filter((tab) => !isManagedDockTab(tab))
+  const activeDockTabIsManagedDocked =
+    isManagedDockTab(activeDockTab) &&
+    managedWindows.windows[activeDockTab].open &&
+    managedWindows.windows[activeDockTab].placement !== 'floating'
+  const resolvedActiveDockTab = activeDockTabIsManagedDocked
+    ? legacyDockTabOrder[0] ?? 'inspector'
+    : dockTabOrder.includes(activeDockTab)
+      ? activeDockTab
+      : dockTabOrder[0]
 
   const resolveDockTabContent = (tab: DockTab) => {
     if (tab === 'inspector') {
@@ -3245,7 +3263,7 @@ function App() {
 
   const dockHeaderBar = (
     <div className="topbar-dock-strip dock-tab-strip">
-      {dockTabOrder.map((tab) => (
+      {legacyDockTabOrder.map((tab) => (
         <button
           key={tab}
           type="button"
@@ -3315,18 +3333,103 @@ function App() {
       : null
   const currentManagedDockHost =
     currentManagedDockHostId ? managedWindows.hosts[currentManagedDockHostId] : null
-  const managedDockActiveTab =
-    currentManagedDockHost &&
-    currentManagedDockHost.activeTab &&
-    currentManagedDockHost.tabs.includes(currentManagedDockHost.activeTab)
-      ? currentManagedDockHost.activeTab
-      : currentManagedDockHost?.tabs[0] ?? null
   const renderManagedWindowDockContent = (windowId: ManagedWindowId) =>
     windowId === 'help' ? helpPanelContent : preferencesPanelContent
+  const resolveManagedHostActiveTab = (hostId: ManagedWindowDockHostId): ManagedWindowId | null => {
+    const host = managedWindows.hosts[hostId]
+    if (host.activeTab && host.tabs.includes(host.activeTab)) {
+      return host.activeTab
+    }
+    return host.tabs[0] ?? null
+  }
+  const buildManagedDockHostHeaderActions = (
+    hostId: ManagedWindowDockHostId,
+    activeWindowId: ManagedWindowId | null,
+  ) =>
+    activeWindowId ? (
+      <span className="dock-placement-actions">
+        <button
+          type="button"
+          className={hostId === 'left' ? 'dock-placement dock-placement-active' : 'dock-placement'}
+          onClick={() => dockManagedWindowToHost(activeWindowId, 'left')}
+          title={withTooltip(`Dock ${dockLabelByTab[activeWindowId]} left`)}
+          aria-label={`Dock ${dockLabelByTab[activeWindowId]} left`}
+        >
+          <PanelLeftOpen size={14} />
+        </button>
+        <button
+          type="button"
+          className={hostId === 'right' ? 'dock-placement dock-placement-active' : 'dock-placement'}
+          onClick={() => dockManagedWindowToHost(activeWindowId, 'right')}
+          title={withTooltip(`Dock ${dockLabelByTab[activeWindowId]} right`)}
+          aria-label={`Dock ${dockLabelByTab[activeWindowId]} right`}
+        >
+          <PanelRightOpen size={14} />
+        </button>
+        <button
+          type="button"
+          className={hostId === 'bottom' ? 'dock-placement dock-placement-active' : 'dock-placement'}
+          onClick={() => dockManagedWindowToHost(activeWindowId, 'bottom')}
+          title={withTooltip(`Dock ${dockLabelByTab[activeWindowId]} bottom`)}
+          aria-label={`Dock ${dockLabelByTab[activeWindowId]} bottom`}
+        >
+          <PanelBottomOpen size={14} />
+        </button>
+        <button
+          type="button"
+          className="dock-placement"
+          onClick={() => floatManagedDockHostWindow(hostId, activeWindowId)}
+          title={withTooltip(`Float ${dockLabelByTab[activeWindowId]}`)}
+          aria-label={`Float ${dockLabelByTab[activeWindowId]}`}
+        >
+          <Dock size={14} />
+        </button>
+        <button
+          type="button"
+          className="dock-placement"
+          onClick={() => closeManagedDockHostWindow(hostId, activeWindowId)}
+          title={withTooltip(`Close ${dockLabelByTab[activeWindowId]}`)}
+          aria-label={`Close ${dockLabelByTab[activeWindowId]}`}
+        >
+          <X size={14} />
+        </button>
+      </span>
+    ) : null
+
+  const renderManagedDockHostPanel = (hostId: ManagedWindowDockHostId) => {
+    const host = managedWindows.hosts[hostId]
+    const activeTabId = resolveManagedHostActiveTab(hostId)
+    return (
+      <div className="dock-panel dock-panel-managed">
+        <div className="dock-tab-body">
+          <DockHost
+            tabs={host.tabs.map((windowId) => ({
+              id: windowId,
+              label: dockLabelByTab[windowId],
+              icon: dockIconByTab[windowId],
+            }))}
+            activeTabId={activeTabId}
+            onTabSelect={(windowId) => selectManagedDockHostTab(hostId, windowId)}
+            renderTabPanel={renderManagedWindowDockContent}
+            headerActions={buildManagedDockHostHeaderActions(hostId, activeTabId)}
+            emptyState={<p className="dock-host-empty">No docked windows in this host.</p>}
+          />
+        </div>
+      </div>
+    )
+  }
+
+  const currentManagedDockHostRenderedStandalone =
+    (currentManagedDockHostId === 'left' && managedLeftHostVisible) ||
+    (currentManagedDockHostId === 'right' && managedRightHostVisible) ||
+    (currentManagedDockHostId === 'bottom' && managedBottomHostVisible)
+  const managedDockActiveTab =
+    currentManagedDockHostId && currentManagedDockHost ? resolveManagedHostActiveTab(currentManagedDockHostId) : null
   const renderManagedDockHostInDockPanel =
     Boolean(currentManagedDockHostId) &&
     isManagedDockTab(resolvedActiveDockTab) &&
-    Boolean(currentManagedDockHost?.tabs.includes(resolvedActiveDockTab))
+    Boolean(currentManagedDockHost?.tabs.includes(resolvedActiveDockTab)) &&
+    !currentManagedDockHostRenderedStandalone
 
   const dockPanelBodyContent = renderManagedDockHostInDockPanel && currentManagedDockHostId && currentManagedDockHost ? (
     <DockHost
@@ -3338,30 +3441,7 @@ function App() {
       activeTabId={managedDockActiveTab}
       onTabSelect={(windowId) => selectManagedDockHostTab(currentManagedDockHostId, windowId)}
       renderTabPanel={renderManagedWindowDockContent}
-      headerActions={
-        managedDockActiveTab ? (
-          <span className="dock-placement-actions">
-            <button
-              type="button"
-              className="dock-placement"
-              onClick={() => floatManagedDockHostWindow(currentManagedDockHostId, managedDockActiveTab)}
-              title={withTooltip(`Float ${dockLabelByTab[managedDockActiveTab]}`)}
-              aria-label={`Float ${dockLabelByTab[managedDockActiveTab]}`}
-            >
-              <Dock size={14} />
-            </button>
-            <button
-              type="button"
-              className="dock-placement"
-              onClick={() => closeManagedDockHostWindow(currentManagedDockHostId, managedDockActiveTab)}
-              title={withTooltip(`Close ${dockLabelByTab[managedDockActiveTab]}`)}
-              aria-label={`Close ${dockLabelByTab[managedDockActiveTab]}`}
-            >
-              <X size={14} />
-            </button>
-          </span>
-        ) : null
-      }
+      headerActions={buildManagedDockHostHeaderActions(currentManagedDockHostId, managedDockActiveTab)}
       emptyState={<p className="dock-host-empty">No docked windows in this host.</p>}
     />
   ) : (
@@ -4748,7 +4828,7 @@ function App() {
       {!immersiveMode && leftPanelVisible ? (
         <div
           className="layout-splitter layout-splitter-left"
-          style={{ left: leftSidebarWidth - 3, top: topbarHeight, bottom: drawerVisible ? journeyHeight : 0 }}
+          style={{ left: leftSidebarWidth - 3, top: topbarHeight, bottom: bottomPanelsInset }}
           onPointerDown={onLeftSplitterPointerDown}
           onPointerMove={onLeftSplitterPointerMove}
           onPointerUp={stopLeftResize}
@@ -4758,7 +4838,7 @@ function App() {
       {!immersiveMode && leftDockVisible ? (
         <div
           className="layout-splitter layout-splitter-left"
-          style={{ left: leftDockWidth - 3, top: topbarHeight, bottom: drawerVisible ? journeyHeight : 0 }}
+          style={{ left: leftDockWidth - 3, top: topbarHeight, bottom: bottomPanelsInset }}
           onPointerDown={(event) => onDockSideSplitterPointerDown('left', event)}
           onPointerMove={onDockSideSplitterPointerMove}
           onPointerUp={stopDockSideResize}
@@ -4768,7 +4848,7 @@ function App() {
       {!immersiveMode && rightDockVisible ? (
         <div
           className="layout-splitter layout-splitter-right"
-          style={{ right: rightDockWidth - 3, top: topbarHeight, bottom: drawerVisible ? journeyHeight : 0 }}
+          style={{ right: rightDockWidth - 3, top: topbarHeight, bottom: bottomPanelsInset }}
           onPointerDown={(event) => onDockSideSplitterPointerDown('right', event)}
           onPointerMove={onDockSideSplitterPointerMove}
           onPointerUp={stopDockSideResize}
@@ -4810,6 +4890,9 @@ function App() {
         </aside>
       ) : null}
       {leftDockVisible ? <aside className="left-sidebar left-sidebar-dock">{dockPanel}</aside> : null}
+      {managedLeftHostVisible ? (
+        <aside className="managed-host-sidebar managed-host-sidebar-left">{renderManagedDockHostPanel('left')}</aside>
+      ) : null}
       <main
         className={`canvas-panel ${gridEnabled && !presentationMode ? 'canvas-panel-grid-visible' : 'canvas-panel-grid-hidden'} ${
           presentationMode ? 'canvas-panel-presentation' : ''
@@ -4851,6 +4934,9 @@ function App() {
           }}
         />
       </main>
+      {managedRightHostVisible ? (
+        <aside className="managed-host-sidebar managed-host-sidebar-right">{renderManagedDockHostPanel('right')}</aside>
+      ) : null}
       {rightDockVisible ? <aside className="right-sidebar right-sidebar-dock">{dockPanel}</aside> : null}
       {floatingDockVisible ? (
         <div
@@ -4893,6 +4979,9 @@ function App() {
           </div>
           {dockPanel}
         </div>
+      ) : null}
+      {managedBottomHostVisible ? (
+        <section className="managed-host-bottom">{renderManagedDockHostPanel('bottom')}</section>
       ) : null}
       {drawerVisible ? (
         <section className={drawerClassName}>

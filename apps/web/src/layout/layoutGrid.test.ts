@@ -8,6 +8,8 @@ describe('resolveLayoutGridTemplateRows', () => {
         immersiveMode: true,
         drawerVisible: true,
         journeyHeight: 220,
+        managedBottomHostVisible: true,
+        managedBottomHostHeight: 180,
       }),
     ).toBe('auto 1fr')
   })
@@ -18,8 +20,22 @@ describe('resolveLayoutGridTemplateRows', () => {
         immersiveMode: false,
         drawerVisible: true,
         journeyHeight: 260,
+        managedBottomHostVisible: false,
+        managedBottomHostHeight: 220,
       }),
-    ).toBe('auto 1fr 260px')
+    ).toBe('auto 1fr 0px 260px')
+  })
+
+  it('adds an intermediate row when a managed bottom host is visible', () => {
+    expect(
+      resolveLayoutGridTemplateRows({
+        immersiveMode: false,
+        drawerVisible: true,
+        journeyHeight: 260,
+        managedBottomHostVisible: true,
+        managedBottomHostHeight: 220,
+      }),
+    ).toBe('auto 1fr 220px 260px')
   })
 
   it('collapses drawer row when workbench is hidden', () => {
@@ -28,7 +44,9 @@ describe('resolveLayoutGridTemplateRows', () => {
         immersiveMode: false,
         drawerVisible: false,
         journeyHeight: 260,
+        managedBottomHostVisible: false,
+        managedBottomHostHeight: 220,
       }),
-    ).toBe('auto 1fr 0px')
+    ).toBe('auto 1fr 0px 0px')
   })
 })

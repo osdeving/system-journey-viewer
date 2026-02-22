@@ -172,6 +172,14 @@
 - SJV Script panel simplification:
   - Codex refinement controls were removed from the SJV Script panel UI for now (feature deferred),
   - panel toolbar is focused on `Sync`, `Export`, and `Import`.
+- Toolbar density refinement (desktop row):
+  - toolbar action row now stays single-line and scrolls horizontally on narrower widths instead of wrapping,
+  - editing/mode controls (`Select`, `Connector`, `Focus`, `Presentation`) use compact icon-only buttons with tooltips,
+  - topbar dock-tab strip uses compact icon-only tabs to reduce width pressure.
+- Reusable desktop window shell:
+  - `Preferences` now uses a reusable `FloatingWindow` React component instead of an ad-hoc fixed panel,
+  - window supports drag, resize (all edges/corners), and viewport clamping,
+  - close action now uses a discreet icon-style button.
 - Help and onboarding enhancements:
   - help panel now has `Guide`, `Export Gallery`, and `About` sections,
   - startup splash presents app identity/version (`MVP Beta`) and ownership label (`Willams Sousa`),

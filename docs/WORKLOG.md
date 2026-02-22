@@ -1448,3 +1448,40 @@ Chronological engineering log. Entries are kept concise and focused on behavior 
 - `npm --workspace @sjv/web run lint`
 - `npm --workspace @sjv/web run test:run`
 - `npm --workspace @sjv/web run build`
+
+## 2026-02-22 - Toolbar icon compaction and reusable floating Preferences window
+
+### Scope
+
+- Addressed toolbar wrapping on narrower desktop widths by reducing button footprint.
+- Replaced the ad-hoc Preferences dialog block with a reusable React floating-window component (drag + resize + icon close), aligned with the desktop shell direction.
+
+### Changes
+
+- `apps/web/src/App.tsx`
+  - toolbar editing/mode buttons (`Select`, `Connector`, `Focus`, `Presentation`) now render as icon-only buttons with tooltips/ARIA labels,
+  - topbar dock tab strip now renders dock tabs as compact icon buttons with tooltips (still draggable to reorder),
+  - `Preferences` now opens through a shared helper and renders via `FloatingWindow`,
+  - added movable/resizable rect state for the preferences window.
+- `apps/web/src/components/FloatingWindow.tsx` (new)
+  - reusable floating dialog/window shell for desktop-like panels,
+  - pointer-based drag from header,
+  - resize handles on all edges/corners,
+  - viewport clamping using existing floating-dock sizing helpers,
+  - icon-only close button (desktop-style).
+- `apps/web/src/App.css`
+  - topbar toolbar row now stays single-line with horizontal scroll instead of wrapping,
+  - icon-only toolbar button styles,
+  - compact icon-only dock-tab styles for topbar strip,
+  - generic floating window styles + preferences-specific skin/theme support.
+- `apps/web/src/App.styles.test.ts`
+  - updated topbar toolbar style regression expectations (`nowrap` + scroll),
+  - added assertions for floating-window and compact toolbar styles.
+- `apps/web/src/App.source.test.ts`
+  - regression check ensuring `Preferences` uses the reusable `FloatingWindow`.
+
+### Validation
+
+- `npm --workspace @sjv/web run lint`
+- `npm --workspace @sjv/web run test:run`
+- `npm --workspace @sjv/web run build`

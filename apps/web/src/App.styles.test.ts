@@ -34,6 +34,7 @@ describe('App boundary styles', () => {
     expect(appCss).toContain('.dock-tab-body-dsl')
     expect(appCss).toContain('.dock-tab-strip')
     expect(appCss).toContain('.dock-tab')
+    expect(appCss).toContain('.dock-tab-icon')
     expect(appCss).toContain('.dock-placement')
     expect(appCss).toContain('.journey-side-player')
     expect(appCss).toContain('.journey-side-group')
@@ -45,6 +46,8 @@ describe('App boundary styles', () => {
     expect(appCss).toContain('.dsl-monaco-editor')
     expect(appCss).toContain('.dsl-panel-maximized .dsl-monaco-editor')
     expect(appCss).toContain('.dsl-status-message')
+    expect(appCss).toContain('.floating-window')
+    expect(appCss).toContain('.floating-window-close')
   })
 
   it('includes flow animation for player feedback', () => {
@@ -83,7 +86,10 @@ describe('App boundary styles', () => {
     expect(appCss).toMatch(
       /\.desktop-menu-bar\s*\{[^}]*flex-wrap:\s*wrap;[^}]*flex:\s*1 1 auto;[^}]*overflow:\s*visible;[^}]*\}/s,
     )
-    expect(appCss).toMatch(/\.topbar-actions\s*\{[^}]*flex-wrap:\s*wrap;[^}]*overflow:\s*visible;[^}]*\}/s)
+    expect(appCss).toMatch(
+      /\.topbar-actions\s*\{[^}]*flex-wrap:\s*nowrap;[^}]*overflow-x:\s*auto;[^}]*overflow-y:\s*hidden;[^}]*\}/s,
+    )
+    expect(appCss).toContain('.toolbar-icon-button')
     expect(appCss).toMatch(
       /\.app-layout-presentation\s+\.topbar\s*\{[^}]*grid-template-columns:\s*auto minmax\(0,\s*1fr\);[^}]*\}/s,
     )

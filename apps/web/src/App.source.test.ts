@@ -77,6 +77,18 @@ describe('App source regressions', () => {
     expect(appSource).not.toContain('Open Dock Panel')
   })
 
+  it('includes a guided UI tutorial overlay and stable target hooks', () => {
+    expect(appSource).toContain("import { GuidedTutorialOverlay } from './components/tutorial/GuidedTutorialOverlay'")
+    expect(appSource).toContain('GUIDED_UI_TUTORIAL_STEPS')
+    expect(appSource).toContain('Start Guided Tutorial')
+    expect(appSource).toContain('data-tutorial-id="main-menu-bar"')
+    expect(appSource).toContain('data-tutorial-id="menu-window-trigger"')
+    expect(appSource).toContain('data-tutorial-id="topbar-toolbar"')
+    expect(appSource).toContain('data-tutorial-id="canvas-panel"')
+    expect(appSource).toContain('data-tutorial-id="managed-host-bottom"')
+    expect(appSource).toContain('<GuidedTutorialOverlay')
+  })
+
   it('renders managed window hosts in dedicated left/right/bottom layout regions', () => {
     expect(appSource).toContain('managedLeftHostVisible')
     expect(appSource).toContain('managedRightHostVisible')

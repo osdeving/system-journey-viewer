@@ -385,6 +385,45 @@ Chronological engineering log. Entries are kept concise and focused on behavior 
 - `npm --workspace @sjv/web run test:run`
 - `npm --workspace @sjv/web run build`
 
+## 2026-02-22 - Guided tutorial phase 4 (slice 1): overlay tour engine with spotlight targets and Next/Back/Skip
+
+### Scope
+
+- Started the guided tutorial engine (Phase 4) with a real interactive UI tour:
+  - spotlight overlay,
+  - step definitions,
+  - target resolution by selector,
+  - `Next / Back / Skip` flow.
+- Added a first tutorial path that explains the shell layout and managed windows (menu bar, Window menu, toolbar, panel shortcut strip, canvas, Palette/Inspector/SJV Script/Help).
+
+### Changes
+
+- `apps/web/src/tutorial/guidedTutorial.ts` (new)
+  - added guided tutorial step definitions (`GUIDED_UI_TUTORIAL_STEPS`) for the initial UI walkthrough,
+  - added reusable helpers for step index clamping, selector target resolution, and card positioning.
+- `apps/web/src/components/tutorial/GuidedTutorialOverlay.tsx` (new)
+  - added reusable overlay component with spotlight, keyboard shortcuts (`Left/Right/Enter/Esc`), and `Next/Back/Skip` actions.
+- `apps/web/src/App.tsx`
+  - integrated guided tutorial state and navigation (`start`, `next`, `back`, `skip`),
+  - added step setup actions to auto-open managed windows for tutorial steps (`Palette`, `Inspector`, `SJV Script`, `Help`),
+  - added `Help` menu entry: `Start Guided Tutorial`,
+  - added guide-panel CTA buttons (`Start Guided Tutorial`, `Load Tutorial Workspace (...)`),
+  - added stable `data-tutorial-id` hooks to menu/toolbar/canvas/managed hosts for selector targeting.
+- `apps/web/src/App.css`
+  - added guided tutorial overlay/spotlight/card styles,
+  - added help guide CTA button styles (light/dark).
+- `apps/web/src/tutorial/guidedTutorial.test.ts` (new)
+  - tests for helper behavior (step clamp, target resolution, card placement).
+- `apps/web/src/App.source.test.ts`, `apps/web/src/App.styles.test.ts`
+  - regressions for tutorial overlay integration and styling hooks.
+
+### Validation
+
+- `npm --workspace @sjv/web run lint`
+- `npm --workspace @sjv/web run test:run -- src/tutorial/guidedTutorial.test.ts src/App.source.test.ts src/App.styles.test.ts`
+- `npm --workspace @sjv/web run test:run`
+- `npm --workspace @sjv/web run build`
+
 ## 2026-02-22 - Window manager phase 1 completion: unified window-layout bootstrap + shell persistence/restore
 
 ### Scope

@@ -37,6 +37,7 @@ import {
   X,
 } from 'lucide-react'
 import './App.css'
+import { GuidedTutorialOverlay } from './components/tutorial/GuidedTutorialOverlay'
 import { DockHost } from './components/windowing/DockHost'
 import { DiagramCanvas } from './components/canvas/DiagramCanvas'
 import { FloatingWindow } from './components/windowing/FloatingWindow'
@@ -93,6 +94,11 @@ import {
   resolvePreferredEntryViewId,
 } from './viewHierarchy'
 import type { ShowcaseLocale, ShowcaseMode } from './model/showcaseWorkspace'
+import {
+  clampGuidedTutorialStepIndex,
+  GUIDED_UI_TUTORIAL_STEPS,
+  type GuidedTutorialStepSetupAction,
+} from './tutorial/guidedTutorial'
 import {
   closeManagedWindow,
   createManagedWindowsState,
@@ -606,6 +612,7 @@ function App() {
   const [floatingDockRect, setFloatingDockRect] = useState<FloatingDockRect>(windowLayoutBootstrap.floatingDockRect)
   const [recentWorkspaces, setRecentWorkspaces] = useState<RecentWorkspaceEntry[]>(() => loadRecentWorkspaces())
   const [openDesktopMenu, setOpenDesktopMenu] = useState<DesktopMenuId | null>(null)
+  const [guidedTutorialStepIndex, setGuidedTutorialStepIndex] = useState<number | null>(null)
   const [canUndo, setCanUndo] = useState(false)
   const [canRedo, setCanRedo] = useState(false)
   const initialUiPreferences = useMemo(() => resolveInitialUiPreferences(), [])
@@ -1115,6 +1122,70 @@ function App() {
 
   const openPreferencesWindow = () => {
     openManagedFloatingWindow('preferences')
+  }
+
+  const runGuidedTutorialStepSetup = (setupAction: GuidedTutorialStepSetupAction | undefined) => {
+    switch (setupAction) {
+      case 'openPaletteLeft':
+        openManagedDockedWindow('palette')
+        break
+      case 'openInspectorRight':
+        openManagedDockedWindow('inspector')
+        break
+      case 'openDslBottom':
+        openManagedDockedWindow('dsl')
+        break
+      case 'openHelpFloating':
+        openHelpWindow('guide')
+        break
+      case 'none':
+      case undefined:
+        break
+      default:
+        break
+    }
+  }
+
+  const closeGuidedTutorial = () => {
+    setGuidedTutorialStepIndex(null)
+    setOpenDesktopMenu(null)
+  }
+
+  const goToGuidedTutorialStep = (candidateIndex: number) => {
+    const nextIndex = clampGuidedTutorialStepIndex(candidateIndex, GUIDED_UI_TUTORIAL_STEPS.length)
+    const nextStep = GUIDED_UI_TUTORIAL_STEPS[nextIndex]
+    setSplashVisible(false)
+    setOpenDesktopMenu(null)
+    setFocusMode(false)
+    setPresentationMode(false)
+    runGuidedTutorialStepSetup(nextStep?.setupAction)
+    setGuidedTutorialStepIndex(nextIndex)
+  }
+
+  const startGuidedTutorial = () => {
+    setHelpSection('guide')
+    goToGuidedTutorialStep(0)
+    setTransientStatus('Guided tutorial started.')
+  }
+
+  const nextGuidedTutorialStep = () => {
+    if (guidedTutorialStepIndex === null) {
+      startGuidedTutorial()
+      return
+    }
+    if (guidedTutorialStepIndex >= GUIDED_UI_TUTORIAL_STEPS.length - 1) {
+      closeGuidedTutorial()
+      setTransientStatus('Guided tutorial completed.')
+      return
+    }
+    goToGuidedTutorialStep(guidedTutorialStepIndex + 1)
+  }
+
+  const previousGuidedTutorialStep = () => {
+    if (guidedTutorialStepIndex === null) {
+      return
+    }
+    goToGuidedTutorialStep(guidedTutorialStepIndex - 1)
   }
 
   const setTransientStatus = useCallback((message: string, timeoutMs = 2800) => {
@@ -2722,7 +2793,7 @@ function App() {
   )
 
   const dslPanelContent = (
-    <div className={`dsl-panel ${dslMaximized ? 'dsl-panel-maximized' : ''}`}>
+    <div className={`dsl-panel ${dslMaximized ? 'dsl-panel-maximized' : ''}`} data-tutorial-id="dsl-panel">
       <div className="dsl-toolbar">
         <strong>{JOURNEY_SCRIPT_NAME}</strong>
         <label className="dsl-sync-toggle">
@@ -2799,7 +2870,7 @@ function App() {
   )
 
   const helpPanelContent = (
-    <section className="help-panel">
+    <section className="help-panel" data-tutorial-id="help-panel">
       <div className="help-section-tabs">
         <button
           type="button"
@@ -2823,7 +2894,19 @@ function App() {
           About
         </button>
       </div>
-      {helpSection === 'guide' ? <ReactMarkdown>{helpGuideMarkdown}</ReactMarkdown> : null}
+      {helpSection === 'guide' ? (
+        <>
+          <div className="help-guide-actions">
+            <button type="button" onClick={() => startGuidedTutorial()}>
+              Start Guided Tutorial
+            </button>
+            <button type="button" onClick={() => loadShowcasePreset('tutorial', uiPreferences.showcaseLocale)}>
+              Load Tutorial Workspace ({uiPreferences.showcaseLocale.toUpperCase()})
+            </button>
+          </div>
+          <ReactMarkdown>{helpGuideMarkdown}</ReactMarkdown>
+        </>
+      ) : null}
       {helpSection === 'gallery' ? (
         <div className="help-gallery">
           <p>
@@ -3474,7 +3557,7 @@ function App() {
   )
 
   const dockHeaderBar = (
-    <div className="topbar-dock-strip dock-tab-strip">
+    <div className="topbar-dock-strip dock-tab-strip" data-tutorial-id="panel-shortcuts-strip">
       {dockTabOrder.map((tab) => (
         <button
           key={tab}
@@ -3849,7 +3932,12 @@ function App() {
             </div>
           </div>
           {!presentationMode ? (
-            <nav className="desktop-menu-bar" aria-label="Main menu" ref={desktopMenuBarRef}>
+            <nav
+              className="desktop-menu-bar"
+              aria-label="Main menu"
+              ref={desktopMenuBarRef}
+              data-tutorial-id="main-menu-bar"
+            >
             <div
               className={openDesktopMenu === 'file' ? 'desktop-menu desktop-menu-open' : 'desktop-menu'}
               onMouseEnter={() => {
@@ -4171,6 +4259,7 @@ function App() {
                 aria-haspopup="menu"
                 aria-expanded={openDesktopMenu === 'window'}
                 aria-controls="desktop-menu-window"
+                data-tutorial-id="menu-window-trigger"
                 onClick={() => toggleDesktopMenu('window')}
               >
                 Window
@@ -4711,6 +4800,9 @@ function App() {
               </button>
               {openDesktopMenu === 'help' ? (
                 <div id="desktop-menu-help" className="desktop-menu-list" role="menu" aria-label="Help menu">
+                  <button type="button" role="menuitem" onClick={() => runDesktopMenuAction(() => startGuidedTutorial())}>
+                    <span>Start Guided Tutorial</span>
+                  </button>
                   <button
                     type="button"
                     role="menuitem"
@@ -4822,7 +4914,7 @@ function App() {
             </div>
           )}
         </div>
-        <div className="topbar-actions">
+        <div className="topbar-actions" data-tutorial-id="topbar-toolbar">
           {presentationMode ? (
             <div className="presentation-toolbar">
               <select
@@ -4920,7 +5012,7 @@ function App() {
             <>
               {toolbarVisibility.navigation ? (
                 <div className="toolbar-group">
-                  <label className="view-hierarchy-control">
+                  <label className="view-hierarchy-control" data-tutorial-id="view-picker">
                     View
                     <select
                       className="view-hierarchy-select"
@@ -4941,7 +5033,7 @@ function App() {
                 </div>
               ) : null}
               {toolbarVisibility.editing ? (
-                <div className="toolbar-group">
+                <div className="toolbar-group" data-tutorial-id="toolbar-editing-group">
                   <button
                     type="button"
                     className={activeTool === 'select' ? 'tool-button tool-active toolbar-icon-button' : 'tool-button toolbar-icon-button'}
@@ -4969,7 +5061,7 @@ function App() {
                 </div>
               ) : null}
               {toolbarVisibility.panels ? (
-                <div className="toolbar-group toolbar-group-panels">
+                <div className="toolbar-group toolbar-group-panels" data-tutorial-id="toolbar-panels-group">
                   <button
                     type="button"
                     className="icon-toggle-button"
@@ -5102,13 +5194,16 @@ function App() {
       ) : null}
       {leftDockVisible ? <aside className="left-sidebar left-sidebar-dock">{dockPanel}</aside> : null}
       {managedLeftHostVisible ? (
-        <aside className="managed-host-sidebar managed-host-sidebar-left">{renderManagedDockHostPanel('left')}</aside>
+        <aside className="managed-host-sidebar managed-host-sidebar-left" data-tutorial-id="managed-host-left">
+          {renderManagedDockHostPanel('left')}
+        </aside>
       ) : null}
       <main
         className={`canvas-panel ${gridEnabled && !presentationMode ? 'canvas-panel-grid-visible' : 'canvas-panel-grid-hidden'} ${
           presentationMode ? 'canvas-panel-presentation' : ''
         }`}
         ref={canvasPanelRef}
+        data-tutorial-id="canvas-panel"
       >
         {!presentationMode && activeTool === 'connector' ? (
           <p className="canvas-hint">
@@ -5146,7 +5241,9 @@ function App() {
         />
       </main>
       {managedRightHostVisible ? (
-        <aside className="managed-host-sidebar managed-host-sidebar-right">{renderManagedDockHostPanel('right')}</aside>
+        <aside className="managed-host-sidebar managed-host-sidebar-right" data-tutorial-id="managed-host-right">
+          {renderManagedDockHostPanel('right')}
+        </aside>
       ) : null}
       {rightDockVisible ? <aside className="right-sidebar right-sidebar-dock">{dockPanel}</aside> : null}
       {floatingDockVisible ? (
@@ -5192,7 +5289,9 @@ function App() {
         </div>
       ) : null}
       {managedBottomHostVisible ? (
-        <section className="managed-host-bottom">{renderManagedDockHostPanel('bottom')}</section>
+        <section className="managed-host-bottom" data-tutorial-id="managed-host-bottom">
+          {renderManagedDockHostPanel('bottom')}
+        </section>
       ) : null}
       {drawerVisible ? (
         <section className={drawerClassName}>
@@ -5246,6 +5345,16 @@ function App() {
             <p>Dock is in side mode.</p>
           )}
         </section>
+      ) : null}
+      {guidedTutorialStepIndex !== null ? (
+        <GuidedTutorialOverlay
+          step={GUIDED_UI_TUTORIAL_STEPS[guidedTutorialStepIndex]}
+          stepIndex={guidedTutorialStepIndex}
+          totalSteps={GUIDED_UI_TUTORIAL_STEPS.length}
+          onNext={() => nextGuidedTutorialStep()}
+          onBack={() => previousGuidedTutorialStep()}
+          onSkip={() => closeGuidedTutorial()}
+        />
       ) : null}
     </div>
   )

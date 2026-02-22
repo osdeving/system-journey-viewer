@@ -125,6 +125,16 @@ describe('App boundary styles', () => {
     expect(appCss).toContain('.edge-selected-indicator')
   })
 
+  it('styles the guided tutorial overlay and help guide actions', () => {
+    expect(appCss).toContain('.guided-tutorial-overlay')
+    expect(appCss).toContain('.guided-tutorial-spotlight')
+    expect(appCss).toContain('.guided-tutorial-card')
+    expect(appCss).toContain('.guided-tutorial-actions')
+    expect(appCss).toContain('.guided-tutorial-primary-button')
+    expect(appCss).toContain('.help-guide-actions')
+    expect(appCss).toContain('.theme-dark .help-guide-actions button')
+  })
+
   it('applies the imported dark palette and arrow styling tokens', () => {
     expect(appCss).toContain('--sjv-canvas-bg')
     expect(appCss).toContain('--sjv-edge-player')

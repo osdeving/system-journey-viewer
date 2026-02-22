@@ -173,6 +173,10 @@ Prefer these when the task matches:
   - Export and presentation/capture validation workflow for static and animated outputs.
 - `sjv-theme-and-palette-accessibility`
   - Theme/palette/text-color tuning with readability and showcase/demo coverage checks.
+- `sjv-playwright-visual-capture`
+  - Deterministic Playwright-based screenshot/demo capture workflows for README/docs/gallery assets.
+- `sjv-local-persistence-migrations`
+  - Safe evolution of localStorage/snapshot persistence with compatibility/migration testing.
 
 ## Candidate next skills (not yet implemented)
 

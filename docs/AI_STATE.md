@@ -8,7 +8,7 @@
 - Latest desktop UX increment (2026-02-21, evening pass) added bilingual showcase/tutorial loaders, startup splash/about metadata, preferences floating window, export gallery in help, dynamic topbar height layout, drilldown badge rendering, and expanded showcase drilldown coverage for all showcased microservices.
 - Latest desktop hotfix (2026-02-21, late pass) fixed menubar dropdown clipping and restored full toolbar visibility by combining visible menu overflow with content-based topbar height measurement.
 - Latest topbar hotfix follow-up (2026-02-21, night pass) removed fixed top-row sizing (now `auto`) and updated toolbar row wrapping/overflow so menu + toolbar content no longer clips at the canvas edge.
-- Latest workflow/docs increment (2026-02-22) refreshed repository `AGENTS.md` for the actual monorepo stack and expanded local skills for UI layout regressions, SJV Script changes, `gh` PR/merge flow, showcase/tutorial curation, docs synchronization, export validation, and theme/palette accessibility tuning.
+- Latest workflow/docs increment (2026-02-22) refreshed repository `AGENTS.md` for the actual monorepo stack and expanded local skills for UI layout regressions, SJV Script changes, `gh` PR/merge flow, showcase/tutorial curation, docs synchronization, export validation, theme/palette accessibility tuning, Playwright visual capture, and local persistence migrations.
 - Architecture baseline:
   - custom SVG editor engine (internal adapter, no paid lock-in),
   - versioned FULL model (`schemaVersion: 1.0`) as source of truth,
@@ -218,6 +218,8 @@
   - `sjv-docs-sync`
   - `sjv-export-pipeline-validation`
   - `sjv-theme-and-palette-accessibility`
+  - `sjv-playwright-visual-capture`
+  - `sjv-local-persistence-migrations`
 - Validation guidance in `AGENTS.md` now includes a per-area matrix so docs/skills-only changes do not require full app builds.
 
 ## Suggested Next Increments

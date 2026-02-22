@@ -90,10 +90,11 @@ import type { ShowcaseLocale, ShowcaseMode } from './model/showcaseWorkspace'
 import {
   closeManagedWindow,
   createManagedWindowsState,
-  openManagedWindow,
+  dockManagedWindow as dockManagedWindowState,
+  floatManagedWindow,
   setManagedWindowFloatingRect,
-  setManagedWindowPlacement,
   type ManagedWindowId,
+  type ManagedWindowDockHostId,
   type ManagedWindowPlacement,
   type ManagedWindowsState,
 } from './windowing/windowManager'
@@ -896,7 +897,7 @@ function App() {
   }
 
   const openManagedFloatingWindow = (windowId: ManagedWindowId) => {
-    setManagedWindows((current) => openManagedWindow(current, windowId, { placement: 'floating' }))
+    setManagedWindows((current) => floatManagedWindow(current, windowId))
   }
 
   const closeManagedWindowById = (windowId: ManagedWindowId) => {
@@ -907,7 +908,10 @@ function App() {
     setManagedWindows((current) => setManagedWindowFloatingRect(current, windowId, rect))
   }
 
-  const dockManagedWindow = (windowId: ManagedWindowId, placement: Exclude<ManagedWindowPlacement, 'floating'>) => {
+  const dockManagedWindowToHost = (
+    windowId: ManagedWindowId,
+    placement: Exclude<ManagedWindowPlacement, 'floating'>,
+  ) => {
     setFocusMode(false)
     setPresentationMode(false)
     if (placement === 'left') {
@@ -918,11 +922,7 @@ function App() {
       moveDockToBottom()
     }
     openDockTab(windowId === 'help' ? 'help' : 'preferences')
-    setManagedWindows((current) => {
-      let next = setManagedWindowPlacement(current, windowId, placement)
-      next = closeManagedWindow(next, windowId)
-      return next
-    })
+    setManagedWindows((current) => dockManagedWindowState(current, windowId, placement))
   }
 
   const openHelpWindow = (section: HelpSection) => {
@@ -1183,7 +1183,12 @@ function App() {
   const openDockTab = (tab: DockTab) => {
     setActiveDockTab(tab)
     if (tab === 'help' || tab === 'preferences') {
-      setManagedWindows((current) => closeManagedWindow(current, tab))
+      setManagedWindows((current) => {
+        if (dockPosition === 'left' || dockPosition === 'right' || dockPosition === 'bottom') {
+          return dockManagedWindowState(current, tab, dockPosition as ManagedWindowDockHostId)
+        }
+        return closeManagedWindow(current, tab)
+      })
     }
     setDockCollapsed(false)
     if (dockPosition === 'bottom') {
@@ -3294,9 +3299,13 @@ function App() {
     <span className="dock-placement-actions">
       <button
         type="button"
-        className="dock-placement dock-placement-active"
+        className={
+          managedWindows.windows[windowId].placement === 'floating'
+            ? 'dock-placement dock-placement-active'
+            : 'dock-placement'
+        }
         onClick={() => {
-          setManagedWindows((current) => setManagedWindowPlacement(current, windowId, 'floating'))
+          setManagedWindows((current) => floatManagedWindow(current, windowId))
         }}
         title={withTooltip('Floating window')}
         aria-label="Keep floating"
@@ -3306,7 +3315,7 @@ function App() {
       <button
         type="button"
         className="dock-placement"
-        onClick={() => dockManagedWindow(windowId, 'left')}
+        onClick={() => dockManagedWindowToHost(windowId, 'left')}
         title={withTooltip('Dock left')}
         aria-label="Dock left"
       >
@@ -3315,7 +3324,7 @@ function App() {
       <button
         type="button"
         className="dock-placement"
-        onClick={() => dockManagedWindow(windowId, 'right')}
+        onClick={() => dockManagedWindowToHost(windowId, 'right')}
         title={withTooltip('Dock right')}
         aria-label="Dock right"
       >
@@ -3324,7 +3333,7 @@ function App() {
       <button
         type="button"
         className="dock-placement"
-        onClick={() => dockManagedWindow(windowId, 'bottom')}
+        onClick={() => dockManagedWindowToHost(windowId, 'bottom')}
         title={withTooltip('Dock bottom')}
         aria-label="Dock bottom"
       >
@@ -3333,8 +3342,8 @@ function App() {
     </span>
   )
 
-  const helpWindow = managedWindows.help
-  const preferencesWindow = managedWindows.preferences
+  const helpWindow = managedWindows.windows.help
+  const preferencesWindow = managedWindows.windows.preferences
 
   return (
     <div

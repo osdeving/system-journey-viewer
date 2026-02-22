@@ -1,3 +1,7 @@
+/**
+ * Purpose: Verify edge Journey Badge behavior with regression-focused unit tests.
+ */
+
 import { describe, expect, it } from 'vitest'
 import {
   resolveEdgeJourneyBadge,

@@ -1,3 +1,7 @@
+/**
+ * Purpose: Implement editor state management, persistence, and store utilities.
+ */
+
 import { create } from 'zustand'
 import { immer } from 'zustand/middleware/immer'
 import { nearestPortId, nodeCenter } from '../engine/geometry'

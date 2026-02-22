@@ -1,3 +1,7 @@
+/**
+ * Purpose: Implement editor state management, persistence, and store utilities.
+ */
+
 import { editorSnapshotSchema } from '../model/schema'
 import type { EditorSnapshot } from '../model/types'
 

@@ -1,3 +1,7 @@
+/**
+ * Purpose: Verify layout Grid behavior with regression-focused unit tests.
+ */
+
 import { describe, expect, it } from 'vitest'
 import { resolveLayoutGridTemplateRows } from './layoutGrid'
 

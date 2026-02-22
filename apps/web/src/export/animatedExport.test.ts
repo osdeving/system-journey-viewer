@@ -1,3 +1,7 @@
+/**
+ * Purpose: Verify animated Export behavior with regression-focused unit tests.
+ */
+
 import { describe, expect, it } from 'vitest'
 import {
   resolveExportPlaybackSpeedMs,

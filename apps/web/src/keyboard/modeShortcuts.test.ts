@@ -1,3 +1,7 @@
+/**
+ * Purpose: Verify mode Shortcuts behavior with regression-focused unit tests.
+ */
+
 import { describe, expect, it } from 'vitest'
 import { resolveModeShortcutAction } from './modeShortcuts'
 

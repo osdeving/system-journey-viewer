@@ -1,3 +1,7 @@
+/**
+ * Purpose: Provide React canvas rendering components for nodes, edges, labels, and interactive diagram visuals.
+ */
+
 import type { ReactNode, SVGProps } from 'react'
 
 type CanvasTextProps = SVGProps<SVGTextElement> & {

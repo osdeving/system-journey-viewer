@@ -1,3 +1,7 @@
+/**
+ * Purpose: Define palette presets and catalog metadata for node creation.
+ */
+
 const icons: Record<string, string> = {
   system: '🧭',
   container: '📦',

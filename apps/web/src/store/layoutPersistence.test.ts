@@ -1,3 +1,7 @@
+/**
+ * Purpose: Verify layout Persistence behavior with regression-focused unit tests.
+ */
+
 import { describe, expect, it } from 'vitest'
 import { createDefaultWorkspace } from '../model/defaultWorkspace'
 import {

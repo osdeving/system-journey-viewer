@@ -1,3 +1,7 @@
+/**
+ * Purpose: Provide view hierarchy and view-related utilities for workspace navigation.
+ */
+
 import type { WorkspaceModel, ViewModel } from './model/types'
 
 export type ViewHierarchyOption = {

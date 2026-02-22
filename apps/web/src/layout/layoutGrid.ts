@@ -1,3 +1,7 @@
+/**
+ * Purpose: Provide pure layout and sizing calculations for the desktop-style web shell.
+ */
+
 type LayoutGridRowsInput = {
   immersiveMode: boolean
   drawerVisible: boolean

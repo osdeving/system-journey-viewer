@@ -1,3 +1,7 @@
+/**
+ * Purpose: Implement SJV Script parsing, serialization, and editor integration helpers.
+ */
+
 const CODEX_DSL_ENDPOINT = '/api/codex/dsl-assist'
 
 export type CodexDslAssistPayload = {

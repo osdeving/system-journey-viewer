@@ -1,3 +1,7 @@
+/**
+ * Purpose: Verify persistence behavior with regression-focused unit tests.
+ */
+
 import { describe, expect, it } from 'vitest'
 import { createDefaultWorkspace } from '../model/defaultWorkspace'
 import { loadSnapshot, saveSnapshot, storageKeyForView } from './persistence'

@@ -1,3 +1,7 @@
+/**
+ * Purpose: Implement SJV Script parsing, serialization, and editor integration helpers.
+ */
+
 import type { WorkspaceModel } from '../model/types'
 import { liteToFullWorkspace } from './convert'
 import { parseLiteDsl } from './parser'

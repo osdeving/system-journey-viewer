@@ -114,6 +114,12 @@ Screenshots are strongly recommended for visual regressions.
   - version the key / add migration logic, and
   - document the change in `docs/AI_STATE.md` or `docs/WORKLOG.md`.
 
+## Non-negotiable rule 9: file taxonomy and header-first readability (`apps/web`)
+
+- Follow `docs/FILE_ATLAS.md` when adding or moving files in `apps/web/src`.
+- Keep `src/components/` React-only; pure helpers belong in domain folders (`src/diagram/*`, `src/layout/*`, `src/windowing/*`, etc.).
+- Code files in `apps/web/src` should start with a short `Purpose:` header comment to help fast human/AI triage.
+
 ## Standard workflow
 
 1. Plan (short): steps + affected files.
@@ -177,6 +183,8 @@ Prefer these when the task matches:
   - Deterministic Playwright-based screenshot/demo capture workflows for README/docs/gallery assets.
 - `sjv-local-persistence-migrations`
   - Safe evolution of localStorage/snapshot persistence with compatibility/migration testing.
+- `sjv-file-atlas-and-header-conventions`
+  - File/folder classification, naming consistency, and top-of-file header conventions for `apps/web`.
 
 ## Candidate next skills (not yet implemented)
 

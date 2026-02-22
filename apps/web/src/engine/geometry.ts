@@ -1,3 +1,7 @@
+/**
+ * Purpose: Provide editor engine helpers for canvas interactions, hit-testing, and connector placement.
+ */
+
 import type { NodeBounds, NodeModel } from '../model/types'
 
 export const DEFAULT_GRID_SIZE = 20

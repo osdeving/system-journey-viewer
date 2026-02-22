@@ -1,3 +1,5 @@
+<!-- Purpose: Provide in-app help and tutorial content sources. -->
+
 # System Journey Viewer Help
 
 ## Quick Start

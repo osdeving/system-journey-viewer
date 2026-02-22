@@ -1,3 +1,7 @@
+/**
+ * Purpose: Verify schema behavior with regression-focused unit tests.
+ */
+
 import { describe, expect, it } from 'vitest'
 import { createDefaultWorkspace } from './defaultWorkspace'
 import { workspaceSchema } from './schema'

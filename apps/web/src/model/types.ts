@@ -1,3 +1,7 @@
+/**
+ * Purpose: Define core workspace types and built-in workspace/example data used by the editor.
+ */
+
 export type ViewKind = 'system-context' | 'container' | 'component' | 'hex'
 
 export type JourneyFilterOffscopeRenderMode = 'show' | 'hide' | 'dim'

@@ -1,3 +1,7 @@
+/**
+ * Purpose: Implement workspace file serialization, parsing, and recent-file utilities.
+ */
+
 import type { EditorSnapshot } from '../model/types'
 
 const RECENT_WORKSPACES_STORAGE_KEY = 'sjv:recent-workspaces:v1'

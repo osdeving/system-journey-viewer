@@ -1,3 +1,7 @@
+/**
+ * Purpose: Verify showcase Workspace behavior with regression-focused unit tests.
+ */
+
 import { describe, expect, it } from 'vitest'
 import { createShowcaseWorkspace } from './showcaseWorkspace'
 

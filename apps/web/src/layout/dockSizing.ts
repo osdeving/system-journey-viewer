@@ -1,3 +1,7 @@
+/**
+ * Purpose: Provide pure layout and sizing calculations for the desktop-style web shell.
+ */
+
 import type { FloatingDockRect } from './floatingDock'
 
 export type DockSide = 'left' | 'right'

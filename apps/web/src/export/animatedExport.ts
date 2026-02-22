@@ -1,5 +1,9 @@
-import { curveToSvgPath } from '../components/edgePresentation'
-import { STEP_ARRIVAL_HOLD_MS } from '../components/playerStepTimeline'
+/**
+ * Purpose: Implement export pipelines and format-specific rendering helpers.
+ */
+
+import { curveToSvgPath } from '../diagram/edges/edgePresentation'
+import { STEP_ARRIVAL_HOLD_MS } from '../diagram/player/playerStepTimeline'
 import { resolveEdgeCurve } from '../engine/edgeCurve'
 import type { JourneyModel, WorkspaceModel } from '../model/types'
 import { GIFEncoder, applyPalette, quantize } from 'gifenc'

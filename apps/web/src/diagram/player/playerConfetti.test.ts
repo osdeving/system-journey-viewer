@@ -1,3 +1,7 @@
+/**
+ * Purpose: Verify player Confetti behavior with regression-focused unit tests.
+ */
+
 import { describe, expect, it } from 'vitest'
 import { buildNodeConfettiBursts, resolveNodeConfettiAnchor } from './playerConfetti'
 

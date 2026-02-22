@@ -1,3 +1,7 @@
+/**
+ * Purpose: Provide journey-specific logic for focus, playback labels, and timeline behavior.
+ */
+
 export const journeyColorPalette = [
   '#2563eb',
   '#16a34a',

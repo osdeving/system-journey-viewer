@@ -1,18 +1,22 @@
+/**
+ * Purpose: Provide React canvas rendering components for nodes, edges, labels, and interactive diagram visuals.
+ */
+
 import type {
   MouseEvent as ReactMouseEvent,
   PointerEvent as ReactPointerEvent,
 } from 'react'
-import type { EdgeModel } from '../model/types'
-import type { EdgeJourneyBadge } from './edgeJourneyBadge'
+import type { EdgeModel } from '../../model/types'
+import type { EdgeJourneyBadge } from '../../diagram/edges/edgeJourneyBadge'
 import { CanvasText } from './CanvasText'
-import { resolveJourneyEdgeClassName } from './journeyEdgeClassName'
+import { resolveJourneyEdgeClassName } from '../../diagram/edges/journeyEdgeClassName'
 import {
   composeEdgeDisplayLabel,
   cubicPointAt,
   resolveEdgeLabelPlacement,
   resolveEdgeStepBadgeProgress,
   type EdgeCurvePath,
-} from './edgePresentation'
+} from '../../diagram/edges/edgePresentation'
 
 interface JourneyEdgeProps {
   edge: EdgeModel

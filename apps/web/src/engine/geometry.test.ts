@@ -1,3 +1,7 @@
+/**
+ * Purpose: Verify geometry behavior with regression-focused unit tests.
+ */
+
 import { describe, expect, it } from 'vitest'
 import type { NodeModel } from '../model/types'
 import { nearestPortId, snapBounds } from './geometry'

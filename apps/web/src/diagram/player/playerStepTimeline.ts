@@ -1,3 +1,7 @@
+/**
+ * Purpose: Provide pure playback helpers for journey trails, timelines, and animation effects.
+ */
+
 const MIN_TRAVEL_DURATION_MS = 120
 export const STEP_ARRIVAL_HOLD_MS = 90
 

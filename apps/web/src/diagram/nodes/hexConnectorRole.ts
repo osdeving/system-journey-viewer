@@ -1,4 +1,8 @@
-import type { NodeKind } from '../model/types'
+/**
+ * Purpose: Provide pure helpers for node shapes and connector semantics in the diagram layer.
+ */
+
+import type { NodeKind } from '../../model/types'
 
 export type HexConnectorRole = 'female' | 'male' | null
 

@@ -1,5 +1,9 @@
+/**
+ * Purpose: Verify Journey Edge behavior with regression-focused unit tests.
+ */
+
 import { describe, expect, it } from 'vitest'
-import { resolveJourneyEdgeClassName } from './journeyEdgeClassName'
+import { resolveJourneyEdgeClassName } from '../../diagram/edges/journeyEdgeClassName'
 
 describe('resolveJourneyEdgeClassName', () => {
   it('keeps dashed style without animation for non-context edges', () => {

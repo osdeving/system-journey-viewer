@@ -1,3 +1,7 @@
+/**
+ * Purpose: Verify use Editor Store behavior with regression-focused unit tests.
+ */
+
 import { beforeEach, describe, expect, it } from 'vitest'
 import { useEditorStore } from './useEditorStore'
 

@@ -1,3 +1,7 @@
+/**
+ * Purpose: Implement SJV Script parsing, serialization, and editor integration helpers.
+ */
+
 import type { Monaco } from '@monaco-editor/react'
 
 export const JOURNEY_SCRIPT_LANGUAGE_ID = 'journey-script'

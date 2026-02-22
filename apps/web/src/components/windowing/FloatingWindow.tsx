@@ -1,7 +1,11 @@
+/**
+ * Purpose: Provide reusable React window shells and dock host components for floating and docked panels.
+ */
+
 import { useCallback, useEffect, useRef, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react'
 import { X } from 'lucide-react'
-import { resolveFloatingDockResizeRect, type FloatingDockResizeHandle } from '../layout/dockSizing'
-import { clampFloatingDockRect, type FloatingDockRect } from '../layout/floatingDock'
+import { resolveFloatingDockResizeRect, type FloatingDockResizeHandle } from '../../layout/dockSizing'
+import { clampFloatingDockRect, type FloatingDockRect } from '../../layout/floatingDock'
 
 const FLOATING_WINDOW_HANDLES: FloatingDockResizeHandle[] = ['n', 's', 'e', 'w', 'ne', 'nw', 'se', 'sw']
 

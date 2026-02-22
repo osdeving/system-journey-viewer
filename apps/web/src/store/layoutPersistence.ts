@@ -1,3 +1,7 @@
+/**
+ * Purpose: Implement editor state management, persistence, and store utilities.
+ */
+
 import { resolveNodePorts } from '../model/nodePorts'
 import type { NodeBounds, WorkspaceModel } from '../model/types'
 

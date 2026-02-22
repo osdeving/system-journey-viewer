@@ -1,3 +1,7 @@
+/**
+ * Purpose: Define core workspace types and built-in workspace/example data used by the editor.
+ */
+
 import type { NodeBounds, PortModel, WorkspaceModel } from './types'
 
 const HORIZONTAL_SPACING = 56

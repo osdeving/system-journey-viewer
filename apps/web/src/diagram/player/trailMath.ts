@@ -1,3 +1,7 @@
+/**
+ * Purpose: Provide pure playback helpers for journey trails, timelines, and animation effects.
+ */
+
 export type TrailPoint = { x: number; y: number }
 type TrailAlphaParticle = { alpha: number }
 

@@ -1,3 +1,7 @@
+/**
+ * Purpose: Provide pure helpers for node shapes and connector semantics in the diagram layer.
+ */
+
 const clamp = (value: number, min: number, max: number): number =>
   Math.min(max, Math.max(min, value))
 

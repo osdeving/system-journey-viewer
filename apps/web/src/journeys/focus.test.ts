@@ -1,3 +1,7 @@
+/**
+ * Purpose: Verify focus behavior with regression-focused unit tests.
+ */
+
 import { describe, expect, it } from 'vitest'
 import { createDefaultWorkspace } from '../model/defaultWorkspace'
 import { resolveNodePorts } from '../model/nodePorts'

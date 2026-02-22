@@ -1,3 +1,7 @@
+/**
+ * Purpose: Verify topbar Sizing behavior with regression-focused unit tests.
+ */
+
 import { describe, expect, it } from 'vitest'
 import { resolveTopbarHeight } from './topbarSizing'
 

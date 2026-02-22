@@ -1,3 +1,7 @@
+/**
+ * Purpose: Implement export pipelines and format-specific rendering helpers.
+ */
+
 import { jsPDF } from 'jspdf'
 
 const defaultDimension = 1200

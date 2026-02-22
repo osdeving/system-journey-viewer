@@ -1,3 +1,7 @@
+/**
+ * Purpose: Verify edge Label Wheel behavior with regression-focused unit tests.
+ */
+
 import { describe, expect, it } from 'vitest'
 import {
   EDGE_LABEL_ROTATION_STEP_DEG,

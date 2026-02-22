@@ -1949,3 +1949,46 @@ Chronological engineering log. Entries are kept concise and focused on behavior 
 - `npm --workspace @sjv/web run lint`
 - `npm --workspace @sjv/web run test:run`
 - `npm --workspace @sjv/web run build`
+
+## 2026-02-22 - Guided tutorial phase 4 (slice 5) + shell UX polish (splash/window headers/managed host resize)
+
+### Scope
+
+- Continued the guided UI tutorial with more task-oriented steps around the `Window` menu and SJV Script sync.
+- Fixed tutorial spotlight/menu behavior so highlighted menu regions remain visible (not blurred) and the tutorial card repositions when menus open.
+- Polished shell/window UX:
+  - reusable splash component with timeout + outside-click dismiss,
+  - floating window title bar visual pass,
+  - managed host resizing (`left/right/bottom`) with persistence,
+  - dock-host tab strip redesign with arrow navigation (no native scrollbar strip).
+
+### Changes
+
+- `apps/web/src/tutorial/guidedTutorial.ts`, `apps/web/src/components/tutorial/GuidedTutorialOverlay.tsx`
+  - added multi-selector spotlight targets (`selectors`) to highlight combined trigger + open menu content,
+  - overlay now remeasures on DOM mutations / click / pointerup so menu-open steps can move the tutorial card away from the interaction,
+  - added tutorial steps for `Window > Open SJV Script Panel` and `SJV Script` sync toggle.
+- `apps/web/src/App.tsx`
+  - added tutorial tracking hooks for `Window > Open SJV Script Panel` and `SJV Script` sync toggle,
+  - replaced inline splash markup with reusable `SplashScreen`,
+  - added managed host sizes (`left/right/bottom`) to window-layout bootstrap/persistence/restore/reset,
+  - added splitters and pointer handlers for managed host resize.
+- `apps/web/src/components/chrome/SplashScreen.tsx`
+  - new reusable splash component with auto-dismiss (every time it opens), `Esc` support, and outside-click dismissal.
+- `apps/web/src/components/windowing/DockHost.tsx`
+  - host header split into actions row + tab row,
+  - tab overflow now uses left/right arrow buttons and a hidden-overflow viewport instead of a native horizontal scrollbar.
+- `apps/web/src/App.css`
+  - splash visual refresh (larger card, animated accents, dismiss hint),
+  - floating window title bar styling (clear title bar, thinner header, smaller controls),
+  - managed-host splitter styles,
+  - dock-host tab-row navigation styles.
+- `apps/web/src/tutorial/guidedTutorial.test.ts`, `apps/web/src/App.source.test.ts`, `apps/web/src/App.styles.test.ts`
+  - regressions for multi-selector targets, new tutorial hooks, managed host splitters/sizing fields, splash and dock-host styles.
+
+### Validation
+
+- `npm --workspace @sjv/web run lint`
+- `npm --workspace @sjv/web run test:run -- src/tutorial/guidedTutorial.test.ts src/App.source.test.ts src/App.styles.test.ts`
+- `npm --workspace @sjv/web run test:run`
+- `npm --workspace @sjv/web run build`

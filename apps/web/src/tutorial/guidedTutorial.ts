@@ -15,6 +15,11 @@ export type GuidedTutorialTarget =
       selector: string
       padding?: number
     }
+  | {
+      kind: 'selectors'
+      selectors: string[]
+      padding?: number
+    }
 
 export type GuidedTutorialPlacement = 'top' | 'bottom' | 'left' | 'right' | 'center'
 
@@ -120,28 +125,42 @@ export const resolveGuidedTutorialTargetRect = (
   if (!target) {
     return null
   }
-  if (target.kind === 'selector') {
-    const element = doc.querySelector<HTMLElement>(target.selector)
+  const selectors = target.kind === 'selector' ? [target.selector] : target.selectors
+  const padding = Math.max(0, target.padding ?? 6)
+  const rects: GuidedTutorialRect[] = []
+  for (const selector of selectors) {
+    const element = doc.querySelector<HTMLElement>(selector)
     if (!element) {
-      return null
+      continue
     }
     const bounds = element.getBoundingClientRect()
     if (bounds.width <= 0 || bounds.height <= 0) {
-      return null
+      continue
     }
-    const padding = Math.max(0, target.padding ?? 6)
-    return normalizeRect(
-      {
-        x: bounds.left - padding,
-        y: bounds.top - padding,
-        width: bounds.width + padding * 2,
-        height: bounds.height + padding * 2,
-      },
-      viewportWidth,
-      viewportHeight,
-    )
+    rects.push({
+      x: bounds.left - padding,
+      y: bounds.top - padding,
+      width: bounds.width + padding * 2,
+      height: bounds.height + padding * 2,
+    })
   }
-  return null
+  if (!rects.length) {
+    return null
+  }
+  const minX = Math.min(...rects.map((rect) => rect.x))
+  const minY = Math.min(...rects.map((rect) => rect.y))
+  const maxX = Math.max(...rects.map((rect) => rect.x + rect.width))
+  const maxY = Math.max(...rects.map((rect) => rect.y + rect.height))
+  return normalizeRect(
+    {
+      x: minX,
+      y: minY,
+      width: maxX - minX,
+      height: maxY - minY,
+    },
+    viewportWidth,
+    viewportHeight,
+  )
 }
 
 export const resolveGuidedTutorialCardLayout = ({
@@ -293,7 +312,11 @@ export const GUIDED_UI_TUTORIAL_STEPS: GuidedTutorialStep[] = [
     body:
       'The Window menu is the entry point to open panels, move the dock shell, restore/reset window layout, and replay the splash screen.',
     placement: 'bottom',
-    target: { kind: 'selector', selector: '[data-tutorial-id="menu-window-trigger"]', padding: 8 },
+    target: {
+      kind: 'selectors',
+      selectors: ['[data-tutorial-id="menu-window-trigger"]', '#desktop-menu-window'],
+      padding: 8,
+    },
     completionRule: {
       kind: 'desktopMenuOpen',
       menuId: 'window',
@@ -306,7 +329,11 @@ export const GUIDED_UI_TUTORIAL_STEPS: GuidedTutorialStep[] = [
     body:
       'Use the Window menu to open panels. Click "Open Inspector Panel" now to continue.',
     placement: 'right',
-    target: { kind: 'selector', selector: '[data-tutorial-id="window-menu-open-inspector-panel"]', padding: 6 },
+    target: {
+      kind: 'selectors',
+      selectors: ['#desktop-menu-window', '[data-tutorial-id="window-menu-open-inspector-panel"]'],
+      padding: 6,
+    },
     completionRule: {
       kind: 'event',
       eventId: 'window-menu-open-panel:inspector',
@@ -413,6 +440,25 @@ export const GUIDED_UI_TUTORIAL_STEPS: GuidedTutorialStep[] = [
       'Select a node first and make sure the Inspector panel is open to reveal the Name field.',
   },
   {
+    id: 'window-open-sjv-script-panel',
+    title: 'Open SJV Script from Window Menu',
+    body:
+      'Open the Window menu again and click "Open SJV Script Panel". This is the main text-based workflow panel for import/export and live sync.',
+    placement: 'right',
+    target: {
+      kind: 'selectors',
+      selectors: ['#desktop-menu-window', '[data-tutorial-id="window-menu-open-dsl-panel"]'],
+      padding: 6,
+    },
+    completionRule: {
+      kind: 'event',
+      eventId: 'window-menu-open-panel:dsl',
+      prompt: 'Open Window > Open SJV Script Panel to continue.',
+    },
+    missingTargetHint:
+      'Open the Window menu to reveal the SJV Script panel action.',
+  },
+  {
     id: 'sjv-script',
     title: 'SJV Script Window',
     body:
@@ -420,6 +466,21 @@ export const GUIDED_UI_TUTORIAL_STEPS: GuidedTutorialStep[] = [
     placement: 'top',
     setupAction: 'openDslBottom',
     target: { kind: 'selector', selector: '[data-tutorial-id="managed-host-bottom"]', padding: 8 },
+  },
+  {
+    id: 'sjv-script-sync',
+    title: 'Live Sync Toggle',
+    body:
+      'Enable Sync in the SJV Script panel. Valid changes in the script are applied to the view in real time while sync is on.',
+    placement: 'top',
+    target: { kind: 'selector', selector: '[data-tutorial-id="dsl-sync-toggle"]', padding: 6 },
+    completionRule: {
+      kind: 'event',
+      eventId: 'dsl-sync-toggle',
+      prompt: 'Toggle the Sync checkbox in the SJV Script panel to continue.',
+    },
+    missingTargetHint:
+      'Open the SJV Script panel (Window > Open SJV Script Panel) to reveal the Sync toggle.',
   },
   {
     id: 'help-window',

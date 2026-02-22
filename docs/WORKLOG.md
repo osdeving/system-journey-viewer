@@ -1553,3 +1553,29 @@ Chronological engineering log. Entries are kept concise and focused on behavior 
 - `npm --workspace @sjv/web run lint`
 - `npm --workspace @sjv/web run test:run`
 - `npm --workspace @sjv/web run build`
+
+## 2026-02-22 - Window manager phase 3 (transition slice): reusable DockHost + managed dock rendering for Help/Preferences
+
+### Scope
+
+- Started the phase-3 UI migration by introducing a reusable `DockHost` component and routing docked `Help`/`Preferences` rendering through the host model created in phase 2.
+- Kept the legacy dock renderer for non-managed tabs (`Inspector`, `Journeys`, `Timeline`, `SJV Script`) to avoid a risky all-at-once panel rewrite.
+
+### Changes
+
+- `apps/web/src/components/DockHost.tsx` (new)
+  - added a reusable dock-host shell (tab strip + actions slot + panel body) for future multi-window dock hosts.
+- `apps/web/src/App.tsx`
+  - integrated `DockHost` into the legacy dock panel when the active tab is a managed window (`help`/`preferences`) and the current dock host (`left/right/bottom`) contains managed host tabs,
+  - added host-tab selection sync (`setManagedHostActiveTab`) so dock-host tab clicks keep managed state and legacy dock active tab aligned,
+  - added dock-host actions for managed tabs: float active window and close active window with fallback to non-managed dock tabs.
+- `apps/web/src/App.css`
+  - added compact dock-host styles (`dock-host`, strip, tabs, body, empty state) reusing existing dock visual language.
+- `apps/web/src/App.source.test.ts`, `apps/web/src/App.styles.test.ts`
+  - added regressions for `DockHost` usage and styles.
+
+### Validation
+
+- `npm --workspace @sjv/web run lint`
+- `npm --workspace @sjv/web run test:run`
+- `npm --workspace @sjv/web run build`

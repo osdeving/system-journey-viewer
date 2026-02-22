@@ -1068,6 +1068,58 @@
   height: 100%;
 }
 
+.dock-host {
+  min-height: 0;
+  height: 100%;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 8px;
+}
+
+.dock-host-strip {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.dock-host-tabs {
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding-bottom: 1px;
+}
+
+.dock-host-tab {
+  cursor: pointer;
+  user-select: none;
+}
+
+.dock-host-tab:active {
+  cursor: pointer;
+}
+
+.dock-host-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+}
+
+.dock-host-body {
+  min-height: 0;
+  overflow: auto;
+}
+
+.dock-host-empty {
+  margin: 0;
+  color: #64748b;
+  font-size: 12px;
+}
+
 .dock-content-section {
   display: grid;
   gap: 10px;

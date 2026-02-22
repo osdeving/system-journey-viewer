@@ -22,4 +22,11 @@ describe('App source regressions', () => {
     expect(appSource).toContain('<FloatingWindow')
     expect(appSource).toContain('className="preferences-window"')
   })
+
+  it('renders managed docked windows through the reusable DockHost component', () => {
+    expect(appSource).toContain("import { DockHost } from './components/DockHost'")
+    expect(appSource).toContain('<DockHost')
+    expect(appSource).toContain('renderManagedDockHostInDockPanel')
+    expect(appSource).toContain('setManagedHostActiveTab')
+  })
 })

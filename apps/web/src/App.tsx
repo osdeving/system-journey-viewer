@@ -28,10 +28,6 @@ import {
   buildNodeConfettiBursts,
   resolveNodeConfettiAnchor,
 } from './components/playerConfetti'
-import {
-  extractDslFromCodexResponse,
-  requestCodexDslAssist,
-} from './dsl-lite/codexAssist'
 import { fullWorkspaceToLiteDsl } from './dsl-lite/convert'
 import { parseDslToWorkspaceWithTheme } from './dsl-lite/sync'
 import {
@@ -421,12 +417,6 @@ function App() {
   const [dslText, setDslText] = useState('')
   const [dslSyncEnabled, setDslSyncEnabled] = useState(false)
   const [dslError, setDslError] = useState<string | null>(null)
-  const [dslCodexInstruction, setDslCodexInstruction] = useState(
-    'Refine the SJV Script while preserving behavior and improving readability.',
-  )
-  const [dslCodexThreadId, setDslCodexThreadId] = useState<string | null>(null)
-  const [dslCodexStatus, setDslCodexStatus] = useState<string | null>(null)
-  const [dslCodexRunning, setDslCodexRunning] = useState(false)
   const [exportError, setExportError] = useState<string | null>(null)
   const [exportStatus, setExportStatus] = useState<string | null>(null)
   const [draggedEdgeId, setDraggedEdgeId] = useState<string | null>(null)
@@ -441,8 +431,8 @@ function App() {
   const [focusMode, setFocusMode] = useState(false)
   const [presentationMode, setPresentationMode] = useState(false)
   const [leftSidebarCollapsed, setLeftSidebarCollapsed] = useState(false)
-  const [dockCollapsed, setDockCollapsed] = useState(false)
-  const [drawerCollapsed, setDrawerCollapsed] = useState(false)
+  const [dockCollapsed, setDockCollapsed] = useState(true)
+  const [drawerCollapsed, setDrawerCollapsed] = useState(true)
   const [dockPosition, setDockPosition] = useState<DockPosition>('right')
   const [dockTabOrder, setDockTabOrder] = useState<DockTab[]>(DEFAULT_DOCK_TAB_ORDER)
   const [activeDockTab, setActiveDockTab] = useState<DockTab>('inspector')
@@ -2352,44 +2342,6 @@ function App() {
     }
   }
 
-  const runCodexAssistForDsl = async () => {
-    const trimmedDsl = dslText.trim()
-    if (!trimmedDsl) {
-      setDslError('Fill in the SJV Script before running Codex.')
-      return
-    }
-    const instruction = dslCodexInstruction.trim()
-    if (!instruction) {
-      setDslError('Provide a Codex instruction.')
-      return
-    }
-
-    setDslCodexRunning(true)
-    setDslError(null)
-    setDslCodexStatus(null)
-    try {
-      const result = await requestCodexDslAssist({
-        dslText: trimmedDsl,
-        instruction,
-        threadId: dslCodexThreadId,
-      })
-      setDslCodexThreadId(result.threadId)
-      const extractedDsl = extractDslFromCodexResponse(result.finalResponse)
-      if (!extractedDsl) {
-        setDslCodexStatus(
-          'Codex returned no SJV Script block. Ask it to return the result inside ```sjv ... ```.',
-        )
-        return
-      }
-      setDslText(extractedDsl)
-      setDslCodexStatus('SJV Script updated via Codex.')
-    } catch (error) {
-      setDslError(error instanceof Error ? error.message : 'Failed to run Codex.')
-    } finally {
-      setDslCodexRunning(false)
-    }
-  }
-
   const journeyTimelineContent = (
     <>
       <div className="journey-timeline-toolbar">
@@ -2481,35 +2433,9 @@ function App() {
         >
           Import SJV Script
         </button>
-        <input
-          className="dsl-codex-instruction"
-          value={dslCodexInstruction}
-          onChange={(event) => setDslCodexInstruction(event.target.value)}
-          placeholder="Instruction for Codex (e.g. split async flows by boundary)"
-          disabled={dslSyncEnabled}
-        />
-        <button
-          type="button"
-          onClick={() => void runCodexAssistForDsl()}
-          disabled={dslCodexRunning || dslSyncEnabled}
-          title={withTooltip('Send the current SJV Script and instruction to Codex')}
-        >
-          {dslCodexRunning ? 'Running Codex...' : 'Refine with Codex'}
-        </button>
-        <button
-          type="button"
-          onClick={() => {
-            setDslCodexThreadId(null)
-            setDslCodexStatus('Codex thread context cleared.')
-          }}
-          disabled={!dslCodexThreadId || dslCodexRunning || dslSyncEnabled}
-          title={withTooltip('Reset Codex conversation memory for SJV Script refinement')}
-        >
-          Clear Codex context
-        </button>
       </div>
       <div className="dsl-monaco-editor">
-        <Suspense fallback={<p className="dsl-codex-status">Loading SJV Script editor...</p>}>
+        <Suspense fallback={<p className="dsl-status-message">Loading SJV Script editor...</p>}>
           <MonacoEditor
             beforeMount={handleDslEditorBeforeMount}
             language={JOURNEY_SCRIPT_LANGUAGE_ID}
@@ -2532,10 +2458,8 @@ function App() {
       </div>
       <div className="dsl-status-stack">
         {dslSyncEnabled ? (
-          <p className="dsl-codex-status">Sync active: valid SJV Script changes are applied to the view in real time.</p>
+          <p className="dsl-status-message">Sync active: valid SJV Script changes are applied to the view in real time.</p>
         ) : null}
-        {dslCodexThreadId ? <p className="dsl-codex-thread">Thread Codex: {dslCodexThreadId}</p> : null}
-        {dslCodexStatus ? <p className="dsl-codex-status">{dslCodexStatus}</p> : null}
         {dslError ? <p className="dsl-error">{dslError}</p> : null}
       </div>
     </div>

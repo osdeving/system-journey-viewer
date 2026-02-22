@@ -301,6 +301,21 @@ export const GUIDED_UI_TUTORIAL_STEPS: GuidedTutorialStep[] = [
     },
   },
   {
+    id: 'window-open-inspector-panel',
+    title: 'Open Inspector from Window Menu',
+    body:
+      'Use the Window menu to open panels. Click "Open Inspector Panel" now to continue.',
+    placement: 'right',
+    target: { kind: 'selector', selector: '[data-tutorial-id="window-menu-open-inspector-panel"]', padding: 6 },
+    completionRule: {
+      kind: 'event',
+      eventId: 'window-menu-open-panel:inspector',
+      prompt: 'Click "Open Inspector Panel" in the Window menu to continue.',
+    },
+    missingTargetHint:
+      'Open the Window menu to reveal this action.',
+  },
+  {
     id: 'toolbar',
     title: 'Toolbar',
     body:
@@ -368,6 +383,34 @@ export const GUIDED_UI_TUTORIAL_STEPS: GuidedTutorialStep[] = [
     placement: 'left',
     setupAction: 'openInspectorRight',
     target: { kind: 'selector', selector: '[data-tutorial-id="managed-host-right"]', padding: 8 },
+  },
+  {
+    id: 'select-node',
+    title: 'Select a Node',
+    body:
+      'Click any node on the canvas. The Inspector panel will show its properties when a node is selected.',
+    placement: 'top',
+    target: { kind: 'selector', selector: '[data-tutorial-id="canvas-panel"]', padding: 8 },
+    completionRule: {
+      kind: 'event',
+      eventId: 'node-select',
+      prompt: 'Click a node on the canvas to continue.',
+    },
+  },
+  {
+    id: 'edit-node-name',
+    title: 'Edit the Node Name',
+    body:
+      'With a node selected, edit its name in the Inspector. This demonstrates live property editing.',
+    placement: 'left',
+    target: { kind: 'selector', selector: '[data-tutorial-id="inspector-node-name"]', padding: 6 },
+    completionRule: {
+      kind: 'event',
+      eventId: 'inspector-node-name-edit',
+      prompt: 'Change the selected node name in the Inspector to continue.',
+    },
+    missingTargetHint:
+      'Select a node first and make sure the Inspector panel is open to reveal the Name field.',
   },
   {
     id: 'sjv-script',

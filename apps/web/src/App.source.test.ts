@@ -19,6 +19,15 @@ describe('App source regressions', () => {
     expect(appSource).toContain('const [drawerCollapsed, setDrawerCollapsed] = useState(windowLayoutBootstrap.drawerCollapsed)')
   })
 
+  it('persists UI density and applies a root density class', () => {
+    expect(appSource).toContain("type UiDensity = 'comfortable' | 'compact'")
+    expect(appSource).toContain("density: 'comfortable'")
+    expect(appSource).toContain("parsed.density === 'compact' || parsed.density === 'comfortable'")
+    expect(appSource).toContain('UI density')
+    expect(appSource).toContain('UI Density: Compact')
+    expect(appSource).toContain('app-layout-density-${uiPreferences.density}')
+  })
+
   it('keeps SJV Script panel free of Codex action buttons', () => {
     expect(appSource).not.toContain('Refine with Codex')
     expect(appSource).not.toContain('Clear Codex context')

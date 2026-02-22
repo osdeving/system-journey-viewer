@@ -12,12 +12,24 @@ import confetti from 'canvas-confetti'
 import type { Monaco } from '@monaco-editor/react'
 import ReactMarkdown from 'react-markdown'
 import {
+  BookOpen,
   CircleHelp,
   Code2,
+  Copy,
   Dock,
+  Download,
+  FilePlus2,
+  Filter,
+  FolderOpen,
+  Grid3X3,
   GripVertical,
+  Image,
+  Info,
+  Languages,
   Link2,
   ListOrdered,
+  Magnet,
+  Moon,
   MousePointer,
   PanelBottomClose,
   PanelBottomOpen,
@@ -27,15 +39,23 @@ import {
   PanelRightOpen,
   Pause,
   Play,
+  Plus,
   Presentation,
+  Redo2,
   RotateCcw,
+  Save,
   SkipBack,
   SkipForward,
   SlidersHorizontal,
   Sparkles,
+  Sun,
   Target,
+  Trash2,
+  Undo2,
   Workflow,
   X,
+  ZoomIn,
+  ZoomOut,
 } from 'lucide-react'
 import './App.css'
 import { OverflowStrip } from './components/chrome/OverflowStrip'
@@ -189,11 +209,13 @@ type FileWriteMode = 'prompt' | 'reuse'
 type StepDragState = { journeyId: string; edgeId: string }
 type HelpSection = 'guide' | 'gallery' | 'about'
 type ToolbarSectionId = 'navigation' | 'editing' | 'viewport' | 'panels' | 'modes'
+type UiDensity = 'comfortable' | 'compact'
 
 type UiPreferences = {
   tooltipsEnabled: boolean
   splashEnabled: boolean
   showcaseLocale: ShowcaseLocale
+  density: UiDensity
   toolbarVisibility: Record<ToolbarSectionId, boolean>
 }
 
@@ -277,6 +299,7 @@ const DEFAULT_UI_PREFERENCES: UiPreferences = {
   tooltipsEnabled: true,
   splashEnabled: true,
   showcaseLocale: 'en',
+  density: 'comfortable',
   toolbarVisibility: {
     navigation: true,
     editing: true,
@@ -303,6 +326,10 @@ const resolveInitialUiPreferences = (): UiPreferences => {
         parsed.showcaseLocale === 'pt' || parsed.showcaseLocale === 'en'
           ? parsed.showcaseLocale
           : DEFAULT_UI_PREFERENCES.showcaseLocale,
+      density:
+        parsed.density === 'compact' || parsed.density === 'comfortable'
+          ? parsed.density
+          : DEFAULT_UI_PREFERENCES.density,
       toolbarVisibility: {
         navigation:
           parsed.toolbarVisibility?.navigation ?? DEFAULT_UI_PREFERENCES.toolbarVisibility.navigation,
@@ -843,6 +870,20 @@ function App() {
         </span>
         <span>{label}</span>
       </span>
+    ),
+    [],
+  )
+  const renderDesktopMenuItem = useCallback(
+    (icon: ReactNode, label: ReactNode, trailing?: ReactNode) => (
+      <>
+        <span className="desktop-menu-item-main">
+          <span className="desktop-menu-item-icon" aria-hidden="true">
+            {icon}
+          </span>
+          <span>{label}</span>
+        </span>
+        {trailing ?? null}
+      </>
     ),
     [],
   )
@@ -3288,6 +3329,21 @@ function App() {
           <option value="pt">Portuguese</option>
         </select>
       </label>
+      <label className="preferences-select">
+        UI density
+        <select
+          value={uiPreferences.density}
+          onChange={(event) =>
+            setUiPreferences((current) => ({
+              ...current,
+              density: event.target.value as UiDensity,
+            }))
+          }
+        >
+          <option value="comfortable">Comfortable</option>
+          <option value="compact">Compact</option>
+        </select>
+      </label>
       <fieldset className="preferences-fieldset">
         <legend>Toolbar sections</legend>
         <label className="preferences-toggle">
@@ -4140,7 +4196,7 @@ function App() {
       ref={layoutRef}
       className={`app-layout ${focusMode ? 'app-layout-focus' : ''} ${
         presentationMode ? 'app-layout-presentation' : ''
-      } ${theme === 'dark' ? 'theme-dark' : 'theme-light'}`}
+      } app-layout-density-${uiPreferences.density} ${theme === 'dark' ? 'theme-dark' : 'theme-light'}`}
       style={layoutStyle}
     >
       <input
@@ -4219,8 +4275,7 @@ function App() {
                     role="menuitem"
                     onClick={() => runDesktopMenuAction(() => createNewWorkspaceFile())}
                   >
-                    <span>New File</span>
-                    <kbd>Ctrl+N</kbd>
+                    {renderDesktopMenuItem(<FilePlus2 size={13} />, 'New File', <kbd>Ctrl+N</kbd>)}
                   </button>
                   <button
                     type="button"
@@ -4231,8 +4286,7 @@ function App() {
                       })
                     }
                   >
-                    <span>Open File...</span>
-                    <kbd>Ctrl+O</kbd>
+                    {renderDesktopMenuItem(<FolderOpen size={13} />, 'Open File...', <kbd>Ctrl+O</kbd>)}
                   </button>
                   {recentWorkspaces.map((entry) => (
                     <button
@@ -4242,7 +4296,7 @@ function App() {
                       onClick={() => runDesktopMenuAction(() => openRecentWorkspace(entry))}
                       title={withTooltip(new Date(entry.savedAtIso).toLocaleString())}
                     >
-                      <span>Recent: {entry.name}</span>
+                      {renderDesktopMenuItem(<FolderOpen size={13} />, `Recent: ${entry.name}`)}
                     </button>
                   ))}
                   <button
@@ -4254,8 +4308,7 @@ function App() {
                       })
                     }
                   >
-                    <span>Save File</span>
-                    <kbd>Ctrl+S</kbd>
+                    {renderDesktopMenuItem(<Save size={13} />, 'Save File', <kbd>Ctrl+S</kbd>)}
                   </button>
                   <button
                     type="button"
@@ -4266,15 +4319,13 @@ function App() {
                       })
                     }
                   >
-                    <span>Save File As...</span>
-                    <kbd>Ctrl+Shift+S</kbd>
+                    {renderDesktopMenuItem(<Save size={13} />, 'Save File As...', <kbd>Ctrl+Shift+S</kbd>)}
                   </button>
                   <button type="button" role="menuitem" onClick={() => runDesktopMenuAction(() => persist())}>
-                    <span>Save Snapshot</span>
+                    {renderDesktopMenuItem(<Download size={13} />, 'Save Snapshot')}
                   </button>
                   <button type="button" role="menuitem" onClick={() => runDesktopMenuAction(() => hydrate())}>
-                    <span>Reload Snapshot</span>
-                    <kbd>Ctrl+R</kbd>
+                    {renderDesktopMenuItem(<RotateCcw size={13} />, 'Reload Snapshot', <kbd>Ctrl+R</kbd>)}
                   </button>
                   <button
                     type="button"
@@ -4285,7 +4336,7 @@ function App() {
                       })
                     }
                   >
-                    <span>Export SVG</span>
+                    {renderDesktopMenuItem(<Image size={13} />, 'Export SVG')}
                   </button>
                   <button
                     type="button"
@@ -4296,7 +4347,7 @@ function App() {
                       })
                     }
                   >
-                    <span>Export PNG</span>
+                    {renderDesktopMenuItem(<Image size={13} />, 'Export PNG')}
                   </button>
                   <button
                     type="button"
@@ -4307,7 +4358,7 @@ function App() {
                       })
                     }
                   >
-                    <span>Export PDF</span>
+                    {renderDesktopMenuItem(<Download size={13} />, 'Export PDF')}
                   </button>
                   <button
                     type="button"
@@ -4319,7 +4370,7 @@ function App() {
                       })
                     }
                   >
-                    <span>{animatedExportRunning ? 'Exporting...' : 'Export GIF'}</span>
+                    {renderDesktopMenuItem(<Image size={13} />, animatedExportRunning ? 'Exporting...' : 'Export GIF')}
                   </button>
                   <button
                     type="button"
@@ -4331,7 +4382,10 @@ function App() {
                       })
                     }
                   >
-                    <span>{animatedExportRunning ? 'Exporting...' : 'Export MP4'}</span>
+                    {renderDesktopMenuItem(
+                      <Presentation size={13} />,
+                      animatedExportRunning ? 'Exporting...' : 'Export MP4',
+                    )}
                   </button>
                   <button
                     type="button"
@@ -4343,10 +4397,13 @@ function App() {
                       })
                     }
                   >
-                    <span>{animatedExportRunning ? 'Exporting...' : 'Export Animated SVG'}</span>
+                    {renderDesktopMenuItem(
+                      <Code2 size={13} />,
+                      animatedExportRunning ? 'Exporting...' : 'Export Animated SVG',
+                    )}
                   </button>
                   <button type="button" role="menuitem" onClick={() => runDesktopMenuAction(() => resetWorkspace())}>
-                    <span>Reset Workspace</span>
+                    {renderDesktopMenuItem(<RotateCcw size={13} />, 'Reset Workspace')}
                   </button>
                 </div>
               ) : null}
@@ -4377,8 +4434,7 @@ function App() {
                     disabled={!canUndo}
                     onClick={() => runDesktopMenuAction(() => undoHistory())}
                   >
-                    <span>Undo</span>
-                    <kbd>Ctrl+Z</kbd>
+                    {renderDesktopMenuItem(<Undo2 size={13} />, 'Undo', <kbd>Ctrl+Z</kbd>)}
                   </button>
                   <button
                     type="button"
@@ -4386,28 +4442,24 @@ function App() {
                     disabled={!canRedo}
                     onClick={() => runDesktopMenuAction(() => redoHistory())}
                   >
-                    <span>Redo</span>
-                    <kbd>Ctrl+Shift+Z</kbd>
+                    {renderDesktopMenuItem(<Redo2 size={13} />, 'Redo', <kbd>Ctrl+Shift+Z</kbd>)}
                   </button>
                   <button type="button" role="menuitem" onClick={() => runDesktopMenuAction(() => navigateBack())}>
-                    <span>Back</span>
-                    <kbd>Alt+←</kbd>
+                    {renderDesktopMenuItem(<PanelLeftOpen size={13} />, 'Back', <kbd>Alt+←</kbd>)}
                   </button>
                   <button
                     type="button"
                     role="menuitem"
                     onClick={() => runDesktopMenuAction(() => setActiveTool('select'))}
                   >
-                    <span>Select Tool</span>
-                    <kbd>V</kbd>
+                    {renderDesktopMenuItem(<MousePointer size={13} />, 'Select Tool', <kbd>V</kbd>)}
                   </button>
                   <button
                     type="button"
                     role="menuitem"
                     onClick={() => runDesktopMenuAction(() => setActiveTool('connector'))}
                   >
-                    <span>Connector Tool</span>
-                    <kbd>C</kbd>
+                    {renderDesktopMenuItem(<Link2 size={13} />, 'Connector Tool', <kbd>C</kbd>)}
                   </button>
                   <button
                     type="button"
@@ -4415,8 +4467,7 @@ function App() {
                     disabled={!selectedNodes.length && !selectedEdge}
                     onClick={() => runDesktopMenuAction(() => duplicateCurrentSelection())}
                   >
-                    <span>Duplicate Selection</span>
-                    <kbd>Ctrl+D</kbd>
+                    {renderDesktopMenuItem(<Copy size={13} />, 'Duplicate Selection', <kbd>Ctrl+D</kbd>)}
                   </button>
                   <button
                     type="button"
@@ -4424,8 +4475,7 @@ function App() {
                     disabled={!selectedNodes.length && !selectedEdge}
                     onClick={() => runDesktopMenuAction(() => deleteCurrentSelection())}
                   >
-                    <span>Delete Selection</span>
-                    <kbd>Del</kbd>
+                    {renderDesktopMenuItem(<Trash2 size={13} />, 'Delete Selection', <kbd>Del</kbd>)}
                   </button>
                 </div>
               ) : null}
@@ -4451,52 +4501,54 @@ function App() {
               {openDesktopMenu === 'view' ? (
                 <div id="desktop-menu-view" className="desktop-menu-list" role="menu" aria-label="View menu">
                   <button type="button" role="menuitem" onClick={() => runDesktopMenuAction(() => zoomByFactor(1.1))}>
-                    <span>Zoom In</span>
-                    <kbd>Ctrl+</kbd>
+                    {renderDesktopMenuItem(<ZoomIn size={13} />, 'Zoom In', <kbd>Ctrl+</kbd>)}
                   </button>
                   <button type="button" role="menuitem" onClick={() => runDesktopMenuAction(() => zoomByFactor(0.9))}>
-                    <span>Zoom Out</span>
-                    <kbd>Ctrl-</kbd>
+                    {renderDesktopMenuItem(<ZoomOut size={13} />, 'Zoom Out', <kbd>Ctrl-</kbd>)}
                   </button>
                   <button
                     type="button"
                     role="menuitem"
                     onClick={() => runDesktopMenuAction(() => runAutoArrange())}
                   >
-                    <span>Auto Arrange</span>
-                    <kbd>Ctrl+Shift+L</kbd>
+                    {renderDesktopMenuItem(<Sparkles size={13} />, 'Auto Arrange', <kbd>Ctrl+Shift+L</kbd>)}
                   </button>
                   <button
                     type="button"
                     role="menuitem"
                     onClick={() => runDesktopMenuAction(() => setGridEnabled(!gridEnabled))}
                   >
-                    <span>{gridEnabled ? 'Hide Grid' : 'Show Grid'}</span>
+                    {renderDesktopMenuItem(<Grid3X3 size={13} />, gridEnabled ? 'Hide Grid' : 'Show Grid')}
                   </button>
                   <button
                     type="button"
                     role="menuitem"
                     onClick={() => runDesktopMenuAction(() => setSnapEnabled(!snapEnabled))}
                   >
-                    <span>{snapEnabled ? 'Disable Snap' : 'Enable Snap'}</span>
+                    {renderDesktopMenuItem(<Magnet size={13} />, snapEnabled ? 'Disable Snap' : 'Enable Snap')}
                   </button>
                   <button
                     type="button"
                     role="menuitem"
                     onClick={() => runDesktopMenuAction(() => setTheme(theme === 'dark' ? 'light' : 'dark'))}
                   >
-                    <span>{theme === 'dark' ? 'Use Light Theme' : 'Use Dark Theme'}</span>
+                    {renderDesktopMenuItem(
+                      theme === 'dark' ? <Sun size={13} /> : <Moon size={13} />,
+                      theme === 'dark' ? 'Use Light Theme' : 'Use Dark Theme',
+                    )}
                   </button>
                   <button type="button" role="menuitem" onClick={() => runDesktopMenuAction(() => toggleFocusMode())}>
-                    <span>{focusMode ? 'Exit Focus Mode' : 'Focus Mode'}</span>
-                    <kbd>F</kbd>
+                    {renderDesktopMenuItem(<Target size={13} />, focusMode ? 'Exit Focus Mode' : 'Focus Mode', <kbd>F</kbd>)}
                   </button>
                   <button
                     type="button"
                     role="menuitem"
                     onClick={() => runDesktopMenuAction(() => togglePresentationMode())}
                   >
-                    <span>{presentationMode ? 'Exit Presentation' : 'Presentation Mode'}</span>
+                    {renderDesktopMenuItem(
+                      <Presentation size={13} />,
+                      presentationMode ? 'Exit Presentation' : 'Presentation Mode',
+                    )}
                   </button>
                 </div>
               ) : null}
@@ -4686,7 +4738,7 @@ function App() {
                       })
                     }
                   >
-                    <span>Create Journey</span>
+                    {renderDesktopMenuItem(<Plus size={13} />, 'Create Journey')}
                   </button>
                   <button
                     type="button"
@@ -4697,7 +4749,7 @@ function App() {
                       })
                     }
                   >
-                    <span>Clear Journey Filter</span>
+                    {renderDesktopMenuItem(<Filter size={13} />, 'Clear Journey Filter')}
                   </button>
                   {viewJourneys.length ? (
                     <>
@@ -4712,10 +4764,13 @@ function App() {
                             })
                           }
                         >
-                          <span>
+                          {renderDesktopMenuItem(
+                            <Filter size={13} />,
+                            <>
                             {journeyFilterId === journey.id ? 'Filtering: ' : 'Filter: '}
                             {journey.name}
-                          </span>
+                            </>,
+                          )}
                         </button>
                       ))}
                     </>
@@ -4731,9 +4786,12 @@ function App() {
                       )
                     }
                   >
-                    <span>
+                    {renderDesktopMenuItem(
+                      <Target size={13} />,
+                      <>
                       Focus: Show{journeyFocusSettings.offscopeRenderMode === 'show' ? ' (active)' : ''}
-                    </span>
+                      </>,
+                    )}
                   </button>
                   <button
                     type="button"
@@ -4746,9 +4804,12 @@ function App() {
                       )
                     }
                   >
-                    <span>
+                    {renderDesktopMenuItem(
+                      <Target size={13} />,
+                      <>
                       Focus: Dim{journeyFocusSettings.offscopeRenderMode === 'dim' ? ' (active)' : ''}
-                    </span>
+                      </>,
+                    )}
                   </button>
                   <button
                     type="button"
@@ -4761,9 +4822,12 @@ function App() {
                       )
                     }
                   >
-                    <span>
+                    {renderDesktopMenuItem(
+                      <Target size={13} />,
+                      <>
                       Focus: Hide{journeyFocusSettings.offscopeRenderMode === 'hide' ? ' (active)' : ''}
-                    </span>
+                      </>,
+                    )}
                   </button>
                   <button
                     type="button"
@@ -4776,10 +4840,13 @@ function App() {
                       )
                     }
                   >
-                    <span>
+                    {renderDesktopMenuItem(
+                      <Grid3X3 size={13} />,
+                      <>
                       Filter Layout: Preserve
                       {journeyFocusSettings.layoutMode === 'preserve' ? ' (active)' : ''}
-                    </span>
+                      </>,
+                    )}
                   </button>
                   <button
                     type="button"
@@ -4792,10 +4859,13 @@ function App() {
                       )
                     }
                   >
-                    <span>
+                    {renderDesktopMenuItem(
+                      <Grid3X3 size={13} />,
+                      <>
                       Filter Layout: Reflow
                       {journeyFocusSettings.layoutMode === 'reflow' ? ' (active)' : ''}
-                    </span>
+                      </>,
+                    )}
                   </button>
                   <button
                     type="button"
@@ -4808,10 +4878,13 @@ function App() {
                       )
                     }
                   >
-                    <span>
+                    {renderDesktopMenuItem(
+                      <Sparkles size={13} />,
+                      <>
                       Auto-layout: Manual
                       {journeyFocusSettings.autoLayoutMode === 'manual' ? ' (active)' : ''}
-                    </span>
+                      </>,
+                    )}
                   </button>
                   <button
                     type="button"
@@ -4824,13 +4897,16 @@ function App() {
                       )
                     }
                   >
-                    <span>
+                    {renderDesktopMenuItem(
+                      <Sparkles size={13} />,
+                      <>
                       Auto-layout: Always
                       {journeyFocusSettings.autoLayoutMode === 'always' ? ' (active)' : ''}
-                    </span>
+                      </>,
+                    )}
                   </button>
                   <button type="button" role="menuitem" onClick={() => runDesktopMenuAction(() => runAutoArrange())}>
-                    <span>Apply Layout Now</span>
+                    {renderDesktopMenuItem(<Sparkles size={13} />, 'Apply Layout Now')}
                   </button>
                   <button
                     type="button"
@@ -4841,7 +4917,7 @@ function App() {
                       )
                     }
                   >
-                    <span>Animation: Cinematic</span>
+                    {renderDesktopMenuItem(<Sparkles size={13} />, 'Animation: Cinematic')}
                   </button>
                   <button
                     type="button"
@@ -4852,7 +4928,7 @@ function App() {
                       )
                     }
                   >
-                    <span>Animation: Orb only</span>
+                    {renderDesktopMenuItem(<Sparkles size={13} />, 'Animation: Orb only')}
                   </button>
                   <button
                     type="button"
@@ -4863,7 +4939,7 @@ function App() {
                       )
                     }
                   >
-                    <span>Animation: Minimal</span>
+                    {renderDesktopMenuItem(<Sparkles size={13} />, 'Animation: Minimal')}
                   </button>
                   <button
                     type="button"
@@ -4871,7 +4947,7 @@ function App() {
                     disabled={!playerJourney}
                     onClick={() => runDesktopMenuAction(() => prevPlayerStep())}
                   >
-                    <span>Player: Previous Step</span>
+                    {renderDesktopMenuItem(<SkipBack size={13} />, 'Player: Previous Step')}
                   </button>
                   <button
                     type="button"
@@ -4879,7 +4955,10 @@ function App() {
                     disabled={!playerJourney}
                     onClick={() => runDesktopMenuAction(() => setPlayerRunning(!playerIsRunning))}
                   >
-                    <span>{playerIsRunning ? 'Player: Pause' : 'Player: Play'}</span>
+                    {renderDesktopMenuItem(
+                      playerIsRunning ? <Pause size={13} /> : <Play size={13} />,
+                      playerIsRunning ? 'Player: Pause' : 'Player: Play',
+                    )}
                   </button>
                   <button
                     type="button"
@@ -4887,7 +4966,7 @@ function App() {
                     disabled={!playerJourney}
                     onClick={() => runDesktopMenuAction(() => stepPlayer())}
                   >
-                    <span>Player: Next Step</span>
+                    {renderDesktopMenuItem(<SkipForward size={13} />, 'Player: Next Step')}
                   </button>
                   <button
                     type="button"
@@ -4895,28 +4974,31 @@ function App() {
                     disabled={!playerJourney}
                     onClick={() => runDesktopMenuAction(() => resetPlayer())}
                   >
-                    <span>Player: Reset</span>
+                    {renderDesktopMenuItem(<RotateCcw size={13} />, 'Player: Reset')}
                   </button>
                   <button
                     type="button"
                     role="menuitem"
                     onClick={() => runDesktopMenuAction(() => setPlayerLoop(!playerLoop))}
                   >
-                    <span>{playerLoop ? 'Loop: On' : 'Loop: Off'}</span>
+                    {renderDesktopMenuItem(<RotateCcw size={13} />, playerLoop ? 'Loop: On' : 'Loop: Off')}
                   </button>
                   <button
                     type="button"
                     role="menuitem"
                     onClick={() => runDesktopMenuAction(() => setPlayerHighlightNodes(!playerHighlightNodes))}
                   >
-                    <span>{playerHighlightNodes ? 'Highlight: On' : 'Highlight: Off'}</span>
+                    {renderDesktopMenuItem(
+                      <Target size={13} />,
+                      playerHighlightNodes ? 'Highlight: On' : 'Highlight: Off',
+                    )}
                   </button>
                   <button
                     type="button"
                     role="menuitem"
                     onClick={() => runDesktopMenuAction(() => setPlayerTrailEnabled(!playerTrailEnabled))}
                   >
-                    <span>{playerTrailEnabled ? 'Trail: On' : 'Trail: Off'}</span>
+                    {renderDesktopMenuItem(<Workflow size={13} />, playerTrailEnabled ? 'Trail: On' : 'Trail: Off')}
                   </button>
                 </div>
               ) : null}
@@ -4953,35 +5035,38 @@ function App() {
                       runDesktopMenuAction(() => loadShowcasePreset('showcase', uiPreferences.showcaseLocale))
                     }
                   >
-                    <span>Load Showcase ({uiPreferences.showcaseLocale.toUpperCase()})</span>
+                    {renderDesktopMenuItem(
+                      <Sparkles size={13} />,
+                      `Load Showcase (${uiPreferences.showcaseLocale.toUpperCase()})`,
+                    )}
                   </button>
                   <button
                     type="button"
                     role="menuitem"
                     onClick={() => runDesktopMenuAction(() => loadShowcasePreset('showcase', 'en'))}
                   >
-                    <span>Load Showcase (EN)</span>
+                    {renderDesktopMenuItem(<Sparkles size={13} />, 'Load Showcase (EN)')}
                   </button>
                   <button
                     type="button"
                     role="menuitem"
                     onClick={() => runDesktopMenuAction(() => loadShowcasePreset('showcase', 'pt'))}
                   >
-                    <span>Load Showcase (PT)</span>
+                    {renderDesktopMenuItem(<Sparkles size={13} />, 'Load Showcase (PT)')}
                   </button>
                   <button
                     type="button"
                     role="menuitem"
                     onClick={() => runDesktopMenuAction(() => loadShowcasePreset('tutorial', 'en'))}
                   >
-                    <span>Load Tutorial (EN)</span>
+                    {renderDesktopMenuItem(<BookOpen size={13} />, 'Load Tutorial (EN)')}
                   </button>
                   <button
                     type="button"
                     role="menuitem"
                     onClick={() => runDesktopMenuAction(() => loadShowcasePreset('tutorial', 'pt'))}
                   >
-                    <span>Load Tutorial (PT)</span>
+                    {renderDesktopMenuItem(<BookOpen size={13} />, 'Load Tutorial (PT)')}
                   </button>
                 </div>
               ) : null}
@@ -5011,7 +5096,7 @@ function App() {
                     role="menuitem"
                     onClick={() => runDesktopMenuAction(() => openPreferencesWindow())}
                   >
-                    <span>Open Preferences</span>
+                    {renderDesktopMenuItem(<SlidersHorizontal size={13} />, 'Open Preferences')}
                   </button>
                   <button
                     type="button"
@@ -5025,7 +5110,10 @@ function App() {
                       )
                     }
                   >
-                    <span>{uiPreferences.tooltipsEnabled ? 'Disable Tooltips' : 'Enable Tooltips'}</span>
+                    {renderDesktopMenuItem(
+                      <CircleHelp size={13} />,
+                      uiPreferences.tooltipsEnabled ? 'Disable Tooltips' : 'Enable Tooltips',
+                    )}
                   </button>
                   <button
                     type="button"
@@ -5039,7 +5127,10 @@ function App() {
                       )
                     }
                   >
-                    <span>{uiPreferences.splashEnabled ? 'Disable Startup Splash' : 'Enable Startup Splash'}</span>
+                    {renderDesktopMenuItem(
+                      <Sparkles size={13} />,
+                      uiPreferences.splashEnabled ? 'Disable Startup Splash' : 'Enable Startup Splash',
+                    )}
                   </button>
                   <button
                     type="button"
@@ -5050,7 +5141,10 @@ function App() {
                       )
                     }
                   >
-                    <span>Showcase Language: English{uiPreferences.showcaseLocale === 'en' ? ' (active)' : ''}</span>
+                    {renderDesktopMenuItem(
+                      <Languages size={13} />,
+                      `Showcase Language: English${uiPreferences.showcaseLocale === 'en' ? ' (active)' : ''}`,
+                    )}
                   </button>
                   <button
                     type="button"
@@ -5061,7 +5155,38 @@ function App() {
                       )
                     }
                   >
-                    <span>Showcase Language: Portuguese{uiPreferences.showcaseLocale === 'pt' ? ' (active)' : ''}</span>
+                    {renderDesktopMenuItem(
+                      <Languages size={13} />,
+                      `Showcase Language: Portuguese${uiPreferences.showcaseLocale === 'pt' ? ' (active)' : ''}`,
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() =>
+                      runDesktopMenuAction(() =>
+                        setUiPreferences((current) => ({ ...current, density: 'comfortable' })),
+                      )
+                    }
+                  >
+                    {renderDesktopMenuItem(
+                      <Grid3X3 size={13} />,
+                      `UI Density: Comfortable${uiPreferences.density === 'comfortable' ? ' (active)' : ''}`,
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() =>
+                      runDesktopMenuAction(() =>
+                        setUiPreferences((current) => ({ ...current, density: 'compact' })),
+                      )
+                    }
+                  >
+                    {renderDesktopMenuItem(
+                      <Grid3X3 size={13} />,
+                      `UI Density: Compact${uiPreferences.density === 'compact' ? ' (active)' : ''}`,
+                    )}
                   </button>
                 </div>
               ) : null}
@@ -5087,7 +5212,7 @@ function App() {
               {openDesktopMenu === 'help' ? (
                 <div id="desktop-menu-help" className="desktop-menu-list" role="menu" aria-label="Help menu">
                   <button type="button" role="menuitem" onClick={() => runDesktopMenuAction(() => startGuidedTutorial())}>
-                    <span>Start Guided Tutorial</span>
+                    {renderDesktopMenuItem(<Sparkles size={13} />, 'Start Guided Tutorial')}
                   </button>
                   <button
                     type="button"
@@ -5098,7 +5223,7 @@ function App() {
                       })
                     }
                   >
-                    <span>Open Help Guide</span>
+                    {renderDesktopMenuItem(<BookOpen size={13} />, 'Open Help Guide')}
                   </button>
                   <button
                     type="button"
@@ -5109,7 +5234,7 @@ function App() {
                       })
                     }
                   >
-                    <span>Open Export Gallery</span>
+                    {renderDesktopMenuItem(<Image size={13} />, 'Open Export Gallery')}
                   </button>
                   <button
                     type="button"
@@ -5120,7 +5245,7 @@ function App() {
                       })
                     }
                   >
-                    <span>Open About</span>
+                    {renderDesktopMenuItem(<Info size={13} />, 'Open About')}
                   </button>
                   <button
                     type="button"
@@ -5131,35 +5256,35 @@ function App() {
                       })
                     }
                   >
-                    <span>Show Splash</span>
+                    {renderDesktopMenuItem(<Sparkles size={13} />, 'Show Splash')}
                   </button>
                   <button
                     type="button"
                     role="menuitem"
                     onClick={() => runDesktopMenuAction(() => loadShowcasePreset('showcase', 'en'))}
                   >
-                    <span>Load Showcase (EN)</span>
+                    {renderDesktopMenuItem(<Sparkles size={13} />, 'Load Showcase (EN)')}
                   </button>
                   <button
                     type="button"
                     role="menuitem"
                     onClick={() => runDesktopMenuAction(() => loadShowcasePreset('showcase', 'pt'))}
                   >
-                    <span>Load Showcase (PT)</span>
+                    {renderDesktopMenuItem(<Sparkles size={13} />, 'Load Showcase (PT)')}
                   </button>
                   <button
                     type="button"
                     role="menuitem"
                     onClick={() => runDesktopMenuAction(() => loadShowcasePreset('tutorial', 'en'))}
                   >
-                    <span>Load Tutorial (EN)</span>
+                    {renderDesktopMenuItem(<BookOpen size={13} />, 'Load Tutorial (EN)')}
                   </button>
                   <button
                     type="button"
                     role="menuitem"
                     onClick={() => runDesktopMenuAction(() => loadShowcasePreset('tutorial', 'pt'))}
                   >
-                    <span>Load Tutorial (PT)</span>
+                    {renderDesktopMenuItem(<BookOpen size={13} />, 'Load Tutorial (PT)')}
                   </button>
                 </div>
               ) : null}

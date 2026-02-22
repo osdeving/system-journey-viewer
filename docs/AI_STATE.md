@@ -302,6 +302,8 @@
     - Dock-host tabs now support wheel scrolling and drag-reorder, and SJV Script toolbar uses compact labels before showing overflow navigation.
     - Legacy dock shell regions/actions are now hidden when no legacy tabs exist, preventing duplicate empty side/bottom dock areas during managed-host layouts.
     - Window-menu items gained lightweight icons for faster scanning; floating `Preferences`/`Help` content layouts were tuned to avoid vertical control stretching on resize.
+    - Added a formal persisted `UI Density` preference (`comfortable | compact`) with a root density class and shared shell density tokens (menus, toolbars, dock tabs, drawer tabs, floating headers, panel padding/gaps).
+    - Desktop menu item icons are now applied consistently across all menus (`File`, `Edit`, `View`, `Window`, `Journey`, `Insert`, `Settings`, `Help`) via a shared render helper.
 - `Palette` no longer uses the legacy dedicated left sidebar render path; it is rendered via managed hosts/floating windows and default-opens docked left at startup.
 - Window-layout persistence now also stores managed host sizes (`managedLeftHostWidth`, `managedRightHostWidth`, `managedBottomHostHeight`) and `Restore/Reset Window Layout` applies them.
 - Splash is now a reusable component with auto-dismiss per-open + outside-click dismiss; floating window title bars and dock-host tab strips received UX polish (thinner title bars, smaller controls, tab overflow arrows instead of native scrollbar).

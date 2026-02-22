@@ -196,6 +196,11 @@
   - legacy dock panel now renders docked `help`/`preferences` through `DockHost` when active, while non-managed tabs still use legacy dock content paths,
   - managed host tab selection in dock UI now syncs `activeDockTab` with managed host `activeTab`,
   - managed docked `help`/`preferences` tabs support float/close actions directly inside the dock host panel.
+- Window-manager phase 4 layout-host slice:
+  - managed hosts now render as dedicated app-layout regions (`managedLeft`, `managedRight`, `managedBottom`) with real grid columns/row,
+  - `Help`/`Preferences` dock actions target managed hosts directly instead of moving the legacy dock,
+  - managed-host headers support host-to-host moves (`left|right|bottom`), float, and close,
+  - legacy dock strip now hides managed tabs and resolves legacy active-tab fallback when a managed window is docked to avoid duplicate panel content.
 - Splash UX:
   - Help menu now includes `Show Splash`,
   - Preferences also includes a `Show splash now` action for replaying the startup splash.

@@ -1579,3 +1579,32 @@ Chronological engineering log. Entries are kept concise and focused on behavior 
 - `npm --workspace @sjv/web run lint`
 - `npm --workspace @sjv/web run test:run`
 - `npm --workspace @sjv/web run build`
+
+## 2026-02-22 - Window manager phase 4 (layout hosts): dedicated left/right/bottom managed hosts in app grid
+
+### Scope
+
+- Added real in-layout managed window hosts for `left`, `right`, and `bottom` using the host-based state model from phases 2/3.
+- Kept the legacy dock system for non-managed tabs, but stopped treating managed windows (`Help`, `Preferences`) as legacy dock tabs in the legacy dock strip to avoid duplicated content.
+
+### Changes
+
+- `apps/web/src/App.tsx`
+  - app grid now reserves dedicated columns/row for managed hosts (`managedLeft`, `managedRight`, `managedBottom`) when host tabs exist,
+  - floating `Help/Preferences` dock actions now dock into managed hosts directly (no longer move the legacy dock position),
+  - added reusable managed-host panel renderer for all three managed hosts using `DockHost`,
+  - managed host headers now support move left/right/bottom + float + close on the active hosted window,
+  - legacy dock tab strip now hides managed-window tabs (`Help`, `Preferences`) and falls back to legacy tabs when a managed tab is currently docked, preventing duplicate rendering.
+- `apps/web/src/layout/layoutGrid.ts` / `apps/web/src/layout/layoutGrid.test.ts`
+  - grid rows now support an optional managed-bottom-host row between the canvas and the workbench drawer.
+- `apps/web/src/App.css`
+  - added styles for managed host sidebars and managed bottom host row,
+  - added dark-theme styles for the new managed host surfaces.
+- `apps/web/src/App.source.test.ts`, `apps/web/src/App.styles.test.ts`
+  - regressions for dedicated managed host regions and styles.
+
+### Validation
+
+- `npm --workspace @sjv/web run lint`
+- `npm --workspace @sjv/web run test:run`
+- `npm --workspace @sjv/web run build`

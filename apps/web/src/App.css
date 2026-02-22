@@ -417,7 +417,7 @@
   position: fixed;
   inset: 0;
   z-index: 2400;
-  pointer-events: auto;
+  pointer-events: none;
 }
 
 .guided-tutorial-backdrop {
@@ -504,6 +504,23 @@
   background: rgba(250, 204, 21, 0.08);
   border-radius: 8px;
   padding: 7px 8px;
+}
+
+.guided-tutorial-requirement {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.45;
+  color: #bfdbfe;
+  border: 1px dashed rgba(148, 163, 184, 0.28);
+  background: rgba(30, 41, 59, 0.32);
+  border-radius: 8px;
+  padding: 7px 8px;
+}
+
+.guided-tutorial-requirement-complete {
+  color: #86efac;
+  border-color: rgba(74, 222, 128, 0.35);
+  background: rgba(34, 197, 94, 0.08);
 }
 
 .guided-tutorial-actions {

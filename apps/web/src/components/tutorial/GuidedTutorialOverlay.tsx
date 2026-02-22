@@ -15,6 +15,9 @@ type GuidedTutorialOverlayProps = {
   step: GuidedTutorialStep
   stepIndex: number
   totalSteps: number
+  canAdvance: boolean
+  requiresAction: boolean
+  completionPrompt?: string | null
   onNext: () => void
   onBack: () => void
   onSkip: () => void
@@ -39,6 +42,9 @@ export function GuidedTutorialOverlay({
   step,
   stepIndex,
   totalSteps,
+  canAdvance,
+  requiresAction,
+  completionPrompt,
   onNext,
   onBack,
   onSkip,
@@ -87,7 +93,9 @@ export function GuidedTutorialOverlay({
       }
       if (event.key === 'ArrowRight' || event.key === 'Enter') {
         event.preventDefault()
-        onNext()
+        if (canAdvance) {
+          onNext()
+        }
       }
     }
 
@@ -95,7 +103,7 @@ export function GuidedTutorialOverlay({
     return () => {
       window.removeEventListener('keydown', onKeyDown)
     }
-  }, [onBack, onNext, onSkip])
+  }, [canAdvance, onBack, onNext, onSkip])
 
   const viewportWidth = typeof window === 'undefined' ? 1280 : window.innerWidth
   const viewportHeight = typeof window === 'undefined' ? 720 : window.innerHeight
@@ -145,6 +153,11 @@ export function GuidedTutorialOverlay({
             {step.missingTargetHint ?? 'This UI area is currently hidden by layout or preferences. You can continue the tutorial.'}
           </p>
         ) : null}
+        {requiresAction ? (
+          <p className={canAdvance ? 'guided-tutorial-requirement guided-tutorial-requirement-complete' : 'guided-tutorial-requirement'}>
+            {canAdvance ? 'Action completed.' : completionPrompt ?? 'Complete the highlighted action to continue.'}
+          </p>
+        ) : null}
         <footer className="guided-tutorial-actions">
           <button type="button" onClick={onBack} disabled={stepIndex <= 0}>
             Back
@@ -153,7 +166,12 @@ export function GuidedTutorialOverlay({
           <button type="button" className="guided-tutorial-link-button" onClick={onSkip}>
             Skip
           </button>
-          <button type="button" className="guided-tutorial-primary-button" onClick={onNext}>
+          <button
+            type="button"
+            className="guided-tutorial-primary-button"
+            onClick={onNext}
+            disabled={!canAdvance}
+          >
             {stepIndex >= totalSteps - 1 ? 'Finish' : 'Next'}
           </button>
         </footer>
@@ -162,4 +180,3 @@ export function GuidedTutorialOverlay({
     </div>
   )
 }
-

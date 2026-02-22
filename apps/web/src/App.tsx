@@ -97,6 +97,7 @@ import type { ShowcaseLocale, ShowcaseMode } from './model/showcaseWorkspace'
 import {
   clampGuidedTutorialStepIndex,
   GUIDED_UI_TUTORIAL_STEPS,
+  resolveGuidedTutorialStepCompletion,
   type GuidedTutorialStepSetupAction,
 } from './tutorial/guidedTutorial'
 import {
@@ -613,6 +614,7 @@ function App() {
   const [recentWorkspaces, setRecentWorkspaces] = useState<RecentWorkspaceEntry[]>(() => loadRecentWorkspaces())
   const [openDesktopMenu, setOpenDesktopMenu] = useState<DesktopMenuId | null>(null)
   const [guidedTutorialStepIndex, setGuidedTutorialStepIndex] = useState<number | null>(null)
+  const [guidedTutorialEventCounts, setGuidedTutorialEventCounts] = useState<Record<string, number>>({})
   const [canUndo, setCanUndo] = useState(false)
   const [canRedo, setCanRedo] = useState(false)
   const initialUiPreferences = useMemo(() => resolveInitialUiPreferences(), [])
@@ -622,6 +624,8 @@ function App() {
   const [uiPreferences, setUiPreferences] = useState<UiPreferences>(initialUiPreferences)
   const [splashVisible, setSplashVisible] = useState(initialUiPreferences.splashEnabled)
   const lastJourneyAutoLayoutKeyRef = useRef<string | null>(null)
+  const guidedTutorialEventCountsRef = useRef<Record<string, number>>({})
+  const guidedTutorialStepEventBaselineRef = useRef<Record<string, number>>({})
 
   const selectedNode = selectedNodeId ? workspace.nodes[selectedNodeId] : undefined
   const selectedEdge = selectedEdgeId ? workspace.edges[selectedEdgeId] : undefined
@@ -1029,7 +1033,19 @@ function App() {
     setOpenDesktopMenu(null)
   }
 
+  const recordGuidedTutorialEvent = (eventId: string) => {
+    setGuidedTutorialEventCounts((current) => {
+      const next = {
+        ...current,
+        [eventId]: (current[eventId] ?? 0) + 1,
+      }
+      guidedTutorialEventCountsRef.current = next
+      return next
+    })
+  }
+
   const openManagedFloatingWindow = (windowId: ManagedWindowId) => {
+    recordGuidedTutorialEvent(`open-window:${windowId}`)
     setManagedWindows((current) => floatManagedWindow(current, windowId))
   }
 
@@ -1089,6 +1105,7 @@ function App() {
   const openManagedDockedWindow = (windowId: ManagedWindowId) => {
     setFocusMode(false)
     setPresentationMode(false)
+    recordGuidedTutorialEvent(`open-window:${windowId}`)
     setManagedWindows((current) =>
       dockManagedWindowState(current, windowId, MANAGED_WINDOW_DEFAULT_HOST_BY_ID[windowId]),
     )
@@ -1159,11 +1176,18 @@ function App() {
     setFocusMode(false)
     setPresentationMode(false)
     runGuidedTutorialStepSetup(nextStep?.setupAction)
+    if (nextStep?.completionRule?.kind === 'event') {
+      guidedTutorialStepEventBaselineRef.current[nextStep.id] =
+        guidedTutorialEventCountsRef.current[nextStep.completionRule.eventId] ?? 0
+    }
     setGuidedTutorialStepIndex(nextIndex)
   }
 
   const startGuidedTutorial = () => {
     setHelpSection('guide')
+    guidedTutorialEventCountsRef.current = {}
+    guidedTutorialStepEventBaselineRef.current = {}
+    setGuidedTutorialEventCounts({})
     goToGuidedTutorialStep(0)
     setTransientStatus('Guided tutorial started.')
   }
@@ -1171,6 +1195,15 @@ function App() {
   const nextGuidedTutorialStep = () => {
     if (guidedTutorialStepIndex === null) {
       startGuidedTutorial()
+      return
+    }
+    const currentStep = GUIDED_UI_TUTORIAL_STEPS[guidedTutorialStepIndex]
+    const completion = resolveGuidedTutorialStepCompletion(currentStep, {
+      openDesktopMenuId: openDesktopMenu,
+      eventCounts: guidedTutorialEventCountsRef.current,
+      eventBaselineByStepId: guidedTutorialStepEventBaselineRef.current,
+    })
+    if (completion.requiresAction && !completion.isComplete) {
       return
     }
     if (guidedTutorialStepIndex >= GUIDED_UI_TUTORIAL_STEPS.length - 1) {
@@ -1187,6 +1220,17 @@ function App() {
     }
     goToGuidedTutorialStep(guidedTutorialStepIndex - 1)
   }
+
+  const guidedTutorialCurrentStep =
+    guidedTutorialStepIndex === null ? null : GUIDED_UI_TUTORIAL_STEPS[guidedTutorialStepIndex]
+  const guidedTutorialCurrentStepCompletion =
+    guidedTutorialCurrentStep === null
+      ? { requiresAction: false, isComplete: true, prompt: null }
+      : resolveGuidedTutorialStepCompletion(guidedTutorialCurrentStep, {
+          openDesktopMenuId: openDesktopMenu,
+          eventCounts: guidedTutorialEventCounts,
+          eventBaselineByStepId: guidedTutorialStepEventBaselineRef.current,
+        })
 
   const setTransientStatus = useCallback((message: string, timeoutMs = 2800) => {
     setExportStatus(message)
@@ -3564,7 +3608,10 @@ function App() {
           type="button"
           draggable
           className={resolvedActiveDockTab === tab ? 'dock-tab dock-tab-active' : 'dock-tab'}
-          onClick={() => openManagedDockedWindowFromDockTab(tab)}
+          onClick={() => {
+            recordGuidedTutorialEvent('panel-shortcut-click')
+            openManagedDockedWindowFromDockTab(tab)
+          }}
           title={withTooltip(`Open ${dockLabelByTab[tab]} window (drag to reorder shortcuts)`)}
           aria-label={dockLabelByTab[tab]}
           onDragStart={() => handleDockTabDragStart(tab)}
@@ -5348,9 +5395,12 @@ function App() {
       ) : null}
       {guidedTutorialStepIndex !== null ? (
         <GuidedTutorialOverlay
-          step={GUIDED_UI_TUTORIAL_STEPS[guidedTutorialStepIndex]}
+          step={guidedTutorialCurrentStep ?? GUIDED_UI_TUTORIAL_STEPS[guidedTutorialStepIndex]}
           stepIndex={guidedTutorialStepIndex}
           totalSteps={GUIDED_UI_TUTORIAL_STEPS.length}
+          canAdvance={guidedTutorialCurrentStepCompletion.isComplete}
+          requiresAction={guidedTutorialCurrentStepCompletion.requiresAction}
+          completionPrompt={guidedTutorialCurrentStepCompletion.prompt}
           onNext={() => nextGuidedTutorialStep()}
           onBack={() => previousGuidedTutorialStep()}
           onSkip={() => closeGuidedTutorial()}

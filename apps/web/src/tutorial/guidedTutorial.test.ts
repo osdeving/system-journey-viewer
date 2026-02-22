@@ -5,6 +5,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import {
   clampGuidedTutorialStepIndex,
+  resolveGuidedTutorialStepCompletion,
   resolveGuidedTutorialCardLayout,
   resolveGuidedTutorialTargetRect,
 } from './guidedTutorial'
@@ -99,5 +100,54 @@ describe('guidedTutorial helpers', () => {
 
     expect(topFallbackLayout.top).toBeLessThan(360)
   })
-})
 
+  it('resolves action-gated step completion from menu state and event counters', () => {
+    const menuStepStatus = resolveGuidedTutorialStepCompletion(
+      {
+        id: 'window-menu',
+        title: 'Window Menu',
+        body: 'Open window menu',
+        placement: 'bottom',
+        completionRule: {
+          kind: 'desktopMenuOpen',
+          menuId: 'window',
+          prompt: 'Click Window',
+        },
+      },
+      {
+        openDesktopMenuId: 'window',
+        eventCounts: {},
+        eventBaselineByStepId: {},
+      },
+    )
+
+    expect(menuStepStatus).toEqual({
+      requiresAction: true,
+      isComplete: true,
+      prompt: 'Click Window',
+    })
+
+    const eventStepStatus = resolveGuidedTutorialStepCompletion(
+      {
+        id: 'panel-shortcuts',
+        title: 'Panel Shortcuts',
+        body: 'Click a shortcut',
+        placement: 'bottom',
+        completionRule: {
+          kind: 'event',
+          eventId: 'panel-shortcut-click',
+          prompt: 'Click shortcut',
+        },
+      },
+      {
+        openDesktopMenuId: null,
+        eventCounts: { 'panel-shortcut-click': 4 },
+        eventBaselineByStepId: { 'panel-shortcuts': 3 },
+      },
+    )
+
+    expect(eventStepStatus.isComplete).toBe(true)
+    expect(eventStepStatus.requiresAction).toBe(true)
+    expect(eventStepStatus.prompt).toBe('Click shortcut')
+  })
+})

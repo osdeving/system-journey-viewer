@@ -286,6 +286,16 @@
 - `skills/sjv-file-atlas-and-header-conventions` is available for future refactors that touch file placement or file-header conventions.
 - `apps/web/src` now uses top-of-file `Purpose:` comments (TS/TSX/CSS/MD) so the first lines immediately describe the file role.
 
+## Window Manager Plan Status Rebaseline (2026-02-22)
+
+- Original plan status after the latest delivery:
+  - Phase 1 (`Window Manager foundation`): mostly complete, including managed-window layout persistence (`localStorage`) and restore/reset actions for managed windows; legacy dock shell compatibility still exists and can be reduced further.
+  - Phase 2 (`Migrate current panels`): `Palette` is now part of the managed-window system alongside `Inspector`, `Journeys`, `Timeline`, `SJV Script`, `Help`, and `Preferences`.
+  - Phase 3 (`Menu Window/View`): still partial; `Show Splash` exists and `Restore/Reset Window Layout` is temporarily exposed under `View`, but a dedicated `Window` menu and fuller layout management UX are still pending.
+  - Phase 4 (`Guided Tutorial engine`): not started (current “Load Tutorial” remains showcase/tutorial content variants, not a guided overlay tour).
+  - Phase 5 (`Density / visual refinement`): partial (several compacting tweaks exist, but no formal density system yet).
+- `Palette` no longer uses the legacy dedicated left sidebar render path; it is rendered via managed hosts/floating windows and default-opens docked left at startup.
+
 ## Suggested Next Increments
 
 - Upgrade edge routing with stronger orthogonal controls.

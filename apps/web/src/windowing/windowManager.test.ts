@@ -9,6 +9,7 @@ import {
   dockManagedWindow,
   floatManagedWindow,
   openManagedWindow,
+  restoreManagedWindowsState,
   setManagedHostActiveTab,
   setManagedWindowFloatingRect,
   setManagedWindowPlacement,
@@ -16,6 +17,7 @@ import {
 
 describe('windowManager helpers', () => {
   const defaults = {
+    palette: { x: 24, y: 110, width: 300, height: 560 },
     inspector: { x: 820, y: 100, width: 360, height: 380 },
     journeys: { x: 820, y: 130, width: 360, height: 420 },
     timeline: { x: 120, y: 520, width: 760, height: 280 },
@@ -27,6 +29,7 @@ describe('windowManager helpers', () => {
   it('creates closed windows and empty dock hosts', () => {
     const state = createManagedWindowsState(defaults)
     expect(state.windows.inspector.open).toBe(false)
+    expect(state.windows.palette.open).toBe(false)
     expect(state.windows.help.open).toBe(false)
     expect(state.windows.preferences.open).toBe(false)
     expect(state.windows.help.placement).toBe('floating')
@@ -118,5 +121,50 @@ describe('windowManager helpers', () => {
 
     expect(next.windows.help.floatingRect).toEqual({ x: 30, y: 140, width: 500, height: 330 })
     expect(next.hosts.right.tabs).toEqual(['help'])
+  })
+
+  it('restores managed window state from partial persisted data and keeps fallback defaults', () => {
+    const fallback = dockManagedWindow(createManagedWindowsState(defaults), 'palette', 'left')
+    const restored = restoreManagedWindowsState(fallback, {
+      windows: {
+        palette: { open: false, placement: 'left' },
+        dsl: {
+          open: true,
+          placement: 'bottom',
+          floatingRect: { x: 10, y: 20, width: 700, height: 300 },
+        },
+      },
+      hosts: {
+        bottom: { tabs: ['dsl'], activeTab: 'dsl' },
+      },
+    })
+
+    expect(restored.windows.palette.open).toBe(false)
+    expect(restored.windows.dsl.open).toBe(true)
+    expect(restored.windows.dsl.placement).toBe('bottom')
+    expect(restored.windows.dsl.floatingRect).toEqual({ x: 10, y: 20, width: 700, height: 300 })
+    expect(restored.hosts.bottom.tabs).toEqual(['dsl'])
+    expect(restored.hosts.bottom.activeTab).toBe('dsl')
+    expect(restored.hosts.left.tabs).toEqual([])
+  })
+
+  it('normalizes invalid host membership and reconstructs missing docked windows into their placement host', () => {
+    const fallback = createManagedWindowsState(defaults)
+    const restored = restoreManagedWindowsState(fallback, {
+      windows: {
+        help: { open: true, placement: 'right' },
+        journeys: { open: true, placement: 'bottom' },
+      },
+      hosts: {
+        left: { tabs: ['help', 'journeys'], activeTab: 'help' },
+        right: { tabs: ['help'], activeTab: 'help' },
+      },
+    })
+
+    expect(restored.hosts.right.tabs).toEqual(['help'])
+    expect(restored.hosts.right.activeTab).toBe('help')
+    expect(restored.hosts.bottom.tabs).toEqual(['journeys'])
+    expect(restored.hosts.bottom.activeTab).toBe('journeys')
+    expect(restored.hosts.left.tabs).toEqual([])
   })
 })

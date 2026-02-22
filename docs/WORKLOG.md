@@ -361,6 +361,43 @@ Chronological engineering log. Entries are kept concise and focused on behavior 
 - `npm --workspace @sjv/web run test:run`
 - `npm --workspace @sjv/web run build`
 
+## 2026-02-22 - Window manager plan rebaseline: phase 2 completion (Palette migration) + phase 1 persistence closure (managed window layout)
+
+### Scope
+
+- Completed the remaining panel migration from the original window-manager plan by moving `Palette` into the managed-window system.
+- Closed the remaining phase-1 persistence gap by adding managed-window layout persistence (`localStorage`) plus restore/reset actions for the managed window layout.
+- Kept the legacy dock shell for compatibility (dock placement mechanics), but removed the legacy dedicated palette render path.
+
+### Changes
+
+- `apps/web/src/windowing/windowManager.ts` / `apps/web/src/windowing/windowManager.test.ts`
+  - added `palette` to `ManagedWindowId` / `MANAGED_WINDOW_IDS`,
+  - added `restoreManagedWindowsState(fallback, candidate)` to safely normalize persisted managed-window layout state,
+  - added tests covering partial restore and host-membership normalization.
+- `apps/web/src/windowing/windowUiConfig.ts`
+  - added `palette` default dock host (`left`),
+  - added floating window UI config for `Palette`,
+  - added default floating rect for `Palette`.
+- `apps/web/src/App.tsx`
+  - `Palette` now renders through managed dock hosts / floating windows via the shared managed-window renderer,
+  - startup now seeds the managed-window layout with `Palette` docked in the left host (preserving the previous default-visible palette behavior),
+  - removed the legacy dedicated palette `<aside className=\"left-sidebar\">` render path and its splitter handlers,
+  - toolbar/menu “Show/Hide Palette” controls now toggle the managed `palette` window,
+  - `View` menu now includes `Panel: Palette`,
+  - added managed-window layout local persistence (`sjv-managed-windows-layout-v1`) with:
+    - startup restore,
+    - `Restore Window Layout`,
+    - `Reset Window Layout`.
+- `apps/web/src/App.source.test.ts`
+  - added regressions for `Palette` managed floating config and window-layout restore/reset actions.
+
+### Validation
+
+- `npm --workspace @sjv/web run lint`
+- `npm --workspace @sjv/web run test:run`
+- `npm --workspace @sjv/web run build`
+
 ## 2026-02-22 - Web source structure refactor (file atlas, component grouping, utility relocation, header-first readability)
 
 ### Scope

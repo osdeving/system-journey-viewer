@@ -30,8 +30,10 @@ import {
   SlidersHorizontal,
   Target,
   Workflow,
+  X,
 } from 'lucide-react'
 import './App.css'
+import { DockHost } from './components/DockHost'
 import { DiagramCanvas } from './components/DiagramCanvas'
 import { FloatingWindow } from './components/FloatingWindow'
 import {
@@ -92,6 +94,7 @@ import {
   createManagedWindowsState,
   dockManagedWindow as dockManagedWindowState,
   floatManagedWindow,
+  setManagedHostActiveTab,
   setManagedWindowFloatingRect,
   type ManagedWindowId,
   type ManagedWindowDockHostId,
@@ -252,6 +255,7 @@ type WorkspaceWindow = Window & {
 
 const DESKTOP_MENU_ORDER: DesktopMenuId[] = ['file', 'edit', 'view', 'journey', 'insert', 'settings', 'help']
 const DEFAULT_DOCK_TAB_ORDER: DockTab[] = ['inspector', 'journeys', 'timeline', 'dsl', 'help', 'preferences']
+const isManagedDockTab = (tab: DockTab): tab is ManagedWindowId => tab === 'help' || tab === 'preferences'
 const HISTORY_LIMIT = 120
 const DEFAULT_UI_PREFERENCES: UiPreferences = {
   tooltipsEnabled: true,
@@ -906,6 +910,41 @@ function App() {
 
   const setManagedWindowRect = (windowId: ManagedWindowId, rect: FloatingDockRect) => {
     setManagedWindows((current) => setManagedWindowFloatingRect(current, windowId, rect))
+  }
+
+  const selectManagedDockHostTab = (
+    hostId: ManagedWindowDockHostId,
+    windowId: ManagedWindowId,
+  ) => {
+    setActiveDockTab(windowId)
+    setManagedWindows((current) => setManagedHostActiveTab(current, hostId, windowId))
+  }
+
+  const resolveFallbackDockTab = (): DockTab =>
+    dockTabOrder.find((tab) => !isManagedDockTab(tab)) ?? 'inspector'
+
+  const closeManagedDockHostWindow = (
+    hostId: ManagedWindowDockHostId,
+    windowId: ManagedWindowId,
+  ) => {
+    const nextState = closeManagedWindow(managedWindows, windowId)
+    setManagedWindows(nextState)
+    if (activeDockTab !== windowId) {
+      return
+    }
+    setActiveDockTab(nextState.hosts[hostId].activeTab ?? resolveFallbackDockTab())
+  }
+
+  const floatManagedDockHostWindow = (
+    hostId: ManagedWindowDockHostId,
+    windowId: ManagedWindowId,
+  ) => {
+    const nextState = floatManagedWindow(managedWindows, windowId)
+    setManagedWindows(nextState)
+    if (activeDockTab !== windowId) {
+      return
+    }
+    setActiveDockTab(nextState.hosts[hostId].activeTab ?? resolveFallbackDockTab())
   }
 
   const dockManagedWindowToHost = (
@@ -3270,6 +3309,70 @@ function App() {
     </div>
   )
 
+  const currentManagedDockHostId: ManagedWindowDockHostId | null =
+    dockPosition === 'left' || dockPosition === 'right' || dockPosition === 'bottom'
+      ? dockPosition
+      : null
+  const currentManagedDockHost =
+    currentManagedDockHostId ? managedWindows.hosts[currentManagedDockHostId] : null
+  const managedDockActiveTab =
+    currentManagedDockHost &&
+    currentManagedDockHost.activeTab &&
+    currentManagedDockHost.tabs.includes(currentManagedDockHost.activeTab)
+      ? currentManagedDockHost.activeTab
+      : currentManagedDockHost?.tabs[0] ?? null
+  const renderManagedWindowDockContent = (windowId: ManagedWindowId) =>
+    windowId === 'help' ? helpPanelContent : preferencesPanelContent
+  const renderManagedDockHostInDockPanel =
+    Boolean(currentManagedDockHostId) &&
+    isManagedDockTab(resolvedActiveDockTab) &&
+    Boolean(currentManagedDockHost?.tabs.includes(resolvedActiveDockTab))
+
+  const dockPanelBodyContent = renderManagedDockHostInDockPanel && currentManagedDockHostId && currentManagedDockHost ? (
+    <DockHost
+      tabs={currentManagedDockHost.tabs.map((windowId) => ({
+        id: windowId,
+        label: dockLabelByTab[windowId],
+        icon: dockIconByTab[windowId],
+      }))}
+      activeTabId={managedDockActiveTab}
+      onTabSelect={(windowId) => selectManagedDockHostTab(currentManagedDockHostId, windowId)}
+      renderTabPanel={renderManagedWindowDockContent}
+      headerActions={
+        managedDockActiveTab ? (
+          <span className="dock-placement-actions">
+            <button
+              type="button"
+              className="dock-placement"
+              onClick={() => floatManagedDockHostWindow(currentManagedDockHostId, managedDockActiveTab)}
+              title={withTooltip(`Float ${dockLabelByTab[managedDockActiveTab]}`)}
+              aria-label={`Float ${dockLabelByTab[managedDockActiveTab]}`}
+            >
+              <Dock size={14} />
+            </button>
+            <button
+              type="button"
+              className="dock-placement"
+              onClick={() => closeManagedDockHostWindow(currentManagedDockHostId, managedDockActiveTab)}
+              title={withTooltip(`Close ${dockLabelByTab[managedDockActiveTab]}`)}
+              aria-label={`Close ${dockLabelByTab[managedDockActiveTab]}`}
+            >
+              <X size={14} />
+            </button>
+          </span>
+        ) : null
+      }
+      emptyState={<p className="dock-host-empty">No docked windows in this host.</p>}
+    />
+  ) : (
+    resolveDockTabContent(resolvedActiveDockTab)
+  )
+
+  const dockPanelBodyClassName =
+    !renderManagedDockHostInDockPanel && resolvedActiveDockTab === 'dsl'
+      ? 'dock-tab-body dock-tab-body-dsl'
+      : 'dock-tab-body'
+
   const dockPanel = (
     <div
       className={
@@ -3282,9 +3385,7 @@ function App() {
             : 'dock-panel dock-panel-floating'
       }
     >
-      <div className={resolvedActiveDockTab === 'dsl' ? 'dock-tab-body dock-tab-body-dsl' : 'dock-tab-body'}>
-        {resolveDockTabContent(resolvedActiveDockTab)}
-      </div>
+      <div className={dockPanelBodyClassName}>{dockPanelBodyContent}</div>
     </div>
   )
 

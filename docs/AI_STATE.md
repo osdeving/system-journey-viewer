@@ -191,6 +191,11 @@
   - host state tracks tab stacks and active tabs for `left`, `right`, and `bottom`,
   - managed window operations now explicitly model `dock` and `float` transitions instead of only toggling placement metadata,
   - App integration still interoperates with the legacy dock renderer while preserving host membership state (transitional phase).
+- Window-manager phase 3 transition slice:
+  - added reusable `DockHost` component (tab strip + actions + body) as the base host renderer for docked windows,
+  - legacy dock panel now renders docked `help`/`preferences` through `DockHost` when active, while non-managed tabs still use legacy dock content paths,
+  - managed host tab selection in dock UI now syncs `activeDockTab` with managed host `activeTab`,
+  - managed docked `help`/`preferences` tabs support float/close actions directly inside the dock host panel.
 - Splash UX:
   - Help menu now includes `Show Splash`,
   - Preferences also includes a `Show splash now` action for replaying the startup splash.

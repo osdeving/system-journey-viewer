@@ -4608,68 +4608,6 @@ function App() {
                   >
                     <span>Load Tutorial (PT)</span>
                   </button>
-                  <button
-                    type="button"
-                    role="menuitem"
-                    onClick={() =>
-                      runDesktopMenuAction(() => {
-                        openManagedDockedWindowFromDockTab('timeline')
-                      })
-                    }
-                  >
-                    <span>Open Journey Timeline</span>
-                  </button>
-                  <button
-                    type="button"
-                    role="menuitem"
-                    onClick={() =>
-                      runDesktopMenuAction(() => {
-                        openManagedDockedWindowFromDockTab('dsl')
-                      })
-                    }
-                  >
-                    <span>Open SJV Script Editor</span>
-                  </button>
-                  <button
-                    type="button"
-                    role="menuitem"
-                    onClick={() =>
-                      runDesktopMenuAction(() => {
-                        openHelpWindow('guide')
-                      })
-                    }
-                  >
-                    <span>Open Help</span>
-                  </button>
-                  <button
-                    type="button"
-                    role="menuitem"
-                    onClick={() =>
-                      runDesktopMenuAction(() => {
-                        openHelpWindow('gallery')
-                      })
-                    }
-                  >
-                    <span>Open Export Gallery</span>
-                  </button>
-                  <button
-                    type="button"
-                    role="menuitem"
-                    onClick={() =>
-                      runDesktopMenuAction(() => {
-                        setFocusMode(false)
-                        setPresentationMode(false)
-                        setDockCollapsed(false)
-                        if (dockPosition === 'bottom') {
-                          setDrawerCollapsed(false)
-                          setDrawerTab('dock')
-                          setJourneyHeight((current) => Math.max(current, MIN_DOCK_HEIGHT))
-                        }
-                      })
-                    }
-                  >
-                    <span>Open Dock Panel</span>
-                  </button>
                 </div>
               ) : null}
             </div>

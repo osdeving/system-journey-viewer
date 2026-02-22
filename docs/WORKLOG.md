@@ -361,6 +361,30 @@ Chronological engineering log. Entries are kept concise and focused on behavior 
 - `npm --workspace @sjv/web run test:run`
 - `npm --workspace @sjv/web run build`
 
+## 2026-02-22 - Window manager phase 3 completion: menu ownership cleanup (`Window` owns panels/layout; `Insert` stays content-focused)
+
+### Scope
+
+- Finished the remaining phase-3 menu cleanup by removing panel/window shortcuts from `Insert` and consolidating panel/layout actions under the `Window` menu.
+- Kept `Insert` focused on showcase/tutorial content loading only.
+
+### Changes
+
+- `apps/web/src/App.tsx`
+  - removed `Insert` menu quick-open entries for timeline, SJV Script, help/gallery, and dock-panel shell reveal,
+  - left `Insert` with showcase/tutorial loading actions only (`Load Showcase`, `Load Tutorial`),
+  - preserved existing `Window` menu ownership for panel/layout actions introduced earlier (no behavior changes to handlers).
+- `apps/web/src/App.source.test.ts`
+  - added regressions asserting `Window` contains `Open Timeline Panel` and `Open SJV Script Panel`,
+  - added regressions asserting `Insert` no longer contains window/panel shortcut entries and remains focused on showcase/tutorial actions.
+
+### Validation
+
+- `npm --workspace @sjv/web run lint`
+- `npm --workspace @sjv/web run test:run -- App.source.test.ts`
+- `npm --workspace @sjv/web run test:run`
+- `npm --workspace @sjv/web run build`
+
 ## 2026-02-22 - Window manager phase 1 completion: unified window-layout bootstrap + shell persistence/restore
 
 ### Scope

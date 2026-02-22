@@ -180,6 +180,15 @@
   - `Preferences` now uses a reusable `FloatingWindow` React component instead of an ad-hoc fixed panel,
   - window supports drag, resize (all edges/corners), and viewport clamping,
   - close action now uses a discreet icon-style button.
+- Window-manager foundation (phase 1 start):
+  - `help` and `preferences` now use a shared managed-window state model (`open`, placement, floating rect),
+  - Help menu actions (`Guide`, `Export Gallery`, `About`) open a floating Help window by default (instead of forcing dock + drawer visibility),
+  - floating `Help` and `Preferences` windows include dock handoff controls (float/left/right/bottom),
+  - dock now includes a `Preferences` tab so dock handoff works,
+  - dock tab order is normalized on hydrate to append missing tabs from older snapshots.
+- Splash UX:
+  - Help menu now includes `Show Splash`,
+  - Preferences also includes a `Show splash now` action for replaying the startup splash.
 - Help and onboarding enhancements:
   - help panel now has `Guide`, `Export Gallery`, and `About` sections,
   - startup splash presents app identity/version (`MVP Beta`) and ownership label (`Willams Sousa`),

@@ -276,6 +276,7 @@ interface DiagramCanvasProps {
   presentationMode?: boolean
   forceGridHidden?: boolean
   exportFocusJourneyId?: string | null
+  nodeDepthEffectsEnabled?: boolean
   onEdgePointerStart?: (
     edgeId: string,
     event: ReactPointerEvent<SVGGElement>,
@@ -465,6 +466,7 @@ export const DiagramCanvas = ({
   presentationMode = false,
   forceGridHidden = false,
   exportFocusJourneyId = null,
+  nodeDepthEffectsEnabled = true,
   onEdgePointerStart,
 }: DiagramCanvasProps = {}) => {
   const panStateRef = useRef<PanState | null>(null)
@@ -2136,13 +2138,28 @@ export const DiagramCanvas = ({
   return (
     <div className="canvas-shell" ref={canvasRef} onWheel={onWheel} onDrop={onDrop} onDragOver={onDragOver}>
       <svg
-        className="diagram-canvas"
+        className={
+          nodeDepthEffectsEnabled
+            ? 'diagram-canvas diagram-canvas-depth-on'
+            : 'diagram-canvas diagram-canvas-depth-off'
+        }
         style={{ cursor: canvasCursor }}
         onPointerDown={onBackgroundPointerDown}
         onPointerMove={onBackgroundPointerMove}
         onPointerUp={onBackgroundPointerUp}
       >
         <defs>
+          <linearGradient id="node-depth-fill-vertical" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="rgba(255,255,255,0.24)" />
+            <stop offset="38%" stopColor="rgba(255,255,255,0.06)" />
+            <stop offset="100%" stopColor="rgba(15,23,42,0.14)" />
+          </linearGradient>
+          <linearGradient id="node-depth-sheen-diagonal" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stopColor="rgba(255,255,255,0.22)" />
+            <stop offset="34%" stopColor="rgba(255,255,255,0.06)" />
+            <stop offset="70%" stopColor="rgba(15,23,42,0.03)" />
+            <stop offset="100%" stopColor="rgba(15,23,42,0.14)" />
+          </linearGradient>
           {showGrid ? (
             <pattern
               id="grid-pattern"
@@ -2308,6 +2325,8 @@ export const DiagramCanvas = ({
             const connectorIconY = 12
             const drilldownBadgeX = node.bounds.w - (connectorRole ? 56 : 26)
             const drilldownBadgeY = 8
+            const nodeDepthEffectsActive =
+              nodeDepthEffectsEnabled && node.kind !== 'note' && node.kind !== 'boundary'
             const labelLayout =
               node.kind === 'note'
                 ? {
@@ -2391,11 +2410,19 @@ export const DiagramCanvas = ({
                       className={nodeClassName}
                       style={nodeFillColor ? { fill: nodeFillColor } : undefined}
                     />
+                    {nodeDepthEffectsActive ? (
+                      <>
+                        <path d={dbShape.shellPath} className="node-depth-fill node-depth-layer" />
+                        <path d={dbShape.shellPath} className="node-depth-sheen node-depth-layer" />
+                      </>
+                    ) : null}
                     <path
                       d={dbShape.topFrontArcPath}
                       className="node-shape-detail"
                     />
-                    <path d={dbShape.bottomBackArcPath} className="node-shape-detail" />
+                    {nodeDepthEffectsActive ? (
+                      <path d={dbShape.topFrontArcPath} className="node-depth-rim node-depth-layer" />
+                    ) : null}
                   </g>
                 ) : node.kind === 'queue' ? (
                   <g>
@@ -2404,26 +2431,79 @@ export const DiagramCanvas = ({
                       className={nodeClassName}
                       style={nodeFillColor ? { fill: nodeFillColor } : undefined}
                     />
+                    {nodeDepthEffectsActive ? (
+                      <>
+                        <path d={queueShape.shellPath} className="node-depth-fill node-depth-layer" />
+                        <path d={queueShape.shellPath} className="node-depth-sheen node-depth-layer" />
+                      </>
+                    ) : null}
                     <path d={queueShape.frontCapPath} className="node-shape-detail" />
-                    <path d={queueShape.rearInnerArcPath} className="node-shape-detail" />
+                    {nodeDepthEffectsActive ? (
+                      <path d={queueShape.frontCapPath} className="node-depth-rim node-depth-layer" />
+                    ) : null}
                   </g>
                 ) : hexagonShape ? (
-                  <path
-                    d={hexagonShape.shellPath}
-                    className={nodeClassName}
-                    style={nodeFillColor ? { fill: nodeFillColor } : undefined}
-                  />
+                  <g>
+                    <path
+                      d={hexagonShape.shellPath}
+                      className={nodeClassName}
+                      style={nodeFillColor ? { fill: nodeFillColor } : undefined}
+                    />
+                    {nodeDepthEffectsActive ? (
+                      <>
+                        <path d={hexagonShape.shellPath} className="node-depth-fill node-depth-layer" />
+                        <path d={hexagonShape.shellPath} className="node-depth-sheen node-depth-layer" />
+                        <path d={hexagonShape.shellPath} className="node-depth-outline node-depth-layer" />
+                      </>
+                    ) : null}
+                  </g>
                 ) : (
+                  <g>
+                    <rect
+                      x={0}
+                      y={0}
+                      width={node.bounds.w}
+                      height={node.bounds.h}
+                      rx={12}
+                      className={nodeClassName}
+                      style={nodeFillColor ? { fill: nodeFillColor } : undefined}
+                    />
+                    {nodeDepthEffectsActive ? (
+                      <>
+                        <rect
+                          x={0}
+                          y={0}
+                          width={node.bounds.w}
+                          height={node.bounds.h}
+                          rx={12}
+                          className="node-depth-fill node-depth-layer"
+                        />
+                        <rect
+                          x={0}
+                          y={0}
+                          width={node.bounds.w}
+                          height={node.bounds.h}
+                          rx={12}
+                          className="node-depth-sheen node-depth-layer"
+                        />
+                        <path
+                          d={`M 10 10 H ${Math.max(10, node.bounds.w - 10)}`}
+                          className="node-depth-rim node-depth-layer"
+                        />
+                      </>
+                    ) : null}
+                  </g>
+                )}
+                {node.kind === 'boundary' && node.drilldownRef ? (
                   <rect
+                    className="node-drilldown-hitarea"
                     x={0}
                     y={0}
                     width={node.bounds.w}
                     height={node.bounds.h}
                     rx={12}
-                    className={nodeClassName}
-                    style={nodeFillColor ? { fill: nodeFillColor } : undefined}
                   />
-                )}
+                ) : null}
                 {!presentationMode && activeTool === 'select' && !isConnectorMode ? (
                   hexagonBorderShape ? (
                     <path

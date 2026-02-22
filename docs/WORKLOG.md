@@ -2104,3 +2104,43 @@ Chronological engineering log. Entries are kept concise and focused on behavior 
 - `npm --workspace @sjv/web run test:run -- src/App.source.test.ts src/App.styles.test.ts`
 - `npm --workspace @sjv/web run test:run`
 - `npm --workspace @sjv/web run build`
+
+## 2026-02-22 - Phase 5 slice: compact default, palette visual polish, drilldown back UX, and optional node depth effects
+
+### Scope
+
+- Continued Phase 5 with density/visual refinements that do not change core modeling behavior.
+- Fixed a drilldown usability regression after creating a child view from a parent node.
+- Added optional 3D-style node lighting effects with a user-facing preference toggle.
+
+### Changes
+
+- `apps/web/src/App.tsx`
+  - changed default `UiDensity` to `compact`,
+  - added persisted `nodeDepthEffectsEnabled` preference (default `true`) and `Settings`/`Preferences` toggles,
+  - restored a `Back` control as a subtle inline canvas overlay arrow (top-left, outside the toolbar),
+  - removed the previous drilldown instructional hint text from the canvas header area,
+  - added palette preset icons in the Palette panel list,
+  - passed `nodeDepthEffectsEnabled` through to `DiagramCanvas`.
+- `apps/web/src/components/canvas/DiagramCanvas.tsx`
+  - added a boundary-node drilldown interior hit-area so double-click navigation still works after creating a drilldown (when the parent node becomes a boundary),
+  - added optional node depth overlay layers (fill/sheen/rim/outline) for rect/hex/queue/db shapes,
+  - removed rear/background detail lines that reduced the 3D effect readability on queue/database shapes,
+  - added SVG gradients and depth-effect root class toggle (`diagram-canvas-depth-on/off`).
+- `apps/web/src/App.css`
+  - added subtle themed scrollbar styling for dock/panel areas (including the Palette list),
+  - styled the new canvas back-arrow overlay and drilldown hit-area,
+  - added node depth-effect layer styles and dark-theme variants,
+  - extended density-token usage to Inspector and journey-side forms/controls,
+  - upgraded Palette list rows to icon + label cards.
+- `apps/web/src/App.source.test.ts`, `apps/web/src/App.styles.test.ts`
+  - regressions for compact density default, node depth-effects preference wiring, back-arrow CSS hooks, and depth-layer CSS hooks.
+- `apps/web/src/components/canvas/DiagramCanvas.source.test.ts`
+  - source regressions for boundary drilldown hit-area and depth-effect prop/class support.
+
+### Validation
+
+- `npm --workspace @sjv/web run lint`
+- `npm --workspace @sjv/web run test:run -- src/App.source.test.ts src/App.styles.test.ts src/components/canvas/DiagramCanvas.source.test.ts`
+- `npm --workspace @sjv/web run test:run`
+- `npm --workspace @sjv/web run build`

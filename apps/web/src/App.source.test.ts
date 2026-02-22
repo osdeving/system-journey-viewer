@@ -21,11 +21,19 @@ describe('App source regressions', () => {
 
   it('persists UI density and applies a root density class', () => {
     expect(appSource).toContain("type UiDensity = 'comfortable' | 'compact'")
-    expect(appSource).toContain("density: 'comfortable'")
+    expect(appSource).toContain("density: 'compact'")
     expect(appSource).toContain("parsed.density === 'compact' || parsed.density === 'comfortable'")
     expect(appSource).toContain('UI density')
     expect(appSource).toContain('UI Density: Compact')
     expect(appSource).toContain('app-layout-density-${uiPreferences.density}')
+  })
+
+  it('persists and wires a node depth-effects preference into the canvas renderer', () => {
+    expect(appSource).toContain('nodeDepthEffectsEnabled: true')
+    expect(appSource).toContain('parsed.nodeDepthEffectsEnabled ?? DEFAULT_UI_PREFERENCES.nodeDepthEffectsEnabled')
+    expect(appSource).toContain('Enable node depth effects (3D look)')
+    expect(appSource).toContain('Disable Node Depth Effects')
+    expect(appSource).toContain('nodeDepthEffectsEnabled={uiPreferences.nodeDepthEffectsEnabled}')
   })
 
   it('keeps SJV Script panel free of Codex action buttons', () => {

@@ -94,6 +94,7 @@ import {
   createManagedWindowsState,
   dockManagedWindow as dockManagedWindowState,
   floatManagedWindow,
+  MANAGED_WINDOW_IDS,
   setManagedHostActiveTab,
   setManagedWindowFloatingRect,
   type ManagedWindowId,
@@ -118,6 +119,30 @@ const MIN_CANVAS_HEIGHT = 220
 const MIN_DOCK_HEIGHT = 260
 const DEFAULT_FILE_VIEWPORT = { x: 100, y: 80, zoom: 1 }
 const DEFAULT_FLOATING_DOCK_RECT = { x: 28, y: 108, width: 480, height: 420 }
+const DEFAULT_INSPECTOR_WINDOW_RECT = {
+  x: typeof window === 'undefined' ? 860 : Math.max(12, window.innerWidth - 388),
+  y: DEFAULT_TOPBAR_HEIGHT + 10,
+  width: 372,
+  height: 480,
+}
+const DEFAULT_JOURNEYS_WINDOW_RECT = {
+  x: typeof window === 'undefined' ? 860 : Math.max(12, window.innerWidth - 404),
+  y: DEFAULT_TOPBAR_HEIGHT + 28,
+  width: 388,
+  height: 520,
+}
+const DEFAULT_TIMELINE_WINDOW_RECT = {
+  x: 40,
+  y: typeof window === 'undefined' ? 440 : Math.max(DEFAULT_TOPBAR_HEIGHT + 10, window.innerHeight - 320),
+  width: typeof window === 'undefined' ? 900 : Math.max(560, window.innerWidth - 120),
+  height: 280,
+}
+const DEFAULT_DSL_WINDOW_RECT = {
+  x: 56,
+  y: DEFAULT_TOPBAR_HEIGHT + 10,
+  width: typeof window === 'undefined' ? 980 : Math.max(620, window.innerWidth - 112),
+  height: typeof window === 'undefined' ? 560 : Math.max(360, window.innerHeight - DEFAULT_TOPBAR_HEIGHT - 90),
+}
 const DEFAULT_PREFERENCES_WINDOW_RECT = {
   x: typeof window === 'undefined' ? 860 : Math.max(12, window.innerWidth - 396),
   y: DEFAULT_TOPBAR_HEIGHT + 10,
@@ -257,7 +282,10 @@ type WorkspaceWindow = Window & {
 
 const DESKTOP_MENU_ORDER: DesktopMenuId[] = ['file', 'edit', 'view', 'journey', 'insert', 'settings', 'help']
 const DEFAULT_DOCK_TAB_ORDER: DockTab[] = ['inspector', 'journeys', 'timeline', 'dsl', 'help', 'preferences']
-const isManagedDockTab = (tab: DockTab): tab is ManagedWindowId => tab === 'help' || tab === 'preferences'
+const isManagedDockTab = (tab: DockTab): tab is ManagedWindowId =>
+  (['inspector', 'journeys', 'timeline', 'dsl', 'help', 'preferences'] as ManagedWindowId[]).includes(
+    tab as ManagedWindowId,
+  )
 const HISTORY_LIMIT = 120
 const DEFAULT_UI_PREFERENCES: UiPreferences = {
   tooltipsEnabled: true,
@@ -503,6 +531,10 @@ function App() {
   const [helpSection, setHelpSection] = useState<HelpSection>('guide')
   const [managedWindows, setManagedWindows] = useState<ManagedWindowsState>(() =>
     createManagedWindowsState({
+      inspector: DEFAULT_INSPECTOR_WINDOW_RECT,
+      journeys: DEFAULT_JOURNEYS_WINDOW_RECT,
+      timeline: DEFAULT_TIMELINE_WINDOW_RECT,
+      dsl: DEFAULT_DSL_WINDOW_RECT,
       help: DEFAULT_HELP_WINDOW_RECT,
       preferences: DEFAULT_PREFERENCES_WINDOW_RECT,
     }),
@@ -975,6 +1007,29 @@ function App() {
     setActiveDockTab(windowId)
   }
 
+  const openManagedDockedWindow = (windowId: ManagedWindowId) => {
+    const defaultHostByWindowId: Record<ManagedWindowId, ManagedWindowDockHostId> = {
+      inspector: 'right',
+      journeys: 'right',
+      timeline: 'bottom',
+      dsl: 'bottom',
+      help: 'right',
+      preferences: 'right',
+    }
+    setFocusMode(false)
+    setPresentationMode(false)
+    setManagedWindows((current) => dockManagedWindowState(current, windowId, defaultHostByWindowId[windowId]))
+    setActiveDockTab(windowId)
+  }
+
+  const openManagedDockedWindowFromDockTab = (tab: DockTab) => {
+    if (isManagedDockTab(tab)) {
+      openManagedDockedWindow(tab)
+      return
+    }
+    openDockTab(tab)
+  }
+
   const openHelpWindow = (section: HelpSection) => {
     setHelpSection(section)
     setFocusMode(false)
@@ -1232,7 +1287,7 @@ function App() {
 
   const openDockTab = (tab: DockTab) => {
     setActiveDockTab(tab)
-    if (tab === 'help' || tab === 'preferences') {
+    if (isManagedDockTab(tab)) {
       setManagedWindows((current) => {
         if (dockPosition === 'left' || dockPosition === 'right' || dockPosition === 'bottom') {
           return dockManagedWindowState(current, tab, dockPosition as ManagedWindowDockHostId)
@@ -2808,16 +2863,14 @@ function App() {
     help: <CircleHelp size={13} />,
     preferences: <SlidersHorizontal size={13} />,
   }
-  const legacyDockTabOrder = dockTabOrder.filter((tab) => !isManagedDockTab(tab))
-  const activeDockTabIsManagedDocked =
-    isManagedDockTab(activeDockTab) &&
-    managedWindows.windows[activeDockTab].open &&
-    managedWindows.windows[activeDockTab].placement !== 'floating'
-  const resolvedActiveDockTab = activeDockTabIsManagedDocked
-    ? legacyDockTabOrder[0] ?? 'inspector'
-    : dockTabOrder.includes(activeDockTab)
-      ? activeDockTab
-      : dockTabOrder[0]
+  const legacyDockTabOrder = dockTabOrder.filter((tab) => !isManagedDockTab(tab)) as DockTab[]
+  const resolvedActiveDockTab = dockTabOrder.includes(activeDockTab) ? activeDockTab : dockTabOrder[0]
+  const resolvedLegacyDockTab =
+    legacyDockTabOrder.length === 0
+      ? null
+      : legacyDockTabOrder.includes(activeDockTab)
+        ? activeDockTab
+        : legacyDockTabOrder[0]
 
   const resolveDockTabContent = (tab: DockTab) => {
     if (tab === 'inspector') {
@@ -3263,14 +3316,14 @@ function App() {
 
   const dockHeaderBar = (
     <div className="topbar-dock-strip dock-tab-strip">
-      {legacyDockTabOrder.map((tab) => (
+      {dockTabOrder.map((tab) => (
         <button
           key={tab}
           type="button"
           draggable
           className={resolvedActiveDockTab === tab ? 'dock-tab dock-tab-active' : 'dock-tab'}
-          onClick={() => openDockTab(tab)}
-          title={withTooltip(`${dockLabelByTab[tab]} panel (drag to reorder)`)}
+          onClick={() => openManagedDockedWindowFromDockTab(tab)}
+          title={withTooltip(`Open ${dockLabelByTab[tab]} window (drag to reorder shortcuts)`)}
           aria-label={dockLabelByTab[tab]}
           onDragStart={() => handleDockTabDragStart(tab)}
           onDragOver={(event) => event.preventDefault()}
@@ -3333,8 +3386,24 @@ function App() {
       : null
   const currentManagedDockHost =
     currentManagedDockHostId ? managedWindows.hosts[currentManagedDockHostId] : null
-  const renderManagedWindowDockContent = (windowId: ManagedWindowId) =>
-    windowId === 'help' ? helpPanelContent : preferencesPanelContent
+  const renderManagedWindowDockContent = (windowId: ManagedWindowId) => {
+    if (windowId === 'inspector') {
+      return inspectorDockContent
+    }
+    if (windowId === 'journeys') {
+      return journeysDockContent
+    }
+    if (windowId === 'timeline') {
+      return journeyTimelineContent
+    }
+    if (windowId === 'dsl') {
+      return dslPanelContent
+    }
+    if (windowId === 'help') {
+      return helpPanelContent
+    }
+    return preferencesPanelContent
+  }
   const resolveManagedHostActiveTab = (hostId: ManagedWindowDockHostId): ManagedWindowId | null => {
     const host = managedWindows.hosts[hostId]
     if (host.activeTab && host.tabs.includes(host.activeTab)) {
@@ -3444,12 +3513,14 @@ function App() {
       headerActions={buildManagedDockHostHeaderActions(currentManagedDockHostId, managedDockActiveTab)}
       emptyState={<p className="dock-host-empty">No docked windows in this host.</p>}
     />
+  ) : resolvedLegacyDockTab ? (
+    resolveDockTabContent(resolvedLegacyDockTab)
   ) : (
-    resolveDockTabContent(resolvedActiveDockTab)
+    <p className="dock-host-empty">Legacy dock is empty. Use the managed window hosts or float windows.</p>
   )
 
   const dockPanelBodyClassName =
-    !renderManagedDockHostInDockPanel && resolvedActiveDockTab === 'dsl'
+    !renderManagedDockHostInDockPanel && resolvedLegacyDockTab === 'dsl'
       ? 'dock-tab-body dock-tab-body-dsl'
       : 'dock-tab-body'
 
@@ -3523,8 +3594,72 @@ function App() {
     </span>
   )
 
-  const helpWindow = managedWindows.windows.help
-  const preferencesWindow = managedWindows.windows.preferences
+  const managedWindowFloatingConfig: Record<
+    ManagedWindowId,
+    {
+      title: string
+      className?: string
+      bodyClassName?: string
+      minWidth: number
+      minHeight: number
+      zIndex?: number
+    }
+  > = {
+    inspector: {
+      title: 'Inspector',
+      bodyClassName: 'floating-window-body-dock',
+      minWidth: 320,
+      minHeight: 260,
+    },
+    journeys: {
+      title: 'Journeys',
+      bodyClassName: 'floating-window-body-dock',
+      minWidth: 340,
+      minHeight: 300,
+    },
+    timeline: {
+      title: 'Journey Timeline',
+      bodyClassName: 'floating-window-body-dock',
+      minWidth: 460,
+      minHeight: 240,
+    },
+    dsl: {
+      title: 'SJV Script',
+      minWidth: 520,
+      minHeight: 280,
+      bodyClassName: 'floating-window-body-dock floating-window-body-dsl',
+    },
+    help: {
+      title: 'Help',
+      className: 'help-window',
+      bodyClassName: 'help-window-body',
+      minWidth: 360,
+      minHeight: 280,
+      zIndex: 191,
+    },
+    preferences: {
+      title: 'Preferences',
+      className: 'preferences-window',
+      minWidth: 320,
+      minHeight: 260,
+    },
+  }
+
+  const floatingManagedWindows = MANAGED_WINDOW_IDS.filter((windowId) => {
+    const windowState = managedWindows.windows[windowId]
+    return windowState.open && windowState.placement === 'floating'
+  })
+  const renderManagedWindowFloatingContent = (windowId: ManagedWindowId) => {
+    const content = renderManagedWindowDockContent(windowId)
+    if (windowId === 'help' || windowId === 'preferences') {
+      return content
+    }
+    return (
+      <div className={windowId === 'dsl' ? 'dock-tab-body dock-tab-body-dsl' : 'dock-tab-body'}>
+        {content}
+      </div>
+    )
+  }
 
   return (
     <div
@@ -3941,19 +4076,39 @@ function App() {
                   <button type="button" role="menuitem" onClick={() => runDesktopMenuAction(() => moveDockToFloating())}>
                     <span>Dock Floating</span>
                   </button>
-                  <button type="button" role="menuitem" onClick={() => runDesktopMenuAction(() => openDockTab('inspector'))}>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => runDesktopMenuAction(() => openManagedDockedWindowFromDockTab('inspector'))}
+                  >
                     <span>Panel: Inspector</span>
                   </button>
-                  <button type="button" role="menuitem" onClick={() => runDesktopMenuAction(() => openDockTab('journeys'))}>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => runDesktopMenuAction(() => openManagedDockedWindowFromDockTab('journeys'))}
+                  >
                     <span>Panel: Journeys</span>
                   </button>
-                  <button type="button" role="menuitem" onClick={() => runDesktopMenuAction(() => openDockTab('timeline'))}>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => runDesktopMenuAction(() => openManagedDockedWindowFromDockTab('timeline'))}
+                  >
                     <span>Panel: Timeline</span>
                   </button>
-                  <button type="button" role="menuitem" onClick={() => runDesktopMenuAction(() => openDockTab('dsl'))}>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => runDesktopMenuAction(() => openManagedDockedWindowFromDockTab('dsl'))}
+                  >
                     <span>Panel: SJV Script</span>
                   </button>
-                  <button type="button" role="menuitem" onClick={() => runDesktopMenuAction(() => openDockTab('help'))}>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => runDesktopMenuAction(() => openManagedDockedWindowFromDockTab('help'))}
+                  >
                     <span>Panel: Help</span>
                   </button>
                 </div>
@@ -4293,11 +4448,7 @@ function App() {
                     role="menuitem"
                     onClick={() =>
                       runDesktopMenuAction(() => {
-                        setFocusMode(false)
-                        setPresentationMode(false)
-                        setDrawerCollapsed(false)
-                        switchDrawerTab('journeys')
-                        openDockTab('timeline')
+                        openManagedDockedWindowFromDockTab('timeline')
                       })
                     }
                   >
@@ -4308,11 +4459,7 @@ function App() {
                     role="menuitem"
                     onClick={() =>
                       runDesktopMenuAction(() => {
-                        setFocusMode(false)
-                        setPresentationMode(false)
-                        setDrawerCollapsed(false)
-                        switchDrawerTab('dsl')
-                        openDockTab('dsl')
+                        openManagedDockedWindowFromDockTab('dsl')
                       })
                     }
                   >
@@ -4347,7 +4494,12 @@ function App() {
                       runDesktopMenuAction(() => {
                         setFocusMode(false)
                         setPresentationMode(false)
-                        openDockTab(resolvedActiveDockTab)
+                        setDockCollapsed(false)
+                        if (dockPosition === 'bottom') {
+                          setDrawerCollapsed(false)
+                          setDrawerTab('dock')
+                          setJourneyHeight((current) => Math.max(current, MIN_DOCK_HEIGHT))
+                        }
                       })
                     }
                   >
@@ -4793,38 +4945,28 @@ function App() {
         {exportError ? <p className="topbar-error">{exportError}</p> : null}
         {!exportError && exportStatus ? <p className="topbar-status">{exportStatus}</p> : null}
       </header>
-      {helpWindow.open && helpWindow.placement === 'floating' ? (
-        <FloatingWindow
-          title="Help"
-          className="help-window"
-          bodyClassName="help-window-body"
-          rect={helpWindow.floatingRect}
-          onRectChange={(rect) => setManagedWindowRect('help', rect)}
-          topbarHeight={topbarHeight}
-          minWidth={360}
-          minHeight={280}
-          zIndex={191}
-          headerActions={buildManagedWindowDockActions('help')}
-          onClose={() => closeManagedWindowById('help')}
-        >
-          {helpPanelContent}
-        </FloatingWindow>
-      ) : null}
-      {preferencesWindow.open && preferencesWindow.placement === 'floating' ? (
-        <FloatingWindow
-          title="Preferences"
-          className="preferences-window"
-          rect={preferencesWindow.floatingRect}
-          onRectChange={(rect) => setManagedWindowRect('preferences', rect)}
-          topbarHeight={topbarHeight}
-          minWidth={320}
-          minHeight={260}
-          headerActions={buildManagedWindowDockActions('preferences')}
-          onClose={() => closeManagedWindowById('preferences')}
-        >
-          {preferencesPanelContent}
-        </FloatingWindow>
-      ) : null}
+      {floatingManagedWindows.map((windowId) => {
+        const windowState = managedWindows.windows[windowId]
+        const floatingConfig = managedWindowFloatingConfig[windowId]
+        return (
+          <FloatingWindow
+            key={windowId}
+            title={floatingConfig.title}
+            className={floatingConfig.className}
+            bodyClassName={floatingConfig.bodyClassName}
+            rect={windowState.floatingRect}
+            onRectChange={(rect) => setManagedWindowRect(windowId, rect)}
+            topbarHeight={topbarHeight}
+            minWidth={floatingConfig.minWidth}
+            minHeight={floatingConfig.minHeight}
+            zIndex={floatingConfig.zIndex}
+            headerActions={buildManagedWindowDockActions(windowId)}
+            onClose={() => closeManagedWindowById(windowId)}
+          >
+            {renderManagedWindowFloatingContent(windowId)}
+          </FloatingWindow>
+        )
+      })}
       {!immersiveMode && leftPanelVisible ? (
         <div
           className="layout-splitter layout-splitter-left"

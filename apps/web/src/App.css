@@ -546,6 +546,15 @@
   overflow: hidden;
 }
 
+.floating-window-body-dock {
+  display: grid;
+}
+
+.floating-window-body-dock > .dock-tab-body {
+  min-height: 0;
+  height: 100%;
+}
+
 .preferences-window {
   border: 1px solid #cbd5e1;
   border-radius: 12px;
@@ -624,6 +633,10 @@
 
 .help-window .floating-window-body {
   overflow: auto;
+}
+
+.floating-window-body-dsl {
+  overflow: hidden;
 }
 
 .help-window .help-panel {

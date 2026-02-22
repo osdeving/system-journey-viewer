@@ -406,6 +406,27 @@ Chronological engineering log. Entries are kept concise and focused on behavior 
 - `npm --workspace @sjv/web run test:run`
 - `npm --workspace @sjv/web run build`
 
+## 2026-02-22 - SJV Script spec upgraded to implementer-grade reference (EBNF + semantics)
+
+### Scope
+
+- Reworked `docs/SJV_SCRIPT_SPEC.md` from an overview into a reference-style language spec that external implementers can use to build parsers/validators/compilers.
+
+### Changes
+
+- `docs/SJV_SCRIPT_SPEC.md`
+  - added lexical rules (whitespace, comments, identifiers, strings, escapes, numbers, color tokens),
+  - added full EBNF grammar for workspace/view/node/note/edge/journey/`metadata ui-layout`,
+  - documented semantic validation rules (uniqueness, reference resolution, drilldown consistency, note constraints),
+  - documented parser tolerance vs strict validation behavior of the current reference parser,
+  - documented defaults/clamping/normalization behavior used by the reference implementation,
+  - documented SJV import/sync precedence rules (`metadata ui-layout` authority),
+  - updated examples to include current `fill`/`text` metadata node styling support.
+
+### Validation
+
+- `git diff --check`
+
 ## 2026-02-22 - Window manager phase 3 completion: menu ownership cleanup (`Window` owns panels/layout; `Insert` stays content-focused)
 
 ### Scope

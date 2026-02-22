@@ -319,6 +319,7 @@
 - SJV `metadata ui-layout` now roundtrips node colors via optional `fill` / `text` tokens on `node ... at ... size ...` lines.
 - SJV import/sync now treats script-provided `metadata ui-layout` as authoritative (skips local layout overlay when present), and sync mode now propagates non-DSL workspace edits back into the SJV text with loop guards.
 - `docs/STATE_PERSISTENCE_MAP.md` documents the persistence domains and precedence rules (editor snapshot, shell UI layout, local layout cache, and SJV metadata).
+- `docs/SJV_SCRIPT_SPEC.md` is now an implementer-grade reference spec with lexical rules, EBNF grammar, semantic validation rules, parser tolerance notes, and reference normalization/default behavior (suitable for external compiler/interpreter implementations).
 
 ## Suggested Next Increments
 

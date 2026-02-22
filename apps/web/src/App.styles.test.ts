@@ -77,8 +77,13 @@ describe('App boundary styles', () => {
 
   it('includes desktop menu and advanced canvas interaction styles', () => {
     expect(appCss).toMatch(/\.topbar\s*\{[^}]*overflow:\s*visible;[^}]*\}/s)
+    expect(appCss).toMatch(/\.topbar-meta\s*\{[^}]*grid-template-columns:\s*auto minmax\(0,\s*1fr\);[^}]*\}/s)
+    expect(appCss).toMatch(/\.app-brand-copy\s*\{[^}]*display:\s*none;[^}]*\}/s)
+    expect(appCss).toMatch(/\.mode-indicators\s*\{[^}]*display:\s*none;[^}]*\}/s)
     expect(appCss).toContain('.desktop-menu-bar')
-    expect(appCss).toMatch(/\.desktop-menu-bar\s*\{[^}]*flex-wrap:\s*wrap;[^}]*overflow:\s*visible;[^}]*\}/s)
+    expect(appCss).toMatch(
+      /\.desktop-menu-bar\s*\{[^}]*flex-wrap:\s*wrap;[^}]*flex:\s*1 1 auto;[^}]*overflow:\s*visible;[^}]*\}/s,
+    )
     expect(appCss).toMatch(/\.topbar-actions\s*\{[^}]*flex-wrap:\s*wrap;[^}]*overflow:\s*visible;[^}]*\}/s)
     expect(appCss).toContain('.desktop-menu-trigger')
     expect(appCss).toContain('.desktop-menu-open')

@@ -8,8 +8,6 @@ import type { Monaco } from '@monaco-editor/react'
 import ReactMarkdown from 'react-markdown'
 import {
   Dock,
-  Eye,
-  EyeOff,
   GripVertical,
   PanelBottomClose,
   PanelBottomOpen,
@@ -614,7 +612,13 @@ function App() {
   )
   const toolbarVisibility = uiPreferences.toolbarVisibility
   const hasVisibleToolbarSection = useMemo(
-    () => Object.values(toolbarVisibility).some(Boolean),
+    () =>
+      Boolean(
+        toolbarVisibility.navigation ||
+          toolbarVisibility.editing ||
+          toolbarVisibility.panels ||
+          toolbarVisibility.modes,
+      ),
     [toolbarVisibility],
   )
 
@@ -4310,14 +4314,6 @@ function App() {
                       })}
                     </select>
                   </label>
-                  <button
-                    type="button"
-                    onClick={() => navigateBack()}
-                    disabled={!viewHistory.length}
-                    title={withTooltip('Navigate to previous view in drilldown history')}
-                  >
-                    Back
-                  </button>
                 </div>
               ) : null}
               {toolbarVisibility.editing ? (
@@ -4337,45 +4333,6 @@ function App() {
                     title={withTooltip('Connect nodes by dragging from one port to another')}
                   >
                     Connector
-                  </button>
-                </div>
-              ) : null}
-              {toolbarVisibility.viewport ? (
-                <div className="toolbar-group">
-                  <button type="button" onClick={() => zoomByFactor(1.1)} title={withTooltip('Zoom in canvas')}>
-                    Zoom +
-                  </button>
-                  <button type="button" onClick={() => zoomByFactor(0.9)} title={withTooltip('Zoom out canvas')}>
-                    Zoom -
-                  </button>
-                  <button type="button" onClick={() => runAutoArrange()} title={withTooltip('Apply auto layout')}>
-                    Auto layout
-                  </button>
-                  <button
-                    type="button"
-                    className="icon-toggle-button"
-                    onClick={() => setGridEnabled(!gridEnabled)}
-                    title={withTooltip(gridEnabled ? 'Hide grid' : 'Show grid')}
-                  >
-                    <Dock size={14} />
-                    <span>{gridEnabled ? 'Grid on' : 'Grid off'}</span>
-                  </button>
-                  <button
-                    type="button"
-                    className="icon-toggle-button"
-                    onClick={() => setSnapEnabled(!snapEnabled)}
-                    title={withTooltip(snapEnabled ? 'Disable snap' : 'Enable snap')}
-                  >
-                    {snapEnabled ? <Eye size={14} /> : <EyeOff size={14} />}
-                    <span>{snapEnabled ? 'Snap on' : 'Snap off'}</span>
-                  </button>
-                  <button
-                    type="button"
-                    className="icon-toggle-button"
-                    onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-                    title={withTooltip(theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme')}
-                  >
-                    <span>{theme === 'dark' ? 'Dark' : 'Light'}</span>
                   </button>
                 </div>
               ) : null}
@@ -4522,14 +4479,6 @@ function App() {
                   onChange={() => toggleToolbarSection('editing')}
                 />
                 Editing
-              </label>
-              <label className="preferences-toggle">
-                <input
-                  type="checkbox"
-                  checked={uiPreferences.toolbarVisibility.viewport}
-                  onChange={() => toggleToolbarSection('viewport')}
-                />
-                Viewport
               </label>
               <label className="preferences-toggle">
                 <input

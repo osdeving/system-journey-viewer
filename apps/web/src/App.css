@@ -104,7 +104,9 @@
 .topbar-meta {
   min-width: 0;
   display: grid;
-  gap: 8px;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 8px 10px;
 }
 
 .topbar-brand-row {
@@ -136,9 +138,7 @@
 }
 
 .app-brand-copy {
-  min-width: 0;
-  display: grid;
-  gap: 2px;
+  display: none;
 }
 
 .app-brand-copy h1 {
@@ -161,8 +161,10 @@
   flex-wrap: wrap;
   align-items: center;
   gap: 8px;
-  width: 100%;
+  width: auto;
   max-width: 100%;
+  min-width: 0;
+  flex: 1 1 auto;
   overflow: visible;
   padding: 5px;
   border-radius: 14px;
@@ -260,19 +262,11 @@
 }
 
 .mode-indicators {
-  margin-top: 0;
-  display: flex;
-  gap: 6px;
-  flex-wrap: wrap;
-  min-width: 0;
+  display: none;
 }
 
 .mode-indicators-presentation {
-  width: auto;
-  max-width: 100%;
-  min-width: 0;
-  flex-wrap: nowrap;
-  overflow: hidden;
+  display: none;
 }
 
 .mode-pill {

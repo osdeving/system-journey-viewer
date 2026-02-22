@@ -110,6 +110,7 @@ import { resolveTopbarHeight } from './layout/topbarSizing'
 import { BLANK_WORKSPACE_VIEW_ID, createBlankWorkspace } from './model/blankWorkspace'
 import type { EditorSnapshot, ViewportState, WorkspaceModel } from './model/types'
 import { nodePresetsByCategory, protocolPresets, resolveNodePreset } from './presets/catalog'
+import { iconForKey } from './presets/iconPipeline'
 import { applyWorkspaceLayout, loadWorkspaceLayout, saveWorkspaceLayout } from './store/layoutPersistence'
 import { useEditorStore } from './store/useEditorStore'
 import {
@@ -214,6 +215,7 @@ type UiDensity = 'comfortable' | 'compact'
 type UiPreferences = {
   tooltipsEnabled: boolean
   splashEnabled: boolean
+  nodeDepthEffectsEnabled: boolean
   showcaseLocale: ShowcaseLocale
   density: UiDensity
   toolbarVisibility: Record<ToolbarSectionId, boolean>
@@ -298,8 +300,9 @@ const HISTORY_LIMIT = 120
 const DEFAULT_UI_PREFERENCES: UiPreferences = {
   tooltipsEnabled: true,
   splashEnabled: true,
+  nodeDepthEffectsEnabled: true,
   showcaseLocale: 'en',
-  density: 'comfortable',
+  density: 'compact',
   toolbarVisibility: {
     navigation: true,
     editing: true,
@@ -322,6 +325,8 @@ const resolveInitialUiPreferences = (): UiPreferences => {
     return {
       tooltipsEnabled: parsed.tooltipsEnabled ?? DEFAULT_UI_PREFERENCES.tooltipsEnabled,
       splashEnabled: parsed.splashEnabled ?? DEFAULT_UI_PREFERENCES.splashEnabled,
+      nodeDepthEffectsEnabled:
+        parsed.nodeDepthEffectsEnabled ?? DEFAULT_UI_PREFERENCES.nodeDepthEffectsEnabled,
       showcaseLocale:
         parsed.showcaseLocale === 'pt' || parsed.showcaseLocale === 'en'
           ? parsed.showcaseLocale
@@ -785,6 +790,7 @@ function App() {
   const currentViewModeLabel = viewKindLabel[currentView.kind] ?? currentView.kind
   const playerModeLabel = playerIsRunning ? 'Animation' : 'Render'
   const immersiveMode = focusMode || presentationMode
+  const canNavigateBack = viewHistory.length > 0
   const legacyDockShellAvailable = dockTabOrder.some((tab) => !isManagedDockTab(tab))
   const leftDockVisible = !immersiveMode && legacyDockShellAvailable && dockPosition === 'left' && !dockCollapsed
   const rightDockVisible = !immersiveMode && legacyDockShellAvailable && dockPosition === 'right' && !dockCollapsed
@@ -3307,6 +3313,19 @@ function App() {
         />
         Show startup splash
       </label>
+      <label className="preferences-toggle">
+        <input
+          type="checkbox"
+          checked={uiPreferences.nodeDepthEffectsEnabled}
+          onChange={(event) =>
+            setUiPreferences((current) => ({
+              ...current,
+              nodeDepthEffectsEnabled: event.target.checked,
+            }))
+          }
+        />
+        Enable node depth effects (3D look)
+      </label>
       <button
         type="button"
         className="preferences-inline-action"
@@ -3398,7 +3417,10 @@ function App() {
                   event.dataTransfer.setData('application/x-node-preset-id', preset.id)
                 }}
               >
-                {preset.label}
+                <span className="toolbox-item-icon" aria-hidden="true">
+                  {iconForKey(preset.iconKey)}
+                </span>
+                <span className="toolbox-item-label">{preset.label}</span>
               </li>
             ))}
           </ul>
@@ -5137,6 +5159,25 @@ function App() {
                     role="menuitem"
                     onClick={() =>
                       runDesktopMenuAction(() =>
+                        setUiPreferences((current) => ({
+                          ...current,
+                          nodeDepthEffectsEnabled: !current.nodeDepthEffectsEnabled,
+                        })),
+                      )
+                    }
+                  >
+                    {renderDesktopMenuItem(
+                      <Sparkles size={13} />,
+                      uiPreferences.nodeDepthEffectsEnabled
+                        ? 'Disable Node Depth Effects'
+                        : 'Enable Node Depth Effects',
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() =>
+                      runDesktopMenuAction(() =>
                         setUiPreferences((current) => ({ ...current, showcaseLocale: 'en' })),
                       )
                     }
@@ -5668,26 +5709,29 @@ function App() {
           recordGuidedTutorialEvent('canvas-click')
         }}
       >
+        {!presentationMode && canNavigateBack ? (
+          <button
+            type="button"
+            className="canvas-back-arrow"
+            onClick={() => navigateBack()}
+            title={withTooltip('Back to previous view')}
+            aria-label="Back to previous view"
+          >
+            <Undo2 size={16} />
+          </button>
+        ) : null}
         {!presentationMode && activeTool === 'connector' ? (
-          <p className="canvas-hint">
+          <p className={canNavigateBack ? 'canvas-hint canvas-hint-with-back' : 'canvas-hint'}>
             {pendingConnectionFrom
               ? `Select a destination to connect from ${pendingConnectionFrom}${pendingConnectionPortId ? `:${pendingConnectionPortId}` : ''}`
               : 'Drag from one handle to another to create an edge'}
-          </p>
-        ) : null}
-        {!presentationMode && currentView.kind === 'container' ? (
-          <p className="canvas-hint secondary-hint">
-            Double-click opens existing drilldown. Ctrl+Alt+double-click creates a new drilldown.
-          </p>
-        ) : !presentationMode && currentView.kind === 'component' ? (
-          <p className="canvas-hint secondary-hint">
-            Double-click opens existing drilldown. Ctrl+Alt+double-click creates a new drilldown.
           </p>
         ) : null}
         <DiagramCanvas
           presentationMode={presentationMode}
           forceGridHidden={presentationMode}
           exportFocusJourneyId={exportFocusJourneyId}
+          nodeDepthEffectsEnabled={uiPreferences.nodeDepthEffectsEnabled}
           onEdgePointerStart={(edgeId, event) => {
             if (
               event.ctrlKey ||

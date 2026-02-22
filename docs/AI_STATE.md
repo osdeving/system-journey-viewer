@@ -297,13 +297,19 @@
     - Tutorial overlay now remeasures after menu/pointer interactions so the tutorial card can move away from open menus and highlighted menu content stays visible (not blurred under the overlay cutout).
     - Slice 6 adds more action-gated workflow coverage: `Window > Open Timeline Panel`, edge selection on canvas, edge label editing, and edge protocol changes in the Inspector.
     - Remaining tutorial coverage is intentionally being delivered incrementally (TBD slices) so shell/density refactors can proceed in parallel without blocking.
-  - Phase 5 (`Density / visual refinement`): partial (several compacting tweaks exist, but no formal density system yet).
+  - Phase 5 (`Density / visual refinement`): partial (formal density system exists; ongoing work is expanding density coverage and visual polish into canvas/panels/forms).
     - Added a reusable `OverflowStrip` component for compact, non-wrapping horizontal controls with wheel scroll + arrow nav.
     - Dock-host tabs now support wheel scrolling and drag-reorder, and SJV Script toolbar uses compact labels before showing overflow navigation.
     - Legacy dock shell regions/actions are now hidden when no legacy tabs exist, preventing duplicate empty side/bottom dock areas during managed-host layouts.
     - Window-menu items gained lightweight icons for faster scanning; floating `Preferences`/`Help` content layouts were tuned to avoid vertical control stretching on resize.
     - Added a formal persisted `UI Density` preference (`comfortable | compact`) with a root density class and shared shell density tokens (menus, toolbars, dock tabs, drawer tabs, floating headers, panel padding/gaps).
     - Desktop menu item icons are now applied consistently across all menus (`File`, `Edit`, `View`, `Window`, `Journey`, `Insert`, `Settings`, `Help`) via a shared render helper.
+    - Default UI density now starts in `compact` (still switchable via `Settings` and `Preferences`).
+    - Density token coverage was extended into `Inspector` and journey-side form controls (inputs/selects/buttons/field rows) for more consistent compact mode behavior.
+    - Palette list now includes compact icon glyphs per preset and uses subtler themed scrollbars (instead of browser-default scroll styling).
+    - Canvas view now shows a subtle inline back-arrow overlay (top-left) when drilldown history exists; the old drilldown hint text was removed from that region.
+    - Drilldown creation follow-up navigation was fixed by restoring interior hit-testing for boundary nodes that own a drilldown reference (double-click opens the child after returning to parent view).
+    - Optional node depth effects (3D-style lighting overlays) were added for non-note/non-boundary nodes, with hidden rear-detail lines for queue/database shapes and a user preference toggle (`Enable node depth effects (3D look)`).
 - `Palette` no longer uses the legacy dedicated left sidebar render path; it is rendered via managed hosts/floating windows and default-opens docked left at startup.
 - Window-layout persistence now also stores managed host sizes (`managedLeftHostWidth`, `managedRightHostWidth`, `managedBottomHostHeight`) and `Restore/Reset Window Layout` applies them.
 - Splash is now a reusable component with auto-dismiss per-open + outside-click dismiss; floating window title bars and dock-host tab strips received UX polish (thinner title bars, smaller controls, tab overflow arrows instead of native scrollbar).

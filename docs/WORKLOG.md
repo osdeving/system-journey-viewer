@@ -514,6 +514,33 @@ Chronological engineering log. Entries are kept concise and focused on behavior 
 - `find skills -maxdepth 2 -name SKILL.md | sort`
 - `rg -n \"^---$|^name: |^description: \" skills/*/SKILL.md`
 
+## 2026-02-22 - Topbar compaction (logo/menu row + reduced toolbar)
+
+### Scope
+
+- Reduced vertical topbar footprint in `apps/web` by removing non-essential header rows and trimming redundant toolbar controls now covered by main menus.
+
+### Changes
+
+- `apps/web/src/App.tsx`
+  - removed `Back` from the toolbar navigation group (view hierarchy selector remains);
+  - removed the toolbar viewport group (`Zoom`, `Auto layout`, `Grid`, `Snap`, `Theme`) so these actions stay in the main `View` menu only;
+  - excluded deprecated `viewport` toolbar visibility preference from the toolbar visibility-empty calculation;
+  - removed the `Viewport` checkbox from Preferences > Toolbar sections (toolbar group no longer exists).
+- `apps/web/src/App.css`
+  - compacted topbar meta layout to place logo and desktop menubar on the same row;
+  - hid the brand title/breadcrumb text block in the topbar (logo-only branding in header);
+  - hid the mode-pill row to reclaim vertical space;
+  - kept toolbar row wrapping behavior for smaller widths.
+- `apps/web/src/App.styles.test.ts`
+  - added style regression assertions for compact topbar layout and hidden mode row.
+
+### Validation
+
+- `npm --workspace @sjv/web run lint`
+- `npm --workspace @sjv/web run test:run`
+- `npm --workspace @sjv/web run build`
+
 ## 2026-02-19 - Playback defaults, dock/view upgrades, edge-label rotation, recents memory, and help guide
 
 ### Scope

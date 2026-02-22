@@ -8,6 +8,7 @@
 - Latest desktop UX increment (2026-02-21, evening pass) added bilingual showcase/tutorial loaders, startup splash/about metadata, preferences floating window, export gallery in help, dynamic topbar height layout, drilldown badge rendering, and expanded showcase drilldown coverage for all showcased microservices.
 - Latest desktop hotfix (2026-02-21, late pass) fixed menubar dropdown clipping and restored full toolbar visibility by combining visible menu overflow with content-based topbar height measurement.
 - Latest topbar hotfix follow-up (2026-02-21, night pass) removed fixed top-row sizing (now `auto`) and updated toolbar row wrapping/overflow so menu + toolbar content no longer clips at the canvas edge.
+- Latest desktop shell refinement (2026-02-22) compacted the topbar by collapsing logo + menubar into one row, hiding topbar mode pills, and moving viewport controls (zoom/grid/snap/theme/auto-layout) to the main menu only.
 - Latest workflow/docs increment (2026-02-22) refreshed repository `AGENTS.md` for the actual monorepo stack and expanded local skills for UI layout regressions, SJV Script changes, `gh` PR/merge flow, showcase/tutorial curation, docs synchronization, export validation, theme/palette accessibility tuning, Playwright visual capture, and local persistence migrations.
 - Architecture baseline:
   - custom SVG editor engine (internal adapter, no paid lock-in),
@@ -156,6 +157,11 @@
 - Topbar layout follow-up:
   - app shell grid now uses `auto` for the topbar row to avoid fixed-height clipping loops,
   - toolbar row now wraps with visible overflow so labels/buttons remain fully visible.
+- Topbar density refinement:
+  - topbar branding is now logo-only (workspace name/breadcrumb removed from the header row),
+  - menubar now shares the logo row,
+  - topbar mode-pill row is hidden to reclaim vertical space,
+  - viewport actions remain available in the main `View` menu instead of the toolbar.
 - Help and onboarding enhancements:
   - help panel now has `Guide`, `Export Gallery`, and `About` sections,
   - startup splash presents app identity/version (`MVP Beta`) and ownership label (`Willams Sousa`),

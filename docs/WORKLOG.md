@@ -491,6 +491,29 @@ Chronological engineering log. Entries are kept concise and focused on behavior 
 - `find skills -maxdepth 2 -name SKILL.md | sort`
 - `rg -n \"^---$|^name: |^description: \" skills/*/SKILL.md`
 
+## 2026-02-22 - Local skills expansion (Playwright visual capture + persistence migrations)
+
+### Scope
+
+- Added two additional local skills for recurring operational workflows:
+  - Playwright-based visual/demo capture,
+  - local persistence migration safety for UI preferences/layout/snapshots.
+
+### Changes
+
+- `skills/sjv-playwright-visual-capture/SKILL.md` (new)
+  - workflow for deterministic screenshot/demo capture with Playwright, local dev server setup, and asset validation.
+- `skills/sjv-local-persistence-migrations/SKILL.md` (new)
+  - workflow for evolving localStorage/snapshot persistence safely with compatibility strategy and tests.
+- `AGENTS.md`
+  - added both skills to the implemented local skills list.
+
+### Validation
+
+- `git diff --check`
+- `find skills -maxdepth 2 -name SKILL.md | sort`
+- `rg -n \"^---$|^name: |^description: \" skills/*/SKILL.md`
+
 ## 2026-02-19 - Playback defaults, dock/view upgrades, edge-label rotation, recents memory, and help guide
 
 ### Scope

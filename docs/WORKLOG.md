@@ -424,6 +424,41 @@ Chronological engineering log. Entries are kept concise and focused on behavior 
 - `npm --workspace @sjv/web run test:run`
 - `npm --workspace @sjv/web run build`
 
+## 2026-02-22 - Guided tutorial phase 4 (slice 3): real spotlight cutout + more action-gated steps (toolbar mode and canvas click)
+
+### Scope
+
+- Fixed the guided tutorial spotlight so the highlighted target remains visible (no blur/dim over the focus area).
+- Continued Phase 4 by adding more action-gated tutorial steps for actual UI interaction:
+  - toolbar mode selection (`Select` / `Connector`)
+  - canvas click confirmation
+
+### Changes
+
+- `apps/web/src/components/tutorial/GuidedTutorialOverlay.tsx`
+  - replaced the single fullscreen backdrop usage with segmented backdrop panes around the spotlight target,
+  - spotlight now renders a border/glow only (no giant outer shadow that covered the target),
+  - highlighted UI area remains visible while the surrounding UI stays dimmed/blurred.
+- `apps/web/src/tutorial/guidedTutorial.ts`
+  - added `resolveGuidedTutorialBackdropPanes(...)` helper for spotlight cutout geometry,
+  - added `editing-mode` action-gated step targeting the toolbar editing group (`toolbar-mode-click`),
+  - upgraded `canvas` step to require a real canvas click (`canvas-click`).
+- `apps/web/src/App.tsx`
+  - records tutorial events for toolbar mode button clicks,
+  - records tutorial events for canvas clicks (`onPointerDownCapture` on the canvas panel container).
+- `apps/web/src/tutorial/guidedTutorial.test.ts`
+  - added coverage for backdrop pane geometry helper,
+  - updated guided tutorial helper coverage.
+- `apps/web/src/App.source.test.ts`, `apps/web/src/App.styles.test.ts`
+  - regressions for new tutorial event hooks and segmented backdrop styles.
+
+### Validation
+
+- `npm --workspace @sjv/web run lint`
+- `npm --workspace @sjv/web run test:run -- src/tutorial/guidedTutorial.test.ts src/App.source.test.ts src/App.styles.test.ts`
+- `npm --workspace @sjv/web run test:run`
+- `npm --workspace @sjv/web run build`
+
 ## 2026-02-22 - Guided tutorial phase 4 (slice 2): action-gated steps and non-blocking overlay interactions
 
 ### Scope

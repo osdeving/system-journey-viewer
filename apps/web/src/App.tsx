@@ -5084,7 +5084,10 @@ function App() {
                   <button
                     type="button"
                     className={activeTool === 'select' ? 'tool-button tool-active toolbar-icon-button' : 'tool-button toolbar-icon-button'}
-                    onClick={() => setActiveTool('select')}
+                    onClick={() => {
+                      recordGuidedTutorialEvent('toolbar-mode-click')
+                      setActiveTool('select')
+                    }}
                     title={withTooltip('Select and move nodes or edges')}
                     aria-label="Select mode"
                   >
@@ -5098,7 +5101,10 @@ function App() {
                         ? 'tool-button tool-active toolbar-icon-button'
                         : 'tool-button toolbar-icon-button'
                     }
-                    onClick={() => setActiveTool('connector')}
+                    onClick={() => {
+                      recordGuidedTutorialEvent('toolbar-mode-click')
+                      setActiveTool('connector')
+                    }}
                     title={withTooltip('Connect nodes by dragging from one port to another')}
                     aria-label="Connector mode"
                   >
@@ -5251,6 +5257,12 @@ function App() {
         }`}
         ref={canvasPanelRef}
         data-tutorial-id="canvas-panel"
+        onPointerDownCapture={(event) => {
+          if (event.button !== 0) {
+            return
+          }
+          recordGuidedTutorialEvent('canvas-click')
+        }}
       >
         {!presentationMode && activeTool === 'connector' ? (
           <p className="canvas-hint">

@@ -66,6 +66,13 @@ export type GuidedTutorialCardLayout = {
   maxWidth: number
 }
 
+export type GuidedTutorialBackdropPane = {
+  top: number
+  left: number
+  width: number
+  height: number
+}
+
 type ResolveCardLayoutInput = {
   targetRect: GuidedTutorialRect | null
   placement: GuidedTutorialPlacement
@@ -203,6 +210,37 @@ export const resolveGuidedTutorialCardLayout = ({
   }
 }
 
+export const resolveGuidedTutorialBackdropPanes = (
+  targetRect: GuidedTutorialRect | null,
+  viewportWidth: number,
+  viewportHeight: number,
+): GuidedTutorialBackdropPane[] => {
+  if (!targetRect) {
+    return [
+      {
+        top: 0,
+        left: 0,
+        width: viewportWidth,
+        height: viewportHeight,
+      },
+    ]
+  }
+
+  const left = clamp(Math.round(targetRect.x), 0, viewportWidth)
+  const top = clamp(Math.round(targetRect.y), 0, viewportHeight)
+  const right = clamp(Math.round(targetRect.x + targetRect.width), 0, viewportWidth)
+  const bottom = clamp(Math.round(targetRect.y + targetRect.height), 0, viewportHeight)
+
+  const panes: GuidedTutorialBackdropPane[] = [
+    { top: 0, left: 0, width: viewportWidth, height: top },
+    { top, left: 0, width: left, height: Math.max(0, bottom - top) },
+    { top, left: right, width: Math.max(0, viewportWidth - right), height: Math.max(0, bottom - top) },
+    { top: bottom, left: 0, width: viewportWidth, height: Math.max(0, viewportHeight - bottom) },
+  ]
+
+  return panes.filter((pane) => pane.width > 0 && pane.height > 0)
+}
+
 export const resolveGuidedTutorialStepCompletion = (
   step: GuidedTutorialStep,
   context: GuidedTutorialCompletionContext,
@@ -271,6 +309,21 @@ export const GUIDED_UI_TUTORIAL_STEPS: GuidedTutorialStep[] = [
     target: { kind: 'selector', selector: '[data-tutorial-id="topbar-toolbar"]', padding: 8 },
   },
   {
+    id: 'editing-mode',
+    title: 'Editing Modes',
+    body:
+      'Use Select to move/edit and Connector to create edges. Try clicking either mode button now to continue.',
+    placement: 'bottom',
+    target: { kind: 'selector', selector: '[data-tutorial-id="toolbar-editing-group"]', padding: 8 },
+    completionRule: {
+      kind: 'event',
+      eventId: 'toolbar-mode-click',
+      prompt: 'Click Select or Connector in the toolbar to continue.',
+    },
+    missingTargetHint:
+      'The Editing toolbar section may be hidden in Preferences. Re-enable it or skip this step.',
+  },
+  {
     id: 'panel-shortcuts',
     title: 'Panel Shortcuts',
     body:
@@ -289,9 +342,14 @@ export const GUIDED_UI_TUTORIAL_STEPS: GuidedTutorialStep[] = [
     id: 'canvas',
     title: 'Canvas',
     body:
-      'The canvas is where you place nodes, connect edges, and play journeys. Double-click nodes with drilldown to navigate deeper views.',
+      'The canvas is where you place nodes, connect edges, and play journeys. Click the canvas once, then continue. Double-click nodes with drilldown to navigate deeper views.',
     placement: 'top',
     target: { kind: 'selector', selector: '[data-tutorial-id="canvas-panel"]', padding: 8 },
+    completionRule: {
+      kind: 'event',
+      eventId: 'canvas-click',
+      prompt: 'Click once on the canvas to continue.',
+    },
   },
   {
     id: 'palette',

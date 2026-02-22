@@ -5,6 +5,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { CSSProperties } from 'react'
 import {
+  resolveGuidedTutorialBackdropPanes,
   resolveGuidedTutorialCardLayout,
   resolveGuidedTutorialTargetRect,
   type GuidedTutorialRect,
@@ -117,6 +118,10 @@ export function GuidedTutorialOverlay({
       }),
     [step.placement, targetRect, viewportHeight, viewportWidth],
   )
+  const backdropPanes = useMemo(
+    () => resolveGuidedTutorialBackdropPanes(targetRect, viewportWidth, viewportHeight),
+    [targetRect, viewportHeight, viewportWidth],
+  )
 
   const spotlightStyle = targetRect
     ? ({
@@ -133,9 +138,25 @@ export function GuidedTutorialOverlay({
     maxWidth: `${cardLayout.maxWidth}px`,
   } satisfies CSSProperties
 
+  const resolvePaneStyle = (index: number) => {
+    const pane = backdropPanes[index]
+    return {
+      top: `${pane.top}px`,
+      left: `${pane.left}px`,
+      width: `${pane.width}px`,
+      height: `${pane.height}px`,
+    } satisfies CSSProperties
+  }
+
   return (
     <div className="guided-tutorial-overlay" role="dialog" aria-modal="true" aria-label="Guided tutorial">
-      <div className="guided-tutorial-backdrop" />
+      {backdropPanes.map((_, index) => (
+        <div
+          key={`guided-tutorial-backdrop-${index}`}
+          className="guided-tutorial-backdrop-pane"
+          style={resolvePaneStyle(index)}
+        />
+      ))}
       {targetRect ? <div className="guided-tutorial-spotlight" style={spotlightStyle} /> : null}
       <section className="guided-tutorial-card" style={cardStyle} data-tutorial-id="guided-tutorial-card">
         <header className="guided-tutorial-card-header">

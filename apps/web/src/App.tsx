@@ -87,6 +87,16 @@ import {
   resolvePreferredEntryViewId,
 } from './viewHierarchy'
 import type { ShowcaseLocale, ShowcaseMode } from './model/showcaseWorkspace'
+import {
+  closeManagedWindow,
+  createManagedWindowsState,
+  openManagedWindow,
+  setManagedWindowFloatingRect,
+  setManagedWindowPlacement,
+  type ManagedWindowId,
+  type ManagedWindowPlacement,
+  type ManagedWindowsState,
+} from './windowing/windowManager'
 
 const DEBOUNCE_SAVE_MS = 900
 const DEFAULT_LEFT_SIDEBAR_WIDTH = 240
@@ -107,6 +117,12 @@ const DEFAULT_PREFERENCES_WINDOW_RECT = {
   y: DEFAULT_TOPBAR_HEIGHT + 10,
   width: 380,
   height: 372,
+}
+const DEFAULT_HELP_WINDOW_RECT = {
+  x: 28,
+  y: DEFAULT_TOPBAR_HEIGHT + 10,
+  width: 520,
+  height: 440,
 }
 const UI_PREFERENCES_STORAGE_KEY = 'sjv-ui-preferences-v1'
 const APP_VERSION_LABEL = 'MVP Beta'
@@ -148,7 +164,7 @@ const viewKindLabel: Record<string, string> = {
 }
 
 type DrawerTab = 'journeys' | 'dsl' | 'dock' | 'help'
-type DockTab = 'inspector' | 'journeys' | 'timeline' | 'dsl' | 'help'
+type DockTab = 'inspector' | 'journeys' | 'timeline' | 'dsl' | 'help' | 'preferences'
 type DockPosition = 'left' | 'right' | 'bottom' | 'floating'
 type DesktopMenuId = 'file' | 'edit' | 'view' | 'journey' | 'insert' | 'settings' | 'help'
 type PlayerAnimationPreset = 'cinematic' | 'orb' | 'minimal'
@@ -234,7 +250,7 @@ type WorkspaceWindow = Window & {
 }
 
 const DESKTOP_MENU_ORDER: DesktopMenuId[] = ['file', 'edit', 'view', 'journey', 'insert', 'settings', 'help']
-const DEFAULT_DOCK_TAB_ORDER: DockTab[] = ['inspector', 'journeys', 'timeline', 'dsl', 'help']
+const DEFAULT_DOCK_TAB_ORDER: DockTab[] = ['inspector', 'journeys', 'timeline', 'dsl', 'help', 'preferences']
 const HISTORY_LIMIT = 120
 const DEFAULT_UI_PREFERENCES: UiPreferences = {
   tooltipsEnabled: true,
@@ -282,6 +298,24 @@ const resolveInitialUiPreferences = (): UiPreferences => {
   } catch {
     return DEFAULT_UI_PREFERENCES
   }
+}
+
+const normalizeDockTabOrder = (tabOrder: DockTab[]): DockTab[] => {
+  const unique = new Set<DockTab>()
+  const next: DockTab[] = []
+  for (const tab of tabOrder) {
+    if (!DEFAULT_DOCK_TAB_ORDER.includes(tab) || unique.has(tab)) {
+      continue
+    }
+    unique.add(tab)
+    next.push(tab)
+  }
+  for (const tab of DEFAULT_DOCK_TAB_ORDER) {
+    if (!unique.has(tab)) {
+      next.push(tab)
+    }
+  }
+  return next
 }
 
 const isTextInputTarget = (target: EventTarget | null): boolean => {
@@ -450,7 +484,7 @@ function App() {
   const [dockCollapsed, setDockCollapsed] = useState(true)
   const [drawerCollapsed, setDrawerCollapsed] = useState(true)
   const [dockPosition, setDockPosition] = useState<DockPosition>('right')
-  const [dockTabOrder, setDockTabOrder] = useState<DockTab[]>(DEFAULT_DOCK_TAB_ORDER)
+  const [dockTabOrder, setDockTabOrder] = useState<DockTab[]>(() => normalizeDockTabOrder(DEFAULT_DOCK_TAB_ORDER))
   const [activeDockTab, setActiveDockTab] = useState<DockTab>('inspector')
   const [floatingDockRect, setFloatingDockRect] = useState<FloatingDockRect>(DEFAULT_FLOATING_DOCK_RECT)
   const [recentWorkspaces, setRecentWorkspaces] = useState<RecentWorkspaceEntry[]>(() => loadRecentWorkspaces())
@@ -460,9 +494,11 @@ function App() {
   const initialUiPreferences = useMemo(() => resolveInitialUiPreferences(), [])
   const [topbarHeight, setTopbarHeight] = useState(DEFAULT_TOPBAR_HEIGHT)
   const [helpSection, setHelpSection] = useState<HelpSection>('guide')
-  const [preferencesOpen, setPreferencesOpen] = useState(false)
-  const [preferencesWindowRect, setPreferencesWindowRect] = useState<FloatingDockRect>(
-    DEFAULT_PREFERENCES_WINDOW_RECT,
+  const [managedWindows, setManagedWindows] = useState<ManagedWindowsState>(() =>
+    createManagedWindowsState({
+      help: DEFAULT_HELP_WINDOW_RECT,
+      preferences: DEFAULT_PREFERENCES_WINDOW_RECT,
+    }),
   )
   const [uiPreferences, setUiPreferences] = useState<UiPreferences>(initialUiPreferences)
   const [splashVisible, setSplashVisible] = useState(initialUiPreferences.splashEnabled)
@@ -859,13 +895,41 @@ function App() {
     setOpenDesktopMenu(null)
   }
 
-  const openHelpPanelSection = (section: HelpSection) => {
+  const openManagedFloatingWindow = (windowId: ManagedWindowId) => {
+    setManagedWindows((current) => openManagedWindow(current, windowId, { placement: 'floating' }))
+  }
+
+  const closeManagedWindowById = (windowId: ManagedWindowId) => {
+    setManagedWindows((current) => closeManagedWindow(current, windowId))
+  }
+
+  const setManagedWindowRect = (windowId: ManagedWindowId, rect: FloatingDockRect) => {
+    setManagedWindows((current) => setManagedWindowFloatingRect(current, windowId, rect))
+  }
+
+  const dockManagedWindow = (windowId: ManagedWindowId, placement: Exclude<ManagedWindowPlacement, 'floating'>) => {
+    setFocusMode(false)
+    setPresentationMode(false)
+    if (placement === 'left') {
+      moveDockToLeft()
+    } else if (placement === 'right') {
+      moveDockToRight()
+    } else {
+      moveDockToBottom()
+    }
+    openDockTab(windowId === 'help' ? 'help' : 'preferences')
+    setManagedWindows((current) => {
+      let next = setManagedWindowPlacement(current, windowId, placement)
+      next = closeManagedWindow(next, windowId)
+      return next
+    })
+  }
+
+  const openHelpWindow = (section: HelpSection) => {
     setHelpSection(section)
     setFocusMode(false)
     setPresentationMode(false)
-    setDrawerCollapsed(false)
-    switchDrawerTab('help')
-    openDockTab('help')
+    openManagedFloatingWindow('help')
   }
 
   const toggleToolbarSection = useCallback((sectionId: ToolbarSectionId) => {
@@ -878,9 +942,9 @@ function App() {
     }))
   }, [])
 
-  const openPreferencesWindow = useCallback(() => {
-    setPreferencesOpen(true)
-  }, [])
+  const openPreferencesWindow = () => {
+    openManagedFloatingWindow('preferences')
+  }
 
   const setTransientStatus = useCallback((message: string, timeoutMs = 2800) => {
     setExportStatus(message)
@@ -1118,6 +1182,9 @@ function App() {
 
   const openDockTab = (tab: DockTab) => {
     setActiveDockTab(tab)
+    if (tab === 'help' || tab === 'preferences') {
+      setManagedWindows((current) => closeManagedWindow(current, tab))
+    }
     setDockCollapsed(false)
     if (dockPosition === 'bottom') {
       setDrawerCollapsed(false)
@@ -1486,7 +1553,7 @@ function App() {
     setDrawerCollapsed(snapshot.ui.drawerCollapsed)
     setDockPosition(snapshot.ui.dockPosition)
     setFloatingDockRect(cloneSerializable(snapshot.ui.floatingDockRect))
-    setDockTabOrder(cloneSerializable(snapshot.ui.dockTabOrder))
+    setDockTabOrder(normalizeDockTabOrder(cloneSerializable(snapshot.ui.dockTabOrder)))
     setActiveDockTab(snapshot.ui.activeDockTab)
     setJourneyDraftName(snapshot.ui.journeyDraftName)
     setOpenDesktopMenu(null)
@@ -2034,7 +2101,11 @@ function App() {
   useEffect(() => {
     if (immersiveMode) {
       setOpenDesktopMenu(null)
-      setPreferencesOpen(false)
+      setManagedWindows((current) => {
+        let next = closeManagedWindow(current, 'preferences')
+        next = closeManagedWindow(next, 'help')
+        return next
+      })
     }
   }, [immersiveMode])
 
@@ -2578,12 +2649,101 @@ function App() {
     </section>
   )
 
+  const preferencesPanelContent = (
+    <div className="preferences-body">
+      <label className="preferences-toggle">
+        <input
+          type="checkbox"
+          checked={uiPreferences.tooltipsEnabled}
+          onChange={(event) =>
+            setUiPreferences((current) => ({
+              ...current,
+              tooltipsEnabled: event.target.checked,
+            }))
+          }
+        />
+        Enable tooltips
+      </label>
+      <label className="preferences-toggle">
+        <input
+          type="checkbox"
+          checked={uiPreferences.splashEnabled}
+          onChange={(event) =>
+            setUiPreferences((current) => ({
+              ...current,
+              splashEnabled: event.target.checked,
+            }))
+          }
+        />
+        Show startup splash
+      </label>
+      <button
+        type="button"
+        className="preferences-inline-action"
+        onClick={() => setSplashVisible(true)}
+      >
+        Show splash now
+      </button>
+      <label className="preferences-select">
+        Showcase language
+        <select
+          value={uiPreferences.showcaseLocale}
+          onChange={(event) =>
+            setUiPreferences((current) => ({
+              ...current,
+              showcaseLocale: event.target.value as ShowcaseLocale,
+            }))
+          }
+        >
+          <option value="en">English</option>
+          <option value="pt">Portuguese</option>
+        </select>
+      </label>
+      <fieldset className="preferences-fieldset">
+        <legend>Toolbar sections</legend>
+        <label className="preferences-toggle">
+          <input
+            type="checkbox"
+            checked={uiPreferences.toolbarVisibility.navigation}
+            onChange={() => toggleToolbarSection('navigation')}
+          />
+          Navigation
+        </label>
+        <label className="preferences-toggle">
+          <input
+            type="checkbox"
+            checked={uiPreferences.toolbarVisibility.editing}
+            onChange={() => toggleToolbarSection('editing')}
+          />
+          Editing
+        </label>
+        <label className="preferences-toggle">
+          <input
+            type="checkbox"
+            checked={uiPreferences.toolbarVisibility.panels}
+            onChange={() => toggleToolbarSection('panels')}
+          />
+          Panels
+        </label>
+        <label className="preferences-toggle">
+          <input
+            type="checkbox"
+            checked={uiPreferences.toolbarVisibility.modes}
+            onChange={() => toggleToolbarSection('modes')}
+          />
+          Modes
+        </label>
+      </fieldset>
+    </div>
+  )
+
   const dockLabelByTab: Record<DockTab, string> = {
     inspector: 'Inspector',
     journeys: 'Journeys',
     timeline: 'Timeline',
     dsl: 'SJV Script',
     help: 'Help',
+    preferences: 'Preferences',
   }
   const dockIconByTab: Record<DockTab, ReactNode> = {
     inspector: <SlidersHorizontal size={13} />,
@@ -2591,6 +2751,7 @@ function App() {
     timeline: <ListOrdered size={13} />,
     dsl: <Code2 size={13} />,
     help: <CircleHelp size={13} />,
+    preferences: <SlidersHorizontal size={13} />,
   }
   const resolvedActiveDockTab = dockTabOrder.includes(activeDockTab)
     ? activeDockTab
@@ -2609,7 +2770,10 @@ function App() {
     if (tab === 'dsl') {
       return dslPanelContent
     }
-    return helpPanelContent
+    if (tab === 'help') {
+      return helpPanelContent
+    }
+    return preferencesPanelContent
   }
 
   const inspectorDockContent = (
@@ -3125,6 +3289,52 @@ function App() {
       : drawerTab === 'dock'
         ? 'journey-drawer journey-drawer-dock'
         : 'journey-drawer'
+
+  const buildManagedWindowDockActions = (windowId: ManagedWindowId) => (
+    <span className="dock-placement-actions">
+      <button
+        type="button"
+        className="dock-placement dock-placement-active"
+        onClick={() => {
+          setManagedWindows((current) => setManagedWindowPlacement(current, windowId, 'floating'))
+        }}
+        title={withTooltip('Floating window')}
+        aria-label="Keep floating"
+      >
+        <Dock size={14} />
+      </button>
+      <button
+        type="button"
+        className="dock-placement"
+        onClick={() => dockManagedWindow(windowId, 'left')}
+        title={withTooltip('Dock left')}
+        aria-label="Dock left"
+      >
+        <PanelLeftOpen size={14} />
+      </button>
+      <button
+        type="button"
+        className="dock-placement"
+        onClick={() => dockManagedWindow(windowId, 'right')}
+        title={withTooltip('Dock right')}
+        aria-label="Dock right"
+      >
+        <PanelRightOpen size={14} />
+      </button>
+      <button
+        type="button"
+        className="dock-placement"
+        onClick={() => dockManagedWindow(windowId, 'bottom')}
+        title={withTooltip('Dock bottom')}
+        aria-label="Dock bottom"
+      >
+        <PanelBottomOpen size={14} />
+      </button>
+    </span>
+  )
+
+  const helpWindow = managedWindows.help
+  const preferencesWindow = managedWindows.preferences
 
   return (
     <div
@@ -3923,7 +4133,7 @@ function App() {
                     role="menuitem"
                     onClick={() =>
                       runDesktopMenuAction(() => {
-                        openHelpPanelSection('guide')
+                        openHelpWindow('guide')
                       })
                     }
                   >
@@ -3934,7 +4144,7 @@ function App() {
                     role="menuitem"
                     onClick={() =>
                       runDesktopMenuAction(() => {
-                        openHelpPanelSection('gallery')
+                        openHelpWindow('gallery')
                       })
                     }
                   >
@@ -4061,7 +4271,7 @@ function App() {
                     role="menuitem"
                     onClick={() =>
                       runDesktopMenuAction(() => {
-                        openHelpPanelSection('guide')
+                        openHelpWindow('guide')
                       })
                     }
                   >
@@ -4072,7 +4282,7 @@ function App() {
                     role="menuitem"
                     onClick={() =>
                       runDesktopMenuAction(() => {
-                        openHelpPanelSection('gallery')
+                        openHelpWindow('gallery')
                       })
                     }
                   >
@@ -4083,11 +4293,22 @@ function App() {
                     role="menuitem"
                     onClick={() =>
                       runDesktopMenuAction(() => {
-                        openHelpPanelSection('about')
+                        openHelpWindow('about')
                       })
                     }
                   >
                     <span>Open About</span>
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() =>
+                      runDesktopMenuAction(() => {
+                        setSplashVisible(true)
+                      })
+                    }
+                  >
+                    <span>Show Splash</span>
                   </button>
                   <button
                     type="button"
@@ -4382,95 +4603,36 @@ function App() {
         {exportError ? <p className="topbar-error">{exportError}</p> : null}
         {!exportError && exportStatus ? <p className="topbar-status">{exportStatus}</p> : null}
       </header>
-      {preferencesOpen ? (
+      {helpWindow.open && helpWindow.placement === 'floating' ? (
+        <FloatingWindow
+          title="Help"
+          className="help-window"
+          bodyClassName="help-window-body"
+          rect={helpWindow.floatingRect}
+          onRectChange={(rect) => setManagedWindowRect('help', rect)}
+          topbarHeight={topbarHeight}
+          minWidth={360}
+          minHeight={280}
+          zIndex={191}
+          headerActions={buildManagedWindowDockActions('help')}
+          onClose={() => closeManagedWindowById('help')}
+        >
+          {helpPanelContent}
+        </FloatingWindow>
+      ) : null}
+      {preferencesWindow.open && preferencesWindow.placement === 'floating' ? (
         <FloatingWindow
           title="Preferences"
           className="preferences-window"
-          rect={preferencesWindowRect}
-          onRectChange={setPreferencesWindowRect}
+          rect={preferencesWindow.floatingRect}
+          onRectChange={(rect) => setManagedWindowRect('preferences', rect)}
           topbarHeight={topbarHeight}
           minWidth={320}
           minHeight={260}
-          onClose={() => setPreferencesOpen(false)}
+          headerActions={buildManagedWindowDockActions('preferences')}
+          onClose={() => closeManagedWindowById('preferences')}
         >
-          <div className="preferences-body">
-            <label className="preferences-toggle">
-              <input
-                type="checkbox"
-                checked={uiPreferences.tooltipsEnabled}
-                onChange={(event) =>
-                  setUiPreferences((current) => ({
-                    ...current,
-                    tooltipsEnabled: event.target.checked,
-                  }))
-                }
-              />
-              Enable tooltips
-            </label>
-            <label className="preferences-toggle">
-              <input
-                type="checkbox"
-                checked={uiPreferences.splashEnabled}
-                onChange={(event) =>
-                  setUiPreferences((current) => ({
-                    ...current,
-                    splashEnabled: event.target.checked,
-                  }))
-                }
-              />
-              Show startup splash
-            </label>
-            <label className="preferences-select">
-              Showcase language
-              <select
-                value={uiPreferences.showcaseLocale}
-                onChange={(event) =>
-                  setUiPreferences((current) => ({
-                    ...current,
-                    showcaseLocale: event.target.value as ShowcaseLocale,
-                  }))
-                }
-              >
-                <option value="en">English</option>
-                <option value="pt">Portuguese</option>
-              </select>
-            </label>
-            <fieldset className="preferences-fieldset">
-              <legend>Toolbar sections</legend>
-              <label className="preferences-toggle">
-                <input
-                  type="checkbox"
-                  checked={uiPreferences.toolbarVisibility.navigation}
-                  onChange={() => toggleToolbarSection('navigation')}
-                />
-                Navigation
-              </label>
-              <label className="preferences-toggle">
-                <input
-                  type="checkbox"
-                  checked={uiPreferences.toolbarVisibility.editing}
-                  onChange={() => toggleToolbarSection('editing')}
-                />
-                Editing
-              </label>
-              <label className="preferences-toggle">
-                <input
-                  type="checkbox"
-                  checked={uiPreferences.toolbarVisibility.panels}
-                  onChange={() => toggleToolbarSection('panels')}
-                />
-                Panels
-              </label>
-              <label className="preferences-toggle">
-                <input
-                  type="checkbox"
-                  checked={uiPreferences.toolbarVisibility.modes}
-                  onChange={() => toggleToolbarSection('modes')}
-                />
-                Modes
-              </label>
-            </fieldset>
-          </div>
+          {preferencesPanelContent}
         </FloatingWindow>
       ) : null}
       {!immersiveMode && leftPanelVisible ? (

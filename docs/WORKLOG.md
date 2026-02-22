@@ -1485,3 +1485,40 @@ Chronological engineering log. Entries are kept concise and focused on behavior 
 - `npm --workspace @sjv/web run lint`
 - `npm --workspace @sjv/web run test:run`
 - `npm --workspace @sjv/web run build`
+
+## 2026-02-22 - Window manager foundation (phase 1 start): floating Help/Preferences + dock handoff
+
+### Scope
+
+- Started the window-system standardization requested for the desktop shell:
+  - introduced a small window-manager state foundation (pure helpers + tests),
+  - changed Help menu actions to open Help/Export/About in a floating window by default (avoids auto-opening left/bottom panels together),
+  - added dock handoff actions to floating `Help` and `Preferences` windows,
+  - added a menu action to replay the startup splash.
+
+### Changes
+
+- `apps/web/src/windowing/windowManager.ts` (new)
+  - introduced managed-window primitives for `help` and `preferences`:
+    - `open/close`,
+    - placement (`floating|left|right|bottom`),
+    - floating rect persistence in state.
+- `apps/web/src/windowing/windowManager.test.ts` (new)
+  - coverage for initialization, open/close, placement updates, and rect updates.
+- `apps/web/src/App.tsx`
+  - added managed window state for `help` + `preferences`,
+  - `Help` menu and `Insert` quick actions now open Help/Export/About as floating windows via the shared window state,
+  - `Preferences` and `Help` floating windows now expose dock controls in the header (float/left/right/bottom),
+  - added `Preferences` as a dock tab (so dock handoff works),
+  - added `Help > Show Splash` and `Preferences > Show splash now`,
+  - normalized dock tab order to safely append new tabs for older snapshots.
+- `apps/web/src/App.css`
+  - styles for floating-window header dock actions,
+  - styles for floating Help window body scrolling,
+  - styles for the in-preferences splash action button.
+
+### Validation
+
+- `npm --workspace @sjv/web run lint`
+- `npm --workspace @sjv/web run test:run`
+- `npm --workspace @sjv/web run build`

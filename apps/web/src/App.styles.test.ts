@@ -129,6 +129,8 @@ describe('App boundary styles', () => {
     expect(appCss).toContain('.guided-tutorial-overlay')
     expect(appCss).toContain('.guided-tutorial-backdrop-pane')
     expect(appCss).toContain('.guided-tutorial-spotlight')
+    expect(appCss).toMatch(/\.guided-tutorial-spotlight\s*\{[^}]*background:\s*transparent;[^}]*\}/s)
+    expect(appCss).not.toContain('0 0 0 9999px rgba(2, 6, 23, 0.62)')
     expect(appCss).toContain('.guided-tutorial-card')
     expect(appCss).toContain('.guided-tutorial-actions')
     expect(appCss).toContain('.guided-tutorial-requirement')

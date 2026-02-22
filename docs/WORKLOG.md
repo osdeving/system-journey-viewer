@@ -424,6 +424,39 @@ Chronological engineering log. Entries are kept concise and focused on behavior 
 - `npm --workspace @sjv/web run test:run`
 - `npm --workspace @sjv/web run build`
 
+## 2026-02-22 - Guided tutorial phase 4 (slice 4): Window-menu panel action + real node selection and Inspector name edit steps
+
+### Scope
+
+- Added the next action-gated tutorial steps requested:
+  - open a specific panel from the `Window` menu (`Open Inspector Panel`)
+  - select a node on the canvas
+  - edit the selected node name in the Inspector
+
+### Changes
+
+- `apps/web/src/tutorial/guidedTutorial.ts`
+  - added `window-open-inspector-panel` step gated by `window-menu-open-panel:inspector`,
+  - added `select-node` step gated by `node-select`,
+  - added `edit-node-name` step gated by `inspector-node-name-edit`,
+  - added missing-target hints for the Window-menu item and Inspector name field.
+- `apps/web/src/App.tsx`
+  - instrumented `Window > Open Inspector Panel` menu item with tutorial event tracking and stable target hook (`data-tutorial-id="window-menu-open-inspector-panel"`),
+  - added node-selection tutorial event tracking (`node-select`) via `selectedNodeId` change observer,
+  - added Inspector name edit tracking (`inspector-node-name-edit`) and stable field target hook (`data-tutorial-id="inspector-node-name"`),
+  - Inspector name input/textarea now route through a small wrapper that records the tutorial event before calling the existing `setNodeName` action.
+- `apps/web/src/App.source.test.ts`
+  - regressions for the new tutorial event IDs and new tutorial target hooks.
+- `apps/web/src/App.styles.test.ts`
+  - kept spotlight cutout regression coverage from the previous slice.
+
+### Validation
+
+- `npm --workspace @sjv/web run lint`
+- `npm --workspace @sjv/web run test:run -- src/tutorial/guidedTutorial.test.ts src/App.source.test.ts src/App.styles.test.ts`
+- `npm --workspace @sjv/web run test:run`
+- `npm --workspace @sjv/web run build`
+
 ## 2026-02-22 - Guided tutorial phase 4 (slice 3): real spotlight cutout + more action-gated steps (toolbar mode and canvas click)
 
 ### Scope

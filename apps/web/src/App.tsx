@@ -626,6 +626,7 @@ function App() {
   const lastJourneyAutoLayoutKeyRef = useRef<string | null>(null)
   const guidedTutorialEventCountsRef = useRef<Record<string, number>>({})
   const guidedTutorialStepEventBaselineRef = useRef<Record<string, number>>({})
+  const lastGuidedTutorialSelectedNodeIdRef = useRef<string | null>(selectedNodeId)
 
   const selectedNode = selectedNodeId ? workspace.nodes[selectedNodeId] : undefined
   const selectedEdge = selectedEdgeId ? workspace.edges[selectedEdgeId] : undefined
@@ -1033,7 +1034,7 @@ function App() {
     setOpenDesktopMenu(null)
   }
 
-  const recordGuidedTutorialEvent = (eventId: string) => {
+  const recordGuidedTutorialEvent = useCallback((eventId: string) => {
     setGuidedTutorialEventCounts((current) => {
       const next = {
         ...current,
@@ -1042,6 +1043,11 @@ function App() {
       guidedTutorialEventCountsRef.current = next
       return next
     })
+  }, [])
+
+  const setNodeNameWithTutorialTracking = (nodeId: string, nextName: string) => {
+    recordGuidedTutorialEvent('inspector-node-name-edit')
+    setNodeName(nodeId, nextName)
   }
 
   const openManagedFloatingWindow = (windowId: ManagedWindowId) => {
@@ -1140,6 +1146,14 @@ function App() {
   const openPreferencesWindow = () => {
     openManagedFloatingWindow('preferences')
   }
+
+  useEffect(() => {
+    const previousSelectedNodeId = lastGuidedTutorialSelectedNodeIdRef.current
+    if (selectedNodeId && selectedNodeId !== previousSelectedNodeId) {
+      recordGuidedTutorialEvent('node-select')
+    }
+    lastGuidedTutorialSelectedNodeIdRef.current = selectedNodeId
+  }, [recordGuidedTutorialEvent, selectedNodeId])
 
   const runGuidedTutorialStepSetup = (setupAction: GuidedTutorialStepSetupAction | undefined) => {
     switch (setupAction) {
@@ -3194,15 +3208,17 @@ function App() {
           {selectedNode.kind === 'note' ? (
             <textarea
               id="node-name"
+              data-tutorial-id="inspector-node-name"
               rows={4}
               value={selectedNode.name}
-              onChange={(event) => setNodeName(selectedNode.id, event.target.value)}
+              onChange={(event) => setNodeNameWithTutorialTracking(selectedNode.id, event.target.value)}
             />
           ) : (
             <input
               id="node-name"
+              data-tutorial-id="inspector-node-name"
               value={selectedNode.name}
-              onChange={(event) => setNodeName(selectedNode.id, event.target.value)}
+              onChange={(event) => setNodeNameWithTutorialTracking(selectedNode.id, event.target.value)}
             />
           )}
           <label htmlFor="node-preset">Preset</label>
@@ -4323,7 +4339,13 @@ function App() {
                   <button
                     type="button"
                     role="menuitem"
-                    onClick={() => runDesktopMenuAction(() => openManagedDockedWindowFromDockTab('inspector'))}
+                    data-tutorial-id="window-menu-open-inspector-panel"
+                    onClick={() =>
+                      runDesktopMenuAction(() => {
+                        recordGuidedTutorialEvent('window-menu-open-panel:inspector')
+                        openManagedDockedWindowFromDockTab('inspector')
+                      })
+                    }
                   >
                     <span>Open Inspector Panel</span>
                   </button>

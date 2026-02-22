@@ -5,6 +5,8 @@
 import { editorSnapshotSchema } from '../model/schema'
 import type { EditorSnapshot } from '../model/types'
 
+const LATEST_SNAPSHOT_STORAGE_KEY = 'sjv:editor-snapshot:v2'
+
 export const storageKeyForView = (workspaceId: string, viewId: string): string =>
   `c4editor:${workspaceId}:${viewId}`
 
@@ -37,17 +39,32 @@ export const loadSnapshot = (
   return safeParse(payload)
 }
 
+export const loadLatestSnapshot = (
+  storage?: Pick<Storage, 'getItem'>,
+): EditorSnapshot | null => {
+  const source = storage ?? (canUseStorage() ? window.localStorage : undefined)
+  if (!source) {
+    return null
+  }
+  const payload = source.getItem(LATEST_SNAPSHOT_STORAGE_KEY)
+  if (!payload) {
+    return null
+  }
+  return safeParse(payload)
+}
+
 export const saveSnapshot = (
   snapshot: EditorSnapshot,
   storage?: Pick<Storage, 'setItem'>,
 ): void => {
-  const key = storageKeyForView(
-    snapshot.workspace.workspace.id,
-    snapshot.currentViewId,
-  )
   const target = storage ?? (canUseStorage() ? window.localStorage : undefined)
   if (!target) {
     return
   }
-  target.setItem(key, JSON.stringify(snapshot))
+  const payload = JSON.stringify(snapshot)
+  // Global latest snapshot is the reliable restore source across view switches and custom workspace IDs.
+  target.setItem(LATEST_SNAPSHOT_STORAGE_KEY, payload)
+  // Legacy key is still written for backward compatibility with older builds/tools.
+  const key = storageKeyForView(snapshot.workspace.workspace.id, snapshot.currentViewId)
+  target.setItem(key, payload)
 }

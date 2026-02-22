@@ -313,9 +313,16 @@
 - `Palette` no longer uses the legacy dedicated left sidebar render path; it is rendered via managed hosts/floating windows and default-opens docked left at startup.
 - Window-layout persistence now also stores managed host sizes (`managedLeftHostWidth`, `managedRightHostWidth`, `managedBottomHostHeight`) and `Restore/Reset Window Layout` applies them.
 - Splash is now a reusable component with auto-dismiss per-open + outside-click dismiss; floating window title bars and dock-host tab strips received UX polish (thinner title bars, smaller controls, tab overflow arrows instead of native scrollbar).
+- Browser editor autosave/restore is now anchored on a global latest snapshot key (`sjv:editor-snapshot:v2`) instead of relying on the active view key at save-time; legacy per-view snapshots are still written for compatibility.
+- Editor snapshots now restore richer session state (tool mode, view history, selection, pending connection, journey/player session settings) and `hydrate()` applies that restored session instead of resetting to hardcoded defaults.
+- Local per-workspace layout metadata now stores node colors (`fillColor`, `textColor`) and edge label font size, in addition to node bounds and edge label position/side/angle.
+- SJV `metadata ui-layout` now roundtrips node colors via optional `fill` / `text` tokens on `node ... at ... size ...` lines.
+- SJV import/sync now treats script-provided `metadata ui-layout` as authoritative (skips local layout overlay when present), and sync mode now propagates non-DSL workspace edits back into the SJV text with loop guards.
+- `docs/STATE_PERSISTENCE_MAP.md` documents the persistence domains and precedence rules (editor snapshot, shell UI layout, local layout cache, and SJV metadata).
 
 ## Suggested Next Increments
 
 - Upgrade edge routing with stronger orthogonal controls.
 - Add full floating undocked windows and saved layout presets.
+- Extend SJV UI metadata coverage to manual edge routes / additional visual properties if full canvas geometry parity is required in script-only workflows.
 - Add integration tests for animated export pipeline and presentation mode regressions.

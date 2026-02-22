@@ -51,6 +51,8 @@ export interface LiteUiLayoutNode {
   y: number
   w: number
   h: number
+  fillColor?: string
+  textColor?: string
 }
 
 export interface LiteUiLayoutEdge {

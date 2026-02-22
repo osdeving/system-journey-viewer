@@ -56,8 +56,8 @@ workspace "Layout Metadata" {
 
   metadata ui-layout {
     view v_main {
-      node app at 140 220 size 280 120
-      node api at 560 220 size 300 130
+      node app at 140 220 size 280 120 fill #2563eb text #ffffff
+      node api at 560 220 size 300 130 fill #0f172a text #e2e8f0
       edge e_app_api label 0.72 side right angle -18
     }
   }
@@ -179,12 +179,16 @@ describe('SJV Script parser and conversion', () => {
     const edgeId = mainView.edgeIds[0]
 
     expect(edgeId).toBeTruthy()
+    const appNodeId = mainView.nodeIds.find((nodeId) => workspace.nodes[nodeId]?.name === 'App') ?? ''
+    expect(workspace.nodes[appNodeId]?.style?.fillColor).toBe('#2563eb')
+    expect(workspace.nodes[appNodeId]?.style?.textColor).toBe('#ffffff')
     expect(workspace.edges[edgeId].style.labelPosition).toBeCloseTo(0.72, 5)
     expect(workspace.edges[edgeId].style.labelSide).toBe('right')
     expect(workspace.edges[edgeId].style.labelAngle).toBe(-18)
 
     const exported = fullWorkspaceToLiteDsl(workspace)
     expect(exported).toContain('metadata ui-layout')
+    expect(exported).toContain('node app at 140 220 size 280 120 fill #2563eb text #ffffff')
     expect(exported).toContain('edge e_app_api label 0.72 side right angle -18')
   })
 

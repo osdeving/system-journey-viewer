@@ -351,7 +351,11 @@ const buildUiLayoutMetadataBlock = (
           if (!alias) {
             return null
           }
-          return `      node ${alias} at ${toDslNumber(node.bounds.x)} ${toDslNumber(node.bounds.y)} size ${toDslNumber(node.bounds.w)} ${toDslNumber(node.bounds.h)}`
+          const fillColor = typeof node.style?.fillColor === 'string' ? node.style.fillColor.trim() : ''
+          const textColor = typeof node.style?.textColor === 'string' ? node.style.textColor.trim() : ''
+          return `      node ${alias} at ${toDslNumber(node.bounds.x)} ${toDslNumber(node.bounds.y)} size ${toDslNumber(node.bounds.w)} ${toDslNumber(node.bounds.h)}${
+            fillColor ? ` fill ${fillColor}` : ''
+          }${textColor ? ` text ${textColor}` : ''}`
         })
         .filter((line): line is string => !!line)
 
@@ -649,6 +653,17 @@ export const liteToFullWorkspace = (ast: LiteWorkspaceAst): WorkspaceModel => {
         y: nodeLayout.y,
         w: Math.max(MIN_NODE_SIZE, nodeLayout.w),
         h: Math.max(MIN_NODE_SIZE, nodeLayout.h),
+      }
+      if (nodeLayout.fillColor || nodeLayout.textColor) {
+        node.style = {
+          ...node.style,
+          ...(typeof nodeLayout.fillColor === 'string' && nodeLayout.fillColor.trim()
+            ? { fillColor: nodeLayout.fillColor.trim() }
+            : {}),
+          ...(typeof nodeLayout.textColor === 'string' && nodeLayout.textColor.trim()
+            ? { textColor: nodeLayout.textColor.trim() }
+            : {}),
+        }
       }
       node.ports = resolveNodePorts(node.bounds, node.kind)
     }

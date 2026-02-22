@@ -4,7 +4,7 @@
 
 import { describe, expect, it } from 'vitest'
 import { createDefaultWorkspace } from '../model/defaultWorkspace'
-import { loadSnapshot, saveSnapshot, storageKeyForView } from './persistence'
+import { loadLatestSnapshot, loadSnapshot, saveSnapshot, storageKeyForView } from './persistence'
 
 class MemoryStorage {
   private readonly payload = new Map<string, string>()
@@ -30,8 +30,10 @@ describe('persistence helpers', () => {
 
     saveSnapshot(snapshot, storage)
     const loaded = loadSnapshot(workspace.workspace.id, 'v_container', storage)
+    const loadedLatest = loadLatestSnapshot(storage)
 
     expect(loaded).toEqual(snapshot)
+    expect(loadedLatest).toEqual(snapshot)
   })
 
   it('returns null when payload is invalid', () => {
@@ -42,5 +44,21 @@ describe('persistence helpers', () => {
     const loaded = loadSnapshot('workspace-default', 'v_container', storage)
 
     expect(loaded).toBeNull()
+  })
+
+  it('restores the latest snapshot regardless of the active view key used by legacy storage', () => {
+    const storage = new MemoryStorage()
+    const workspace = createDefaultWorkspace()
+    const snapshot = {
+      workspace,
+      currentViewId: 'v_hex_orders',
+      viewport: { x: 40, y: 55, zoom: 1.1 },
+    }
+
+    saveSnapshot(snapshot, storage)
+
+    expect(loadLatestSnapshot(storage)).toEqual(snapshot)
+    // Legacy lookup by the same active view remains available.
+    expect(loadSnapshot(workspace.workspace.id, 'v_hex_orders', storage)).toEqual(snapshot)
   })
 })

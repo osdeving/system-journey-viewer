@@ -154,4 +154,20 @@ export interface EditorSnapshot {
   workspace: WorkspaceModel
   currentViewId: string
   viewport: ViewportState
+  viewHistory?: string[]
+  selectedNodeId?: string | null
+  selectedNodeIds?: string[]
+  selectedEdgeId?: string | null
+  activeTool?: 'select' | 'connector'
+  pendingConnectionFrom?: string | null
+  pendingConnectionPortId?: string | null
+  activeJourneyId?: string | null
+  journeyFilterId?: string | null
+  playerJourneyId?: string | null
+  playerIsRunning?: boolean
+  playerStepIndex?: number
+  playerLoop?: boolean
+  playerSpeedMs?: number
+  playerHighlightNodes?: boolean
+  playerTrailEnabled?: boolean
 }

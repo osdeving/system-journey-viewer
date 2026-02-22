@@ -10,11 +10,16 @@ const MIN_EDGE_LABEL_POSITION = 0.08
 const MAX_EDGE_LABEL_POSITION = 0.92
 const MIN_EDGE_LABEL_ANGLE_DEG = -180
 const MAX_EDGE_LABEL_ANGLE_DEG = 180
+const MIN_EDGE_LABEL_FONT_SIZE = 1
+const MAX_EDGE_LABEL_FONT_SIZE = 64
 
 type LayoutViewSnapshot = {
   nodes: Record<string, NodeBounds>
+  nodeFillColors: Record<string, string>
+  nodeTextColors: Record<string, string>
   edgeLabelPositions: Record<string, number>
   edgeLabelSides: Record<string, 'left' | 'right'>
+  edgeLabelFontSizes: Record<string, number>
   edgeLabelAngles: Record<string, number>
 }
 
@@ -35,8 +40,14 @@ const clampLabelPosition = (position: number): number =>
 const clampLabelAngle = (angleDeg: number): number =>
   Math.min(MAX_EDGE_LABEL_ANGLE_DEG, Math.max(MIN_EDGE_LABEL_ANGLE_DEG, angleDeg))
 
+const clampLabelFontSize = (fontSize: number): number =>
+  Math.min(MAX_EDGE_LABEL_FONT_SIZE, Math.max(MIN_EDGE_LABEL_FONT_SIZE, fontSize))
+
 const isFiniteNumber = (value: unknown): value is number =>
   typeof value === 'number' && Number.isFinite(value)
+
+const isNonEmptyString = (value: unknown): value is string =>
+  typeof value === 'string' && value.trim().length > 0
 
 const resolveLabelSide = (value: unknown): 'left' | 'right' =>
   value === 'right' ? 'right' : 'left'
@@ -64,8 +75,11 @@ export const buildWorkspaceLayoutSnapshot = (
   const views: Record<string, LayoutViewSnapshot> = {}
   for (const view of Object.values(workspace.views)) {
     const nodes: Record<string, NodeBounds> = {}
+    const nodeFillColors: Record<string, string> = {}
+    const nodeTextColors: Record<string, string> = {}
     const edgeLabelPositions: Record<string, number> = {}
     const edgeLabelSides: Record<string, 'left' | 'right'> = {}
+    const edgeLabelFontSizes: Record<string, number> = {}
     const edgeLabelAngles: Record<string, number> = {}
 
     for (const nodeId of view.nodeIds) {
@@ -74,6 +88,12 @@ export const buildWorkspaceLayoutSnapshot = (
         continue
       }
       nodes[nodeId] = { ...node.bounds }
+      if (isNonEmptyString(node.style?.fillColor)) {
+        nodeFillColors[nodeId] = node.style.fillColor.trim()
+      }
+      if (isNonEmptyString(node.style?.textColor)) {
+        nodeTextColors[nodeId] = node.style.textColor.trim()
+      }
     }
 
     for (const edgeId of view.edgeIds) {
@@ -83,13 +103,19 @@ export const buildWorkspaceLayoutSnapshot = (
       }
       edgeLabelPositions[edgeId] = clampLabelPosition(edge.style.labelPosition ?? 0.5)
       edgeLabelSides[edgeId] = resolveLabelSide(edge.style.labelSide)
+      if (isFiniteNumber(edge.style.labelFontSize)) {
+        edgeLabelFontSizes[edgeId] = clampLabelFontSize(edge.style.labelFontSize)
+      }
       edgeLabelAngles[edgeId] = clampLabelAngle(edge.style.labelAngle ?? 0)
     }
 
     views[view.id] = {
       nodes,
+      nodeFillColors,
+      nodeTextColors,
       edgeLabelPositions,
       edgeLabelSides,
+      edgeLabelFontSizes,
       edgeLabelAngles,
     }
   }
@@ -180,6 +206,18 @@ export const applyWorkspaceLayout = (
       }
       nextWorkspace.nodes[nodeId] = {
         ...node,
+        style:
+          isNonEmptyString(viewLayout.nodeFillColors?.[nodeId]) || isNonEmptyString(viewLayout.nodeTextColors?.[nodeId])
+            ? {
+                ...node.style,
+                ...(isNonEmptyString(viewLayout.nodeFillColors?.[nodeId])
+                  ? { fillColor: viewLayout.nodeFillColors[nodeId] }
+                  : {}),
+                ...(isNonEmptyString(viewLayout.nodeTextColors?.[nodeId])
+                  ? { textColor: viewLayout.nodeTextColors[nodeId] }
+                  : {}),
+              }
+            : node.style,
         bounds: nextBounds,
         ports: resolveNodePorts(nextBounds),
       }
@@ -200,6 +238,9 @@ export const applyWorkspaceLayout = (
           ...edge.style,
           labelPosition: clampLabelPosition(labelPosition),
           labelSide: resolveLabelSide(viewLayout.edgeLabelSides?.[edgeId]),
+          labelFontSize: isFiniteNumber(viewLayout.edgeLabelFontSizes?.[edgeId])
+            ? clampLabelFontSize(viewLayout.edgeLabelFontSizes[edgeId])
+            : edge.style.labelFontSize,
           labelAngle: isFiniteNumber(viewLayout.edgeLabelAngles?.[edgeId])
             ? clampLabelAngle(viewLayout.edgeLabelAngles[edgeId])
             : edge.style.labelAngle,

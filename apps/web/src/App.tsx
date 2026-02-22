@@ -69,7 +69,7 @@ import {
   resolveNodeConfettiAnchor,
 } from './diagram/player/playerConfetti'
 import { fullWorkspaceToLiteDsl } from './dsl-lite/convert'
-import { parseDslToWorkspaceWithTheme } from './dsl-lite/sync'
+import { parseDslToWorkspaceDocumentWithTheme } from './dsl-lite/sync'
 import {
   JOURNEY_SCRIPT_LANGUAGE_ID,
   JOURNEY_SCRIPT_NAME,
@@ -388,6 +388,13 @@ type WindowLayoutBootstrap = {
   journeyHeight: number
   dockTabOrder: DockTab[]
   activeDockTab: DockTab
+  leftSidebarWidth: number
+  drawerTab: DrawerTab
+  dslMaximized: boolean
+  focusMode: boolean
+  presentationMode: boolean
+  helpSection: HelpSection
+  journeyDraftName: string
 }
 
 const isRecordLike = (value: unknown): value is Record<string, unknown> =>
@@ -406,6 +413,12 @@ const isFloatingDockRectValue = (value: unknown): value is FloatingDockRect =>
   isFiniteNumber(value.width) &&
   isFiniteNumber(value.height)
 
+const isDrawerTabValue = (value: unknown): value is DrawerTab =>
+  value === 'journeys' || value === 'dsl' || value === 'dock' || value === 'help'
+
+const isHelpSectionValue = (value: unknown): value is HelpSection =>
+  value === 'guide' || value === 'gallery' || value === 'about'
+
 const createDefaultWindowLayoutBootstrap = (topbarHeight: number): WindowLayoutBootstrap => ({
   managedWindows: createBaselineManagedWindowsState(topbarHeight),
   dockPosition: 'right',
@@ -420,6 +433,13 @@ const createDefaultWindowLayoutBootstrap = (topbarHeight: number): WindowLayoutB
   journeyHeight: DEFAULT_JOURNEY_HEIGHT,
   dockTabOrder: normalizeDockTabOrder(DEFAULT_DOCK_TAB_ORDER),
   activeDockTab: 'palette',
+  leftSidebarWidth: DEFAULT_LEFT_SIDEBAR_WIDTH,
+  drawerTab: 'journeys',
+  dslMaximized: false,
+  focusMode: false,
+  presentationMode: false,
+  helpSection: 'guide',
+  journeyDraftName: '',
 })
 
 const resolveWindowLayoutBootstrapFromCandidate = (
@@ -475,6 +495,17 @@ const resolveWindowLayoutBootstrapFromCandidate = (
       : fallback.journeyHeight,
     dockTabOrder,
     activeDockTab,
+    leftSidebarWidth: isFiniteNumber(candidate.leftSidebarWidth)
+      ? Math.max(180, candidate.leftSidebarWidth)
+      : fallback.leftSidebarWidth,
+    drawerTab: isDrawerTabValue(candidate.drawerTab) ? candidate.drawerTab : fallback.drawerTab,
+    dslMaximized: typeof candidate.dslMaximized === 'boolean' ? candidate.dslMaximized : fallback.dslMaximized,
+    focusMode: typeof candidate.focusMode === 'boolean' ? candidate.focusMode : fallback.focusMode,
+    presentationMode:
+      typeof candidate.presentationMode === 'boolean' ? candidate.presentationMode : fallback.presentationMode,
+    helpSection: isHelpSectionValue(candidate.helpSection) ? candidate.helpSection : fallback.helpSection,
+    journeyDraftName:
+      typeof candidate.journeyDraftName === 'string' ? candidate.journeyDraftName : fallback.journeyDraftName,
   }
 }
 
@@ -540,6 +571,8 @@ function App() {
   const journeyStepDragRef = useRef<StepDragState | null>(null)
   const workspaceFileHandleRef = useRef<WorkspaceFileHandle | null>(null)
   const dslSyncLastAppliedTextRef = useRef<string | null>(null)
+  const dslSyncApplyingWorkspaceFromTextRef = useRef(false)
+  const dslSyncUpdatingTextFromWorkspaceRef = useRef(false)
   const historyRef = useRef<HistoryStacks>({ past: [], future: [] })
   const historyApplyingRef = useRef(false)
   const historyLastCommitAtRef = useRef(0)
@@ -653,7 +686,7 @@ function App() {
   const [windowLayoutBootstrap] = useState<WindowLayoutBootstrap>(() =>
     resolveInitialWindowLayoutBootstrap(DEFAULT_TOPBAR_HEIGHT),
   )
-  const [journeyDraftName, setJourneyDraftName] = useState('')
+  const [journeyDraftName, setJourneyDraftName] = useState(windowLayoutBootstrap.journeyDraftName)
   const [dslText, setDslText] = useState('')
   const [dslSyncEnabled, setDslSyncEnabled] = useState(false)
   const [dslError, setDslError] = useState<string | null>(null)
@@ -662,17 +695,17 @@ function App() {
   const [draggedEdgeId, setDraggedEdgeId] = useState<string | null>(null)
   const [animatedExportRunning, setAnimatedExportRunning] = useState(false)
   const [exportFocusJourneyId, setExportFocusJourneyId] = useState<string | null>(null)
-  const [leftSidebarWidth, setLeftSidebarWidth] = useState(DEFAULT_LEFT_SIDEBAR_WIDTH)
+  const [leftSidebarWidth, setLeftSidebarWidth] = useState(windowLayoutBootstrap.leftSidebarWidth)
   const [leftDockWidth, setLeftDockWidth] = useState(windowLayoutBootstrap.leftDockWidth)
   const [rightDockWidth, setRightDockWidth] = useState(windowLayoutBootstrap.rightDockWidth)
   const [managedLeftHostWidth, setManagedLeftHostWidth] = useState(windowLayoutBootstrap.managedLeftHostWidth)
   const [managedRightHostWidth, setManagedRightHostWidth] = useState(windowLayoutBootstrap.managedRightHostWidth)
   const [managedBottomHostHeight, setManagedBottomHostHeight] = useState(windowLayoutBootstrap.managedBottomHostHeight)
   const [journeyHeight, setJourneyHeight] = useState(windowLayoutBootstrap.journeyHeight)
-  const [drawerTab, setDrawerTab] = useState<DrawerTab>('journeys')
-  const [dslMaximized, setDslMaximized] = useState(false)
-  const [focusMode, setFocusMode] = useState(false)
-  const [presentationMode, setPresentationMode] = useState(false)
+  const [drawerTab, setDrawerTab] = useState<DrawerTab>(windowLayoutBootstrap.drawerTab)
+  const [dslMaximized, setDslMaximized] = useState(windowLayoutBootstrap.dslMaximized)
+  const [focusMode, setFocusMode] = useState(windowLayoutBootstrap.focusMode)
+  const [presentationMode, setPresentationMode] = useState(windowLayoutBootstrap.presentationMode)
   const [leftSidebarCollapsed, setLeftSidebarCollapsed] = useState(false)
   const [dockCollapsed, setDockCollapsed] = useState(windowLayoutBootstrap.dockCollapsed)
   const [drawerCollapsed, setDrawerCollapsed] = useState(windowLayoutBootstrap.drawerCollapsed)
@@ -688,7 +721,7 @@ function App() {
   const [canRedo, setCanRedo] = useState(false)
   const initialUiPreferences = useMemo(() => resolveInitialUiPreferences(), [])
   const [topbarHeight, setTopbarHeight] = useState(DEFAULT_TOPBAR_HEIGHT)
-  const [helpSection, setHelpSection] = useState<HelpSection>('guide')
+  const [helpSection, setHelpSection] = useState<HelpSection>(windowLayoutBootstrap.helpSection)
   const [managedWindows, setManagedWindows] = useState<ManagedWindowsState>(windowLayoutBootstrap.managedWindows)
   const [uiPreferences, setUiPreferences] = useState<UiPreferences>(initialUiPreferences)
   const [splashVisible, setSplashVisible] = useState(initialUiPreferences.splashEnabled)
@@ -737,13 +770,18 @@ function App() {
     [],
   )
   const resolveWorkspaceFromDslText = useCallback(
-    (dslTextInput: string): { workspace: WorkspaceModel; entryViewId: string } => {
-      const importedWorkspace = parseDslToWorkspaceWithTheme(dslTextInput, theme)
-      const restoredLayout = loadWorkspaceLayout(importedWorkspace.workspace.id)
-      const workspaceWithLayout = applyWorkspaceLayout(importedWorkspace, restoredLayout)
+    (
+      dslTextInput: string,
+    ): { workspace: WorkspaceModel; entryViewId: string; hasUiLayoutMetadata: boolean } => {
+      const parsedDocument = parseDslToWorkspaceDocumentWithTheme(dslTextInput, theme)
+      const restoredLayout = parsedDocument.hasUiLayoutMetadata
+        ? null
+        : loadWorkspaceLayout(parsedDocument.workspace.workspace.id)
+      const workspaceWithLayout = applyWorkspaceLayout(parsedDocument.workspace, restoredLayout)
       return {
         workspace: workspaceWithLayout,
         entryViewId: resolveEntryViewId(workspaceWithLayout),
+        hasUiLayoutMetadata: parsedDocument.hasUiLayoutMetadata,
       }
     },
     [resolveEntryViewId, theme],
@@ -1422,6 +1460,13 @@ function App() {
       setJourneyHeight(fallback.journeyHeight)
       setDockTabOrder(fallback.dockTabOrder)
       setActiveDockTab(fallback.activeDockTab)
+      setLeftSidebarWidth(fallback.leftSidebarWidth)
+      setDrawerTab(fallback.drawerTab)
+      setDslMaximized(fallback.dslMaximized)
+      setFocusMode(fallback.focusMode)
+      setPresentationMode(fallback.presentationMode)
+      setHelpSection(fallback.helpSection)
+      setJourneyDraftName(fallback.journeyDraftName)
       return
     }
     const raw = window.localStorage.getItem(MANAGED_WINDOWS_LAYOUT_STORAGE_KEY)
@@ -1431,8 +1476,8 @@ function App() {
     }
     try {
       const restored = resolveWindowLayoutBootstrapFromCandidate(topbarHeight, JSON.parse(raw))
-      setFocusMode(false)
-      setPresentationMode(false)
+      setFocusMode(restored.focusMode)
+      setPresentationMode(restored.presentationMode)
       setManagedWindows(restored.managedWindows)
       setDockPosition(restored.dockPosition)
       setDockCollapsed(restored.dockCollapsed)
@@ -1446,6 +1491,11 @@ function App() {
       setJourneyHeight(restored.journeyHeight)
       setDockTabOrder(restored.dockTabOrder)
       setActiveDockTab(restored.activeDockTab)
+      setLeftSidebarWidth(restored.leftSidebarWidth)
+      setDrawerTab(restored.drawerTab)
+      setDslMaximized(restored.dslMaximized)
+      setHelpSection(restored.helpSection)
+      setJourneyDraftName(restored.journeyDraftName)
       setTransientStatus('Window layout restored.')
     } catch {
       setTransientStatus('Failed to restore window layout.')
@@ -1472,6 +1522,11 @@ function App() {
     setJourneyHeight(baseline.journeyHeight)
     setDockTabOrder(baseline.dockTabOrder)
     setActiveDockTab(baseline.activeDockTab)
+    setLeftSidebarWidth(baseline.leftSidebarWidth)
+    setDrawerTab(baseline.drawerTab)
+    setDslMaximized(baseline.dslMaximized)
+    setHelpSection(baseline.helpSection)
+    setJourneyDraftName(baseline.journeyDraftName)
     setTransientStatus('Window layout reset to defaults.')
   }, [clampFloatingDockRectInLayout, setTransientStatus, topbarHeight])
 
@@ -2451,6 +2506,13 @@ function App() {
         journeyHeight,
         dockTabOrder,
         activeDockTab,
+        leftSidebarWidth,
+        drawerTab,
+        dslMaximized,
+        focusMode,
+        presentationMode,
+        helpSection,
+        journeyDraftName,
       }),
     )
   }, [
@@ -2458,14 +2520,21 @@ function App() {
     dockCollapsed,
     dockPosition,
     dockTabOrder,
+    drawerTab,
     drawerCollapsed,
+    dslMaximized,
     floatingDockRect,
+    focusMode,
+    helpSection,
     journeyHeight,
+    journeyDraftName,
     leftDockWidth,
+    leftSidebarWidth,
     managedBottomHostHeight,
     managedLeftHostWidth,
     managedWindows,
     managedRightHostWidth,
+    presentationMode,
     rightDockWidth,
   ])
 
@@ -2483,7 +2552,34 @@ function App() {
 
   useEffect(() => {
     if (!dslSyncEnabled) {
+      dslSyncUpdatingTextFromWorkspaceRef.current = false
+      dslSyncApplyingWorkspaceFromTextRef.current = false
+      return
+    }
+    if (dslSyncApplyingWorkspaceFromTextRef.current) {
+      dslSyncApplyingWorkspaceFromTextRef.current = false
+      return
+    }
+    const nextDslText = fullWorkspaceToLiteDsl(workspace)
+    setDslText((current) => {
+      if (current === nextDslText) {
+        dslSyncLastAppliedTextRef.current = nextDslText
+        return current
+      }
+      dslSyncUpdatingTextFromWorkspaceRef.current = true
+      dslSyncLastAppliedTextRef.current = nextDslText
+      return nextDslText
+    })
+    setDslError(null)
+  }, [dslSyncEnabled, workspace])
+
+  useEffect(() => {
+    if (!dslSyncEnabled) {
       dslSyncLastAppliedTextRef.current = null
+      return
+    }
+    if (dslSyncUpdatingTextFromWorkspaceRef.current) {
+      dslSyncUpdatingTextFromWorkspaceRef.current = false
       return
     }
     if (dslSyncLastAppliedTextRef.current === dslText) {
@@ -2491,6 +2587,7 @@ function App() {
     }
     try {
       const imported = resolveWorkspaceFromDslText(dslText)
+      dslSyncApplyingWorkspaceFromTextRef.current = true
       replaceWorkspace(imported.workspace, imported.entryViewId)
       dslSyncLastAppliedTextRef.current = dslText
       setDslError(null)

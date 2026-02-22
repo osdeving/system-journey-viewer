@@ -311,22 +311,6 @@ const resolveInitialUiPreferences = (): UiPreferences => {
 const createBaselineManagedWindowsState = (topbarHeight: number): ManagedWindowsState =>
   dockManagedWindowState(createManagedWindowsState(createDefaultManagedWindowRects(topbarHeight)), 'palette', 'left')
 
-const resolveInitialManagedWindowsState = (topbarHeight: number): ManagedWindowsState => {
-  const fallback = createBaselineManagedWindowsState(topbarHeight)
-  if (typeof window === 'undefined') {
-    return fallback
-  }
-  try {
-    const raw = window.localStorage.getItem(MANAGED_WINDOWS_LAYOUT_STORAGE_KEY)
-    if (!raw) {
-      return fallback
-    }
-    return restoreManagedWindowsState(fallback, JSON.parse(raw))
-  } catch {
-    return fallback
-  }
-}
-
 const normalizeDockTabOrder = (tabOrder: DockTab[]): DockTab[] => {
   const unique = new Set<DockTab>()
   const next: DockTab[] = []
@@ -343,6 +327,110 @@ const normalizeDockTabOrder = (tabOrder: DockTab[]): DockTab[] => {
     }
   }
   return next
+}
+
+type WindowLayoutBootstrap = {
+  managedWindows: ManagedWindowsState
+  dockPosition: DockPosition
+  dockCollapsed: boolean
+  drawerCollapsed: boolean
+  floatingDockRect: FloatingDockRect
+  leftDockWidth: number
+  rightDockWidth: number
+  journeyHeight: number
+  dockTabOrder: DockTab[]
+  activeDockTab: DockTab
+}
+
+const isRecordLike = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null
+
+const isDockPositionValue = (value: unknown): value is DockPosition =>
+  value === 'left' || value === 'right' || value === 'bottom' || value === 'floating'
+
+const isFiniteNumber = (value: unknown): value is number =>
+  typeof value === 'number' && Number.isFinite(value)
+
+const isFloatingDockRectValue = (value: unknown): value is FloatingDockRect =>
+  isRecordLike(value) &&
+  isFiniteNumber(value.x) &&
+  isFiniteNumber(value.y) &&
+  isFiniteNumber(value.width) &&
+  isFiniteNumber(value.height)
+
+const createDefaultWindowLayoutBootstrap = (topbarHeight: number): WindowLayoutBootstrap => ({
+  managedWindows: createBaselineManagedWindowsState(topbarHeight),
+  dockPosition: 'right',
+  dockCollapsed: true,
+  drawerCollapsed: true,
+  floatingDockRect: { ...DEFAULT_FLOATING_DOCK_RECT },
+  leftDockWidth: DEFAULT_DOCK_SIDE_WIDTH,
+  rightDockWidth: DEFAULT_DOCK_SIDE_WIDTH,
+  journeyHeight: DEFAULT_JOURNEY_HEIGHT,
+  dockTabOrder: normalizeDockTabOrder(DEFAULT_DOCK_TAB_ORDER),
+  activeDockTab: 'palette',
+})
+
+const resolveWindowLayoutBootstrapFromCandidate = (
+  topbarHeight: number,
+  candidate: unknown,
+): WindowLayoutBootstrap => {
+  const fallback = createDefaultWindowLayoutBootstrap(topbarHeight)
+  if (!isRecordLike(candidate)) {
+    return fallback
+  }
+
+  const managedWindowsCandidate = isRecordLike(candidate) && 'managedWindows' in candidate ? candidate.managedWindows : candidate
+  const managedWindows = restoreManagedWindowsState(fallback.managedWindows, managedWindowsCandidate)
+
+  const dockTabOrder = Array.isArray(candidate.dockTabOrder)
+    ? normalizeDockTabOrder(
+        candidate.dockTabOrder.filter((tab): tab is DockTab =>
+          typeof tab === 'string' && DEFAULT_DOCK_TAB_ORDER.includes(tab as DockTab),
+        ),
+      )
+    : fallback.dockTabOrder
+
+  const activeDockTab =
+    typeof candidate.activeDockTab === 'string' && dockTabOrder.includes(candidate.activeDockTab as DockTab)
+      ? (candidate.activeDockTab as DockTab)
+      : fallback.activeDockTab
+
+  return {
+    managedWindows,
+    dockPosition: isDockPositionValue(candidate.dockPosition) ? candidate.dockPosition : fallback.dockPosition,
+    dockCollapsed: typeof candidate.dockCollapsed === 'boolean' ? candidate.dockCollapsed : fallback.dockCollapsed,
+    drawerCollapsed: typeof candidate.drawerCollapsed === 'boolean' ? candidate.drawerCollapsed : fallback.drawerCollapsed,
+    floatingDockRect: isFloatingDockRectValue(candidate.floatingDockRect)
+      ? candidate.floatingDockRect
+      : fallback.floatingDockRect,
+    leftDockWidth: isFiniteNumber(candidate.leftDockWidth)
+      ? Math.max(MIN_DOCK_SIDE_WIDTH, candidate.leftDockWidth)
+      : fallback.leftDockWidth,
+    rightDockWidth: isFiniteNumber(candidate.rightDockWidth)
+      ? Math.max(MIN_DOCK_SIDE_WIDTH, candidate.rightDockWidth)
+      : fallback.rightDockWidth,
+    journeyHeight: isFiniteNumber(candidate.journeyHeight)
+      ? Math.max(MIN_JOURNEY_HEIGHT, candidate.journeyHeight)
+      : fallback.journeyHeight,
+    dockTabOrder,
+    activeDockTab,
+  }
+}
+
+const resolveInitialWindowLayoutBootstrap = (topbarHeight: number): WindowLayoutBootstrap => {
+  if (typeof window === 'undefined') {
+    return createDefaultWindowLayoutBootstrap(topbarHeight)
+  }
+  try {
+    const raw = window.localStorage.getItem(MANAGED_WINDOWS_LAYOUT_STORAGE_KEY)
+    if (!raw) {
+      return createDefaultWindowLayoutBootstrap(topbarHeight)
+    }
+    return resolveWindowLayoutBootstrapFromCandidate(topbarHeight, JSON.parse(raw))
+  } catch {
+    return createDefaultWindowLayoutBootstrap(topbarHeight)
+  }
 }
 
 const isTextInputTarget = (target: EventTarget | null): boolean => {
@@ -489,6 +577,9 @@ function App() {
   const prevPlayerStep = useEditorStore((state) => state.prevPlayerStep)
   const stepPlayer = useEditorStore((state) => state.stepPlayer)
   const resetPlayer = useEditorStore((state) => state.resetPlayer)
+  const [windowLayoutBootstrap] = useState<WindowLayoutBootstrap>(() =>
+    resolveInitialWindowLayoutBootstrap(DEFAULT_TOPBAR_HEIGHT),
+  )
   const [journeyDraftName, setJourneyDraftName] = useState('')
   const [dslText, setDslText] = useState('')
   const [dslSyncEnabled, setDslSyncEnabled] = useState(false)
@@ -499,20 +590,20 @@ function App() {
   const [animatedExportRunning, setAnimatedExportRunning] = useState(false)
   const [exportFocusJourneyId, setExportFocusJourneyId] = useState<string | null>(null)
   const [leftSidebarWidth, setLeftSidebarWidth] = useState(DEFAULT_LEFT_SIDEBAR_WIDTH)
-  const [leftDockWidth, setLeftDockWidth] = useState(DEFAULT_DOCK_SIDE_WIDTH)
-  const [rightDockWidth, setRightDockWidth] = useState(DEFAULT_DOCK_SIDE_WIDTH)
-  const [journeyHeight, setJourneyHeight] = useState(DEFAULT_JOURNEY_HEIGHT)
+  const [leftDockWidth, setLeftDockWidth] = useState(windowLayoutBootstrap.leftDockWidth)
+  const [rightDockWidth, setRightDockWidth] = useState(windowLayoutBootstrap.rightDockWidth)
+  const [journeyHeight, setJourneyHeight] = useState(windowLayoutBootstrap.journeyHeight)
   const [drawerTab, setDrawerTab] = useState<DrawerTab>('journeys')
   const [dslMaximized, setDslMaximized] = useState(false)
   const [focusMode, setFocusMode] = useState(false)
   const [presentationMode, setPresentationMode] = useState(false)
   const [leftSidebarCollapsed, setLeftSidebarCollapsed] = useState(false)
-  const [dockCollapsed, setDockCollapsed] = useState(true)
-  const [drawerCollapsed, setDrawerCollapsed] = useState(true)
-  const [dockPosition, setDockPosition] = useState<DockPosition>('right')
-  const [dockTabOrder, setDockTabOrder] = useState<DockTab[]>(() => normalizeDockTabOrder(DEFAULT_DOCK_TAB_ORDER))
-  const [activeDockTab, setActiveDockTab] = useState<DockTab>('palette')
-  const [floatingDockRect, setFloatingDockRect] = useState<FloatingDockRect>(DEFAULT_FLOATING_DOCK_RECT)
+  const [dockCollapsed, setDockCollapsed] = useState(windowLayoutBootstrap.dockCollapsed)
+  const [drawerCollapsed, setDrawerCollapsed] = useState(windowLayoutBootstrap.drawerCollapsed)
+  const [dockPosition, setDockPosition] = useState<DockPosition>(windowLayoutBootstrap.dockPosition)
+  const [dockTabOrder, setDockTabOrder] = useState<DockTab[]>(windowLayoutBootstrap.dockTabOrder)
+  const [activeDockTab, setActiveDockTab] = useState<DockTab>(windowLayoutBootstrap.activeDockTab)
+  const [floatingDockRect, setFloatingDockRect] = useState<FloatingDockRect>(windowLayoutBootstrap.floatingDockRect)
   const [recentWorkspaces, setRecentWorkspaces] = useState<RecentWorkspaceEntry[]>(() => loadRecentWorkspaces())
   const [openDesktopMenu, setOpenDesktopMenu] = useState<DesktopMenuId | null>(null)
   const [canUndo, setCanUndo] = useState(false)
@@ -520,9 +611,7 @@ function App() {
   const initialUiPreferences = useMemo(() => resolveInitialUiPreferences(), [])
   const [topbarHeight, setTopbarHeight] = useState(DEFAULT_TOPBAR_HEIGHT)
   const [helpSection, setHelpSection] = useState<HelpSection>('guide')
-  const [managedWindows, setManagedWindows] = useState<ManagedWindowsState>(() =>
-    resolveInitialManagedWindowsState(DEFAULT_TOPBAR_HEIGHT),
-  )
+  const [managedWindows, setManagedWindows] = useState<ManagedWindowsState>(windowLayoutBootstrap.managedWindows)
   const [uiPreferences, setUiPreferences] = useState<UiPreferences>(initialUiPreferences)
   const [splashVisible, setSplashVisible] = useState(initialUiPreferences.splashEnabled)
   const lastJourneyAutoLayoutKeyRef = useRef<string | null>(null)
@@ -1034,10 +1123,18 @@ function App() {
   }, [])
 
   const restoreWindowLayout = useCallback(() => {
-    const fallback = createBaselineManagedWindowsState(topbarHeight)
+    const fallback = createDefaultWindowLayoutBootstrap(topbarHeight)
     if (typeof window === 'undefined') {
-      setManagedWindows(fallback)
-      setActiveDockTab('palette')
+      setManagedWindows(fallback.managedWindows)
+      setDockPosition(fallback.dockPosition)
+      setDockCollapsed(fallback.dockCollapsed)
+      setDrawerCollapsed(fallback.drawerCollapsed)
+      setFloatingDockRect(clampFloatingDockRectInLayout(fallback.floatingDockRect))
+      setLeftDockWidth(fallback.leftDockWidth)
+      setRightDockWidth(fallback.rightDockWidth)
+      setJourneyHeight(fallback.journeyHeight)
+      setDockTabOrder(fallback.dockTabOrder)
+      setActiveDockTab(fallback.activeDockTab)
       return
     }
     const raw = window.localStorage.getItem(MANAGED_WINDOWS_LAYOUT_STORAGE_KEY)
@@ -1046,35 +1143,44 @@ function App() {
       return
     }
     try {
-      const restored = restoreManagedWindowsState(fallback, JSON.parse(raw))
-      const nextActiveDockTab =
-        restored.windows.palette.open
-          ? 'palette'
-          : restored.hosts.left.activeTab ??
-            restored.hosts.right.activeTab ??
-            restored.hosts.bottom.activeTab ??
-            'inspector'
+      const restored = resolveWindowLayoutBootstrapFromCandidate(topbarHeight, JSON.parse(raw))
       setFocusMode(false)
       setPresentationMode(false)
-      setManagedWindows(restored)
-      setActiveDockTab(nextActiveDockTab)
+      setManagedWindows(restored.managedWindows)
+      setDockPosition(restored.dockPosition)
+      setDockCollapsed(restored.dockCollapsed)
+      setDrawerCollapsed(restored.drawerCollapsed)
+      setFloatingDockRect(clampFloatingDockRectInLayout(restored.floatingDockRect))
+      setLeftDockWidth(restored.leftDockWidth)
+      setRightDockWidth(restored.rightDockWidth)
+      setJourneyHeight(restored.journeyHeight)
+      setDockTabOrder(restored.dockTabOrder)
+      setActiveDockTab(restored.activeDockTab)
       setTransientStatus('Window layout restored.')
     } catch {
       setTransientStatus('Failed to restore window layout.')
     }
-  }, [setTransientStatus, topbarHeight])
+  }, [clampFloatingDockRectInLayout, setTransientStatus, topbarHeight])
 
   const resetWindowLayout = useCallback(() => {
-    const baseline = createBaselineManagedWindowsState(topbarHeight)
+    const baseline = createDefaultWindowLayoutBootstrap(topbarHeight)
     if (typeof window !== 'undefined') {
       window.localStorage.removeItem(MANAGED_WINDOWS_LAYOUT_STORAGE_KEY)
     }
     setFocusMode(false)
     setPresentationMode(false)
-    setManagedWindows(baseline)
-    setActiveDockTab('palette')
+    setManagedWindows(baseline.managedWindows)
+    setDockPosition(baseline.dockPosition)
+    setDockCollapsed(baseline.dockCollapsed)
+    setDrawerCollapsed(baseline.drawerCollapsed)
+    setFloatingDockRect(clampFloatingDockRectInLayout(baseline.floatingDockRect))
+    setLeftDockWidth(baseline.leftDockWidth)
+    setRightDockWidth(baseline.rightDockWidth)
+    setJourneyHeight(baseline.journeyHeight)
+    setDockTabOrder(baseline.dockTabOrder)
+    setActiveDockTab(baseline.activeDockTab)
     setTransientStatus('Window layout reset to defaults.')
-  }, [setTransientStatus, topbarHeight])
+  }, [clampFloatingDockRectInLayout, setTransientStatus, topbarHeight])
 
   const loadShowcasePreset = useCallback((mode: ShowcaseMode, locale: ShowcaseLocale) => {
     loadShowcaseWorkspace({ mode, locale })
@@ -1950,8 +2056,34 @@ function App() {
     if (typeof window === 'undefined') {
       return
     }
-    window.localStorage.setItem(MANAGED_WINDOWS_LAYOUT_STORAGE_KEY, JSON.stringify(managedWindows))
-  }, [managedWindows])
+    window.localStorage.setItem(
+      MANAGED_WINDOWS_LAYOUT_STORAGE_KEY,
+      JSON.stringify({
+        version: 1,
+        managedWindows,
+        dockPosition,
+        dockCollapsed,
+        drawerCollapsed,
+        floatingDockRect,
+        leftDockWidth,
+        rightDockWidth,
+        journeyHeight,
+        dockTabOrder,
+        activeDockTab,
+      }),
+    )
+  }, [
+    activeDockTab,
+    dockCollapsed,
+    dockPosition,
+    dockTabOrder,
+    drawerCollapsed,
+    floatingDockRect,
+    journeyHeight,
+    leftDockWidth,
+    managedWindows,
+    rightDockWidth,
+  ])
 
   useEffect(() => {
     if (!initialUiPreferences.splashEnabled) {

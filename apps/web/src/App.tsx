@@ -101,6 +101,7 @@ import {
   MANAGED_WINDOW_IDS,
   setManagedHostActiveTab,
   setManagedWindowFloatingRect,
+  restoreManagedWindowsState,
   type ManagedWindowId,
   type ManagedWindowDockHostId,
   type ManagedWindowPlacement,
@@ -118,8 +119,6 @@ const DEFAULT_DOCK_SIDE_WIDTH = 340
 const DEFAULT_MANAGED_HOST_SIDE_WIDTH = 320
 const DEFAULT_JOURNEY_HEIGHT = 220
 const DEFAULT_MANAGED_HOST_BOTTOM_HEIGHT = 240
-const MIN_LEFT_SIDEBAR_WIDTH = 180
-const MAX_LEFT_SIDEBAR_WIDTH = 440
 const MIN_DOCK_SIDE_WIDTH = 260
 const MIN_JOURNEY_HEIGHT = 160
 const DEFAULT_TOPBAR_HEIGHT = 108
@@ -129,6 +128,7 @@ const MIN_DOCK_HEIGHT = 260
 const DEFAULT_FILE_VIEWPORT = { x: 100, y: 80, zoom: 1 }
 const DEFAULT_FLOATING_DOCK_RECT = { x: 28, y: 108, width: 480, height: 420 }
 const UI_PREFERENCES_STORAGE_KEY = 'sjv-ui-preferences-v1'
+const MANAGED_WINDOWS_LAYOUT_STORAGE_KEY = 'sjv-managed-windows-layout-v1'
 const APP_VERSION_LABEL = 'MVP Beta'
 const APP_COPYRIGHT_LABEL = 'Willams Sousa'
 const LIGHT_NODE_COLOR_PRESETS = [
@@ -168,7 +168,7 @@ const viewKindLabel: Record<string, string> = {
 }
 
 type DrawerTab = 'journeys' | 'dsl' | 'dock' | 'help'
-type DockTab = 'inspector' | 'journeys' | 'timeline' | 'dsl' | 'help' | 'preferences'
+type DockTab = 'palette' | 'inspector' | 'journeys' | 'timeline' | 'dsl' | 'help' | 'preferences'
 type DockPosition = 'left' | 'right' | 'bottom' | 'floating'
 type DesktopMenuId = 'file' | 'edit' | 'view' | 'journey' | 'insert' | 'settings' | 'help'
 type PlayerAnimationPreset = 'cinematic' | 'orb' | 'minimal'
@@ -254,9 +254,9 @@ type WorkspaceWindow = Window & {
 }
 
 const DESKTOP_MENU_ORDER: DesktopMenuId[] = ['file', 'edit', 'view', 'journey', 'insert', 'settings', 'help']
-const DEFAULT_DOCK_TAB_ORDER: DockTab[] = ['inspector', 'journeys', 'timeline', 'dsl', 'help', 'preferences']
+const DEFAULT_DOCK_TAB_ORDER: DockTab[] = ['palette', 'inspector', 'journeys', 'timeline', 'dsl', 'help', 'preferences']
 const isManagedDockTab = (tab: DockTab): tab is ManagedWindowId =>
-  (['inspector', 'journeys', 'timeline', 'dsl', 'help', 'preferences'] as ManagedWindowId[]).includes(
+  (['palette', 'inspector', 'journeys', 'timeline', 'dsl', 'help', 'preferences'] as ManagedWindowId[]).includes(
     tab as ManagedWindowId,
   )
 const HISTORY_LIMIT = 120
@@ -305,6 +305,25 @@ const resolveInitialUiPreferences = (): UiPreferences => {
     }
   } catch {
     return DEFAULT_UI_PREFERENCES
+  }
+}
+
+const createBaselineManagedWindowsState = (topbarHeight: number): ManagedWindowsState =>
+  dockManagedWindowState(createManagedWindowsState(createDefaultManagedWindowRects(topbarHeight)), 'palette', 'left')
+
+const resolveInitialManagedWindowsState = (topbarHeight: number): ManagedWindowsState => {
+  const fallback = createBaselineManagedWindowsState(topbarHeight)
+  if (typeof window === 'undefined') {
+    return fallback
+  }
+  try {
+    const raw = window.localStorage.getItem(MANAGED_WINDOWS_LAYOUT_STORAGE_KEY)
+    if (!raw) {
+      return fallback
+    }
+    return restoreManagedWindowsState(fallback, JSON.parse(raw))
+  } catch {
+    return fallback
   }
 }
 
@@ -377,7 +396,6 @@ function App() {
   const historyApplyingRef = useRef(false)
   const historyLastCommitAtRef = useRef(0)
   const historyReleaseTimerRef = useRef<number | null>(null)
-  const leftResizeRef = useRef<{ pointerId: number; startX: number; startWidth: number } | null>(null)
   const dockSideResizeRef = useRef<{
     pointerId: number
     side: DockSide
@@ -493,7 +511,7 @@ function App() {
   const [drawerCollapsed, setDrawerCollapsed] = useState(true)
   const [dockPosition, setDockPosition] = useState<DockPosition>('right')
   const [dockTabOrder, setDockTabOrder] = useState<DockTab[]>(() => normalizeDockTabOrder(DEFAULT_DOCK_TAB_ORDER))
-  const [activeDockTab, setActiveDockTab] = useState<DockTab>('inspector')
+  const [activeDockTab, setActiveDockTab] = useState<DockTab>('palette')
   const [floatingDockRect, setFloatingDockRect] = useState<FloatingDockRect>(DEFAULT_FLOATING_DOCK_RECT)
   const [recentWorkspaces, setRecentWorkspaces] = useState<RecentWorkspaceEntry[]>(() => loadRecentWorkspaces())
   const [openDesktopMenu, setOpenDesktopMenu] = useState<DesktopMenuId | null>(null)
@@ -503,7 +521,7 @@ function App() {
   const [topbarHeight, setTopbarHeight] = useState(DEFAULT_TOPBAR_HEIGHT)
   const [helpSection, setHelpSection] = useState<HelpSection>('guide')
   const [managedWindows, setManagedWindows] = useState<ManagedWindowsState>(() =>
-    createManagedWindowsState(createDefaultManagedWindowRects(DEFAULT_TOPBAR_HEIGHT)),
+    resolveInitialManagedWindowsState(DEFAULT_TOPBAR_HEIGHT),
   )
   const [uiPreferences, setUiPreferences] = useState<UiPreferences>(initialUiPreferences)
   const [splashVisible, setSplashVisible] = useState(initialUiPreferences.splashEnabled)
@@ -602,10 +620,10 @@ function App() {
   const playerModeLabel = playerIsRunning ? 'Animation' : 'Render'
   const immersiveMode = focusMode || presentationMode
   const leftDockVisible = !immersiveMode && dockPosition === 'left' && !dockCollapsed
-  const leftPanelVisible = !immersiveMode && !leftSidebarCollapsed && !leftDockVisible
   const rightDockVisible = !immersiveMode && dockPosition === 'right' && !dockCollapsed
   const floatingDockVisible = !immersiveMode && dockPosition === 'floating' && !dockCollapsed
   const drawerVisible = !immersiveMode && !drawerCollapsed
+  const paletteWindowOpen = managedWindows.windows.palette.open
   const managedLeftHostVisible = !immersiveMode && managedWindows.hosts.left.tabs.length > 0
   const managedRightHostVisible = !immersiveMode && managedWindows.hosts.right.tabs.length > 0
   const managedBottomHostVisible = !immersiveMode && managedWindows.hosts.bottom.tabs.length > 0
@@ -634,9 +652,9 @@ function App() {
             gridTemplateAreas: `'topbar' 'main'`,
           }
         : {
-            gridTemplateColumns: `${
-              leftDockVisible ? leftDockWidth : leftPanelVisible ? leftSidebarWidth : 0
-            }px ${managedLeftHostVisible ? DEFAULT_MANAGED_HOST_SIDE_WIDTH : 0}px 1fr ${
+            gridTemplateColumns: `${leftDockVisible ? leftDockWidth : 0}px ${
+              managedLeftHostVisible ? DEFAULT_MANAGED_HOST_SIDE_WIDTH : 0
+            }px 1fr ${
               managedRightHostVisible ? DEFAULT_MANAGED_HOST_SIDE_WIDTH : 0
             }px ${rightDockVisible ? rightDockWidth : 0}px`,
             gridTemplateRows: resolveLayoutGridTemplateRows({
@@ -657,8 +675,6 @@ function App() {
       journeyHeight,
       leftDockVisible,
       leftDockWidth,
-      leftPanelVisible,
-      leftSidebarWidth,
       managedBottomHostVisible,
       managedLeftHostVisible,
       managedRightHostVisible,
@@ -833,19 +849,10 @@ function App() {
             : 0
           : leftDockVisible
             ? leftDockWidth
-            : leftPanelVisible
-            ? leftSidebarWidth
             : 0
       return Math.max(MIN_DOCK_SIDE_WIDTH, layoutWidth - oppositeWidth - MIN_CANVAS_WIDTH)
     },
-    [
-      leftDockVisible,
-      leftDockWidth,
-      leftPanelVisible,
-      leftSidebarWidth,
-      rightDockVisible,
-      rightDockWidth,
-    ],
+    [leftDockVisible, leftDockWidth, rightDockVisible, rightDockWidth],
   )
 
   const switchDrawerTab = (tab: DrawerTab) => {
@@ -881,12 +888,14 @@ function App() {
     setPresentationMode((current) => {
       const next = !current
       if (next) {
+        setManagedWindows((state) => closeManagedWindow(state, 'palette'))
         setLeftSidebarCollapsed(true)
         setDockCollapsed(true)
         setDrawerCollapsed(true)
         setOpenDesktopMenu(null)
         scheduleFitCurrentView()
       } else {
+        setManagedWindows((state) => dockManagedWindowState(state, 'palette', 'left'))
         setLeftSidebarCollapsed(false)
         setDockCollapsed(false)
         setDrawerCollapsed(false)
@@ -896,7 +905,15 @@ function App() {
   }
 
   const toggleLeftSidebar = () => {
-    setLeftSidebarCollapsed((current) => !current)
+    setManagedWindows((current) => {
+      const paletteIsOpen = current.windows.palette.open
+      const next = paletteIsOpen ? closeManagedWindow(current, 'palette') : dockManagedWindowState(current, 'palette', 'left')
+      setLeftSidebarCollapsed(paletteIsOpen)
+      if (!paletteIsOpen) {
+        setActiveDockTab('palette')
+      }
+      return next
+    })
   }
 
   const toggleDockPanel = () => {
@@ -1015,6 +1032,49 @@ function App() {
     setExportStatus(message)
     window.setTimeout(() => setExportStatus(null), timeoutMs)
   }, [])
+
+  const restoreWindowLayout = useCallback(() => {
+    const fallback = createBaselineManagedWindowsState(topbarHeight)
+    if (typeof window === 'undefined') {
+      setManagedWindows(fallback)
+      setActiveDockTab('palette')
+      return
+    }
+    const raw = window.localStorage.getItem(MANAGED_WINDOWS_LAYOUT_STORAGE_KEY)
+    if (!raw) {
+      setTransientStatus('No saved window layout found.')
+      return
+    }
+    try {
+      const restored = restoreManagedWindowsState(fallback, JSON.parse(raw))
+      const nextActiveDockTab =
+        restored.windows.palette.open
+          ? 'palette'
+          : restored.hosts.left.activeTab ??
+            restored.hosts.right.activeTab ??
+            restored.hosts.bottom.activeTab ??
+            'inspector'
+      setFocusMode(false)
+      setPresentationMode(false)
+      setManagedWindows(restored)
+      setActiveDockTab(nextActiveDockTab)
+      setTransientStatus('Window layout restored.')
+    } catch {
+      setTransientStatus('Failed to restore window layout.')
+    }
+  }, [setTransientStatus, topbarHeight])
+
+  const resetWindowLayout = useCallback(() => {
+    const baseline = createBaselineManagedWindowsState(topbarHeight)
+    if (typeof window !== 'undefined') {
+      window.localStorage.removeItem(MANAGED_WINDOWS_LAYOUT_STORAGE_KEY)
+    }
+    setFocusMode(false)
+    setPresentationMode(false)
+    setManagedWindows(baseline)
+    setActiveDockTab('palette')
+    setTransientStatus('Window layout reset to defaults.')
+  }, [setTransientStatus, topbarHeight])
 
   const loadShowcasePreset = useCallback((mode: ShowcaseMode, locale: ShowcaseLocale) => {
     loadShowcaseWorkspace({ mode, locale })
@@ -1673,40 +1733,6 @@ function App() {
     registerJourneyScriptLanguage(monaco)
   }
 
-  const onLeftSplitterPointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
-    if (event.button !== 0) {
-      return
-    }
-    leftResizeRef.current = {
-      pointerId: event.pointerId,
-      startX: event.clientX,
-      startWidth: leftSidebarWidth,
-    }
-    event.currentTarget.setPointerCapture(event.pointerId)
-  }
-
-  const onLeftSplitterPointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
-    const resize = leftResizeRef.current
-    if (!resize || resize.pointerId !== event.pointerId) {
-      return
-    }
-    const delta = event.clientX - resize.startX
-    const nextWidth = Math.max(
-      MIN_LEFT_SIDEBAR_WIDTH,
-      Math.min(MAX_LEFT_SIDEBAR_WIDTH, resize.startWidth + delta),
-    )
-    setLeftSidebarWidth(nextWidth)
-  }
-
-  const stopLeftResize = (event: ReactPointerEvent<HTMLDivElement>) => {
-    const resize = leftResizeRef.current
-    if (!resize || resize.pointerId !== event.pointerId) {
-      return
-    }
-    leftResizeRef.current = null
-    event.currentTarget.releasePointerCapture(event.pointerId)
-  }
-
   const onDockSideSplitterPointerDown = (side: DockSide, event: ReactPointerEvent<HTMLDivElement>) => {
     if (event.button !== 0) {
       return
@@ -1915,6 +1941,17 @@ function App() {
       JSON.stringify(uiPreferences),
     )
   }, [uiPreferences])
+
+  useEffect(() => {
+    setLeftSidebarCollapsed(!paletteWindowOpen)
+  }, [paletteWindowOpen])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return
+    }
+    window.localStorage.setItem(MANAGED_WINDOWS_LAYOUT_STORAGE_KEY, JSON.stringify(managedWindows))
+  }, [managedWindows])
 
   useEffect(() => {
     if (!initialUiPreferences.splashEnabled) {
@@ -2807,7 +2844,33 @@ function App() {
     </div>
   )
 
+  const palettePanelContent = (
+    <div className="dock-content-section">
+      <h2>Palette</h2>
+      <p>Drag to canvas:</p>
+      {Object.entries(nodePresetsByCategory).map(([category, presets]) => (
+        <div key={category} className="toolbox-group">
+          <h3>{category}</h3>
+          <ul className="toolbox-list">
+            {presets.map((preset) => (
+              <li
+                key={preset.id}
+                draggable
+                onDragStart={(event) => {
+                  event.dataTransfer.setData('application/x-node-preset-id', preset.id)
+                }}
+              >
+                {preset.label}
+              </li>
+            ))}
+          </ul>
+        </div>
+      ))}
+    </div>
+  )
+
   const dockLabelByTab: Record<DockTab, string> = {
+    palette: 'Palette',
     inspector: 'Inspector',
     journeys: 'Journeys',
     timeline: 'Timeline',
@@ -2816,6 +2879,7 @@ function App() {
     preferences: 'Preferences',
   }
   const dockIconByTab: Record<DockTab, ReactNode> = {
+    palette: <PanelLeftOpen size={13} />,
     inspector: <SlidersHorizontal size={13} />,
     journeys: <Workflow size={13} />,
     timeline: <ListOrdered size={13} />,
@@ -2833,6 +2897,9 @@ function App() {
         : legacyDockTabOrder[0]
 
   const resolveDockTabContent = (tab: DockTab) => {
+    if (tab === 'palette') {
+      return palettePanelContent
+    }
     if (tab === 'inspector') {
       return inspectorDockContent
     }
@@ -3347,6 +3414,9 @@ function App() {
   const currentManagedDockHost =
     currentManagedDockHostId ? managedWindows.hosts[currentManagedDockHostId] : null
   const renderManagedWindowDockContent = (windowId: ManagedWindowId) => {
+    if (windowId === 'palette') {
+      return palettePanelContent
+    }
     if (windowId === 'inspector') {
       return inspectorDockContent
     }
@@ -3957,7 +4027,21 @@ function App() {
                     role="menuitem"
                     onClick={() => runDesktopMenuAction(() => toggleLeftSidebar())}
                   >
-                    <span>{leftSidebarCollapsed ? 'Show Palette' : 'Hide Palette'}</span>
+                    <span>{paletteWindowOpen ? 'Hide Palette' : 'Show Palette'}</span>
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => runDesktopMenuAction(() => restoreWindowLayout())}
+                  >
+                    <span>Restore Window Layout</span>
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => runDesktopMenuAction(() => resetWindowLayout())}
+                  >
+                    <span>Reset Window Layout</span>
                   </button>
                   <button
                     type="button"
@@ -3984,6 +4068,13 @@ function App() {
                   </button>
                   <button type="button" role="menuitem" onClick={() => runDesktopMenuAction(() => moveDockToFloating())}>
                     <span>Dock Floating</span>
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => runDesktopMenuAction(() => openManagedDockedWindowFromDockTab('palette'))}
+                  >
+                    <span>Panel: Palette</span>
                   </button>
                   <button
                     type="button"
@@ -4780,9 +4871,9 @@ function App() {
                     type="button"
                     className="icon-toggle-button"
                     onClick={() => toggleLeftSidebar()}
-                    title={withTooltip(leftSidebarCollapsed ? 'Show palette' : 'Hide palette')}
+                    title={withTooltip(paletteWindowOpen ? 'Hide palette' : 'Show palette')}
                   >
-                    {leftSidebarCollapsed ? <PanelLeftOpen size={15} /> : <PanelLeftClose size={15} />}
+                    {paletteWindowOpen ? <PanelLeftClose size={15} /> : <PanelLeftOpen size={15} />}
                   </button>
                   <button
                     type="button"
@@ -4876,16 +4967,6 @@ function App() {
           </FloatingWindow>
         )
       })}
-      {!immersiveMode && leftPanelVisible ? (
-        <div
-          className="layout-splitter layout-splitter-left"
-          style={{ left: leftSidebarWidth - 3, top: topbarHeight, bottom: bottomPanelsInset }}
-          onPointerDown={onLeftSplitterPointerDown}
-          onPointerMove={onLeftSplitterPointerMove}
-          onPointerUp={stopLeftResize}
-          onPointerCancel={stopLeftResize}
-        />
-      ) : null}
       {!immersiveMode && leftDockVisible ? (
         <div
           className="layout-splitter layout-splitter-left"
@@ -4915,30 +4996,6 @@ function App() {
           onPointerUp={stopJourneyResize}
           onPointerCancel={stopJourneyResize}
         />
-      ) : null}
-      {!immersiveMode && leftPanelVisible ? (
-        <aside className="left-sidebar">
-          <h2>Palette</h2>
-          <p>Drag to canvas:</p>
-          {Object.entries(nodePresetsByCategory).map(([category, presets]) => (
-            <div key={category} className="toolbox-group">
-              <h3>{category}</h3>
-              <ul className="toolbox-list">
-                {presets.map((preset) => (
-                  <li
-                    key={preset.id}
-                    draggable
-                    onDragStart={(event) => {
-                      event.dataTransfer.setData('application/x-node-preset-id', preset.id)
-                    }}
-                  >
-                    {preset.label}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ))}
-        </aside>
       ) : null}
       {leftDockVisible ? <aside className="left-sidebar left-sidebar-dock">{dockPanel}</aside> : null}
       {managedLeftHostVisible ? (

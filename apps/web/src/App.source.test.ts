@@ -41,8 +41,17 @@ describe('App source regressions', () => {
     expect(appSource).toContain('MANAGED_WINDOW_IDS.filter')
     expect(appSource).toContain('floatingManagedWindows.map')
     expect(appSource).toContain('renderManagedWindowFloatingContent')
+    expect(windowUiConfigSource).toContain("title: 'Palette'")
     expect(windowUiConfigSource).toContain("title: 'Journey Timeline'")
     expect(windowUiConfigSource).toContain("title: 'SJV Script'")
+  })
+
+  it('provides view menu actions to restore and reset managed window layout', () => {
+    expect(appSource).toContain('const restoreWindowLayout = useCallback')
+    expect(appSource).toContain('const resetWindowLayout = useCallback')
+    expect(appSource).toContain('MANAGED_WINDOWS_LAYOUT_STORAGE_KEY')
+    expect(appSource).toContain('Restore Window Layout')
+    expect(appSource).toContain('Reset Window Layout')
   })
 
   it('renders managed window hosts in dedicated left/right/bottom layout regions', () => {

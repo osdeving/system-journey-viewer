@@ -18,6 +18,7 @@ export type ManagedWindowFloatingUiConfig = {
 }
 
 export const MANAGED_WINDOW_DEFAULT_HOST_BY_ID: Record<ManagedWindowId, ManagedWindowDockHostId> = {
+  palette: 'left',
   inspector: 'right',
   journeys: 'right',
   timeline: 'bottom',
@@ -27,6 +28,12 @@ export const MANAGED_WINDOW_DEFAULT_HOST_BY_ID: Record<ManagedWindowId, ManagedW
 }
 
 export const MANAGED_WINDOW_FLOATING_UI_CONFIG: Record<ManagedWindowId, ManagedWindowFloatingUiConfig> = {
+  palette: {
+    title: 'Palette',
+    bodyClassName: 'floating-window-body-dock',
+    minWidth: 260,
+    minHeight: 320,
+  },
   inspector: {
     title: 'Inspector',
     bodyClassName: 'floating-window-body-dock',
@@ -70,6 +77,12 @@ export const MANAGED_WINDOW_FLOATING_UI_CONFIG: Record<ManagedWindowId, ManagedW
 export const createDefaultManagedWindowRects = (
   topbarHeight: number,
 ): ManagedWindowDefaults => ({
+  palette: {
+    x: 24,
+    y: topbarHeight + 10,
+    width: 300,
+    height: typeof window === 'undefined' ? 560 : Math.max(360, window.innerHeight - topbarHeight - 90),
+  },
   inspector: {
     x: typeof window === 'undefined' ? 860 : Math.max(12, window.innerWidth - 388),
     y: topbarHeight + 10,

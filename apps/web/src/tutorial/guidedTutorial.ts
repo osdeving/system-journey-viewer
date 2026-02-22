@@ -459,6 +459,25 @@ export const GUIDED_UI_TUTORIAL_STEPS: GuidedTutorialStep[] = [
       'Open the Window menu to reveal the SJV Script panel action.',
   },
   {
+    id: 'window-open-timeline-panel',
+    title: 'Open Timeline from Window Menu',
+    body:
+      'Panels can be reopened from the Window menu at any time. Open the Timeline panel now to continue.',
+    placement: 'right',
+    target: {
+      kind: 'selectors',
+      selectors: ['#desktop-menu-window', '[data-tutorial-id="window-menu-open-timeline-panel"]'],
+      padding: 6,
+    },
+    completionRule: {
+      kind: 'event',
+      eventId: 'window-menu-open-panel:timeline',
+      prompt: 'Open Window > Open Timeline Panel to continue.',
+    },
+    missingTargetHint:
+      'Open the Window menu to reveal the Timeline panel action.',
+  },
+  {
     id: 'sjv-script',
     title: 'SJV Script Window',
     body:
@@ -481,6 +500,49 @@ export const GUIDED_UI_TUTORIAL_STEPS: GuidedTutorialStep[] = [
     },
     missingTargetHint:
       'Open the SJV Script panel (Window > Open SJV Script Panel) to reveal the Sync toggle.',
+  },
+  {
+    id: 'select-edge',
+    title: 'Select an Edge',
+    body:
+      'Click any connection line on the canvas. The Inspector switches to edge properties when an edge is selected.',
+    placement: 'top',
+    target: { kind: 'selector', selector: '[data-tutorial-id="canvas-panel"]', padding: 8 },
+    completionRule: {
+      kind: 'event',
+      eventId: 'edge-select',
+      prompt: 'Click an edge on the canvas to continue.',
+    },
+  },
+  {
+    id: 'edit-edge-label',
+    title: 'Edit the Edge Label',
+    body:
+      'With an edge selected, edit the edge label in the Inspector. This label is shown in the diagram and journey timeline.',
+    placement: 'left',
+    target: { kind: 'selector', selector: '[data-tutorial-id="inspector-edge-label"]', padding: 6 },
+    completionRule: {
+      kind: 'event',
+      eventId: 'inspector-edge-label-edit',
+      prompt: 'Change the edge label in the Inspector to continue.',
+    },
+    missingTargetHint:
+      'Select an edge first and keep the Inspector panel open to reveal the Label field.',
+  },
+  {
+    id: 'edit-edge-protocol',
+    title: 'Change the Edge Protocol',
+    body:
+      'Use the Protocol selector to classify the connection (HTTP, Kafka event, SQL, OAuth2, and more). Change it once to continue.',
+    placement: 'left',
+    target: { kind: 'selector', selector: '[data-tutorial-id="inspector-edge-protocol"]', padding: 6 },
+    completionRule: {
+      kind: 'event',
+      eventId: 'inspector-edge-protocol-edit',
+      prompt: 'Change the edge Protocol in the Inspector to continue.',
+    },
+    missingTargetHint:
+      'Select an edge and keep the Inspector visible to reveal the Protocol selector.',
   },
   {
     id: 'help-window',

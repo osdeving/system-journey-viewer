@@ -1992,3 +1992,39 @@ Chronological engineering log. Entries are kept concise and focused on behavior 
 - `npm --workspace @sjv/web run test:run -- src/tutorial/guidedTutorial.test.ts src/App.source.test.ts src/App.styles.test.ts`
 - `npm --workspace @sjv/web run test:run`
 - `npm --workspace @sjv/web run build`
+
+## 2026-02-22 - Guided tutorial phase 4 (slice 6): edge editing workflow steps + more Window-menu action-gated coverage
+
+### Scope
+
+- Continued the guided tutorial with more action-gated steps for real editing workflows and additional `Window` menu panel actions.
+- Added an edge-editing walkthrough in the Inspector (select edge, edit label, change protocol).
+
+### Changes
+
+- `apps/web/src/App.tsx`
+  - added tutorial event tracking for:
+    - edge selection (`edge-select`) via `selectedEdgeId` changes,
+    - edge label edits (`inspector-edge-label-edit`),
+    - edge protocol changes (`inspector-edge-protocol-edit`),
+    - `Window > Open Timeline Panel` (`window-menu-open-panel:timeline`),
+  - added tutorial hooks (`data-tutorial-id`) for:
+    - `Window > Open Timeline Panel`,
+    - Inspector edge label input,
+    - Inspector edge protocol select,
+  - routed Inspector edge label/protocol changes through tutorial-aware wrappers (no behavior change to the underlying editor store actions).
+- `apps/web/src/tutorial/guidedTutorial.ts`
+  - added action-gated steps for:
+    - `Window > Open Timeline Panel`,
+    - selecting an edge on the canvas,
+    - editing edge label in Inspector,
+    - changing edge protocol in Inspector.
+- `apps/web/src/App.source.test.ts`
+  - regressions for new tutorial event IDs and stable target hooks.
+
+### Validation
+
+- `npm --workspace @sjv/web run lint`
+- `npm --workspace @sjv/web run test:run -- src/tutorial/guidedTutorial.test.ts src/App.source.test.ts`
+- `npm --workspace @sjv/web run test:run`
+- `npm --workspace @sjv/web run build`

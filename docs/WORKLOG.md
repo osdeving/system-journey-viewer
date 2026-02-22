@@ -444,6 +444,29 @@ Chronological engineering log. Entries are kept concise and focused on behavior 
 - `find skills -maxdepth 2 -name SKILL.md | sort`
 - `rg -n \"^---$|^name: |^description: \" skills/*/SKILL.md`
 
+## 2026-02-22 - Local skills expansion (showcase/tutorial curation + docs sync)
+
+### Scope
+
+- Added two more local agent skills to cover high-frequency project maintenance tasks:
+  - showcase/tutorial curation,
+  - documentation synchronization after feature/workflow changes.
+
+### Changes
+
+- `skills/sjv-showcase-tutorial-curation/SKILL.md` (new)
+  - workflow for evolving built-in showcase/tutorial content, EN/PT parity, drilldowns, semantic naming, and demo coverage.
+- `skills/sjv-docs-sync/SKILL.md` (new)
+  - workflow for updating `WORKLOG`, `AI_STATE`, spec/help/README docs, and terminology consistency (`SJV Script` naming).
+- `AGENTS.md`
+  - moved the two skills from candidate list to implemented local skills.
+
+### Validation
+
+- `git diff --check`
+- `find skills -maxdepth 2 -name SKILL.md | sort`
+- `rg -n \"^---$|^name: |^description: \" skills/*/SKILL.md`
+
 ## 2026-02-19 - Playback defaults, dock/view upgrades, edge-label rotation, recents memory, and help guide
 
 ### Scope

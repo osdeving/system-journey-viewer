@@ -186,6 +186,11 @@
   - floating `Help` and `Preferences` windows include dock handoff controls (float/left/right/bottom),
   - dock now includes a `Preferences` tab so dock handoff works,
   - dock tab order is normalized on hydrate to append missing tabs from older snapshots.
+- Window-manager phase 2 kickoff:
+  - managed-window state now uses a host-based layout model (`windows` + `hosts`) for `help` and `preferences`,
+  - host state tracks tab stacks and active tabs for `left`, `right`, and `bottom`,
+  - managed window operations now explicitly model `dock` and `float` transitions instead of only toggling placement metadata,
+  - App integration still interoperates with the legacy dock renderer while preserving host membership state (transitional phase).
 - Splash UX:
   - Help menu now includes `Show Splash`,
   - Preferences also includes a `Show splash now` action for replaying the startup splash.

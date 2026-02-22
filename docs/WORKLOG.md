@@ -1522,3 +1522,34 @@ Chronological engineering log. Entries are kept concise and focused on behavior 
 - `npm --workspace @sjv/web run lint`
 - `npm --workspace @sjv/web run test:run`
 - `npm --workspace @sjv/web run build`
+
+## 2026-02-22 - Window manager phase 2 kickoff: host-based managed window layout model
+
+### Scope
+
+- Started phase 2 by upgrading the managed-window foundation from a simple per-window placement state to a host-based layout model (`windows + hosts`), while preserving current UI behavior.
+- This keeps phase 1 UX improvements working and prepares the app for real multi-host docking (`left/right/bottom`) without a full dock rewrite in one PR.
+
+### Changes
+
+- `apps/web/src/windowing/windowManager.ts`
+  - evolved managed-window state to:
+    - `windows` (open/placement/floatingRect),
+    - `hosts` (`left/right/bottom` tab stacks + active tab),
+  - added host-aware operations:
+    - `dockManagedWindow`,
+    - `floatManagedWindow`,
+    - host membership normalization on open/close/placement changes,
+    - `setManagedHostActiveTab`.
+- `apps/web/src/windowing/windowManager.test.ts`
+  - expanded coverage to host tabs/active-tab behavior, host moves, float/dock transitions, and close semantics.
+- `apps/web/src/App.tsx`
+  - migrated `managedWindows` state usage to the new host-based model,
+  - managed `Help/Preferences` state now preserves host membership when opened from legacy dock tabs (`help` / `preferences`),
+  - floating window dock controls now call explicit `float/dock` operations backed by the new model.
+
+### Validation
+
+- `npm --workspace @sjv/web run lint`
+- `npm --workspace @sjv/web run test:run`
+- `npm --workspace @sjv/web run build`

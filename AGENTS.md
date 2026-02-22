@@ -169,8 +169,11 @@ Prefer these when the task matches:
   - Curating built-in showcase/tutorial content, localization parity, drilldowns, and demo coverage.
 - `sjv-docs-sync`
   - Syncing docs/worklog/state/spec/help terminology and change summaries after feature/workflow updates.
+- `sjv-export-pipeline-validation`
+  - Export and presentation/capture validation workflow for static and animated outputs.
+- `sjv-theme-and-palette-accessibility`
+  - Theme/palette/text-color tuning with readability and showcase/demo coverage checks.
 
 ## Candidate next skills (not yet implemented)
 
-- `sjv-export-pipeline-validation`
-- `sjv-theme-and-palette-accessibility`
+- Add more domain-specific skills only after repeated use patterns emerge.

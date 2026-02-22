@@ -1608,3 +1608,38 @@ Chronological engineering log. Entries are kept concise and focused on behavior 
 - `npm --workspace @sjv/web run lint`
 - `npm --workspace @sjv/web run test:run`
 - `npm --workspace @sjv/web run build`
+
+## 2026-02-22 - Window manager phase 5 (core panel migration): dock tabs now use managed windows/hosts
+
+### Scope
+
+- Migrated the core dock-tab panels (`Inspector`, `Journeys`, `Timeline`, `SJV Script`) into the managed-window system used by `Help`/`Preferences`.
+- Added generic floating-window rendering for all managed dock tabs so docked panels can be moved to floating mode from the host header.
+- Kept the legacy dock shell as a compatibility surface (dock placement/floating-dock UI), but it no longer owns the core dock-tab content.
+
+### Changes
+
+- `apps/web/src/windowing/windowManager.ts`
+  - expanded `ManagedWindowId` to cover all dock tabs:
+    - `inspector`, `journeys`, `timeline`, `dsl`, `help`, `preferences`,
+  - generalized `createManagedWindowsState` to initialize all managed windows from defaults,
+  - exported `MANAGED_WINDOW_IDS` for generic UI rendering.
+- `apps/web/src/windowing/windowManager.test.ts`
+  - updated defaults/coverage to include the expanded managed-window set.
+- `apps/web/src/App.tsx`
+  - added floating defaults for `Inspector`, `Journeys`, `Timeline`, and `SJV Script`,
+  - topbar panel shortcut strip now opens dock-tab panels as managed windows (default host per panel),
+  - `View` menu panel actions and `Insert` quick-open actions for timeline/DSL now open managed windows instead of legacy dock tabs,
+  - managed content renderer now covers all dock-tab panels,
+  - floating windows for managed panels are rendered via a shared loop (`MANAGED_WINDOW_IDS`) and shared content mapper,
+  - legacy dock fallback now shows a compatibility message when no legacy tabs remain instead of duplicating managed content.
+- `apps/web/src/App.css`
+  - added floating-window body wrappers for dock-style content (`floating-window-body-dock`, `floating-window-body-dsl`).
+- `apps/web/src/App.source.test.ts`, `apps/web/src/App.styles.test.ts`
+  - added regressions for shared floating-window rendering and styles.
+
+### Validation
+
+- `npm --workspace @sjv/web run lint`
+- `npm --workspace @sjv/web run test:run`
+- `npm --workspace @sjv/web run build`

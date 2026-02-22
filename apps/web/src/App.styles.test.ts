@@ -57,6 +57,8 @@ describe('App boundary styles', () => {
     expect(appCss).toContain('.dsl-status-message')
     expect(appCss).toContain('.floating-window')
     expect(appCss).toContain('.floating-window-close')
+    expect(appCss).toContain('.floating-window-body-dock')
+    expect(appCss).toContain('.floating-window-body-dsl')
   })
 
   it('includes flow animation for player feedback', () => {

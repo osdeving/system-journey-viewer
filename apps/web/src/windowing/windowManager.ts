@@ -1,6 +1,6 @@
 import type { FloatingDockRect } from '../layout/floatingDock'
 
-export type ManagedWindowId = 'help' | 'preferences'
+export type ManagedWindowId = 'inspector' | 'journeys' | 'timeline' | 'dsl' | 'help' | 'preferences'
 export type ManagedWindowDockHostId = 'left' | 'right' | 'bottom'
 export type ManagedWindowPlacement = 'floating' | ManagedWindowDockHostId
 
@@ -30,6 +30,14 @@ type OpenManagedWindowOptions = {
 }
 
 const HOST_IDS: ManagedWindowDockHostId[] = ['left', 'right', 'bottom']
+export const MANAGED_WINDOW_IDS: ManagedWindowId[] = [
+  'inspector',
+  'journeys',
+  'timeline',
+  'dsl',
+  'help',
+  'preferences',
+]
 
 const createEmptyHostState = (): ManagedWindowHostState => ({
   tabs: [],
@@ -75,18 +83,16 @@ const addWindowToHost = (
 }
 
 export const createManagedWindowsState = (defaults: ManagedWindowDefaults): ManagedWindowsState => ({
-  windows: {
-    help: {
-      open: false,
-      placement: 'floating',
-      floatingRect: { ...defaults.help },
-    },
-    preferences: {
-      open: false,
-      placement: 'floating',
-      floatingRect: { ...defaults.preferences },
-    },
-  },
+  windows: Object.fromEntries(
+    MANAGED_WINDOW_IDS.map((windowId) => [
+      windowId,
+      {
+        open: false,
+        placement: 'floating',
+        floatingRect: { ...defaults[windowId] },
+      } satisfies ManagedWindowState,
+    ]),
+  ) as ManagedWindowsRecord,
   hosts: {
     left: createEmptyHostState(),
     right: createEmptyHostState(),

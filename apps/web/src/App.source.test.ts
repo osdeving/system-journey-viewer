@@ -20,7 +20,8 @@ describe('App source regressions', () => {
   it('renders Preferences using the reusable floating window component', () => {
     expect(appSource).toContain("import { FloatingWindow } from './components/FloatingWindow'")
     expect(appSource).toContain('<FloatingWindow')
-    expect(appSource).toContain('className="preferences-window"')
+    expect(appSource).toContain("title: 'Preferences'")
+    expect(appSource).toContain("className: 'preferences-window'")
   })
 
   it('renders managed docked windows through the reusable DockHost component', () => {
@@ -28,6 +29,14 @@ describe('App source regressions', () => {
     expect(appSource).toContain('<DockHost')
     expect(appSource).toContain('renderManagedDockHostInDockPanel')
     expect(appSource).toContain('setManagedHostActiveTab')
+  })
+
+  it('renders floating managed windows through a shared loop and content mapper', () => {
+    expect(appSource).toContain('MANAGED_WINDOW_IDS.filter')
+    expect(appSource).toContain('floatingManagedWindows.map')
+    expect(appSource).toContain('renderManagedWindowFloatingContent')
+    expect(appSource).toContain("title: 'Journey Timeline'")
+    expect(appSource).toContain("title: 'SJV Script'")
   })
 
   it('renders managed window hosts in dedicated left/right/bottom layout regions', () => {

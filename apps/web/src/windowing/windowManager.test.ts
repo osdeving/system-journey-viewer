@@ -12,12 +12,17 @@ import {
 
 describe('windowManager helpers', () => {
   const defaults = {
+    inspector: { x: 820, y: 100, width: 360, height: 380 },
+    journeys: { x: 820, y: 130, width: 360, height: 420 },
+    timeline: { x: 120, y: 520, width: 760, height: 280 },
+    dsl: { x: 140, y: 180, width: 860, height: 520 },
     help: { x: 20, y: 100, width: 420, height: 320 },
     preferences: { x: 840, y: 100, width: 380, height: 360 },
   }
 
   it('creates closed windows and empty dock hosts', () => {
     const state = createManagedWindowsState(defaults)
+    expect(state.windows.inspector.open).toBe(false)
     expect(state.windows.help.open).toBe(false)
     expect(state.windows.preferences.open).toBe(false)
     expect(state.windows.help.placement).toBe('floating')

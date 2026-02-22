@@ -201,6 +201,12 @@
   - `Help`/`Preferences` dock actions target managed hosts directly instead of moving the legacy dock,
   - managed-host headers support host-to-host moves (`left|right|bottom`), float, and close,
   - legacy dock strip now hides managed tabs and resolves legacy active-tab fallback when a managed window is docked to avoid duplicate panel content.
+- Window-manager phase 5 core-panel migration:
+  - core dock tabs (`Inspector`, `Journeys`, `Timeline`, `SJV Script`) are now also managed windows (same host model as `Help`/`Preferences`),
+  - topbar dock-tab shortcut strip now opens managed windows into default hosts instead of relying on legacy dock tab rendering,
+  - `View` panel actions and insert shortcuts for timeline/DSL now open managed windows,
+  - managed floating windows are rendered through a shared loop (`MANAGED_WINDOW_IDS`) with a shared content mapper and reusable `FloatingWindow`,
+  - legacy dock remains as a compatibility shell (placement/floating-dock mechanics) and displays an empty-state message when no legacy tabs exist.
 - Splash UX:
   - Help menu now includes `Show Splash`,
   - Preferences also includes a `Show splash now` action for replaying the startup splash.

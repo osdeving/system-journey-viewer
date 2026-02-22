@@ -178,7 +178,7 @@ export const parseLiteDsl = (input: string): LiteWorkspaceAst => {
 
       if (openUiLayoutView) {
         const uiNodeMatch = line.match(
-          /^node\s+([A-Za-z0-9_-]+)\s+at\s+(-?\d+(?:\.\d+)?)\s+(-?\d+(?:\.\d+)?)\s+size\s+(\d+(?:\.\d+)?)\s+(\d+(?:\.\d+)?)$/,
+          /^node\s+([A-Za-z0-9_-]+)\s+at\s+(-?\d+(?:\.\d+)?)\s+(-?\d+(?:\.\d+)?)\s+size\s+(\d+(?:\.\d+)?)\s+(\d+(?:\.\d+)?)(?:\s+fill\s+([#A-Za-z0-9_-]+))?(?:\s+text\s+([#A-Za-z0-9_-]+))?$/,
         )
         if (uiNodeMatch) {
           openUiLayoutView.nodes.push({
@@ -187,6 +187,8 @@ export const parseLiteDsl = (input: string): LiteWorkspaceAst => {
             y: Number(uiNodeMatch[3]),
             w: Number(uiNodeMatch[4]),
             h: Number(uiNodeMatch[5]),
+            fillColor: uiNodeMatch[6] || undefined,
+            textColor: uiNodeMatch[7] || undefined,
           })
           continue
         }

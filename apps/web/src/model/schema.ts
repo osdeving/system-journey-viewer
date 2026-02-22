@@ -135,6 +135,22 @@ export const editorSnapshotSchema = z.object({
   workspace: workspaceSchema,
   currentViewId: z.string().min(1),
   viewport: viewportSchema,
+  viewHistory: z.array(z.string().min(1)).optional(),
+  selectedNodeId: z.string().min(1).nullable().optional(),
+  selectedNodeIds: z.array(z.string().min(1)).optional(),
+  selectedEdgeId: z.string().min(1).nullable().optional(),
+  activeTool: z.enum(['select', 'connector']).optional(),
+  pendingConnectionFrom: z.string().min(1).nullable().optional(),
+  pendingConnectionPortId: z.string().min(1).nullable().optional(),
+  activeJourneyId: z.string().min(1).nullable().optional(),
+  journeyFilterId: z.string().min(1).nullable().optional(),
+  playerJourneyId: z.string().min(1).nullable().optional(),
+  playerIsRunning: z.boolean().optional(),
+  playerStepIndex: z.number().int().min(0).optional(),
+  playerLoop: z.boolean().optional(),
+  playerSpeedMs: z.number().int().positive().optional(),
+  playerHighlightNodes: z.boolean().optional(),
+  playerTrailEnabled: z.boolean().optional(),
 })
 
 export type WorkspaceModelSchema = z.infer<typeof workspaceSchema>

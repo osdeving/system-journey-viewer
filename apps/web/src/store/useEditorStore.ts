@@ -27,7 +27,7 @@ import type {
   ViewportState,
   WorkspaceModel,
 } from '../model/types'
-import { loadSnapshot, saveSnapshot } from './persistence'
+import { loadLatestSnapshot, saveSnapshot } from './persistence'
 
 const DEFAULT_VIEW_ID = 'v_container'
 const DEFAULT_VIEWPORT: ViewportState = { x: 100, y: 80, zoom: 1 }
@@ -165,7 +165,7 @@ const getDefaultState = (): Pick<
   | 'playerConfettiNodeId'
 > => {
   const fallbackWorkspace = createDefaultWorkspace()
-  const snapshot = loadSnapshot(fallbackWorkspace.workspace.id, DEFAULT_VIEW_ID)
+  const snapshot = loadLatestSnapshot()
   if (!snapshot) {
     return {
       workspace: fallbackWorkspace,
@@ -191,30 +191,74 @@ const getDefaultState = (): Pick<
       playerConfettiNodeId: null,
     }
   }
-  const resolvedViewId = snapshot.workspace.views[snapshot.currentViewId]
+  const normalizedWorkspace = normalizeWorkspaceNodePorts(snapshot.workspace)
+  const fallbackViewId = Object.keys(normalizedWorkspace.views)[0] ?? DEFAULT_VIEW_ID
+  const resolvedViewId = normalizedWorkspace.views[snapshot.currentViewId]
     ? snapshot.currentViewId
-    : DEFAULT_VIEW_ID
+    : fallbackViewId
+  const currentView = normalizedWorkspace.views[resolvedViewId]
+  const currentViewNodeIds = new Set(currentView?.nodeIds ?? [])
+  const currentViewEdgeIds = new Set(currentView?.edgeIds ?? [])
+  const currentViewJourneyIds = new Set(currentView?.journeyIds ?? [])
+  const resolveNullableJourneyId = (candidate: string | null | undefined): string | null =>
+    candidate && currentViewJourneyIds.has(candidate) ? candidate : null
+  const selectedNodeIds = (snapshot.selectedNodeIds ?? []).filter((nodeId) => currentViewNodeIds.has(nodeId))
+  const selectedNodeId =
+    snapshot.selectedNodeId && currentViewNodeIds.has(snapshot.selectedNodeId)
+      ? snapshot.selectedNodeId
+      : selectedNodeIds[selectedNodeIds.length - 1] ?? null
+  const viewHistory = (snapshot.viewHistory ?? []).filter(
+    (viewId, index, values) =>
+      typeof viewId === 'string' &&
+      normalizedWorkspace.views[viewId] &&
+      viewId !== resolvedViewId &&
+      values.indexOf(viewId) === index,
+  )
+  const pendingConnectionFrom =
+    snapshot.pendingConnectionFrom && currentViewNodeIds.has(snapshot.pendingConnectionFrom)
+      ? snapshot.pendingConnectionFrom
+      : null
+  const playerJourneyId =
+    resolveNullableJourneyId(snapshot.playerJourneyId) ??
+    currentView?.journeyIds[0] ??
+    DEFAULT_PLAYER_JOURNEY_ID
+  const activeJourneyId =
+    resolveNullableJourneyId(snapshot.activeJourneyId) ??
+    playerJourneyId
+  const journeyFilterId = resolveNullableJourneyId(snapshot.journeyFilterId)
+  const resolvedPlayerStepIndex = Math.max(
+    0,
+    Math.min(
+      Number.isInteger(snapshot.playerStepIndex ?? 0) ? (snapshot.playerStepIndex as number) : 0,
+      Math.max(0, (playerJourneyId && normalizedWorkspace.journeys[playerJourneyId]?.steps.length
+        ? normalizedWorkspace.journeys[playerJourneyId].steps.length - 1
+        : 0)),
+    ),
+  )
   return {
-    workspace: normalizeWorkspaceNodePorts(snapshot.workspace),
+    workspace: normalizedWorkspace,
     currentViewId: resolvedViewId,
-    viewHistory: [],
+    viewHistory,
     viewport: snapshot.viewport,
-    selectedNodeId: null,
-    selectedNodeIds: [],
-    selectedEdgeId: null,
-    activeTool: 'select',
-    pendingConnectionFrom: null,
-    pendingConnectionPortId: null,
-    activeJourneyId: null,
-    journeyFilterId: null,
-    playerJourneyId:
-      snapshot.workspace.views[resolvedViewId]?.journeyIds[0] ?? DEFAULT_PLAYER_JOURNEY_ID,
-    playerIsRunning: false,
-    playerStepIndex: 0,
-    playerLoop: DEFAULT_PLAYER_LOOP,
-    playerSpeedMs: DEFAULT_PLAYER_SPEED_MS,
-    playerHighlightNodes: DEFAULT_PLAYER_HIGHLIGHT_NODES,
-    playerTrailEnabled: DEFAULT_PLAYER_TRAIL_ENABLED,
+    selectedNodeId,
+    selectedNodeIds,
+    selectedEdgeId:
+      snapshot.selectedEdgeId && currentViewEdgeIds.has(snapshot.selectedEdgeId) ? snapshot.selectedEdgeId : null,
+    activeTool: snapshot.activeTool === 'connector' ? 'connector' : 'select',
+    pendingConnectionFrom,
+    pendingConnectionPortId: pendingConnectionFrom ? snapshot.pendingConnectionPortId ?? null : null,
+    activeJourneyId,
+    journeyFilterId,
+    playerJourneyId,
+    playerIsRunning: snapshot.playerIsRunning ?? false,
+    playerStepIndex: resolvedPlayerStepIndex,
+    playerLoop: snapshot.playerLoop ?? DEFAULT_PLAYER_LOOP,
+    playerSpeedMs:
+      Number.isInteger(snapshot.playerSpeedMs) && (snapshot.playerSpeedMs ?? 0) > 0
+        ? (snapshot.playerSpeedMs as number)
+        : DEFAULT_PLAYER_SPEED_MS,
+    playerHighlightNodes: snapshot.playerHighlightNodes ?? DEFAULT_PLAYER_HIGHLIGHT_NODES,
+    playerTrailEnabled: snapshot.playerTrailEnabled ?? DEFAULT_PLAYER_TRAIL_ENABLED,
     playerConfettiNonce: 0,
     playerConfettiNodeId: null,
   }
@@ -224,6 +268,22 @@ const toSnapshot = (state: EditorState): EditorSnapshot => ({
   workspace: state.workspace,
   currentViewId: state.currentViewId,
   viewport: state.viewport,
+  viewHistory: state.viewHistory,
+  selectedNodeId: state.selectedNodeId,
+  selectedNodeIds: state.selectedNodeIds,
+  selectedEdgeId: state.selectedEdgeId,
+  activeTool: state.activeTool,
+  pendingConnectionFrom: state.pendingConnectionFrom,
+  pendingConnectionPortId: state.pendingConnectionPortId,
+  activeJourneyId: state.activeJourneyId,
+  journeyFilterId: state.journeyFilterId,
+  playerJourneyId: state.playerJourneyId,
+  playerIsRunning: state.playerIsRunning,
+  playerStepIndex: state.playerStepIndex,
+  playerLoop: state.playerLoop,
+  playerSpeedMs: state.playerSpeedMs,
+  playerHighlightNodes: state.playerHighlightNodes,
+  playerTrailEnabled: state.playerTrailEnabled,
 })
 
 const clampZoom = (zoom: number): number => Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, zoom))
@@ -519,24 +579,23 @@ export const useEditorStore = create<EditorState>()(
       set({
         workspace: defaults.workspace,
         currentViewId: defaults.currentViewId,
-        viewHistory: [],
+        viewHistory: defaults.viewHistory,
         viewport: defaults.viewport,
-        selectedNodeId: null,
-        selectedNodeIds: [],
-        selectedEdgeId: null,
-        activeTool: 'select',
-        pendingConnectionFrom: null,
-        pendingConnectionPortId: null,
-        activeJourneyId: DEFAULT_PLAYER_JOURNEY_ID,
-        journeyFilterId: null,
-        playerJourneyId:
-          defaults.workspace.views[defaults.currentViewId]?.journeyIds[0] ?? DEFAULT_PLAYER_JOURNEY_ID,
-        playerIsRunning: false,
-        playerStepIndex: 0,
-        playerLoop: DEFAULT_PLAYER_LOOP,
-        playerSpeedMs: DEFAULT_PLAYER_SPEED_MS,
-        playerHighlightNodes: DEFAULT_PLAYER_HIGHLIGHT_NODES,
-        playerTrailEnabled: DEFAULT_PLAYER_TRAIL_ENABLED,
+        selectedNodeId: defaults.selectedNodeId,
+        selectedNodeIds: defaults.selectedNodeIds,
+        selectedEdgeId: defaults.selectedEdgeId,
+        activeTool: defaults.activeTool,
+        pendingConnectionFrom: defaults.pendingConnectionFrom,
+        pendingConnectionPortId: defaults.pendingConnectionPortId,
+        activeJourneyId: defaults.activeJourneyId,
+        journeyFilterId: defaults.journeyFilterId,
+        playerJourneyId: defaults.playerJourneyId,
+        playerIsRunning: defaults.playerIsRunning,
+        playerStepIndex: defaults.playerStepIndex,
+        playerLoop: defaults.playerLoop,
+        playerSpeedMs: defaults.playerSpeedMs,
+        playerHighlightNodes: defaults.playerHighlightNodes,
+        playerTrailEnabled: defaults.playerTrailEnabled,
         playerConfettiNonce: 0,
         playerConfettiNodeId: null,
       })

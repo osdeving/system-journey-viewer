@@ -361,6 +361,51 @@ Chronological engineering log. Entries are kept concise and focused on behavior 
 - `npm --workspace @sjv/web run test:run`
 - `npm --workspace @sjv/web run build`
 
+## 2026-02-22 - State persistence hardening + SJV metadata/source-of-truth sync improvements
+
+### Scope
+
+- Harden browser autosave/restore so the last editor session restores reliably regardless of the active view.
+- Expand SJV `metadata ui-layout` and local layout persistence so Inspector color changes roundtrip through script/canvas.
+- Improve SJV sync consistency and clarify state ownership across shell UI vs workspace/canvas metadata.
+
+### Changes
+
+- `apps/web/src/store/persistence.ts`, `apps/web/src/store/useEditorStore.ts`, `apps/web/src/model/types.ts`, `apps/web/src/model/schema.ts`
+  - added a **global latest editor snapshot** key (`sjv:editor-snapshot:v2`) so restore no longer depends on saving while `v_container` was active,
+  - `saveSnapshot(...)` now writes both the new global key and the legacy per-view key for compatibility,
+  - editor snapshots now persist richer session state (view history, tool mode, selection, pending connection, active journey/filter, player settings),
+  - `hydrate()` now restores the saved session state instead of resetting many fields to hardcoded defaults,
+  - startup restore now falls back to the first available view if the saved/current default view is missing.
+- `apps/web/src/store/layoutPersistence.ts`
+  - expanded per-workspace layout metadata to persist:
+    - node `fillColor` and `textColor`,
+    - edge `labelFontSize` (in addition to label position/side/angle),
+  - `applyWorkspaceLayout(...)` now reapplies these visual fields safely with clamping.
+- `apps/web/src/dsl-lite/types.ts`, `apps/web/src/dsl-lite/parser.ts`, `apps/web/src/dsl-lite/convert.ts`
+  - extended `metadata ui-layout` node lines with optional `fill` and `text` color tokens,
+  - import/export roundtrip now preserves node colors through SJV Script metadata.
+- `apps/web/src/dsl-lite/sync.ts`, `apps/web/src/App.tsx`
+  - added parsed-document metadata flag (`hasUiLayoutMetadata`) to SJV import flow,
+  - when SJV text contains `metadata ui-layout`, local cached layout is no longer overlaid on top of the script (script metadata becomes authoritative),
+  - SJV sync now updates script text from workspace changes (Inspector/canvas edits) while sync is enabled, with loop guards to avoid feedback cycles.
+- `apps/web/src/App.tsx`
+  - window-layout bootstrap persistence now also restores shell session UI fields (`drawerTab`, `dslMaximized`, `focusMode`, `presentationMode`, `helpSection`, `journeyDraftName`, `leftSidebarWidth`) for a closer session restore.
+- `docs/STATE_PERSISTENCE_MAP.md`
+  - new source-of-truth map documenting the persistence domains, stored properties, and precedence rules between editor snapshot, shell UI layout, local layout cache, and SJV metadata.
+- Tests
+  - `apps/web/src/store/persistence.test.ts`
+  - `apps/web/src/store/layoutPersistence.test.ts`
+  - `apps/web/src/store/useEditorStore.test.ts`
+  - `apps/web/src/dsl-lite/parser.test.ts`
+
+### Validation
+
+- `npm --workspace @sjv/web run lint`
+- `npm --workspace @sjv/web run test:run -- src/store/persistence.test.ts src/store/layoutPersistence.test.ts src/store/useEditorStore.test.ts src/dsl-lite/parser.test.ts src/dsl-lite/journeyDslSync.test.ts`
+- `npm --workspace @sjv/web run test:run`
+- `npm --workspace @sjv/web run build`
+
 ## 2026-02-22 - Window manager phase 3 completion: menu ownership cleanup (`Window` owns panels/layout; `Insert` stays content-focused)
 
 ### Scope

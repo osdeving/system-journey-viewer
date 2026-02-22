@@ -89,6 +89,38 @@ describe('useEditorStore', () => {
     expect(updated.workspace.nodes.n_api.style?.textColor).toBe('#f8fafc')
   })
 
+  it('persists and hydrates the latest editor session snapshot across non-default views', () => {
+    const state = useEditorStore.getState()
+    const targetViewId =
+      Object.values(state.workspace.views).find(
+        (view) => view.id !== state.currentViewId && view.nodeIds.length > 0,
+      )?.id ?? state.currentViewId
+    expect(targetViewId).not.toBe(state.currentViewId)
+    state.goToView(targetViewId)
+    const targetNodeId = useEditorStore.getState().workspace.views[targetViewId]?.nodeIds[0] ?? null
+    expect(targetNodeId).toBeTruthy()
+    if (!targetNodeId) {
+      return
+    }
+
+    state.setActiveTool('connector')
+    state.beginConnection(targetNodeId)
+    state.persist()
+
+    // Mutate away from the saved state so hydrate must restore the snapshot.
+    state.goToView('v_container')
+    state.selectNode('n_api')
+    state.setActiveTool('select')
+    state.cancelPendingConnection()
+
+    state.hydrate()
+    const restored = useEditorStore.getState()
+
+    expect(restored.currentViewId).toBe(targetViewId)
+    expect(restored.activeTool).toBe('connector')
+    expect(restored.pendingConnectionFrom).toBe(targetNodeId)
+  })
+
   it('connects nodes when connector tool is active', () => {
     const state = useEditorStore.getState()
     const beforeEdges = new Set(state.workspace.views[state.currentViewId].edgeIds)

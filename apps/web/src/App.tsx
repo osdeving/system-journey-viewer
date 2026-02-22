@@ -170,7 +170,7 @@ const viewKindLabel: Record<string, string> = {
 type DrawerTab = 'journeys' | 'dsl' | 'dock' | 'help'
 type DockTab = 'palette' | 'inspector' | 'journeys' | 'timeline' | 'dsl' | 'help' | 'preferences'
 type DockPosition = 'left' | 'right' | 'bottom' | 'floating'
-type DesktopMenuId = 'file' | 'edit' | 'view' | 'journey' | 'insert' | 'settings' | 'help'
+type DesktopMenuId = 'file' | 'edit' | 'view' | 'window' | 'journey' | 'insert' | 'settings' | 'help'
 type PlayerAnimationPreset = 'cinematic' | 'orb' | 'minimal'
 type FileWriteMode = 'prompt' | 'reuse'
 type StepDragState = { journeyId: string; edgeId: string }
@@ -253,7 +253,7 @@ type WorkspaceWindow = Window & {
   showSaveFilePicker?: (options?: unknown) => Promise<WorkspaceFileHandle>
 }
 
-const DESKTOP_MENU_ORDER: DesktopMenuId[] = ['file', 'edit', 'view', 'journey', 'insert', 'settings', 'help']
+const DESKTOP_MENU_ORDER: DesktopMenuId[] = ['file', 'edit', 'view', 'window', 'journey', 'insert', 'settings', 'help']
 const DEFAULT_DOCK_TAB_ORDER: DockTab[] = ['palette', 'inspector', 'journeys', 'timeline', 'dsl', 'help', 'preferences']
 const isManagedDockTab = (tab: DockTab): tab is ManagedWindowId =>
   (['palette', 'inspector', 'journeys', 'timeline', 'dsl', 'help', 'preferences'] as ManagedWindowId[]).includes(
@@ -4022,26 +4022,84 @@ function App() {
                   >
                     <span>{presentationMode ? 'Exit Presentation' : 'Presentation Mode'}</span>
                   </button>
+                </div>
+              ) : null}
+            </div>
+            <div
+              className={openDesktopMenu === 'window' ? 'desktop-menu desktop-menu-open' : 'desktop-menu'}
+              onMouseEnter={() => {
+                if (openDesktopMenu) {
+                  setOpenDesktopMenu('window')
+                }
+              }}
+            >
+              <button
+                type="button"
+                className="desktop-menu-trigger"
+                aria-haspopup="menu"
+                aria-expanded={openDesktopMenu === 'window'}
+                aria-controls="desktop-menu-window"
+                onClick={() => toggleDesktopMenu('window')}
+              >
+                Window
+              </button>
+              {openDesktopMenu === 'window' ? (
+                <div id="desktop-menu-window" className="desktop-menu-list" role="menu" aria-label="Window menu">
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => runDesktopMenuAction(() => openManagedDockedWindowFromDockTab('palette'))}
+                  >
+                    <span>Open Palette Panel</span>
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => runDesktopMenuAction(() => openManagedDockedWindowFromDockTab('inspector'))}
+                  >
+                    <span>Open Inspector Panel</span>
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => runDesktopMenuAction(() => openManagedDockedWindowFromDockTab('journeys'))}
+                  >
+                    <span>Open Journeys Panel</span>
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => runDesktopMenuAction(() => openManagedDockedWindowFromDockTab('timeline'))}
+                  >
+                    <span>Open Timeline Panel</span>
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => runDesktopMenuAction(() => openManagedDockedWindowFromDockTab('dsl'))}
+                  >
+                    <span>Open SJV Script Panel</span>
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => runDesktopMenuAction(() => openManagedDockedWindowFromDockTab('help'))}
+                  >
+                    <span>Open Help Panel</span>
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => runDesktopMenuAction(() => openManagedDockedWindowFromDockTab('preferences'))}
+                  >
+                    <span>Open Preferences Panel</span>
+                  </button>
                   <button
                     type="button"
                     role="menuitem"
                     onClick={() => runDesktopMenuAction(() => toggleLeftSidebar())}
                   >
                     <span>{paletteWindowOpen ? 'Hide Palette' : 'Show Palette'}</span>
-                  </button>
-                  <button
-                    type="button"
-                    role="menuitem"
-                    onClick={() => runDesktopMenuAction(() => restoreWindowLayout())}
-                  >
-                    <span>Restore Window Layout</span>
-                  </button>
-                  <button
-                    type="button"
-                    role="menuitem"
-                    onClick={() => runDesktopMenuAction(() => resetWindowLayout())}
-                  >
-                    <span>Reset Window Layout</span>
                   </button>
                   <button
                     type="button"
@@ -4072,44 +4130,19 @@ function App() {
                   <button
                     type="button"
                     role="menuitem"
-                    onClick={() => runDesktopMenuAction(() => openManagedDockedWindowFromDockTab('palette'))}
+                    onClick={() => runDesktopMenuAction(() => restoreWindowLayout())}
                   >
-                    <span>Panel: Palette</span>
+                    <span>Restore Window Layout</span>
                   </button>
                   <button
                     type="button"
                     role="menuitem"
-                    onClick={() => runDesktopMenuAction(() => openManagedDockedWindowFromDockTab('inspector'))}
+                    onClick={() => runDesktopMenuAction(() => resetWindowLayout())}
                   >
-                    <span>Panel: Inspector</span>
+                    <span>Reset Window Layout</span>
                   </button>
-                  <button
-                    type="button"
-                    role="menuitem"
-                    onClick={() => runDesktopMenuAction(() => openManagedDockedWindowFromDockTab('journeys'))}
-                  >
-                    <span>Panel: Journeys</span>
-                  </button>
-                  <button
-                    type="button"
-                    role="menuitem"
-                    onClick={() => runDesktopMenuAction(() => openManagedDockedWindowFromDockTab('timeline'))}
-                  >
-                    <span>Panel: Timeline</span>
-                  </button>
-                  <button
-                    type="button"
-                    role="menuitem"
-                    onClick={() => runDesktopMenuAction(() => openManagedDockedWindowFromDockTab('dsl'))}
-                  >
-                    <span>Panel: SJV Script</span>
-                  </button>
-                  <button
-                    type="button"
-                    role="menuitem"
-                    onClick={() => runDesktopMenuAction(() => openManagedDockedWindowFromDockTab('help'))}
-                  >
-                    <span>Panel: Help</span>
+                  <button type="button" role="menuitem" onClick={() => runDesktopMenuAction(() => setSplashVisible(true))}>
+                    <span>Show Splash</span>
                   </button>
                 </div>
               ) : null}

@@ -8,6 +8,7 @@
 - Latest desktop UX increment (2026-02-21, evening pass) added bilingual showcase/tutorial loaders, startup splash/about metadata, preferences floating window, export gallery in help, dynamic topbar height layout, drilldown badge rendering, and expanded showcase drilldown coverage for all showcased microservices.
 - Latest desktop hotfix (2026-02-21, late pass) fixed menubar dropdown clipping and restored full toolbar visibility by combining visible menu overflow with content-based topbar height measurement.
 - Latest topbar hotfix follow-up (2026-02-21, night pass) removed fixed top-row sizing (now `auto`) and updated toolbar row wrapping/overflow so menu + toolbar content no longer clips at the canvas edge.
+- Latest workflow/docs increment (2026-02-22) refreshed repository `AGENTS.md` for the actual monorepo stack and added local skills for UI layout regressions, SJV Script changes, and `gh` PR/merge flow.
 - Architecture baseline:
   - custom SVG editor engine (internal adapter, no paid lock-in),
   - versioned FULL model (`schemaVersion: 1.0`) as source of truth,
@@ -204,6 +205,16 @@
   - `vercel.json` now uses `outputDirectory: "dist"` to match Vercel project defaults.
 - Build chunking was improved with lazy-loading of Monaco and manual chunk splitting in Vite config.
 - Dependabot version-update automation was disabled by removing `.github/dependabot.yml` to avoid automatic dependency PR churn in the current solo-maintainer phase.
+
+## Agent Workflow State (2026-02-22)
+
+- Root `AGENTS.md` is now monorepo-aware (`apps/web` primary, `apps/codex-gateway` secondary) instead of Java/Spring-default guidance.
+- Frontend-specific agent guardrails live in `apps/web/AGENTS.md`.
+- Local repo skills now exist under `skills/` for recurring workflows:
+  - `sjv-ui-layout-regression-fix`
+  - `sjv-script-change-with-roundtrip-tests`
+  - `sjv-pr-and-merge-gh`
+- Validation guidance in `AGENTS.md` now includes a per-area matrix so docs/skills-only changes do not require full app builds.
 
 ## Suggested Next Increments
 

@@ -127,6 +127,7 @@ describe('App boundary styles', () => {
 
   it('styles the guided tutorial overlay and help guide actions', () => {
     expect(appCss).toContain('.guided-tutorial-overlay')
+    expect(appCss).toContain('.guided-tutorial-backdrop-pane')
     expect(appCss).toContain('.guided-tutorial-spotlight')
     expect(appCss).toContain('.guided-tutorial-card')
     expect(appCss).toContain('.guided-tutorial-actions')

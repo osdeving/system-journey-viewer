@@ -420,11 +420,11 @@
   pointer-events: none;
 }
 
-.guided-tutorial-backdrop {
-  position: absolute;
-  inset: 0;
+.guided-tutorial-backdrop-pane {
+  position: fixed;
   background: rgba(2, 6, 23, 0.7);
   backdrop-filter: blur(2px);
+  pointer-events: none;
 }
 
 .guided-tutorial-spotlight {
@@ -432,10 +432,9 @@
   border-radius: 12px;
   border: 1px solid rgba(125, 211, 252, 0.95);
   box-shadow:
-    0 0 0 9999px rgba(2, 6, 23, 0.62),
     0 0 0 1px rgba(59, 130, 246, 0.55) inset,
     0 0 24px rgba(56, 189, 248, 0.28);
-  background: rgba(56, 189, 248, 0.04);
+  background: transparent;
   pointer-events: none;
 }
 

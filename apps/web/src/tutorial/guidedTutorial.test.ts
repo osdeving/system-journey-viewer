@@ -5,6 +5,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import {
   clampGuidedTutorialStepIndex,
+  resolveGuidedTutorialBackdropPanes,
   resolveGuidedTutorialStepCompletion,
   resolveGuidedTutorialCardLayout,
   resolveGuidedTutorialTargetRect,
@@ -99,6 +100,20 @@ describe('guidedTutorial helpers', () => {
     })
 
     expect(topFallbackLayout.top).toBeLessThan(360)
+  })
+
+  it('splits the backdrop into panes around the spotlight target', () => {
+    const panes = resolveGuidedTutorialBackdropPanes(
+      { x: 100, y: 60, width: 200, height: 120 },
+      800,
+      600,
+    )
+
+    expect(panes).toHaveLength(4)
+    expect(panes[0]).toEqual({ top: 0, left: 0, width: 800, height: 60 })
+    expect(panes[1]).toEqual({ top: 60, left: 0, width: 100, height: 120 })
+    expect(panes[2]).toEqual({ top: 60, left: 300, width: 500, height: 120 })
+    expect(panes[3]).toEqual({ top: 180, left: 0, width: 800, height: 420 })
   })
 
   it('resolves action-gated step completion from menu state and event counters', () => {

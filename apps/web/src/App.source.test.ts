@@ -83,6 +83,8 @@ describe('App source regressions', () => {
     expect(appSource).toContain('resolveGuidedTutorialStepCompletion')
     expect(appSource).toContain('recordGuidedTutorialEvent')
     expect(appSource).toContain("'panel-shortcut-click'")
+    expect(appSource).toContain("'toolbar-mode-click'")
+    expect(appSource).toContain("'canvas-click'")
     expect(appSource).toContain('Start Guided Tutorial')
     expect(appSource).toContain('data-tutorial-id="main-menu-bar"')
     expect(appSource).toContain('data-tutorial-id="menu-window-trigger"')

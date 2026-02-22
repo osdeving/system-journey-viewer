@@ -1,0 +1,174 @@
+/**
+ * Purpose: Provide a reusable horizontal overflow strip with wheel scrolling and optional arrow navigation.
+ */
+
+import { ChevronLeft, ChevronRight } from 'lucide-react'
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type HTMLAttributes,
+  type ReactNode,
+  type WheelEvent as ReactWheelEvent,
+} from 'react'
+
+type OverflowStripProps = {
+  children: ReactNode
+  className?: string
+  viewportClassName?: string
+  contentClassName?: string
+  contentProps?: Omit<HTMLAttributes<HTMLDivElement>, 'className' | 'children'>
+  navAriaLabel?: string
+  hideNavWhenNotOverflowing?: boolean
+  scrollStepPx?: number
+}
+
+type OverflowState = {
+  canScrollLeft: boolean
+  canScrollRight: boolean
+}
+
+const DEFAULT_OVERFLOW_STATE: OverflowState = {
+  canScrollLeft: false,
+  canScrollRight: false,
+}
+
+export function OverflowStrip({
+  children,
+  className,
+  viewportClassName,
+  contentClassName,
+  contentProps,
+  navAriaLabel = 'overflow strip',
+  hideNavWhenNotOverflowing = true,
+  scrollStepPx,
+}: OverflowStripProps) {
+  const viewportRef = useRef<HTMLDivElement | null>(null)
+  const [overflowState, setOverflowState] = useState<OverflowState>(DEFAULT_OVERFLOW_STATE)
+
+  const refreshOverflowState = useCallback(() => {
+    const viewport = viewportRef.current
+    if (!viewport) {
+      setOverflowState((current) =>
+        current.canScrollLeft || current.canScrollRight ? DEFAULT_OVERFLOW_STATE : current,
+      )
+      return
+    }
+    const maxScrollLeft = Math.max(0, viewport.scrollWidth - viewport.clientWidth)
+    const next = {
+      canScrollLeft: viewport.scrollLeft > 1,
+      canScrollRight: viewport.scrollLeft < maxScrollLeft - 1,
+    }
+    setOverflowState((current) =>
+      current.canScrollLeft === next.canScrollLeft && current.canScrollRight === next.canScrollRight
+        ? current
+        : next,
+    )
+  }, [])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return
+    }
+    const raf = window.requestAnimationFrame(refreshOverflowState)
+    return () => {
+      window.cancelAnimationFrame(raf)
+    }
+  }, [children, refreshOverflowState])
+
+  useEffect(() => {
+    const viewport = viewportRef.current
+    if (!viewport) {
+      return
+    }
+    const onScroll = () => refreshOverflowState()
+    viewport.addEventListener('scroll', onScroll, { passive: true })
+    let resizeObserver: ResizeObserver | null = null
+    if (typeof ResizeObserver !== 'undefined') {
+      resizeObserver = new ResizeObserver(() => {
+        refreshOverflowState()
+      })
+      resizeObserver.observe(viewport)
+      if (viewport.firstElementChild instanceof HTMLElement) {
+        resizeObserver.observe(viewport.firstElementChild)
+      }
+    }
+    window.addEventListener('resize', refreshOverflowState)
+    return () => {
+      viewport.removeEventListener('scroll', onScroll)
+      resizeObserver?.disconnect()
+      window.removeEventListener('resize', refreshOverflowState)
+    }
+  }, [refreshOverflowState])
+
+  const scrollViewport = (direction: -1 | 1) => {
+    const viewport = viewportRef.current
+    if (!viewport) {
+      return
+    }
+    viewport.scrollBy({
+      left: direction * (scrollStepPx ?? Math.max(120, Math.round(viewport.clientWidth * 0.45))),
+      behavior: 'smooth',
+    })
+  }
+
+  const onViewportWheel = (event: ReactWheelEvent<HTMLDivElement>) => {
+    const viewport = viewportRef.current
+    if (!viewport) {
+      return
+    }
+    const horizontalDelta = Math.abs(event.deltaX) > Math.abs(event.deltaY) ? event.deltaX : event.deltaY
+    const maxScrollLeft = Math.max(0, viewport.scrollWidth - viewport.clientWidth)
+    if (Math.abs(horizontalDelta) < 0.5 || maxScrollLeft <= 0) {
+      return
+    }
+    const nextScrollLeft = Math.min(maxScrollLeft, Math.max(0, viewport.scrollLeft + horizontalDelta))
+    if (nextScrollLeft === viewport.scrollLeft) {
+      return
+    }
+    event.preventDefault()
+    viewport.scrollLeft = nextScrollLeft
+    refreshOverflowState()
+  }
+
+  const isOverflowing = overflowState.canScrollLeft || overflowState.canScrollRight
+  const leftNavHidden = hideNavWhenNotOverflowing && !isOverflowing
+  const rightNavHidden = hideNavWhenNotOverflowing && !isOverflowing
+
+  return (
+    <div className={className ? `overflow-strip ${className}` : 'overflow-strip'}>
+      <button
+        type="button"
+        className={leftNavHidden ? 'overflow-strip-nav overflow-strip-nav-hidden' : 'overflow-strip-nav'}
+        onClick={() => scrollViewport(-1)}
+        disabled={!overflowState.canScrollLeft}
+        aria-label={`Scroll ${navAriaLabel} left`}
+      >
+        <ChevronLeft size={14} />
+      </button>
+      <div
+        ref={viewportRef}
+        className={viewportClassName ? `overflow-strip-viewport ${viewportClassName}` : 'overflow-strip-viewport'}
+        onWheel={onViewportWheel}
+      >
+        <div
+          {...contentProps}
+          className={contentClassName ? `overflow-strip-content ${contentClassName}` : 'overflow-strip-content'}
+        >
+          {children}
+        </div>
+      </div>
+      <button
+        type="button"
+        className={rightNavHidden ? 'overflow-strip-nav overflow-strip-nav-hidden' : 'overflow-strip-nav'}
+        onClick={() => scrollViewport(1)}
+        disabled={!overflowState.canScrollRight}
+        aria-label={`Scroll ${navAriaLabel} right`}
+      >
+        <ChevronRight size={14} />
+      </button>
+    </div>
+  )
+}
+

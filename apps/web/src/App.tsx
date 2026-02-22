@@ -32,11 +32,13 @@ import {
   SkipBack,
   SkipForward,
   SlidersHorizontal,
+  Sparkles,
   Target,
   Workflow,
   X,
 } from 'lucide-react'
 import './App.css'
+import { OverflowStrip } from './components/chrome/OverflowStrip'
 import { SplashScreen } from './components/chrome/SplashScreen'
 import { GuidedTutorialOverlay } from './components/tutorial/GuidedTutorialOverlay'
 import { DockHost } from './components/windowing/DockHost'
@@ -107,6 +109,7 @@ import {
   dockManagedWindow as dockManagedWindowState,
   floatManagedWindow,
   MANAGED_WINDOW_IDS,
+  reorderManagedHostTab,
   setManagedHostActiveTab,
   setManagedWindowFloatingRect,
   restoreManagedWindowsState,
@@ -755,9 +758,10 @@ function App() {
   const currentViewModeLabel = viewKindLabel[currentView.kind] ?? currentView.kind
   const playerModeLabel = playerIsRunning ? 'Animation' : 'Render'
   const immersiveMode = focusMode || presentationMode
-  const leftDockVisible = !immersiveMode && dockPosition === 'left' && !dockCollapsed
-  const rightDockVisible = !immersiveMode && dockPosition === 'right' && !dockCollapsed
-  const floatingDockVisible = !immersiveMode && dockPosition === 'floating' && !dockCollapsed
+  const legacyDockShellAvailable = dockTabOrder.some((tab) => !isManagedDockTab(tab))
+  const leftDockVisible = !immersiveMode && legacyDockShellAvailable && dockPosition === 'left' && !dockCollapsed
+  const rightDockVisible = !immersiveMode && legacyDockShellAvailable && dockPosition === 'right' && !dockCollapsed
+  const floatingDockVisible = !immersiveMode && legacyDockShellAvailable && dockPosition === 'floating' && !dockCollapsed
   const drawerVisible = !immersiveMode && !drawerCollapsed
   const paletteWindowOpen = managedWindows.windows.palette.open
   const managedLeftHostVisible = !immersiveMode && managedWindows.hosts.left.tabs.length > 0
@@ -830,6 +834,17 @@ function App() {
     (label: string): string | undefined =>
       uiPreferences.tooltipsEnabled ? label : undefined,
     [uiPreferences.tooltipsEnabled],
+  )
+  const renderDesktopMenuItemLabel = useCallback(
+    (icon: ReactNode, label: string) => (
+      <span className="desktop-menu-item-main">
+        <span className="desktop-menu-item-icon" aria-hidden="true">
+          {icon}
+        </span>
+        <span>{label}</span>
+      </span>
+    ),
+    [],
   )
   const toolbarVisibility = uiPreferences.toolbarVisibility
   const hasVisibleToolbarSection = useMemo(
@@ -1146,6 +1161,14 @@ function App() {
   ) => {
     setActiveDockTab(windowId)
     setManagedWindows((current) => setManagedHostActiveTab(current, hostId, windowId))
+  }
+
+  const reorderManagedDockHostTabs = (
+    hostId: ManagedWindowDockHostId,
+    sourceWindowId: ManagedWindowId,
+    targetWindowId: ManagedWindowId,
+  ) => {
+    setManagedWindows((current) => reorderManagedHostTab(current, hostId, sourceWindowId, targetWindowId))
   }
 
   const resolveFallbackDockTab = (): DockTab =>
@@ -3026,8 +3049,16 @@ function App() {
 
   const dslPanelContent = (
     <div className={`dsl-panel ${dslMaximized ? 'dsl-panel-maximized' : ''}`} data-tutorial-id="dsl-panel">
-      <div className="dsl-toolbar">
-        <strong>{JOURNEY_SCRIPT_NAME}</strong>
+      <OverflowStrip
+        className="dsl-toolbar-overflow"
+        viewportClassName="dsl-toolbar-viewport"
+        contentClassName="dsl-toolbar"
+        navAriaLabel="SJV Script toolbar"
+      >
+        <strong>
+          <span className="dsl-toolbar-label-long">{JOURNEY_SCRIPT_NAME}</span>
+          <span className="dsl-toolbar-label-short">Script</span>
+        </strong>
         <label className="dsl-sync-toggle" data-tutorial-id="dsl-sync-toggle">
           <input
             type="checkbox"
@@ -3042,7 +3073,8 @@ function App() {
               }
             }}
           />
-          Sync with editor
+          <span className="dsl-toolbar-label-long">Sync with editor</span>
+          <span className="dsl-toolbar-label-short">Sync</span>
         </label>
         <button
           type="button"
@@ -3052,7 +3084,8 @@ function App() {
           }}
           title={withTooltip('Generate SJV Script from the current workspace state')}
         >
-          Export full workspace
+          <span className="dsl-toolbar-label-long">Export full workspace</span>
+          <span className="dsl-toolbar-label-short">Export</span>
         </button>
         <button
           type="button"
@@ -3068,9 +3101,10 @@ function App() {
           disabled={dslSyncEnabled}
           title={withTooltip('Apply SJV Script content to the current workspace')}
         >
-          Import SJV Script
+          <span className="dsl-toolbar-label-long">Import SJV Script</span>
+          <span className="dsl-toolbar-label-short">Import</span>
         </button>
-      </div>
+      </OverflowStrip>
       <div className="dsl-monaco-editor">
         <Suspense fallback={<p className="dsl-status-message">Loading SJV Script editor...</p>}>
           <MonacoEditor
@@ -3821,49 +3855,51 @@ function App() {
         </button>
       ))}
       <span className="dock-tab-spacer" />
-      <div className="dock-placement-actions">
-        <button
-          type="button"
-          className={dockPosition === 'left' ? 'dock-placement dock-placement-active' : 'dock-placement'}
-          onClick={() => moveDockToLeft()}
-          title={withTooltip('Dock left')}
-          aria-label="Dock left"
-        >
-          <PanelLeftOpen size={14} />
-        </button>
-        <button
-          type="button"
-          className={dockPosition === 'right' ? 'dock-placement dock-placement-active' : 'dock-placement'}
-          onClick={() => moveDockToRight()}
-          title={withTooltip('Dock right')}
-          aria-label="Dock right"
-        >
-          <PanelRightOpen size={14} />
-        </button>
-        <button
-          type="button"
-          className={dockPosition === 'bottom' ? 'dock-placement dock-placement-active' : 'dock-placement'}
-          onClick={() => moveDockToBottom()}
-          title={withTooltip('Dock bottom')}
-          aria-label="Dock bottom"
-        >
-          <PanelBottomOpen size={14} />
-        </button>
-        <button
-          type="button"
-          className={dockPosition === 'floating' ? 'dock-placement dock-placement-active' : 'dock-placement'}
-          onClick={() => moveDockToFloating()}
-          title={withTooltip('Floating dock')}
-          aria-label="Floating dock"
-        >
-          <Dock size={14} />
-        </button>
-      </div>
+      {legacyDockShellAvailable ? (
+        <div className="dock-placement-actions">
+          <button
+            type="button"
+            className={dockPosition === 'left' ? 'dock-placement dock-placement-active' : 'dock-placement'}
+            onClick={() => moveDockToLeft()}
+            title={withTooltip('Dock left')}
+            aria-label="Dock left"
+          >
+            <PanelLeftOpen size={14} />
+          </button>
+          <button
+            type="button"
+            className={dockPosition === 'right' ? 'dock-placement dock-placement-active' : 'dock-placement'}
+            onClick={() => moveDockToRight()}
+            title={withTooltip('Dock right')}
+            aria-label="Dock right"
+          >
+            <PanelRightOpen size={14} />
+          </button>
+          <button
+            type="button"
+            className={dockPosition === 'bottom' ? 'dock-placement dock-placement-active' : 'dock-placement'}
+            onClick={() => moveDockToBottom()}
+            title={withTooltip('Dock bottom')}
+            aria-label="Dock bottom"
+          >
+            <PanelBottomOpen size={14} />
+          </button>
+          <button
+            type="button"
+            className={dockPosition === 'floating' ? 'dock-placement dock-placement-active' : 'dock-placement'}
+            onClick={() => moveDockToFloating()}
+            title={withTooltip('Floating dock')}
+            aria-label="Floating dock"
+          >
+            <Dock size={14} />
+          </button>
+        </div>
+      ) : null}
     </div>
   )
 
   const currentManagedDockHostId: ManagedWindowDockHostId | null =
-    dockPosition === 'left' || dockPosition === 'right' || dockPosition === 'bottom'
+    legacyDockShellAvailable && (dockPosition === 'left' || dockPosition === 'right' || dockPosition === 'bottom')
       ? dockPosition
       : null
   const currentManagedDockHost =
@@ -3964,6 +4000,8 @@ function App() {
             }))}
             activeTabId={activeTabId}
             onTabSelect={(windowId) => selectManagedDockHostTab(hostId, windowId)}
+            onTabReorder={(sourceWindowId, targetWindowId) =>
+              reorderManagedDockHostTabs(hostId, sourceWindowId, targetWindowId)}
             renderTabPanel={renderManagedWindowDockContent}
             headerActions={buildManagedDockHostHeaderActions(hostId, activeTabId)}
             emptyState={<p className="dock-host-empty">No docked windows in this host.</p>}
@@ -3994,6 +4032,8 @@ function App() {
       }))}
       activeTabId={managedDockActiveTab}
       onTabSelect={(windowId) => selectManagedDockHostTab(currentManagedDockHostId, windowId)}
+      onTabReorder={(sourceWindowId, targetWindowId) =>
+        reorderManagedDockHostTabs(currentManagedDockHostId, sourceWindowId, targetWindowId)}
       renderTabPanel={renderManagedWindowDockContent}
       headerActions={buildManagedDockHostHeaderActions(currentManagedDockHostId, managedDockActiveTab)}
       emptyState={<p className="dock-host-empty">No docked windows in this host.</p>}
@@ -4487,7 +4527,7 @@ function App() {
                     role="menuitem"
                     onClick={() => runDesktopMenuAction(() => openManagedDockedWindowFromDockTab('palette'))}
                   >
-                    <span>Open Palette Panel</span>
+                    {renderDesktopMenuItemLabel(<PanelLeftOpen size={13} />, 'Open Palette Panel')}
                   </button>
                   <button
                     type="button"
@@ -4500,14 +4540,14 @@ function App() {
                       })
                     }
                   >
-                    <span>Open Inspector Panel</span>
+                    {renderDesktopMenuItemLabel(<SlidersHorizontal size={13} />, 'Open Inspector Panel')}
                   </button>
                   <button
                     type="button"
                     role="menuitem"
                     onClick={() => runDesktopMenuAction(() => openManagedDockedWindowFromDockTab('journeys'))}
                   >
-                    <span>Open Journeys Panel</span>
+                    {renderDesktopMenuItemLabel(<Workflow size={13} />, 'Open Journeys Panel')}
                   </button>
                   <button
                     type="button"
@@ -4520,7 +4560,7 @@ function App() {
                       })
                     }
                   >
-                    <span>Open Timeline Panel</span>
+                    {renderDesktopMenuItemLabel(<ListOrdered size={13} />, 'Open Timeline Panel')}
                   </button>
                   <button
                     type="button"
@@ -4533,71 +4573,83 @@ function App() {
                       })
                     }
                   >
-                    <span>Open SJV Script Panel</span>
+                    {renderDesktopMenuItemLabel(<Code2 size={13} />, 'Open SJV Script Panel')}
                   </button>
                   <button
                     type="button"
                     role="menuitem"
                     onClick={() => runDesktopMenuAction(() => openManagedDockedWindowFromDockTab('help'))}
                   >
-                    <span>Open Help Panel</span>
+                    {renderDesktopMenuItemLabel(<CircleHelp size={13} />, 'Open Help Panel')}
                   </button>
                   <button
                     type="button"
                     role="menuitem"
                     onClick={() => runDesktopMenuAction(() => openManagedDockedWindowFromDockTab('preferences'))}
                   >
-                    <span>Open Preferences Panel</span>
+                    {renderDesktopMenuItemLabel(<SlidersHorizontal size={13} />, 'Open Preferences Panel')}
                   </button>
                   <button
                     type="button"
                     role="menuitem"
                     onClick={() => runDesktopMenuAction(() => toggleLeftSidebar())}
                   >
-                    <span>{paletteWindowOpen ? 'Hide Palette' : 'Show Palette'}</span>
+                    {renderDesktopMenuItemLabel(
+                      paletteWindowOpen ? <PanelLeftClose size={13} /> : <PanelLeftOpen size={13} />,
+                      paletteWindowOpen ? 'Hide Palette' : 'Show Palette',
+                    )}
                   </button>
-                  <button
-                    type="button"
-                    role="menuitem"
-                    onClick={() => runDesktopMenuAction(() => toggleDockPanel())}
-                  >
-                    <span>{dockCollapsed ? 'Show Dock' : 'Hide Dock'}</span>
-                  </button>
+                  {legacyDockShellAvailable ? (
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={() => runDesktopMenuAction(() => toggleDockPanel())}
+                    >
+                      {renderDesktopMenuItemLabel(<Dock size={13} />, dockCollapsed ? 'Show Dock' : 'Hide Dock')}
+                    </button>
+                  ) : null}
                   <button
                     type="button"
                     role="menuitem"
                     onClick={() => runDesktopMenuAction(() => toggleWorkbench())}
                   >
-                    <span>{drawerCollapsed ? 'Show Workbench' : 'Hide Workbench'}</span>
+                    {renderDesktopMenuItemLabel(
+                      drawerCollapsed ? <PanelBottomOpen size={13} /> : <PanelBottomClose size={13} />,
+                      drawerCollapsed ? 'Show Workbench' : 'Hide Workbench',
+                    )}
                   </button>
-                  <button type="button" role="menuitem" onClick={() => runDesktopMenuAction(() => moveDockToLeft())}>
-                    <span>Dock Left</span>
-                  </button>
-                  <button type="button" role="menuitem" onClick={() => runDesktopMenuAction(() => moveDockToRight())}>
-                    <span>Dock Right</span>
-                  </button>
-                  <button type="button" role="menuitem" onClick={() => runDesktopMenuAction(() => moveDockToBottom())}>
-                    <span>Dock Bottom</span>
-                  </button>
-                  <button type="button" role="menuitem" onClick={() => runDesktopMenuAction(() => moveDockToFloating())}>
-                    <span>Dock Floating</span>
-                  </button>
+                  {legacyDockShellAvailable ? (
+                    <>
+                      <button type="button" role="menuitem" onClick={() => runDesktopMenuAction(() => moveDockToLeft())}>
+                        {renderDesktopMenuItemLabel(<PanelLeftOpen size={13} />, 'Dock Left')}
+                      </button>
+                      <button type="button" role="menuitem" onClick={() => runDesktopMenuAction(() => moveDockToRight())}>
+                        {renderDesktopMenuItemLabel(<PanelRightOpen size={13} />, 'Dock Right')}
+                      </button>
+                      <button type="button" role="menuitem" onClick={() => runDesktopMenuAction(() => moveDockToBottom())}>
+                        {renderDesktopMenuItemLabel(<PanelBottomOpen size={13} />, 'Dock Bottom')}
+                      </button>
+                      <button type="button" role="menuitem" onClick={() => runDesktopMenuAction(() => moveDockToFloating())}>
+                        {renderDesktopMenuItemLabel(<Dock size={13} />, 'Dock Floating')}
+                      </button>
+                    </>
+                  ) : null}
                   <button
                     type="button"
                     role="menuitem"
                     onClick={() => runDesktopMenuAction(() => restoreWindowLayout())}
                   >
-                    <span>Restore Window Layout</span>
+                    {renderDesktopMenuItemLabel(<RotateCcw size={13} />, 'Restore Window Layout')}
                   </button>
                   <button
                     type="button"
                     role="menuitem"
                     onClick={() => runDesktopMenuAction(() => resetWindowLayout())}
                   >
-                    <span>Reset Window Layout</span>
+                    {renderDesktopMenuItemLabel(<Target size={13} />, 'Reset Window Layout')}
                   </button>
                   <button type="button" role="menuitem" onClick={() => runDesktopMenuAction(() => setSplashVisible(true))}>
-                    <span>Show Splash</span>
+                    {renderDesktopMenuItemLabel(<Sparkles size={13} />, 'Show Splash')}
                   </button>
                 </div>
               ) : null}
@@ -5310,32 +5362,34 @@ function App() {
                   >
                     {paletteWindowOpen ? <PanelLeftClose size={15} /> : <PanelLeftOpen size={15} />}
                   </button>
-                  <button
-                    type="button"
-                    className="icon-toggle-button"
-                    onClick={() => toggleDockPanel()}
-                    title={withTooltip(dockCollapsed ? 'Show dock panel' : 'Hide dock panel')}
-                  >
-                    {dockPosition === 'bottom' ? (
-                      dockCollapsed ? (
-                        <PanelBottomOpen size={15} />
+                  {legacyDockShellAvailable ? (
+                    <button
+                      type="button"
+                      className="icon-toggle-button"
+                      onClick={() => toggleDockPanel()}
+                      title={withTooltip(dockCollapsed ? 'Show dock panel' : 'Hide dock panel')}
+                    >
+                      {dockPosition === 'bottom' ? (
+                        dockCollapsed ? (
+                          <PanelBottomOpen size={15} />
+                        ) : (
+                          <PanelBottomClose size={15} />
+                        )
+                      ) : dockPosition === 'floating' ? (
+                        <Dock size={15} />
+                      ) : dockPosition === 'left' ? (
+                        dockCollapsed ? (
+                          <PanelLeftOpen size={15} />
+                        ) : (
+                          <PanelLeftClose size={15} />
+                        )
+                      ) : dockCollapsed ? (
+                        <PanelRightOpen size={15} />
                       ) : (
-                        <PanelBottomClose size={15} />
-                      )
-                    ) : dockPosition === 'floating' ? (
-                      <Dock size={15} />
-                    ) : dockPosition === 'left' ? (
-                      dockCollapsed ? (
-                        <PanelLeftOpen size={15} />
-                      ) : (
-                        <PanelLeftClose size={15} />
-                      )
-                    ) : dockCollapsed ? (
-                      <PanelRightOpen size={15} />
-                    ) : (
-                      <PanelRightClose size={15} />
-                    )}
-                  </button>
+                        <PanelRightClose size={15} />
+                      )}
+                    </button>
+                  ) : null}
                   <button
                     type="button"
                     className="icon-toggle-button"
@@ -5601,7 +5655,7 @@ function App() {
             >
               Help
             </button>
-            {dockPosition === 'bottom' ? (
+            {legacyDockShellAvailable && dockPosition === 'bottom' ? (
               <button
                 type="button"
                 className={drawerTab === 'dock' ? 'drawer-tab drawer-tab-active' : 'drawer-tab'}
@@ -5623,7 +5677,7 @@ function App() {
             dslPanelContent
           ) : drawerTab === 'help' ? (
             helpPanelContent
-          ) : dockPosition === 'bottom' ? (
+          ) : legacyDockShellAvailable && dockPosition === 'bottom' ? (
             dockCollapsed ? <p>Dock is hidden. Use the topbar toggle to reopen it.</p> : dockPanel
           ) : (
             <p>Dock is in side mode.</p>

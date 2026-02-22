@@ -296,7 +296,12 @@
     - Slice 5 adds dynamic menu-aware spotlight targets (`selector` unions + DOM mutation remeasure), a `Window > Open SJV Script Panel` action-gated step, and an `SJV Script` sync-toggle action-gated step.
     - Tutorial overlay now remeasures after menu/pointer interactions so the tutorial card can move away from open menus and highlighted menu content stays visible (not blurred under the overlay cutout).
     - Slice 6 adds more action-gated workflow coverage: `Window > Open Timeline Panel`, edge selection on canvas, edge label editing, and edge protocol changes in the Inspector.
+    - Remaining tutorial coverage is intentionally being delivered incrementally (TBD slices) so shell/density refactors can proceed in parallel without blocking.
   - Phase 5 (`Density / visual refinement`): partial (several compacting tweaks exist, but no formal density system yet).
+    - Added a reusable `OverflowStrip` component for compact, non-wrapping horizontal controls with wheel scroll + arrow nav.
+    - Dock-host tabs now support wheel scrolling and drag-reorder, and SJV Script toolbar uses compact labels before showing overflow navigation.
+    - Legacy dock shell regions/actions are now hidden when no legacy tabs exist, preventing duplicate empty side/bottom dock areas during managed-host layouts.
+    - Window-menu items gained lightweight icons for faster scanning; floating `Preferences`/`Help` content layouts were tuned to avoid vertical control stretching on resize.
 - `Palette` no longer uses the legacy dedicated left sidebar render path; it is rendered via managed hosts/floating windows and default-opens docked left at startup.
 - Window-layout persistence now also stores managed host sizes (`managedLeftHostWidth`, `managedRightHostWidth`, `managedBottomHostHeight`) and `Restore/Reset Window Layout` applies them.
 - Splash is now a reusable component with auto-dismiss per-open + outside-click dismiss; floating window title bars and dock-host tab strips received UX polish (thinner title bars, smaller controls, tab overflow arrows instead of native scrollbar).

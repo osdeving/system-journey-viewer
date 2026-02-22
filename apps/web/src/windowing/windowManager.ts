@@ -223,6 +223,39 @@ export const setManagedHostActiveTab = (
   }
 }
 
+export const reorderManagedHostTab = (
+  state: ManagedWindowsState,
+  hostId: ManagedWindowDockHostId,
+  sourceWindowId: ManagedWindowId,
+  targetWindowId: ManagedWindowId,
+): ManagedWindowsState => {
+  if (sourceWindowId === targetWindowId) {
+    return state
+  }
+  const host = state.hosts[hostId]
+  const sourceIndex = host.tabs.indexOf(sourceWindowId)
+  const targetIndex = host.tabs.indexOf(targetWindowId)
+  if (sourceIndex < 0 || targetIndex < 0) {
+    return state
+  }
+  const nextTabs = [...host.tabs]
+  nextTabs.splice(sourceIndex, 1)
+  nextTabs.splice(targetIndex, 0, sourceWindowId)
+  if (nextTabs.every((tabId, index) => tabId === host.tabs[index])) {
+    return state
+  }
+  return {
+    windows: state.windows,
+    hosts: {
+      ...state.hosts,
+      [hostId]: {
+        ...host,
+        tabs: nextTabs,
+      },
+    },
+  }
+}
+
 export const setManagedWindowFloatingRect = (
   state: ManagedWindowsState,
   windowId: ManagedWindowId,

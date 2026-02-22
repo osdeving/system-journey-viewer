@@ -37,6 +37,7 @@ import {
   X,
 } from 'lucide-react'
 import './App.css'
+import { SplashScreen } from './components/chrome/SplashScreen'
 import { GuidedTutorialOverlay } from './components/tutorial/GuidedTutorialOverlay'
 import { DockHost } from './components/windowing/DockHost'
 import { DiagramCanvas } from './components/canvas/DiagramCanvas'
@@ -127,7 +128,9 @@ const DEFAULT_MANAGED_HOST_SIDE_WIDTH = 320
 const DEFAULT_JOURNEY_HEIGHT = 220
 const DEFAULT_MANAGED_HOST_BOTTOM_HEIGHT = 240
 const MIN_DOCK_SIDE_WIDTH = 260
+const MIN_MANAGED_HOST_SIDE_WIDTH = 240
 const MIN_JOURNEY_HEIGHT = 160
+const MIN_MANAGED_HOST_BOTTOM_HEIGHT = 160
 const DEFAULT_TOPBAR_HEIGHT = 108
 const MIN_CANVAS_WIDTH = 320
 const MIN_CANVAS_HEIGHT = 220
@@ -342,6 +345,9 @@ type WindowLayoutBootstrap = {
   dockCollapsed: boolean
   drawerCollapsed: boolean
   floatingDockRect: FloatingDockRect
+  managedLeftHostWidth: number
+  managedRightHostWidth: number
+  managedBottomHostHeight: number
   leftDockWidth: number
   rightDockWidth: number
   journeyHeight: number
@@ -371,6 +377,9 @@ const createDefaultWindowLayoutBootstrap = (topbarHeight: number): WindowLayoutB
   dockCollapsed: true,
   drawerCollapsed: true,
   floatingDockRect: { ...DEFAULT_FLOATING_DOCK_RECT },
+  managedLeftHostWidth: DEFAULT_MANAGED_HOST_SIDE_WIDTH,
+  managedRightHostWidth: DEFAULT_MANAGED_HOST_SIDE_WIDTH,
+  managedBottomHostHeight: DEFAULT_MANAGED_HOST_BOTTOM_HEIGHT,
   leftDockWidth: DEFAULT_DOCK_SIDE_WIDTH,
   rightDockWidth: DEFAULT_DOCK_SIDE_WIDTH,
   journeyHeight: DEFAULT_JOURNEY_HEIGHT,
@@ -411,6 +420,15 @@ const resolveWindowLayoutBootstrapFromCandidate = (
     floatingDockRect: isFloatingDockRectValue(candidate.floatingDockRect)
       ? candidate.floatingDockRect
       : fallback.floatingDockRect,
+    managedLeftHostWidth: isFiniteNumber(candidate.managedLeftHostWidth)
+      ? Math.max(MIN_MANAGED_HOST_SIDE_WIDTH, candidate.managedLeftHostWidth)
+      : fallback.managedLeftHostWidth,
+    managedRightHostWidth: isFiniteNumber(candidate.managedRightHostWidth)
+      ? Math.max(MIN_MANAGED_HOST_SIDE_WIDTH, candidate.managedRightHostWidth)
+      : fallback.managedRightHostWidth,
+    managedBottomHostHeight: isFiniteNumber(candidate.managedBottomHostHeight)
+      ? Math.max(MIN_MANAGED_HOST_BOTTOM_HEIGHT, candidate.managedBottomHostHeight)
+      : fallback.managedBottomHostHeight,
     leftDockWidth: isFiniteNumber(candidate.leftDockWidth)
       ? Math.max(MIN_DOCK_SIDE_WIDTH, candidate.leftDockWidth)
       : fallback.leftDockWidth,
@@ -499,6 +517,19 @@ function App() {
     maxWidth: number
   } | null>(null)
   const journeyResizeRef = useRef<{
+    pointerId: number
+    startY: number
+    startHeight: number
+    maxHeight: number
+  } | null>(null)
+  const managedHostSideResizeRef = useRef<{
+    pointerId: number
+    side: 'left' | 'right'
+    startClientX: number
+    startWidth: number
+    maxWidth: number
+  } | null>(null)
+  const managedBottomHostResizeRef = useRef<{
     pointerId: number
     startY: number
     startHeight: number
@@ -599,6 +630,9 @@ function App() {
   const [leftSidebarWidth, setLeftSidebarWidth] = useState(DEFAULT_LEFT_SIDEBAR_WIDTH)
   const [leftDockWidth, setLeftDockWidth] = useState(windowLayoutBootstrap.leftDockWidth)
   const [rightDockWidth, setRightDockWidth] = useState(windowLayoutBootstrap.rightDockWidth)
+  const [managedLeftHostWidth, setManagedLeftHostWidth] = useState(windowLayoutBootstrap.managedLeftHostWidth)
+  const [managedRightHostWidth, setManagedRightHostWidth] = useState(windowLayoutBootstrap.managedRightHostWidth)
+  const [managedBottomHostHeight, setManagedBottomHostHeight] = useState(windowLayoutBootstrap.managedBottomHostHeight)
   const [journeyHeight, setJourneyHeight] = useState(windowLayoutBootstrap.journeyHeight)
   const [drawerTab, setDrawerTab] = useState<DrawerTab>('journeys')
   const [dslMaximized, setDslMaximized] = useState(false)
@@ -729,7 +763,7 @@ function App() {
   const managedRightHostVisible = !immersiveMode && managedWindows.hosts.right.tabs.length > 0
   const managedBottomHostVisible = !immersiveMode && managedWindows.hosts.bottom.tabs.length > 0
   const bottomPanelsInset =
-    (managedBottomHostVisible ? DEFAULT_MANAGED_HOST_BOTTOM_HEIGHT : 0) + (drawerVisible ? journeyHeight : 0)
+    (managedBottomHostVisible ? managedBottomHostHeight : 0) + (drawerVisible ? journeyHeight : 0)
   const clampFloatingDockRectInLayout = useCallback((candidate: FloatingDockRect): FloatingDockRect => {
     const layoutRect = layoutRef.current?.getBoundingClientRect()
     return clampFloatingDockRect({
@@ -754,16 +788,16 @@ function App() {
           }
         : {
             gridTemplateColumns: `${leftDockVisible ? leftDockWidth : 0}px ${
-              managedLeftHostVisible ? DEFAULT_MANAGED_HOST_SIDE_WIDTH : 0
+              managedLeftHostVisible ? managedLeftHostWidth : 0
             }px 1fr ${
-              managedRightHostVisible ? DEFAULT_MANAGED_HOST_SIDE_WIDTH : 0
+              managedRightHostVisible ? managedRightHostWidth : 0
             }px ${rightDockVisible ? rightDockWidth : 0}px`,
             gridTemplateRows: resolveLayoutGridTemplateRows({
               immersiveMode: false,
               drawerVisible,
               journeyHeight,
               managedBottomHostVisible,
-              managedBottomHostHeight: DEFAULT_MANAGED_HOST_BOTTOM_HEIGHT,
+              managedBottomHostHeight,
             }),
             gridTemplateAreas: `'topbar topbar topbar topbar topbar'
               'left managedLeft main managedRight right'
@@ -776,8 +810,11 @@ function App() {
       journeyHeight,
       leftDockVisible,
       leftDockWidth,
+      managedBottomHostHeight,
       managedBottomHostVisible,
+      managedLeftHostWidth,
       managedLeftHostVisible,
+      managedRightHostWidth,
       managedRightHostVisible,
       rightDockVisible,
       rightDockWidth,
@@ -955,6 +992,35 @@ function App() {
     },
     [leftDockVisible, leftDockWidth, rightDockVisible, rightDockWidth],
   )
+
+  const getMaxManagedHostSideWidth = useCallback(
+    (side: 'left' | 'right'): number => {
+      const layoutWidth = layoutRef.current?.getBoundingClientRect().width ?? window.innerWidth
+      const leftFixed =
+        (leftDockVisible ? leftDockWidth : 0) +
+        (side === 'left' ? 0 : managedLeftHostVisible ? managedLeftHostWidth : 0)
+      const rightFixed =
+        (rightDockVisible ? rightDockWidth : 0) +
+        (side === 'right' ? 0 : managedRightHostVisible ? managedRightHostWidth : 0)
+      return Math.max(MIN_MANAGED_HOST_SIDE_WIDTH, layoutWidth - leftFixed - rightFixed - MIN_CANVAS_WIDTH)
+    },
+    [
+      leftDockVisible,
+      leftDockWidth,
+      managedLeftHostVisible,
+      managedLeftHostWidth,
+      managedRightHostVisible,
+      managedRightHostWidth,
+      rightDockVisible,
+      rightDockWidth,
+    ],
+  )
+
+  const getMaxManagedBottomHostHeight = useCallback((): number => {
+    const layoutHeight = layoutRef.current?.getBoundingClientRect().height ?? window.innerHeight
+    const reservedHeight = topbarHeight + (drawerVisible ? journeyHeight : 0) + MIN_CANVAS_HEIGHT
+    return Math.max(MIN_MANAGED_HOST_BOTTOM_HEIGHT, layoutHeight - reservedHeight)
+  }, [drawerVisible, journeyHeight, topbarHeight])
 
   const switchDrawerTab = (tab: DrawerTab) => {
     if (tab !== 'dsl' && dslMaximized) {
@@ -1259,6 +1325,9 @@ function App() {
       setDockCollapsed(fallback.dockCollapsed)
       setDrawerCollapsed(fallback.drawerCollapsed)
       setFloatingDockRect(clampFloatingDockRectInLayout(fallback.floatingDockRect))
+      setManagedLeftHostWidth(fallback.managedLeftHostWidth)
+      setManagedRightHostWidth(fallback.managedRightHostWidth)
+      setManagedBottomHostHeight(fallback.managedBottomHostHeight)
       setLeftDockWidth(fallback.leftDockWidth)
       setRightDockWidth(fallback.rightDockWidth)
       setJourneyHeight(fallback.journeyHeight)
@@ -1280,6 +1349,9 @@ function App() {
       setDockCollapsed(restored.dockCollapsed)
       setDrawerCollapsed(restored.drawerCollapsed)
       setFloatingDockRect(clampFloatingDockRectInLayout(restored.floatingDockRect))
+      setManagedLeftHostWidth(restored.managedLeftHostWidth)
+      setManagedRightHostWidth(restored.managedRightHostWidth)
+      setManagedBottomHostHeight(restored.managedBottomHostHeight)
       setLeftDockWidth(restored.leftDockWidth)
       setRightDockWidth(restored.rightDockWidth)
       setJourneyHeight(restored.journeyHeight)
@@ -1303,6 +1375,9 @@ function App() {
     setDockCollapsed(baseline.dockCollapsed)
     setDrawerCollapsed(baseline.drawerCollapsed)
     setFloatingDockRect(clampFloatingDockRectInLayout(baseline.floatingDockRect))
+    setManagedLeftHostWidth(baseline.managedLeftHostWidth)
+    setManagedRightHostWidth(baseline.managedRightHostWidth)
+    setManagedBottomHostHeight(baseline.managedBottomHostHeight)
     setLeftDockWidth(baseline.leftDockWidth)
     setRightDockWidth(baseline.rightDockWidth)
     setJourneyHeight(baseline.journeyHeight)
@@ -2051,6 +2126,85 @@ function App() {
     event.currentTarget.releasePointerCapture(event.pointerId)
   }
 
+  const onManagedHostSideSplitterPointerDown = (side: 'left' | 'right', event: ReactPointerEvent<HTMLDivElement>) => {
+    if (event.button !== 0) {
+      return
+    }
+    const startWidth = side === 'left' ? managedLeftHostWidth : managedRightHostWidth
+    managedHostSideResizeRef.current = {
+      pointerId: event.pointerId,
+      side,
+      startClientX: event.clientX,
+      startWidth,
+      maxWidth: getMaxManagedHostSideWidth(side),
+    }
+    event.currentTarget.setPointerCapture(event.pointerId)
+  }
+
+  const onManagedHostSideSplitterPointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
+    const resize = managedHostSideResizeRef.current
+    if (!resize || resize.pointerId !== event.pointerId) {
+      return
+    }
+    const nextWidth = resolveDockSideWidth({
+      side: resize.side,
+      startWidth: resize.startWidth,
+      startClientX: resize.startClientX,
+      currentClientX: event.clientX,
+      minWidth: MIN_MANAGED_HOST_SIDE_WIDTH,
+      maxWidth: resize.maxWidth,
+    })
+    if (resize.side === 'left') {
+      setManagedLeftHostWidth(nextWidth)
+      return
+    }
+    setManagedRightHostWidth(nextWidth)
+  }
+
+  const stopManagedHostSideResize = (event: ReactPointerEvent<HTMLDivElement>) => {
+    const resize = managedHostSideResizeRef.current
+    if (!resize || resize.pointerId !== event.pointerId) {
+      return
+    }
+    managedHostSideResizeRef.current = null
+    event.currentTarget.releasePointerCapture(event.pointerId)
+  }
+
+  const onManagedBottomHostSplitterPointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (event.button !== 0) {
+      return
+    }
+    managedBottomHostResizeRef.current = {
+      pointerId: event.pointerId,
+      startY: event.clientY,
+      startHeight: managedBottomHostHeight,
+      maxHeight: getMaxManagedBottomHostHeight(),
+    }
+    event.currentTarget.setPointerCapture(event.pointerId)
+  }
+
+  const onManagedBottomHostSplitterPointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
+    const resize = managedBottomHostResizeRef.current
+    if (!resize || resize.pointerId !== event.pointerId) {
+      return
+    }
+    const delta = resize.startY - event.clientY
+    const nextHeight = Math.max(
+      MIN_MANAGED_HOST_BOTTOM_HEIGHT,
+      Math.min(resize.maxHeight, resize.startHeight + delta),
+    )
+    setManagedBottomHostHeight(nextHeight)
+  }
+
+  const stopManagedBottomHostResize = (event: ReactPointerEvent<HTMLDivElement>) => {
+    const resize = managedBottomHostResizeRef.current
+    if (!resize || resize.pointerId !== event.pointerId) {
+      return
+    }
+    managedBottomHostResizeRef.current = null
+    event.currentTarget.releasePointerCapture(event.pointerId)
+  }
+
   useEffect(() => {
     const onWindowPointerMove = (event: PointerEvent) => {
       const resize = floatingDockResizeRef.current
@@ -2088,6 +2242,9 @@ function App() {
       floatingDockDragRef.current = null
       floatingDockResizeRef.current = null
       dockSideResizeRef.current = null
+      journeyResizeRef.current = null
+      managedHostSideResizeRef.current = null
+      managedBottomHostResizeRef.current = null
     }
 
     window.addEventListener('pointermove', onWindowPointerMove)
@@ -2128,13 +2285,16 @@ function App() {
     const clampDockSideWidths = () => {
       setLeftDockWidth((current) => Math.min(current, getMaxDockSideWidth('left')))
       setRightDockWidth((current) => Math.min(current, getMaxDockSideWidth('right')))
+      setManagedLeftHostWidth((current) => Math.min(current, getMaxManagedHostSideWidth('left')))
+      setManagedRightHostWidth((current) => Math.min(current, getMaxManagedHostSideWidth('right')))
+      setManagedBottomHostHeight((current) => Math.min(current, getMaxManagedBottomHostHeight()))
     }
     clampDockSideWidths()
     window.addEventListener('resize', clampDockSideWidths)
     return () => {
       window.removeEventListener('resize', clampDockSideWidths)
     }
-  }, [getMaxDockSideWidth])
+  }, [getMaxDockSideWidth, getMaxManagedBottomHostHeight, getMaxManagedHostSideWidth])
 
   useEffect(() => {
     const topbarElement = topbarRef.current
@@ -2194,6 +2354,9 @@ function App() {
         dockCollapsed,
         drawerCollapsed,
         floatingDockRect,
+        managedLeftHostWidth,
+        managedRightHostWidth,
+        managedBottomHostHeight,
         leftDockWidth,
         rightDockWidth,
         journeyHeight,
@@ -2210,20 +2373,12 @@ function App() {
     floatingDockRect,
     journeyHeight,
     leftDockWidth,
+    managedBottomHostHeight,
+    managedLeftHostWidth,
     managedWindows,
+    managedRightHostWidth,
     rightDockWidth,
   ])
-
-  useEffect(() => {
-    if (!initialUiPreferences.splashEnabled) {
-      setSplashVisible(false)
-      return
-    }
-    const timeout = window.setTimeout(() => {
-      setSplashVisible(false)
-    }, 2200)
-    return () => window.clearTimeout(timeout)
-  }, [initialUiPreferences.splashEnabled])
 
   useEffect(() => {
     const timeout = window.setTimeout(() => persist(), DEBOUNCE_SAVE_MS)
@@ -2854,12 +3009,13 @@ function App() {
     <div className={`dsl-panel ${dslMaximized ? 'dsl-panel-maximized' : ''}`} data-tutorial-id="dsl-panel">
       <div className="dsl-toolbar">
         <strong>{JOURNEY_SCRIPT_NAME}</strong>
-        <label className="dsl-sync-toggle">
+        <label className="dsl-sync-toggle" data-tutorial-id="dsl-sync-toggle">
           <input
             type="checkbox"
             checked={dslSyncEnabled}
-          onChange={(event) => {
+            onChange={(event) => {
               const enabled = event.target.checked
+              recordGuidedTutorialEvent('dsl-sync-toggle')
               setDslSyncEnabled(enabled)
               dslSyncLastAppliedTextRef.current = enabled ? dslText : null
               if (enabled) {
@@ -3935,36 +4091,12 @@ function App() {
           void onWorkspaceFileInputChange(event)
         }}
       />
-      {splashVisible ? (
-        <div className="splash-screen" role="status" aria-live="polite">
-          <div className="splash-card">
-            <div className="app-logo-badge splash-logo" aria-hidden="true">
-              <svg viewBox="0 0 64 64">
-                <defs>
-                  <linearGradient id="sjvSplashGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                    <stop offset="0%" stopColor="#38bdf8" />
-                    <stop offset="100%" stopColor="#22c55e" />
-                  </linearGradient>
-                </defs>
-                <rect x="6" y="6" width="52" height="52" rx="14" fill="url(#sjvSplashGradient)" opacity="0.18" />
-                <path
-                  d="M17 20 H29 M35 20 H47 M17 44 H29 M35 44 H47 M23 20 V44 M41 20 V44"
-                  stroke="url(#sjvSplashGradient)"
-                  strokeWidth="3.2"
-                  strokeLinecap="round"
-                />
-                <circle cx="23" cy="20" r="4.2" fill="#38bdf8" />
-                <circle cx="41" cy="20" r="4.2" fill="#22c55e" />
-                <circle cx="23" cy="44" r="4.2" fill="#22c55e" />
-                <circle cx="41" cy="44" r="4.2" fill="#38bdf8" />
-              </svg>
-            </div>
-            <h2>System Journey Viewer</h2>
-            <p>{APP_VERSION_LABEL}</p>
-            <small>Copyright {APP_COPYRIGHT_LABEL}</small>
-          </div>
-        </div>
-      ) : null}
+      <SplashScreen
+        visible={splashVisible}
+        versionLabel={APP_VERSION_LABEL}
+        copyrightLabel={`Copyright ${APP_COPYRIGHT_LABEL}`}
+        onDismiss={() => setSplashVisible(false)}
+      />
       <header ref={topbarRef} className="topbar">
         <div className="topbar-meta">
           <div className="topbar-brand-row">
@@ -4366,7 +4498,13 @@ function App() {
                   <button
                     type="button"
                     role="menuitem"
-                    onClick={() => runDesktopMenuAction(() => openManagedDockedWindowFromDockTab('dsl'))}
+                    data-tutorial-id="window-menu-open-dsl-panel"
+                    onClick={() =>
+                      runDesktopMenuAction(() => {
+                        recordGuidedTutorialEvent('window-menu-open-panel:dsl')
+                        openManagedDockedWindowFromDockTab('dsl')
+                      })
+                    }
                   >
                     <span>Open SJV Script Panel</span>
                   </button>
@@ -5247,6 +5385,34 @@ function App() {
           onPointerCancel={stopDockSideResize}
         />
       ) : null}
+      {!immersiveMode && managedLeftHostVisible ? (
+        <div
+          className="layout-splitter layout-splitter-managed-left"
+          style={{
+            left: (leftDockVisible ? leftDockWidth : 0) + managedLeftHostWidth - 3,
+            top: topbarHeight,
+            bottom: bottomPanelsInset,
+          }}
+          onPointerDown={(event) => onManagedHostSideSplitterPointerDown('left', event)}
+          onPointerMove={onManagedHostSideSplitterPointerMove}
+          onPointerUp={stopManagedHostSideResize}
+          onPointerCancel={stopManagedHostSideResize}
+        />
+      ) : null}
+      {!immersiveMode && managedRightHostVisible ? (
+        <div
+          className="layout-splitter layout-splitter-managed-right"
+          style={{
+            right: (rightDockVisible ? rightDockWidth : 0) + managedRightHostWidth - 3,
+            top: topbarHeight,
+            bottom: bottomPanelsInset,
+          }}
+          onPointerDown={(event) => onManagedHostSideSplitterPointerDown('right', event)}
+          onPointerMove={onManagedHostSideSplitterPointerMove}
+          onPointerUp={stopManagedHostSideResize}
+          onPointerCancel={stopManagedHostSideResize}
+        />
+      ) : null}
       {!immersiveMode && rightDockVisible ? (
         <div
           className="layout-splitter layout-splitter-right"
@@ -5255,6 +5421,16 @@ function App() {
           onPointerMove={onDockSideSplitterPointerMove}
           onPointerUp={stopDockSideResize}
           onPointerCancel={stopDockSideResize}
+        />
+      ) : null}
+      {!immersiveMode && managedBottomHostVisible ? (
+        <div
+          className="layout-splitter layout-splitter-managed-bottom"
+          style={{ bottom: (drawerVisible ? journeyHeight : 0) + managedBottomHostHeight - 3 }}
+          onPointerDown={onManagedBottomHostSplitterPointerDown}
+          onPointerMove={onManagedBottomHostSplitterPointerMove}
+          onPointerUp={stopManagedBottomHostResize}
+          onPointerCancel={stopManagedBottomHostResize}
         />
       ) : null}
       {!immersiveMode && drawerVisible ? (

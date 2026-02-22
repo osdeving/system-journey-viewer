@@ -293,8 +293,12 @@
   - Phase 2 (`Migrate current panels`): `Palette` is now part of the managed-window system alongside `Inspector`, `Journeys`, `Timeline`, `SJV Script`, `Help`, and `Preferences`.
   - Phase 3 (`Menu Window/View`): complete for the original scope. `Window` now owns panel/window/layout actions (`open panels`, `show/hide palette/dock/workbench`, dock placement, `Restore/Reset Window Layout`, `Show Splash`) and `Insert` is content-focused (`Load Showcase` / `Load Tutorial`).
   - Phase 4 (`Guided Tutorial engine`): in progress. Slices 1-3 delivered the overlay tour, action-gated steps, and spotlight cutout fix; slice 4 adds task-oriented action-gated steps for opening a specific panel from the `Window` menu, selecting a node, and editing the node name in the Inspector. Remaining work still includes richer target types, more advanced action-wait predicates, and broader task walkthrough coverage.
+    - Slice 5 adds dynamic menu-aware spotlight targets (`selector` unions + DOM mutation remeasure), a `Window > Open SJV Script Panel` action-gated step, and an `SJV Script` sync-toggle action-gated step.
+    - Tutorial overlay now remeasures after menu/pointer interactions so the tutorial card can move away from open menus and highlighted menu content stays visible (not blurred under the overlay cutout).
   - Phase 5 (`Density / visual refinement`): partial (several compacting tweaks exist, but no formal density system yet).
 - `Palette` no longer uses the legacy dedicated left sidebar render path; it is rendered via managed hosts/floating windows and default-opens docked left at startup.
+- Window-layout persistence now also stores managed host sizes (`managedLeftHostWidth`, `managedRightHostWidth`, `managedBottomHostHeight`) and `Restore/Reset Window Layout` applies them.
+- Splash is now a reusable component with auto-dismiss per-open + outside-click dismiss; floating window title bars and dock-host tab strips received UX polish (thinner title bars, smaller controls, tab overflow arrows instead of native scrollbar).
 
 ## Suggested Next Increments
 

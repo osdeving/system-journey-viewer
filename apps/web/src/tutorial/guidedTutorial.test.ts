@@ -47,6 +47,44 @@ describe('guidedTutorial helpers', () => {
     })
   })
 
+  it('resolves multi-selector targets as a single union spotlight rect', () => {
+    const elementsBySelector: Record<string, HTMLElement> = {
+      '.menu-trigger': {
+        getBoundingClientRect: () => ({
+          left: 12,
+          top: 18,
+          width: 90,
+          height: 32,
+        }),
+      } as unknown as HTMLElement,
+      '.menu-list': {
+        getBoundingClientRect: () => ({
+          left: 12,
+          top: 54,
+          width: 220,
+          height: 140,
+        }),
+      } as unknown as HTMLElement,
+    }
+    const doc = {
+      querySelector: vi.fn((selector: string) => elementsBySelector[selector] ?? null),
+    } as unknown as Document
+
+    const rect = resolveGuidedTutorialTargetRect(
+      { kind: 'selectors', selectors: ['.menu-trigger', '.menu-list'], padding: 6 },
+      doc,
+      600,
+      400,
+    )
+
+    expect(rect).toEqual({
+      x: 6,
+      y: 12,
+      width: 232,
+      height: 188,
+    })
+  })
+
   it('returns null when selector target is missing or collapsed', () => {
     const missingDoc = {
       querySelector: vi.fn(() => null),

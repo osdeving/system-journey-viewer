@@ -53,10 +53,10 @@ export function GuidedTutorialOverlay({
   const [targetRect, setTargetRect] = useState<GuidedTutorialRect | null>(null)
 
   useEffect(() => {
+    if (typeof window === 'undefined' || typeof document === 'undefined') {
+      return
+    }
     const measure = () => {
-      if (typeof window === 'undefined' || typeof document === 'undefined') {
-        return
-      }
       const nextRect = resolveGuidedTutorialTargetRect(step.target, document, window.innerWidth, window.innerHeight)
       setTargetRect((current) => (rectEquals(current, nextRect) ? current : nextRect))
     }
@@ -71,12 +71,29 @@ export function GuidedTutorialOverlay({
 
     window.addEventListener('resize', measure)
     window.addEventListener('scroll', measure, true)
+    window.addEventListener('pointerup', measure, true)
+    window.addEventListener('click', measure, true)
+    let observer: MutationObserver | null = null
+    if (typeof MutationObserver !== 'undefined') {
+      observer = new MutationObserver(() => {
+        measure()
+      })
+      observer.observe(document.body, {
+        subtree: true,
+        childList: true,
+        attributes: true,
+        attributeFilter: ['class', 'style', 'aria-expanded', 'aria-hidden'],
+      })
+    }
     return () => {
       window.cancelAnimationFrame(rafA)
       window.cancelAnimationFrame(rafB)
       window.clearTimeout(delayedMeasure)
       window.removeEventListener('resize', measure)
       window.removeEventListener('scroll', measure, true)
+      window.removeEventListener('pointerup', measure, true)
+      window.removeEventListener('click', measure, true)
+      observer?.disconnect()
     }
   }, [step])
 

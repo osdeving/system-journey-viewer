@@ -41,6 +41,10 @@ describe('App boundary styles', () => {
     expect(appCss).toContain('.dock-tab-icon')
     expect(appCss).toContain('.dock-host')
     expect(appCss).toContain('.dock-host-strip')
+    expect(appCss).toContain('.dock-host-actions-row')
+    expect(appCss).toContain('.dock-host-tabs-row')
+    expect(appCss).toContain('.dock-host-tabs-viewport')
+    expect(appCss).toContain('.dock-host-tabs-nav')
     expect(appCss).toContain('.dock-host-tab')
     expect(appCss).toContain('.dock-host-body')
     expect(appCss).toContain('.managed-host-sidebar')
@@ -63,6 +67,9 @@ describe('App boundary styles', () => {
     expect(appCss).toContain('.floating-window-close')
     expect(appCss).toContain('.floating-window-body-dock')
     expect(appCss).toContain('.floating-window-body-dsl')
+    expect(appCss).toContain('.layout-splitter-managed-left')
+    expect(appCss).toContain('.layout-splitter-managed-right')
+    expect(appCss).toContain('.layout-splitter-managed-bottom')
   })
 
   it('includes flow animation for player feedback', () => {
@@ -126,6 +133,8 @@ describe('App boundary styles', () => {
   })
 
   it('styles the guided tutorial overlay and help guide actions', () => {
+    expect(appCss).toMatch(/\.splash-screen\s*\{[^}]*pointer-events:\s*auto;[^}]*\}/s)
+    expect(appCss).toContain('.splash-preview-chip')
     expect(appCss).toContain('.guided-tutorial-overlay')
     expect(appCss).toContain('.guided-tutorial-backdrop-pane')
     expect(appCss).toContain('.guided-tutorial-spotlight')

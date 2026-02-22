@@ -1,3 +1,7 @@
+/**
+ * Purpose: Implement gifenc.d functionality for the SJV web client.
+ */
+
 declare module 'gifenc' {
   export type GifColor = [number, number, number] | [number, number, number, number]
 

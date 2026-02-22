@@ -1,3 +1,7 @@
+/**
+ * Purpose: Define keyboard shortcut mappings and mode resolution helpers.
+ */
+
 export type ModeShortcutAction = 'toggle-focus' | 'exit-immersive'
 
 export const resolveModeShortcutAction = (

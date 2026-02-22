@@ -1,3 +1,7 @@
+/**
+ * Purpose: Verify exporters behavior with regression-focused unit tests.
+ */
+
 import { describe, expect, it } from 'vitest'
 import { serializeCanvasSvg } from './exporters'
 

@@ -1,3 +1,7 @@
+/**
+ * Purpose: Implement workspace file serialization, parsing, and recent-file utilities.
+ */
+
 import { editorSnapshotSchema } from '../model/schema'
 import type { EditorSnapshot } from '../model/types'
 

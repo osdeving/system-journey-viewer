@@ -1,3 +1,7 @@
+/**
+ * Purpose: Verify codex Assist behavior with regression-focused unit tests.
+ */
+
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { extractDslFromCodexResponse, requestCodexDslAssist } from './codexAssist'
 

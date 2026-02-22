@@ -1,3 +1,7 @@
+/**
+ * Purpose: Verify floating Dock behavior with regression-focused unit tests.
+ */
+
 import { describe, expect, it } from 'vitest'
 import { clampFloatingDockRect } from './floatingDock'
 

@@ -1,3 +1,7 @@
+/**
+ * Purpose: Verify node Ports behavior with regression-focused unit tests.
+ */
+
 import { describe, expect, it } from 'vitest'
 import { normalizeWorkspaceNodePorts, resolveNodePorts } from './nodePorts'
 import { createDefaultWorkspace } from './defaultWorkspace'

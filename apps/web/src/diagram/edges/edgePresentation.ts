@@ -1,3 +1,7 @@
+/**
+ * Purpose: Provide pure helpers for edge geometry, badges, labels, and presentation styling in the diagram layer.
+ */
+
 export type EdgeCurvePath = {
   start: { x: number; y: number }
   control1: { x: number; y: number }

@@ -1,3 +1,7 @@
+/**
+ * Purpose: Define managed window state, placement defaults, and windowing helpers for dock/float behavior.
+ */
+
 import type { FloatingDockRect } from '../layout/floatingDock'
 
 export type ManagedWindowId = 'inspector' | 'journeys' | 'timeline' | 'dsl' | 'help' | 'preferences'

@@ -1,3 +1,7 @@
+/**
+ * Purpose: Define palette presets and catalog metadata for node creation.
+ */
+
 import nodePresetsJson from './nodePresets.json'
 import protocolPresetsJson from './protocolPresets.json'
 import techPresetsJson from './techPresets.json'

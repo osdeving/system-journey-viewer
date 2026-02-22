@@ -361,6 +361,46 @@ Chronological engineering log. Entries are kept concise and focused on behavior 
 - `npm --workspace @sjv/web run test:run`
 - `npm --workspace @sjv/web run build`
 
+## 2026-02-22 - Web source structure refactor (file atlas, component grouping, utility relocation, header-first readability)
+
+### Scope
+
+- Reorganized `apps/web/src` to better separate React UI components from pure diagram/layout/windowing utilities.
+- Introduced a documented file taxonomy + naming/header conventions for future changes.
+- Added top-of-file `Purpose:` headers across the web source tree to improve first-line comprehension for humans and AI-assisted edits.
+- Kept behavior unchanged (refactor + comments only).
+
+### Changes
+
+- `apps/web/src/components/*`
+  - grouped canvas React components under `src/components/canvas/`,
+  - grouped windowing React components under `src/components/windowing/`.
+- `apps/web/src/diagram/*`
+  - moved non-React diagram helpers out of `src/components/` into:
+    - `src/diagram/edges/`
+    - `src/diagram/nodes/`
+    - `src/diagram/player/`
+- `apps/web/src/App.tsx`, `apps/web/src/export/animatedExport.ts`, `apps/web/src/components/canvas/*`
+  - updated imports to the new folder layout.
+- `apps/web/src/windowing/windowUiConfig.ts`
+  - extracted managed-window floating UI metadata/default host mapping and default floating rects from `App.tsx` to reduce local monolith pressure.
+- `apps/web/src/App.source.test.ts`
+  - adjusted source-regression coverage to validate moved window config strings in `windowUiConfig.ts`.
+- `docs/FILE_ATLAS.md`
+  - added repository file atlas for `apps/web/src` (folder intent, naming conventions, header-first rule, placement checklist).
+- `skills/sjv-file-atlas-and-header-conventions/SKILL.md`
+  - added reusable skill for applying/maintaining file taxonomy and top-of-file purpose headers.
+- `AGENTS.md`, `apps/web/AGENTS.md`
+  - documented the new atlas/header conventions and linked the new skill.
+- `apps/web/src/**/*.(ts|tsx|css|md)`
+  - added `Purpose:` top-of-file comments (header-first readability pass).
+
+### Validation
+
+- `npm --workspace @sjv/web run lint`
+- `npm --workspace @sjv/web run test:run`
+- `npm --workspace @sjv/web run build`
+
 ## 2026-02-21 - Menubar dropdown and toolbar visibility regression hotfix
 
 ### Scope

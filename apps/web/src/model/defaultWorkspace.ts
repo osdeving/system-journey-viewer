@@ -1,3 +1,7 @@
+/**
+ * Purpose: Define core workspace types and built-in workspace/example data used by the editor.
+ */
+
 import type { WorkspaceModel } from './types'
 import { normalizeWorkspaceNodePorts } from './nodePorts'
 

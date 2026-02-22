@@ -276,6 +276,16 @@
   - `sjv-local-persistence-migrations`
 - Validation guidance in `AGENTS.md` now includes a per-area matrix so docs/skills-only changes do not require full app builds.
 
+## Web Source Structure / Readability State (2026-02-22)
+
+- `apps/web/src` now separates React UI components from pure helpers more clearly:
+  - `src/components/canvas/*` and `src/components/windowing/*` contain React components,
+  - non-React diagram helpers were relocated to `src/diagram/edges/*`, `src/diagram/nodes/*`, and `src/diagram/player/*`.
+- Managed-window floating UI metadata/default host mapping was extracted from `src/App.tsx` into `src/windowing/windowUiConfig.ts` to reduce local monolith pressure.
+- `docs/FILE_ATLAS.md` documents the current `apps/web/src` taxonomy, naming conventions, and the header-first rule.
+- `skills/sjv-file-atlas-and-header-conventions` is available for future refactors that touch file placement or file-header conventions.
+- `apps/web/src` now uses top-of-file `Purpose:` comments (TS/TSX/CSS/MD) so the first lines immediately describe the file role.
+
 ## Suggested Next Increments
 
 - Upgrade edge routing with stronger orthogonal controls.

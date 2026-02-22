@@ -1,3 +1,7 @@
+/**
+ * Purpose: Verify hex Connector Role behavior with regression-focused unit tests.
+ */
+
 import { describe, expect, it } from 'vitest'
 import { resolveHexConnectorRole } from './hexConnectorRole'
 

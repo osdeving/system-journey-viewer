@@ -1,3 +1,7 @@
+/**
+ * Purpose: Provide React canvas rendering components for nodes, edges, labels, and interactive diagram visuals.
+ */
+
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type {
   KeyboardEvent as ReactKeyboardEvent,
@@ -12,44 +16,44 @@ import {
   nodeCenter,
   portWorldPosition,
   snapBounds,
-} from '../engine/geometry'
-import { resolveEdgeCurve, type ResolvedEdgeCurve } from '../engine/edgeCurve'
-import type { EdgeModel, NodeModel } from '../model/types'
-import { resolveJourneyFocusScope } from '../journeys/focus'
-import { protocolPresets } from '../presets/catalog'
-import { iconForKey } from '../presets/iconPipeline'
-import { useEditorStore } from '../store/useEditorStore'
+} from '../../engine/geometry'
+import { resolveEdgeCurve, type ResolvedEdgeCurve } from '../../engine/edgeCurve'
+import type { EdgeModel, NodeModel } from '../../model/types'
+import { resolveJourneyFocusScope } from '../../journeys/focus'
+import { protocolPresets } from '../../presets/catalog'
+import { iconForKey } from '../../presets/iconPipeline'
+import { useEditorStore } from '../../store/useEditorStore'
 import {
   resolveEdgeJourneyBadge,
   type EdgeJourneyBadge,
   type EdgeJourneyMarker,
-} from './edgeJourneyBadge'
+} from '../../diagram/edges/edgeJourneyBadge'
 import { CanvasText } from './CanvasText'
-import { resolveHexConnectorRole } from './hexConnectorRole'
+import { resolveHexConnectorRole } from '../../diagram/nodes/hexConnectorRole'
 import { JourneyEdge } from './JourneyEdge'
 import {
   resolveDbCylinderShape,
   resolveHexagonShape,
   resolveQueueCylinderShape,
-} from './nodeShapePaths'
+} from '../../diagram/nodes/nodeShapePaths'
 import {
   curveToSvgPath,
   cubicPointAt,
   cubicTangentAt,
   resolveEdgeLabelPlacement,
   type EdgeCurvePath,
-} from './edgePresentation'
+} from '../../diagram/edges/edgePresentation'
 import {
   resolveArrivalAdvance,
   resolveTravelProgress,
   STEP_ARRIVAL_HOLD_MS,
-} from './playerStepTimeline'
-import { resolveNextEdgeLabelRotationAngle } from './edgeLabelWheel'
+} from '../../diagram/player/playerStepTimeline'
+import { resolveNextEdgeLabelRotationAngle } from '../../diagram/edges/edgeLabelWheel'
 import {
   buildTrailPoints,
   compactPositiveAlphaInPlace,
   trimArrayStartInPlace,
-} from './trailMath'
+} from '../../diagram/player/trailMath'
 
 type PanState = {
   pointerId: number

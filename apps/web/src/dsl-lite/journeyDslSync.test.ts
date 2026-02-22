@@ -1,3 +1,7 @@
+/**
+ * Purpose: Verify journey Dsl Sync behavior with regression-focused unit tests.
+ */
+
 import { beforeEach, describe, expect, it } from 'vitest'
 import { liteToFullWorkspace, fullWorkspaceToLiteDsl } from './convert'
 import { parseLiteDsl } from './parser'

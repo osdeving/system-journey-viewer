@@ -1,3 +1,7 @@
+/**
+ * Purpose: Provide pure helpers for edge geometry, badges, labels, and presentation styling in the diagram layer.
+ */
+
 type JourneyEdgeClassState = {
   isSelected: boolean
   isPlayerEdge: boolean

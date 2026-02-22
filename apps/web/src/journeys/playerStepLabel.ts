@@ -1,3 +1,7 @@
+/**
+ * Purpose: Provide journey-specific logic for focus, playback labels, and timeline behavior.
+ */
+
 import type { EdgeModel, JourneyModel, JourneyStep } from '../model/types'
 
 const byStepOrder = (left: JourneyStep, right: JourneyStep): number => left.n - right.n

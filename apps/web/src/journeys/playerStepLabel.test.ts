@@ -1,3 +1,7 @@
+/**
+ * Purpose: Verify player Step Label behavior with regression-focused unit tests.
+ */
+
 import { describe, expect, it } from 'vitest'
 import type { EdgeModel, JourneyModel } from '../model/types'
 import { resolvePlayerStepLabel } from './playerStepLabel'

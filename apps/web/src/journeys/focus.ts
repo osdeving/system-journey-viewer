@@ -1,3 +1,7 @@
+/**
+ * Purpose: Provide journey-specific logic for focus, playback labels, and timeline behavior.
+ */
+
 import type { WorkspaceModel } from '../model/types'
 
 export type JourneyFocusScope = {

@@ -1,3 +1,7 @@
+/**
+ * Purpose: Verify dock Sizing behavior with regression-focused unit tests.
+ */
+
 import { describe, expect, it } from 'vitest'
 import { resolveDockSideWidth, resolveFloatingDockResizeRect } from './dockSizing'
 

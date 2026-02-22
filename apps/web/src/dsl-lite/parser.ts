@@ -1,3 +1,7 @@
+/**
+ * Purpose: Implement SJV Script parsing, serialization, and editor integration helpers.
+ */
+
 import type {
   LiteJourney,
   LiteJourneyStep,

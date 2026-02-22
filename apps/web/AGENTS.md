@@ -13,7 +13,7 @@ Root `AGENTS.md` still applies. This file narrows frontend-specific expectations
 ## High-risk areas (treat regressions seriously)
 
 - `src/App.tsx` + `src/App.css` (desktop shell layout, menus, toolbars, dock/workbench)
-- `src/components/DiagramCanvas.tsx` (interaction, handles, hit areas)
+- `src/components/canvas/DiagramCanvas.tsx` (interaction, handles, hit areas)
 - `src/dsl-lite/*` (SJV Script parser/sync/import/export semantics)
 - `src/store/*` (workspace/theme/persistence behavior)
 - `src/model/showcaseWorkspace.ts` and `src/model/defaultWorkspace.ts` (showcase/tutorial integrity)
@@ -52,3 +52,9 @@ Root `AGENTS.md` still applies. This file narrows frontend-specific expectations
 ## Content language
 
 - Keep UI/help/showcase text in English unless the user explicitly asks for a localized variant.
+
+## File organization and readability conventions
+
+- Follow `docs/FILE_ATLAS.md` for folder placement and naming (`components` vs pure helpers).
+- Keep `src/components/` React-only; diagram/layout/windowing helpers should be placed in domain folders.
+- Add a short top-of-file `Purpose:` header comment for new/updated code files in `src/`.

@@ -1,3 +1,7 @@
+/**
+ * Purpose: Provide editor engine helpers for canvas interactions, hit-testing, and connector placement.
+ */
+
 import { nearestPortId, nodeCenter, portWorldPosition } from './geometry'
 import type { EdgeModel, NodeModel } from '../model/types'
 

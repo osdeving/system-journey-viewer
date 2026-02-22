@@ -1,3 +1,7 @@
+/**
+ * Purpose: Verify window Manager behavior with regression-focused unit tests.
+ */
+
 import { describe, expect, it } from 'vitest'
 import {
   closeManagedWindow,

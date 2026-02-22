@@ -1,3 +1,7 @@
+/**
+ * Purpose: Orchestrate the desktop-style SJV web app shell, window layout, and editor interactions.
+ */
+
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type {
   ChangeEvent,
@@ -33,13 +37,13 @@ import {
   X,
 } from 'lucide-react'
 import './App.css'
-import { DockHost } from './components/DockHost'
-import { DiagramCanvas } from './components/DiagramCanvas'
-import { FloatingWindow } from './components/FloatingWindow'
+import { DockHost } from './components/windowing/DockHost'
+import { DiagramCanvas } from './components/canvas/DiagramCanvas'
+import { FloatingWindow } from './components/windowing/FloatingWindow'
 import {
   buildNodeConfettiBursts,
   resolveNodeConfettiAnchor,
-} from './components/playerConfetti'
+} from './diagram/player/playerConfetti'
 import { fullWorkspaceToLiteDsl } from './dsl-lite/convert'
 import { parseDslToWorkspaceWithTheme } from './dsl-lite/sync'
 import {
@@ -102,6 +106,11 @@ import {
   type ManagedWindowPlacement,
   type ManagedWindowsState,
 } from './windowing/windowManager'
+import {
+  createDefaultManagedWindowRects,
+  MANAGED_WINDOW_DEFAULT_HOST_BY_ID,
+  MANAGED_WINDOW_FLOATING_UI_CONFIG,
+} from './windowing/windowUiConfig'
 
 const DEBOUNCE_SAVE_MS = 900
 const DEFAULT_LEFT_SIDEBAR_WIDTH = 240
@@ -119,42 +128,6 @@ const MIN_CANVAS_HEIGHT = 220
 const MIN_DOCK_HEIGHT = 260
 const DEFAULT_FILE_VIEWPORT = { x: 100, y: 80, zoom: 1 }
 const DEFAULT_FLOATING_DOCK_RECT = { x: 28, y: 108, width: 480, height: 420 }
-const DEFAULT_INSPECTOR_WINDOW_RECT = {
-  x: typeof window === 'undefined' ? 860 : Math.max(12, window.innerWidth - 388),
-  y: DEFAULT_TOPBAR_HEIGHT + 10,
-  width: 372,
-  height: 480,
-}
-const DEFAULT_JOURNEYS_WINDOW_RECT = {
-  x: typeof window === 'undefined' ? 860 : Math.max(12, window.innerWidth - 404),
-  y: DEFAULT_TOPBAR_HEIGHT + 28,
-  width: 388,
-  height: 520,
-}
-const DEFAULT_TIMELINE_WINDOW_RECT = {
-  x: 40,
-  y: typeof window === 'undefined' ? 440 : Math.max(DEFAULT_TOPBAR_HEIGHT + 10, window.innerHeight - 320),
-  width: typeof window === 'undefined' ? 900 : Math.max(560, window.innerWidth - 120),
-  height: 280,
-}
-const DEFAULT_DSL_WINDOW_RECT = {
-  x: 56,
-  y: DEFAULT_TOPBAR_HEIGHT + 10,
-  width: typeof window === 'undefined' ? 980 : Math.max(620, window.innerWidth - 112),
-  height: typeof window === 'undefined' ? 560 : Math.max(360, window.innerHeight - DEFAULT_TOPBAR_HEIGHT - 90),
-}
-const DEFAULT_PREFERENCES_WINDOW_RECT = {
-  x: typeof window === 'undefined' ? 860 : Math.max(12, window.innerWidth - 396),
-  y: DEFAULT_TOPBAR_HEIGHT + 10,
-  width: 380,
-  height: 372,
-}
-const DEFAULT_HELP_WINDOW_RECT = {
-  x: 28,
-  y: DEFAULT_TOPBAR_HEIGHT + 10,
-  width: 520,
-  height: 440,
-}
 const UI_PREFERENCES_STORAGE_KEY = 'sjv-ui-preferences-v1'
 const APP_VERSION_LABEL = 'MVP Beta'
 const APP_COPYRIGHT_LABEL = 'Willams Sousa'
@@ -530,14 +503,7 @@ function App() {
   const [topbarHeight, setTopbarHeight] = useState(DEFAULT_TOPBAR_HEIGHT)
   const [helpSection, setHelpSection] = useState<HelpSection>('guide')
   const [managedWindows, setManagedWindows] = useState<ManagedWindowsState>(() =>
-    createManagedWindowsState({
-      inspector: DEFAULT_INSPECTOR_WINDOW_RECT,
-      journeys: DEFAULT_JOURNEYS_WINDOW_RECT,
-      timeline: DEFAULT_TIMELINE_WINDOW_RECT,
-      dsl: DEFAULT_DSL_WINDOW_RECT,
-      help: DEFAULT_HELP_WINDOW_RECT,
-      preferences: DEFAULT_PREFERENCES_WINDOW_RECT,
-    }),
+    createManagedWindowsState(createDefaultManagedWindowRects(DEFAULT_TOPBAR_HEIGHT)),
   )
   const [uiPreferences, setUiPreferences] = useState<UiPreferences>(initialUiPreferences)
   const [splashVisible, setSplashVisible] = useState(initialUiPreferences.splashEnabled)
@@ -1008,17 +974,11 @@ function App() {
   }
 
   const openManagedDockedWindow = (windowId: ManagedWindowId) => {
-    const defaultHostByWindowId: Record<ManagedWindowId, ManagedWindowDockHostId> = {
-      inspector: 'right',
-      journeys: 'right',
-      timeline: 'bottom',
-      dsl: 'bottom',
-      help: 'right',
-      preferences: 'right',
-    }
     setFocusMode(false)
     setPresentationMode(false)
-    setManagedWindows((current) => dockManagedWindowState(current, windowId, defaultHostByWindowId[windowId]))
+    setManagedWindows((current) =>
+      dockManagedWindowState(current, windowId, MANAGED_WINDOW_DEFAULT_HOST_BY_ID[windowId]),
+    )
     setActiveDockTab(windowId)
   }
 
@@ -3594,57 +3554,6 @@ function App() {
     </span>
   )
 
-  const managedWindowFloatingConfig: Record<
-    ManagedWindowId,
-    {
-      title: string
-      className?: string
-      bodyClassName?: string
-      minWidth: number
-      minHeight: number
-      zIndex?: number
-    }
-  > = {
-    inspector: {
-      title: 'Inspector',
-      bodyClassName: 'floating-window-body-dock',
-      minWidth: 320,
-      minHeight: 260,
-    },
-    journeys: {
-      title: 'Journeys',
-      bodyClassName: 'floating-window-body-dock',
-      minWidth: 340,
-      minHeight: 300,
-    },
-    timeline: {
-      title: 'Journey Timeline',
-      bodyClassName: 'floating-window-body-dock',
-      minWidth: 460,
-      minHeight: 240,
-    },
-    dsl: {
-      title: 'SJV Script',
-      minWidth: 520,
-      minHeight: 280,
-      bodyClassName: 'floating-window-body-dock floating-window-body-dsl',
-    },
-    help: {
-      title: 'Help',
-      className: 'help-window',
-      bodyClassName: 'help-window-body',
-      minWidth: 360,
-      minHeight: 280,
-      zIndex: 191,
-    },
-    preferences: {
-      title: 'Preferences',
-      className: 'preferences-window',
-      minWidth: 320,
-      minHeight: 260,
-    },
-  }
-
   const floatingManagedWindows = MANAGED_WINDOW_IDS.filter((windowId) => {
     const windowState = managedWindows.windows[windowId]
     return windowState.open && windowState.placement === 'floating'
@@ -4947,7 +4856,7 @@ function App() {
       </header>
       {floatingManagedWindows.map((windowId) => {
         const windowState = managedWindows.windows[windowId]
-        const floatingConfig = managedWindowFloatingConfig[windowId]
+        const floatingConfig = MANAGED_WINDOW_FLOATING_UI_CONFIG[windowId]
         return (
           <FloatingWindow
             key={windowId}

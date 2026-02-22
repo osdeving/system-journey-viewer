@@ -1,3 +1,7 @@
+/**
+ * Purpose: Provide pure helpers for edge geometry, badges, labels, and presentation styling in the diagram layer.
+ */
+
 export interface EdgeJourneyMarker {
   journeyId: string
   colorKey: string

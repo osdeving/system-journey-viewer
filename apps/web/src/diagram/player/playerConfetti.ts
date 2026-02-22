@@ -1,4 +1,8 @@
-import type { NodeBounds, ViewportState } from '../model/types'
+/**
+ * Purpose: Provide pure playback helpers for journey trails, timelines, and animation effects.
+ */
+
+import type { NodeBounds, ViewportState } from '../../model/types'
 
 export interface PixelPoint {
   x: number

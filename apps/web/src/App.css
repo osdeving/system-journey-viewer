@@ -1,3 +1,5 @@
+/* Purpose: Define the main SJV web app shell, panel, and windowing styles. */
+
 #root {
   margin: 0;
   width: 100vw;

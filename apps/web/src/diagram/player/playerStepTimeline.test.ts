@@ -1,3 +1,7 @@
+/**
+ * Purpose: Verify player Step Timeline behavior with regression-focused unit tests.
+ */
+
 import { describe, expect, it } from 'vitest'
 import { resolveArrivalAdvance, resolveTravelProgress, STEP_ARRIVAL_HOLD_MS } from './playerStepTimeline'
 

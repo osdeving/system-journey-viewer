@@ -1,3 +1,7 @@
+/**
+ * Purpose: Verify edge Curve behavior with regression-focused unit tests.
+ */
+
 import { describe, expect, it } from 'vitest'
 import type { EdgeModel, NodeModel } from '../model/types'
 import { resolveEdgeCurve } from './edgeCurve'

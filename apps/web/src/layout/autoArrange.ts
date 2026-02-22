@@ -1,3 +1,7 @@
+/**
+ * Purpose: Provide pure layout and sizing calculations for the desktop-style web shell.
+ */
+
 import dagre from '@dagrejs/dagre'
 import { nearestPortId, nodeCenter, portWorldPosition } from '../engine/geometry'
 import { resolveNodePorts } from '../model/nodePorts'

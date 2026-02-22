@@ -1,3 +1,7 @@
+/**
+ * Purpose: Implement SJV Script parsing, serialization, and editor integration helpers.
+ */
+
 import { resolveNodePreset, resolveTechPreset } from '../presets/catalog'
 import { resolveNodePorts } from '../model/nodePorts'
 import {

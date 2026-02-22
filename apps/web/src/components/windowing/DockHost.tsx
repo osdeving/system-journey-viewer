@@ -1,3 +1,7 @@
+/**
+ * Purpose: Provide reusable React window shells and dock host components for floating and docked panels.
+ */
+
 import type { ReactNode } from 'react'
 
 export type DockHostTab<TTabId extends string = string> = {

@@ -1,3 +1,7 @@
+/**
+ * Purpose: Provide pure helpers for edge geometry, badges, labels, and presentation styling in the diagram layer.
+ */
+
 export const EDGE_LABEL_ROTATION_STEP_DEG = 6
 
 export const resolveNextEdgeLabelRotationAngle = (

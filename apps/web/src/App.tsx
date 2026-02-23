@@ -80,6 +80,7 @@ import {
   exportAnimatedJourneyGif,
   exportAnimatedJourneySvg,
   exportAnimatedJourneyVideo,
+  resolveAnimatedExportRasterOutputDimensions,
   resolveExportPlaybackSpeedMs,
   resolveJourneyAnimationDurationMs,
 } from './export/animatedExport'
@@ -96,7 +97,7 @@ import {
 } from './file/recentWorkspaces'
 import helpGuideMarkdown from './help/help.md?raw'
 import { resolveJourneyFocusScope } from './journeys/focus'
-import { resolveJourneyPlaybackLength } from './journeys/playbackPlan'
+import { resolveJourneyPlaybackLength, resolveJourneyPlaybackTicks } from './journeys/playbackPlan'
 import { resolvePlayerStepLabel } from './journeys/playerStepLabel'
 import { resolveJourneyTimelineRows } from './journeys/timelineRows'
 import { resolveModeShortcutAction } from './keyboard/modeShortcuts'
@@ -110,7 +111,7 @@ import { resolveLayoutGridTemplateRows } from './layout/layoutGrid'
 import { clampFloatingDockRect, type FloatingDockRect } from './layout/floatingDock'
 import { resolveTopbarHeight } from './layout/topbarSizing'
 import { BLANK_WORKSPACE_VIEW_ID, createBlankWorkspace } from './model/blankWorkspace'
-import type { EditorSnapshot, ViewportState, WorkspaceModel } from './model/types'
+import type { EditorSnapshot, JourneyModel, ViewportState, WorkspaceModel } from './model/types'
 import { nodePresetsByCategory, protocolPresets, resolveNodePreset } from './presets/catalog'
 import { iconForKey } from './presets/iconPipeline'
 import { applyWorkspaceLayout, loadWorkspaceLayout, saveWorkspaceLayout } from './store/layoutPersistence'
@@ -2988,6 +2989,7 @@ function App() {
     playerLoop: boolean
     playerSpeedMs: number
     journeyFilterId: string | null
+    viewport: ViewportState
   }
 
   const resolveCurrentExportJourneyId = (): string | null => {
@@ -3012,6 +3014,7 @@ function App() {
     setJourneyFilter(snapshot.journeyFilterId)
     if (!snapshot.playerJourneyId || !workspace.journeys[snapshot.playerJourneyId]) {
       setPlayerJourney(null)
+      setViewport(snapshot.viewport)
       return
     }
 
@@ -3021,6 +3024,7 @@ function App() {
       stepPlayer()
     }
     setPlayerRunning(snapshot.playerIsRunning)
+    setViewport(snapshot.viewport)
   }
 
   const waitForCanvasFrames = async (frames = 2): Promise<void> => {
@@ -3028,6 +3032,60 @@ function App() {
       await new Promise<void>((resolve) => {
         window.requestAnimationFrame(() => resolve())
       })
+    }
+  }
+
+  const resolveAnimatedExportViewportForJourney = (journey: JourneyModel): ViewportState | null => {
+    const canvasPanel = canvasPanelRef.current
+    if (!canvasPanel) {
+      return null
+    }
+    const rect = canvasPanel.getBoundingClientRect()
+    if (rect.width <= 0 || rect.height <= 0) {
+      return null
+    }
+
+    const visibleNodeIds = new Set(currentView.nodeIds)
+    const relatedNodeIds = new Set<string>()
+    for (const tick of resolveJourneyPlaybackTicks(journey)) {
+      for (const tickStep of tick.steps) {
+        const edge = workspace.edges[tickStep.edgeId]
+        if (edge) {
+          relatedNodeIds.add(edge.from.nodeId)
+          relatedNodeIds.add(edge.to.nodeId)
+        }
+        for (const nodeId of tickStep.highlightNodes ?? []) {
+          relatedNodeIds.add(nodeId)
+        }
+      }
+    }
+
+    const nodesForBounds = Array.from(relatedNodeIds)
+      .filter((nodeId) => visibleNodeIds.has(nodeId))
+      .map((nodeId) => workspace.nodes[nodeId])
+      .filter((node): node is NonNullable<(typeof workspace.nodes)[string]> => !!node)
+
+    if (!nodesForBounds.length) {
+      return null
+    }
+
+    const minX = Math.min(...nodesForBounds.map((node) => node.bounds.x))
+    const minY = Math.min(...nodesForBounds.map((node) => node.bounds.y))
+    const maxX = Math.max(...nodesForBounds.map((node) => node.bounds.x + node.bounds.w))
+    const maxY = Math.max(...nodesForBounds.map((node) => node.bounds.y + node.bounds.h))
+    const boundsWidth = Math.max(1, maxX - minX)
+    const boundsHeight = Math.max(1, maxY - minY)
+    const padding = Math.max(68, Math.min(rect.width, rect.height) * 0.1)
+    const availableWidth = Math.max(1, rect.width - padding * 2)
+    const availableHeight = Math.max(1, rect.height - padding * 2)
+    const zoom = Math.min(availableWidth / boundsWidth, availableHeight / boundsHeight)
+    const clampedZoom = Math.max(0.35, Math.min(2.4, zoom))
+    const centerX = minX + boundsWidth / 2
+    const centerY = minY + boundsHeight / 2
+    return {
+      x: rect.width / 2 - centerX * clampedZoom,
+      y: rect.height / 2 - centerY * clampedZoom,
+      zoom: clampedZoom,
     }
   }
 
@@ -3055,10 +3113,28 @@ function App() {
     const filenameBase = `${workspace.workspace.name}-${journey.name}`
     const exportSpeedMs = resolveExportPlaybackSpeedMs(playerSpeedMs)
     const durationMs = resolveJourneyAnimationDurationMs(resolveJourneyPlaybackLength(journey), exportSpeedMs)
+    const exportViewport = resolveAnimatedExportViewportForJourney(journey)
+    const canvasRect = canvasPanelRef.current?.getBoundingClientRect()
+    const rasterOutputDimensions =
+      format === 'svg' || !canvasRect || canvasRect.width <= 0 || canvasRect.height <= 0
+        ? undefined
+        : resolveAnimatedExportRasterOutputDimensions(canvasRect.width, canvasRect.height)
+    const snapshot: PlayerExportSnapshot = {
+      playerJourneyId,
+      playerStepIndex,
+      playerIsRunning,
+      playerLoop,
+      playerSpeedMs,
+      journeyFilterId,
+      viewport: { ...viewport },
+    }
 
     setExportError(null)
     setAnimatedExportRunning(true)
     setExportFocusJourneyId(journeyId)
+    if (exportViewport) {
+      setViewport(exportViewport)
+    }
     await waitForCanvasFrames(3)
 
     if (format === 'svg') {
@@ -3076,19 +3152,11 @@ function App() {
       } catch (error) {
         setExportError(error instanceof Error ? error.message : 'Failed to export animated SVG.')
       } finally {
+        setViewport(snapshot.viewport)
         setExportFocusJourneyId(null)
         setAnimatedExportRunning(false)
       }
       return
-    }
-
-    const snapshot: PlayerExportSnapshot = {
-      playerJourneyId,
-      playerStepIndex,
-      playerIsRunning,
-      playerLoop,
-      playerSpeedMs,
-      journeyFilterId,
     }
 
     try {
@@ -3119,6 +3187,7 @@ function App() {
           durationMs,
           resolveBaseKey,
           filenameBase,
+          outputDimensions: rasterOutputDimensions,
         })
         setExportStatus('Animated GIF exported.')
       } else {
@@ -3130,6 +3199,7 @@ function App() {
           durationMs,
           resolveBaseKey,
           filenameBase,
+          outputDimensions: rasterOutputDimensions,
           preferredExtension: 'mp4',
           allowFallback: false,
         })

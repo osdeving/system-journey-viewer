@@ -56,6 +56,11 @@ type CompositionRenderer = {
   baseImage: HTMLImageElement | null
 }
 
+export type AnimatedExportOutputDimensions = {
+  width: number
+  height: number
+}
+
 type JourneyAnimatedSvgLaneShape = 'orb' | 'square' | 'triangle'
 
 type JourneyAnimatedSvgLaneStep = {
@@ -112,6 +117,7 @@ export interface ExportAnimatedGifOptions {
   resolveBaseKey: () => string
   filenameBase?: string
   fps?: number
+  outputDimensions?: AnimatedExportOutputDimensions
 }
 
 export interface ExportAnimatedVideoOptions {
@@ -122,6 +128,7 @@ export interface ExportAnimatedVideoOptions {
   resolveBaseKey: () => string
   filenameBase?: string
   fps?: number
+  outputDimensions?: AnimatedExportOutputDimensions
   preferredExtension?: VideoExtension
   allowFallback?: boolean
 }
@@ -199,7 +206,14 @@ const resolveSvgDimensions = (
 const resolveCompositionDimensions = (
   svg: SVGSVGElement,
   trailCanvas: HTMLCanvasElement,
+  override?: AnimatedExportOutputDimensions,
 ): { width: number; height: number } => {
+  if (override) {
+    return {
+      width: Math.max(1, Math.round(override.width)),
+      height: Math.max(1, Math.round(override.height)),
+    }
+  }
   const svgDimensions = resolveSvgDimensions(svg)
   const trailWidth = Math.max(0, Math.round(trailCanvas.clientWidth))
   const trailHeight = Math.max(0, Math.round(trailCanvas.clientHeight))
@@ -210,6 +224,22 @@ const resolveCompositionDimensions = (
     }
   }
   return svgDimensions
+}
+
+export const resolveAnimatedExportRasterOutputDimensions = (
+  sourceWidth: number,
+  sourceHeight: number,
+  targetBox: AnimatedExportOutputDimensions = { width: 1280, height: 720 },
+): AnimatedExportOutputDimensions => {
+  const safeSourceWidth = Math.max(1, Math.round(sourceWidth))
+  const safeSourceHeight = Math.max(1, Math.round(sourceHeight))
+  const safeTargetWidth = Math.max(1, Math.round(targetBox.width))
+  const safeTargetHeight = Math.max(1, Math.round(targetBox.height))
+  const scale = Math.min(safeTargetWidth / safeSourceWidth, safeTargetHeight / safeSourceHeight)
+  const normalizedScale = Number.isFinite(scale) && scale > 0 ? scale : 1
+  const width = Math.max(1, Math.round(safeSourceWidth * normalizedScale))
+  const height = Math.max(1, Math.round(safeSourceHeight * normalizedScale))
+  return { width, height }
 }
 
 const cloneSvgWithInlineStyles = (svg: SVGSVGElement): SVGSVGElement => {
@@ -399,9 +429,13 @@ const serializeStyledSvg = (
   dimensions?: { width: number; height: number },
 ): { xml: string; width: number; height: number } => {
   const clone = cloneSvgWithInlineStyles(svg)
-  const { width, height } = dimensions ?? resolveSvgDimensions(svg)
+  const sourceDimensions = resolveSvgDimensions(svg)
+  const { width, height } = dimensions ?? sourceDimensions
   removeGridArtifacts(clone)
   prependThemeBackground(clone, width, height, themeMode)
+  if (!clone.hasAttribute('viewBox')) {
+    clone.setAttribute('viewBox', `0 0 ${sourceDimensions.width} ${sourceDimensions.height}`)
+  }
   clone.setAttribute('width', `${width}`)
   clone.setAttribute('height', `${height}`)
   clone.setAttribute('xmlns', SVG_NS)
@@ -434,8 +468,9 @@ const createCompositionRenderer = (
   svg: SVGSVGElement,
   trailCanvas: HTMLCanvasElement,
   canvasPanel?: HTMLElement | null,
+  outputDimensions?: AnimatedExportOutputDimensions,
 ): CompositionRenderer => {
-  const { width, height } = resolveCompositionDimensions(svg, trailCanvas)
+  const { width, height } = resolveCompositionDimensions(svg, trailCanvas, outputDimensions)
   const canvas = document.createElement('canvas')
   canvas.width = width
   canvas.height = height
@@ -982,8 +1017,9 @@ export const exportAnimatedJourneyGif = async ({
   resolveBaseKey,
   filenameBase,
   fps = DEFAULT_FRAME_RATE_GIF,
+  outputDimensions,
 }: ExportAnimatedGifOptions): Promise<void> => {
-  const renderer = createCompositionRenderer(svg, trailCanvas, canvasPanel)
+  const renderer = createCompositionRenderer(svg, trailCanvas, canvasPanel, outputDimensions)
   const frameDelayMs = Math.max(20, Math.round(1000 / Math.max(1, fps)))
   const rgbaFrames: Uint8Array[] = []
 
@@ -1044,6 +1080,7 @@ export const exportAnimatedJourneyVideo = async ({
   resolveBaseKey,
   filenameBase,
   fps = DEFAULT_FRAME_RATE_VIDEO,
+  outputDimensions,
   preferredExtension = 'mp4',
   allowFallback = true,
 }: ExportAnimatedVideoOptions): Promise<VideoMimeSelection> => {
@@ -1063,7 +1100,7 @@ export const exportAnimatedJourneyVideo = async ({
     throw new Error('Browser has no supported compatible video codecs (MP4/WebM).')
   }
 
-  const renderer = createCompositionRenderer(svg, trailCanvas, canvasPanel)
+  const renderer = createCompositionRenderer(svg, trailCanvas, canvasPanel, outputDimensions)
   const stream = renderer.canvas.captureStream(Math.max(1, fps))
   const chunks: BlobPart[] = []
   const recorder = new MediaRecorder(stream, {

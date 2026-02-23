@@ -4,6 +4,7 @@
 
 import { describe, expect, it } from 'vitest'
 import {
+  resolveAnimatedExportRasterOutputDimensions,
   resolveExportPlaybackSpeedMs,
   resolveGifPaletteSampleIndices,
   resolveJourneyAnimatedSvgLanes,
@@ -77,6 +78,16 @@ describe('animated export helpers', () => {
     expect(timeline.totalDurationMs).toBe(1280)
     expect(timeline.keyTimes).toEqual([0, 0.46875, 0.5, 0.96875, 1])
     expect(timeline.keyPoints).toEqual([0, 0.4, 0.4, 1, 1])
+  })
+
+  it('normalizes raster animated export dimensions into a target box while preserving aspect ratio', () => {
+    expect(resolveAnimatedExportRasterOutputDimensions(1600, 900)).toEqual({ width: 1280, height: 720 })
+    expect(resolveAnimatedExportRasterOutputDimensions(3000, 1500)).toEqual({ width: 1280, height: 640 })
+    expect(resolveAnimatedExportRasterOutputDimensions(900, 600)).toEqual({ width: 1080, height: 720 })
+    expect(resolveAnimatedExportRasterOutputDimensions(900, 600, { width: 1920, height: 1080 })).toEqual({
+      width: 1620,
+      height: 1080,
+    })
   })
 
   it('resolves animated svg lanes for threaded journeys with per-lane shapes and tick order', () => {

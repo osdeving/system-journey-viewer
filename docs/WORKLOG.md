@@ -2488,3 +2488,29 @@ Chronological engineering log. Entries are kept concise and focused on behavior 
 - `npm --workspace @sjv/web run lint`
 - `npm --workspace @sjv/web run test:run`
 - `npm --workspace @sjv/web run build`
+
+## 2026-02-24 - Animated export readability normalization (auto-fit + raster resolution box)
+
+### Scope
+
+- Improve animated GIF/MP4 readability across different monitor sizes by decoupling output framing from the author’s screen size.
+
+### Changes
+
+- `apps/web/src/App.tsx`
+  - animated export now temporarily fits the selected journey to the visible canvas before capture (using journey edges + highlight nodes across main/thread playback ticks),
+  - viewport is restored after export (including error paths and invalid original player-journey restore paths),
+  - GIF/MP4 exports now pass normalized raster output dimensions to the export pipeline.
+- `apps/web/src/export/animatedExport.ts`
+  - added raster output dimension normalization helper (`resolveAnimatedExportRasterOutputDimensions`) that preserves aspect ratio inside a default `1280x720` box,
+  - raster exporters (`GIF`, `MP4`) now accept `outputDimensions`,
+  - SVG serialization now injects a `viewBox` fallback when missing so resized export dimensions scale content instead of shrinking it within a larger viewport.
+- `apps/web/src/export/animatedExport.test.ts`
+  - added regression coverage for raster dimension normalization.
+
+### Validation
+
+- `git diff --check`
+- `npm --workspace @sjv/web run test:run -- src/export/animatedExport.test.ts src/App.source.test.ts`
+- `npm --workspace @sjv/web run lint`
+- `npm --workspace @sjv/web run build`

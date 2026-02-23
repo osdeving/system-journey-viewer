@@ -2210,3 +2210,281 @@ Chronological engineering log. Entries are kept concise and focused on behavior 
 - `npm --workspace @sjv/web run test:run -- src/App.source.test.ts src/App.styles.test.ts src/components/canvas/DiagramCanvas.source.test.ts`
 - `npm --workspace @sjv/web run test:run`
 - `npm --workspace @sjv/web run build`
+
+## 2026-02-23 - Experimental local branch: SJV parallel journey thread syntax (parser/spec slice)
+
+### Scope
+
+- Started a local-only exploration branch (`tmp/ai/20260223-threads-parallel-journeys`) for parallel journey execution syntax.
+- Implemented parser/AST/spec support for `thread` blocks inside `journey` declarations without changing runtime playback yet.
+- Added an explicit runtime compiler guard so unsupported parsed threads fail loudly instead of being silently ignored.
+
+### Changes
+
+- `apps/web/src/dsl-lite/types.ts`
+  - extended `LiteJourneyStep` with optional `threads`,
+  - added `LiteJourneyThread` to model top-level thread blocks attached to a main journey step.
+- `apps/web/src/dsl-lite/parser.ts`
+  - added `thread <id> { ... }` parsing inside `journey`,
+  - attaches thread blocks to the previous main step (fork anchor semantics for V1),
+  - rejects nested `thread` blocks and invalid thread body lines,
+  - closes thread blocks correctly on `}` before closing the parent `journey`.
+- `apps/web/src/dsl-lite/convert.ts`
+  - added explicit `liteToFullWorkspace(...)` guard that throws when a parsed journey contains thread blocks, documenting runtime/player support as pending.
+- `apps/web/src/dsl-lite/parser.test.ts`
+  - added tests for thread parsing, nested-thread rejection, and explicit compiler failure before runtime support exists.
+- `apps/web/src/dsl-lite/monacoJourneyScript.ts`
+  - added `thread` keyword highlighting.
+- `docs/SJV_SCRIPT_SPEC.md`
+  - extended EBNF and semantics to document `journey-thread` blocks (top-level only, no nested threads in V1).
+
+### Validation
+
+- `npm --workspace @sjv/web run test:run -- src/dsl-lite/parser.test.ts src/dsl-lite/journeyDslSync.test.ts src/dsl-lite/sync.test.ts`
+- `npm --workspace @sjv/web run lint`
+
+### Notes
+
+- This is intentionally parser/spec-first and local-only for now (no PR/merge yet).
+- Next slices (if approved) should implement runtime player/timeline support before removing the compiler guard.
+
+## 2026-02-23 - Experimental local branch: SJV parallel journey threads (runtime/player scheduler slice)
+
+### Scope
+
+- Continued the local `thread` exploration on `tmp/ai/20260223-threads-parallel-journeys`.
+- Enabled runtime compilation of top-level journey threads and introduced a playback scheduler that advances by execution ticks (main lane + active thread lanes).
+- Kept canvas animation/timeline rendering backward-compatible for now (primary lane animation only; multi-lane visuals remain pending).
+
+### Changes
+
+- `apps/web/src/model/types.ts`, `apps/web/src/model/schema.ts`
+  - added runtime `JourneyThread` support (`JourneyStep.threads?`) and schema validation coverage.
+- `apps/web/src/journeys/playbackPlan.ts`, `apps/web/src/journeys/playbackPlan.test.ts`
+  - added pure helpers to compute playback ticks, playback length, primary tick step, and thread detection for linear + top-level-thread journeys.
+- `apps/web/src/store/useEditorStore.ts`
+  - player navigation (`stepPlayer`, `prevPlayerStep`, sync/clamp logic) now uses playback tick length instead of raw main-step length,
+  - final-step confetti resolves from the final playback tick primary lane,
+  - edge removal now also removes steps inside top-level thread blocks and renormalizes thread step numbering.
+- `apps/web/src/store/useEditorStore.test.ts`
+  - added regression test proving threaded journeys advance by playback ticks.
+- `apps/web/src/journeys/playerStepLabel.ts`
+  - playback labels now resolve from the current playback tick and indicate parallel edges (`(+N parallel)`).
+- `apps/web/src/journeys/focus.ts`
+  - journey focus scope now includes edges/highlights from top-level thread steps.
+- `apps/web/src/dsl-lite/convert.ts`
+  - removed the temporary compiler guard,
+  - compiles parsed thread blocks into runtime journey step metadata,
+  - exports thread blocks back to SJV Script for roundtrip support.
+- `apps/web/src/dsl-lite/parser.test.ts`
+  - replaced the temporary “compiler fails” assertion with compile + re-export thread roundtrip assertions.
+- `apps/web/src/components/canvas/DiagramCanvas.tsx`
+  - player state now resolves the current playback tick (including thread edges) for highlighting/edge activation,
+  - canvas animation remains primary-lane only for now (multi-lane marker animation pending).
+- `apps/web/src/App.tsx`
+  - player step counters now use playback tick length,
+  - animated export now rejects threaded journeys explicitly until multi-lane export playback exists.
+- `docs/SJV_SCRIPT_SPEC.md`
+  - updated thread support status (compiler + basic player scheduler available; timeline/animation multi-lane pending).
+
+### Validation
+
+- `npm --workspace @sjv/web run test:run -- src/journeys/playbackPlan.test.ts src/dsl-lite/parser.test.ts src/store/useEditorStore.test.ts`
+- `npm --workspace @sjv/web run lint`
+- `npm --workspace @sjv/web run build`
+
+### Notes
+
+- This branch still has no PR/merge (intentionally local for UX validation first).
+- Next slices should add timeline multi-lane rendering and canvas marker shapes for parallel execution (`orb` / `square` / `triangle` behavior).
+
+## 2026-02-23 - Experimental local branch: SJV parallel journey threads (timeline multi-lane slice)
+
+### Scope
+
+- Continued the local parallel-thread exploration by rendering playback ticks as multi-lane timeline rows in the Journey Timeline panel.
+- Kept journey authoring actions constrained to main-lane steps (thread rows are view-only / script-managed in V1).
+
+### Changes
+
+- `apps/web/src/journeys/timelineRows.ts`, `apps/web/src/journeys/timelineRows.test.ts`
+  - added pure timeline-row generation grouped by playback tick (main + thread lanes),
+  - added deterministic thread color-derivation helper for visual differentiation from the parent journey color.
+- `apps/web/src/App.tsx`
+  - Journey Timeline panel now renders playback-based rows instead of only `journey.steps`,
+  - thread rows are indented and shown after main rows in the same tick,
+  - tick badge indicates grouped playback steps; current player tick is highlighted,
+  - drag/reorder/remove remains enabled only for main-lane rows (thread rows are labeled `Script-managed`).
+- `apps/web/src/App.css`
+  - added timeline tick badge, thread lane, current-tick highlight, and thread-pill styles (light/dark themes).
+- `docs/SJV_SCRIPT_SPEC.md`
+  - clarified current support split: timeline panel multi-lane is available, while canvas animation/export multi-lane rendering is still pending.
+
+### Validation
+
+- `npm --workspace @sjv/web run test:run -- src/journeys/playbackPlan.test.ts src/journeys/timelineRows.test.ts src/store/useEditorStore.test.ts src/dsl-lite/parser.test.ts`
+- `npm --workspace @sjv/web run lint`
+- `npm --workspace @sjv/web run build`
+
+### Notes
+
+- Next slice should target canvas marker shapes + multi-lane animation tracks (orb/square/triangle) to match the new scheduler and timeline semantics.
+
+## 2026-02-23 - Experimental local branch: SJV parallel journey threads (canvas multi-lane animation slice)
+
+### Scope
+
+- Continued the local parallel-thread exploration by adding multi-lane playback animation on the canvas.
+- Implemented marker-shape switching based on active parallel thread count (`orb` / `square` / `triangle`) and simultaneous lane-colored tracks/trails.
+
+### Changes
+
+- `apps/web/src/components/canvas/DiagramCanvas.tsx`
+  - replaced single-lane player animation state with lane-based refs/maps (`playerMarkerPositionsRef`, `lastTrailPositionByLaneRef`),
+  - animates all playback lanes in the current tick simultaneously (main + active threads),
+  - draws lane-colored tracks/trails for each active lane,
+  - adds marker shape logic:
+    - no active thread => `orb`,
+    - one active thread => `square`,
+    - two or more active threads => `triangle`,
+  - derives thread lane colors from the journey color via the timeline color helper for visual consistency.
+- `apps/web/src/components/canvas/DiagramCanvas.source.test.ts`
+  - added source regression coverage for multi-lane markers/shapes path.
+- `docs/SJV_SCRIPT_SPEC.md`
+  - updated support status: canvas playback multi-lane rendering is now available; animated export multi-lane remains pending.
+
+### Validation
+
+- `npm --workspace @sjv/web run test:run -- src/components/canvas/DiagramCanvas.source.test.ts`
+- `npm --workspace @sjv/web run test:run -- src/journeys/playbackPlan.test.ts src/journeys/timelineRows.test.ts src/store/useEditorStore.test.ts src/dsl-lite/parser.test.ts src/components/canvas/DiagramCanvas.source.test.ts`
+- `npm --workspace @sjv/web run lint`
+- `npm --workspace @sjv/web run build`
+
+### Notes
+
+- Animated export still rejects threaded journeys until export playback is upgraded to multi-lane rendering.
+
+## 2026-02-23 - Experimental local branch: threaded showcase tuning (longer parallel continuity)
+
+### Scope
+
+- Tuned the showcase parallel-thread journey so the main lane and both threads stay active for longer, making the fork behavior easier to observe during playback.
+- Added a small timeline badge to make parallel ticks more explicit to users (`Parallel xN`).
+
+### Changes
+
+- `apps/web/src/model/showcaseWorkspace.ts`
+  - expanded `j_c_parallel_threads` with additional main-lane steps after the fork anchor and longer thread sequences in both demo threads.
+- `apps/web/src/model/showcaseWorkspace.test.ts`
+  - updated regression coverage for the longer threaded showcase journey (main + both thread sequences).
+- `apps/web/src/App.tsx`, `apps/web/src/App.css`
+  - timeline main rows in parallel ticks now show a `Parallel xN` pill for quicker visual interpretation.
+
+### Validation
+
+- `npm --workspace @sjv/web run test:run -- src/model/showcaseWorkspace.test.ts src/store/useEditorStore.test.ts src/components/canvas/DiagramCanvas.source.test.ts`
+- `npm --workspace @sjv/web run lint`
+- `npm --workspace @sjv/web run build`
+
+## 2026-02-23 - Experimental local branch: threaded showcase semantics clarity (same-anchor vs staggered)
+
+### Scope
+
+- Improved threaded journey readability in the timeline and extended the showcase with a second scenario to demonstrate delayed thread start from a later main-step anchor.
+- Added unit-test coverage for staggered thread-anchor semantics in playback scheduling.
+
+### Changes
+
+- `apps/web/src/model/showcaseWorkspace.ts`
+  - added a second threaded container-view journey demo (`j_c_parallel_staggered`) showing a later thread fork anchor (staggered start),
+  - kept the existing `j_c_parallel_threads` demo for same-anchor simultaneous thread starts,
+  - extended showcase journey ordering so both demos are easy to discover near `j_c_1`.
+- `apps/web/src/model/showcaseWorkspace.test.ts`
+  - regressions for both threaded showcase demos and their anchor/thread shapes.
+- `apps/web/src/journeys/playbackPlan.test.ts`
+  - added a scheduler test proving threads attached to later main steps start later (while same-anchor threads still start together).
+- `apps/web/src/journeys/timelineRows.ts`
+  - strengthened thread color derivation to increase visual contrast between main lane and thread lanes.
+- `apps/web/src/App.tsx`, `apps/web/src/App.css`
+  - timeline thread rows now show an explicit `Tick N` pill (for parallel ticks),
+  - `Parallel xN` pill now appears on the first row of any parallel tick (including ticks where the main lane is already finished),
+  - thread pills are tinted using the row lane color for easier tracking.
+
+### Validation
+
+- `npm --workspace @sjv/web run test:run -- src/journeys/playbackPlan.test.ts src/model/showcaseWorkspace.test.ts src/store/useEditorStore.test.ts`
+- `npm --workspace @sjv/web run lint`
+- `npm --workspace @sjv/web run build`
+
+## 2026-02-23 - Experimental local branch: threaded playback visual semantics fix (lane identity markers)
+
+### Scope
+
+- Corrected the visual semantics of parallel playback markers so each lane keeps its own identity during concurrent execution.
+- Clarified tick presentation in the timeline to reduce the impression that future thread steps are already running.
+
+### Changes
+
+- `apps/web/src/components/canvas/DiagramCanvas.tsx`
+  - marker shapes are now assigned **per lane** instead of globally per tick:
+    - main lane = `orb`
+    - first thread lane = `square`
+    - second+ thread lanes = `triangle`
+  - concurrent ticks now render mixed marker shapes at the same time (instead of all markers inheriting the same shape).
+- `apps/web/src/App.tsx`, `apps/web/src/App.css`
+  - timeline now renders a `Tick N` group header with `Current` and `Parallel xN` indicators,
+  - row-level parallel pills were reduced to avoid implying future steps are already active.
+
+### Validation
+
+- `npm --workspace @sjv/web run test:run -- src/components/canvas/DiagramCanvas.source.test.ts src/store/useEditorStore.test.ts`
+- `npm --workspace @sjv/web run lint`
+- `npm --workspace @sjv/web run build`
+
+## 2026-02-23 - Experimental local branch: showcase parallel demo main-tail extension
+
+### Scope
+
+- Extended the main lane of the primary threaded showcase demo so it remains visible for extra ticks after thread lanes finish.
+
+### Changes
+
+- `apps/web/src/model/showcaseWorkspace.ts`
+  - appended two semantic read-after-write verification steps to `j_c_parallel_threads` (`GET /orders/{id}` then `select order`) after the existing threaded overlap window.
+- `apps/web/src/model/showcaseWorkspace.test.ts`
+  - updated step-count regression and added assertion for the final two main-lane edges.
+
+### Validation
+
+- `npm --workspace @sjv/web run test:run -- src/model/showcaseWorkspace.test.ts src/store/useEditorStore.test.ts`
+- `npm --workspace @sjv/web run build`
+
+## 2026-02-24 - Experimental local branch: animated export support for threaded journeys + help markdown comment sanitization
+
+### Scope
+
+- Enabled animated export flows for journeys that use top-level parallel `thread` blocks.
+- Verified thread work does not regress persisted UI/editor state flows or guided tutorial/help surfaces.
+- Fixed help-guide markdown comments leaking into the rendered Help tab.
+
+### Changes
+
+- `apps/web/src/export/animatedExport.ts`
+  - animated SVG export now builds marker animations per playback lane (main + thread lanes) using the same tick-based playback plan as the player/timeline,
+  - lane colors/shapes follow runtime semantics (`main=orb`, `thread1=square`, `thread2+=triangle`),
+  - thread lanes respect global tick timing, including delayed start and early finish visibility windows.
+- `apps/web/src/App.tsx`
+  - removed the animated-export guard that blocked parallel-thread journeys,
+  - help-guide markdown is sanitized to strip HTML comments before `ReactMarkdown` renders it (prevents top-of-file `Purpose` comments from appearing in Help).
+- `apps/web/src/export/animatedExport.test.ts`
+  - added regression coverage for threaded animated-SVG lane resolution (tick order + lane shapes).
+- `apps/web/src/App.source.test.ts`
+  - added regression coverage for help markdown comment sanitization.
+
+### Validation
+
+- `git diff --check`
+- `npm --workspace @sjv/web run test:run -- src/export/animatedExport.test.ts src/App.source.test.ts src/tutorial/guidedTutorial.test.ts src/store/persistence.test.ts src/store/layoutPersistence.test.ts src/store/useEditorStore.test.ts`
+- `npm --workspace @sjv/web run lint`
+- `npm --workspace @sjv/web run test:run`
+- `npm --workspace @sjv/web run build`

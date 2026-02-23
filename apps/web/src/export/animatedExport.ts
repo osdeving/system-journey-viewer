@@ -5,6 +5,11 @@
 import { curveToSvgPath } from '../diagram/edges/edgePresentation'
 import { STEP_ARRIVAL_HOLD_MS } from '../diagram/player/playerStepTimeline'
 import { resolveEdgeCurve } from '../engine/edgeCurve'
+import {
+  resolveJourneyPlaybackTicks,
+  type JourneyPlaybackTickStep,
+} from '../journeys/playbackPlan'
+import { deriveThreadTimelineColor } from '../journeys/timelineRows'
 import type { JourneyModel, WorkspaceModel } from '../model/types'
 import { GIFEncoder, applyPalette, quantize } from 'gifenc'
 
@@ -51,9 +56,22 @@ type CompositionRenderer = {
   baseImage: HTMLImageElement | null
 }
 
-type JourneyCurveStep = {
+type JourneyAnimatedSvgLaneShape = 'orb' | 'square' | 'triangle'
+
+type JourneyAnimatedSvgLaneStep = {
   edgeId: string
   path: string
+  tickIndex: number
+  n: number
+}
+
+export type JourneyAnimatedSvgLane = {
+  laneId: string
+  laneKind: 'main' | 'thread'
+  threadId?: string
+  color: string
+  shape: JourneyAnimatedSvgLaneShape
+  steps: JourneyAnimatedSvgLaneStep[]
 }
 
 type JourneyLoopTimeline = {
@@ -621,33 +639,7 @@ const resolveFilenameBase = (raw?: string): string => {
   return collapsed || 'journey'
 }
 
-const resolveJourneyStepCurves = (
-  workspace: WorkspaceModel,
-  journey: JourneyModel,
-): JourneyCurveStep[] => {
-  const sortedSteps = journey.steps.slice().sort((left, right) => left.n - right.n)
-  const resolved: JourneyCurveStep[] = []
-  for (const step of sortedSteps) {
-    const edge = workspace.edges[step.edgeId]
-    if (!edge) {
-      continue
-    }
-    const curve = resolveEdgeCurve(edge, workspace.nodes)
-    if (!curve) {
-      continue
-    }
-    resolved.push({
-      edgeId: edge.id,
-      path: curveToSvgPath(curve),
-    })
-  }
-  return resolved
-}
-
-const resolveJourneyStepPathsFromRenderedSvg = (
-  svg: SVGSVGElement,
-  journey: JourneyModel,
-): JourneyCurveStep[] => {
+const resolveRenderedSvgPathMap = (svg: SVGSVGElement): Map<string, string> => {
   const pathsByEdgeId = new Map<string, string>()
   svg.querySelectorAll('path[id$="_path"]').forEach((pathNode) => {
     const id = pathNode.getAttribute('id')
@@ -661,20 +653,115 @@ const resolveJourneyStepPathsFromRenderedSvg = (
     }
     pathsByEdgeId.set(edgeId, pathData)
   })
+  return pathsByEdgeId
+}
 
-  const sortedSteps = journey.steps.slice().sort((left, right) => left.n - right.n)
-  const resolved: JourneyCurveStep[] = []
-  for (const step of sortedSteps) {
-    const pathData = pathsByEdgeId.get(step.edgeId)
-    if (!pathData) {
+const resolveWorkspacePathMapForEdgeIds = (
+  workspace: WorkspaceModel,
+  edgeIds: Iterable<string>,
+): Map<string, string> => {
+  const pathsByEdgeId = new Map<string, string>()
+  const seen = new Set<string>()
+  for (const edgeId of edgeIds) {
+    if (!edgeId || seen.has(edgeId)) {
       continue
     }
-    resolved.push({
-      edgeId: step.edgeId,
-      path: pathData,
-    })
+    seen.add(edgeId)
+    const edge = workspace.edges[edgeId]
+    if (!edge) {
+      continue
+    }
+    const curve = resolveEdgeCurve(edge, workspace.nodes)
+    if (!curve) {
+      continue
+    }
+    pathsByEdgeId.set(edgeId, curveToSvgPath(curve))
   }
-  return resolved
+  return pathsByEdgeId
+}
+
+const resolveThreadOrderByIdFromTicks = (
+  tickSteps: JourneyPlaybackTickStep[][],
+): Map<string, number> => {
+  const order = new Map<string, number>()
+  let next = 0
+  for (const steps of tickSteps) {
+    for (const step of steps) {
+      if (step.laneKind !== 'thread' || !step.threadId || order.has(step.threadId)) {
+        continue
+      }
+      order.set(step.threadId, next)
+      next += 1
+    }
+  }
+  return order
+}
+
+const resolveAnimatedSvgLaneShape = (
+  laneKind: JourneyPlaybackTickStep['laneKind'],
+  threadOrder: number,
+): JourneyAnimatedSvgLaneShape => {
+  if (laneKind === 'main') {
+    return 'orb'
+  }
+  if (threadOrder <= 0) {
+    return 'square'
+  }
+  return 'triangle'
+}
+
+export const resolveJourneyAnimatedSvgLanes = (
+  journey: JourneyModel,
+  edgePathsById: ReadonlyMap<string, string>,
+): JourneyAnimatedSvgLane[] => {
+  const ticks = resolveJourneyPlaybackTicks(journey)
+  if (!ticks.length) {
+    return []
+  }
+
+  const threadOrderById = resolveThreadOrderByIdFromTicks(ticks.map((tick) => tick.steps))
+  const lanes = new Map<string, JourneyAnimatedSvgLane>()
+
+  for (const tick of ticks) {
+    for (const step of tick.steps) {
+      const path = edgePathsById.get(step.edgeId)
+      if (!path) {
+        continue
+      }
+      const laneId = step.laneId
+      const existing = lanes.get(laneId)
+      const threadOrder =
+        step.laneKind === 'thread' && step.threadId
+          ? (threadOrderById.get(step.threadId) ?? 0)
+          : 0
+      const laneColor =
+        step.laneKind === 'thread' && step.threadId
+          ? deriveThreadTimelineColor(journey.colorKey, threadOrder)
+          : journey.colorKey
+      const lane =
+        existing ??
+        ({
+          laneId,
+          laneKind: step.laneKind,
+          threadId: step.threadId,
+          color: laneColor,
+          shape: resolveAnimatedSvgLaneShape(step.laneKind, threadOrder),
+          steps: [],
+        } satisfies JourneyAnimatedSvgLane)
+      lane.steps.push({
+        edgeId: step.edgeId,
+        path,
+        tickIndex: tick.index,
+        n: step.n,
+      })
+      if (!existing) {
+        lanes.set(laneId, lane)
+      }
+    }
+  }
+
+  const order = ['main', ...Array.from(lanes.keys()).filter((laneId) => laneId !== 'main')]
+  return order.map((laneId) => lanes.get(laneId)).filter((lane): lane is JourneyAnimatedSvgLane => !!lane)
 }
 
 const resolveSvgPathLength = (pathData: string): number => {
@@ -686,6 +773,205 @@ const resolveSvgPathLength = (pathData: string): number => {
   } catch {
     return 1
   }
+}
+
+type JourneyAnimatedSvgLaneLoopTimeline = {
+  totalDurationMs: number
+  keyTimes: number[]
+  keyPoints: number[]
+  firstTickIndex: number
+  lastTickIndex: number
+}
+
+const resolveJourneyAnimatedSvgLaneLoopTimeline = (
+  lane: JourneyAnimatedSvgLane,
+  totalTicks: number,
+  travelDurationMs: number,
+  holdDurationMs = STEP_ARRIVAL_HOLD_MS,
+): JourneyAnimatedSvgLaneLoopTimeline => {
+  const safeTotalTicks = Math.max(1, Math.floor(totalTicks))
+  const safeTravelDurationMs = Math.max(MIN_TRAVEL_DURATION_MS, Math.round(travelDurationMs))
+  const safeHoldDurationMs = Math.max(0, Math.round(holdDurationMs))
+  const stepDurationMs = safeTravelDurationMs + safeHoldDurationMs
+  const totalDurationMs = Math.max(stepDurationMs, safeTotalTicks * stepDurationMs)
+  const laneStepLengths = lane.steps.map((step) => resolveSvgPathLength(step.path))
+  const totalLaneLength = Math.max(
+    1,
+    laneStepLengths.reduce((sum, length) => sum + (Number.isFinite(length) && length > 0 ? length : 1), 0),
+  )
+  const lengthByTickIndex = new Map<number, number>()
+  lane.steps.forEach((step, index) => {
+    lengthByTickIndex.set(step.tickIndex, laneStepLengths[index] ?? 1)
+  })
+
+  let lengthProgress = 0
+  const keyTimes: number[] = [0]
+  const keyPoints: number[] = [0]
+
+  for (let tickIndex = 0; tickIndex < safeTotalTicks; tickIndex += 1) {
+    const stepLength = lengthByTickIndex.get(tickIndex)
+    if (typeof stepLength === 'number') {
+      lengthProgress += stepLength
+    }
+    const tickStartMs = tickIndex * stepDurationMs
+    const travelEndMs = tickStartMs + safeTravelDurationMs
+    const tickEndMs = tickStartMs + stepDurationMs
+    keyTimes.push(Number((Math.min(1, travelEndMs / totalDurationMs)).toFixed(6)))
+    keyPoints.push(Number((Math.min(1, lengthProgress / totalLaneLength)).toFixed(6)))
+    if (safeHoldDurationMs > 0) {
+      keyTimes.push(Number((Math.min(1, tickEndMs / totalDurationMs)).toFixed(6)))
+      keyPoints.push(Number((Math.min(1, lengthProgress / totalLaneLength)).toFixed(6)))
+    }
+  }
+
+  keyTimes[keyTimes.length - 1] = 1
+  keyPoints[keyPoints.length - 1] = 1
+
+  return {
+    totalDurationMs,
+    keyTimes,
+    keyPoints,
+    firstTickIndex: lane.steps[0]?.tickIndex ?? 0,
+    lastTickIndex: lane.steps[lane.steps.length - 1]?.tickIndex ?? 0,
+  }
+}
+
+const appendAnimatedMotionToNode = (
+  node: SVGElement,
+  options: {
+    durationMs: number
+    path: string
+    keyTimes: number[]
+    keyPoints: number[]
+  },
+): void => {
+  const motion = document.createElementNS(SVG_NS, 'animateMotion')
+  motion.setAttribute('dur', `${options.durationMs}ms`)
+  motion.setAttribute('repeatCount', 'indefinite')
+  motion.setAttribute('calcMode', 'linear')
+  motion.setAttribute('path', options.path)
+  motion.setAttribute('keyTimes', options.keyTimes.join(';'))
+  motion.setAttribute('keyPoints', options.keyPoints.map((value) => value.toFixed(6)).join(';'))
+  node.appendChild(motion)
+}
+
+const appendLaneVisibilityAnimation = (
+  group: SVGGElement,
+  firstTickIndex: number,
+  lastTickIndex: number,
+  totalTicks: number,
+  durationMs: number,
+): void => {
+  const safeTotalTicks = Math.max(1, totalTicks)
+  const activeStart = Math.max(0, Math.min(1, firstTickIndex / safeTotalTicks))
+  const activeEnd = Math.max(0, Math.min(1, (lastTickIndex + 1) / safeTotalTicks))
+  if (activeStart <= 0 && activeEnd >= 1) {
+    return
+  }
+
+  const visibility = document.createElementNS(SVG_NS, 'animate')
+  visibility.setAttribute('attributeName', 'opacity')
+  visibility.setAttribute('dur', `${durationMs}ms`)
+  visibility.setAttribute('repeatCount', 'indefinite')
+  visibility.setAttribute('calcMode', 'discrete')
+  if (activeStart > 0 && activeEnd < 1) {
+    group.setAttribute('opacity', '0')
+    visibility.setAttribute('values', '0;0;1;1;0;0')
+    visibility.setAttribute(
+      'keyTimes',
+      [0, activeStart, activeStart, activeEnd, activeEnd, 1]
+        .map((value) => value.toFixed(6))
+        .join(';'),
+    )
+  } else if (activeStart > 0) {
+    group.setAttribute('opacity', '0')
+    visibility.setAttribute('values', '0;0;1;1')
+    visibility.setAttribute(
+      'keyTimes',
+      [0, activeStart, activeStart, 1].map((value) => value.toFixed(6)).join(';'),
+    )
+  } else {
+    visibility.setAttribute('values', '1;1;0;0')
+    visibility.setAttribute(
+      'keyTimes',
+      [0, activeEnd, activeEnd, 1].map((value) => value.toFixed(6)).join(';'),
+    )
+  }
+  group.appendChild(visibility)
+}
+
+const createLaneMarkerVisual = (
+  shape: JourneyAnimatedSvgLaneShape,
+  color: string,
+): SVGGElement => {
+  const group = document.createElementNS(SVG_NS, 'g')
+  group.setAttribute('pointer-events', 'none')
+
+  const haloColor = color
+  const coreColor = color
+  const shadow = `drop-shadow(0 0 8px ${color})`
+
+  if (shape === 'orb') {
+    const halo = document.createElementNS(SVG_NS, 'circle')
+    halo.setAttribute('r', '11')
+    halo.setAttribute('fill', haloColor)
+    halo.setAttribute('opacity', '0.28')
+    const pulse = document.createElementNS(SVG_NS, 'animate')
+    pulse.setAttribute('attributeName', 'r')
+    pulse.setAttribute('values', '9.4;12;9.4')
+    pulse.setAttribute('dur', '520ms')
+    pulse.setAttribute('repeatCount', 'indefinite')
+    halo.appendChild(pulse)
+    group.appendChild(halo)
+
+    const core = document.createElementNS(SVG_NS, 'circle')
+    core.setAttribute('r', '6.2')
+    core.setAttribute('fill', coreColor)
+    core.setAttribute('filter', shadow)
+    group.appendChild(core)
+  } else if (shape === 'square') {
+    const halo = document.createElementNS(SVG_NS, 'rect')
+    halo.setAttribute('x', '-10.5')
+    halo.setAttribute('y', '-10.5')
+    halo.setAttribute('width', '21')
+    halo.setAttribute('height', '21')
+    halo.setAttribute('rx', '4.8')
+    halo.setAttribute('ry', '4.8')
+    halo.setAttribute('fill', haloColor)
+    halo.setAttribute('opacity', '0.2')
+    group.appendChild(halo)
+
+    const core = document.createElementNS(SVG_NS, 'rect')
+    core.setAttribute('x', '-6')
+    core.setAttribute('y', '-6')
+    core.setAttribute('width', '12')
+    core.setAttribute('height', '12')
+    core.setAttribute('rx', '2.8')
+    core.setAttribute('ry', '2.8')
+    core.setAttribute('fill', coreColor)
+    core.setAttribute('filter', shadow)
+    group.appendChild(core)
+  } else {
+    const halo = document.createElementNS(SVG_NS, 'polygon')
+    halo.setAttribute('points', '0,-12 11,8 -11,8')
+    halo.setAttribute('fill', haloColor)
+    halo.setAttribute('opacity', '0.2')
+    group.appendChild(halo)
+
+    const core = document.createElementNS(SVG_NS, 'polygon')
+    core.setAttribute('points', '0,-7 6.5,4.8 -6.5,4.8')
+    core.setAttribute('fill', coreColor)
+    core.setAttribute('filter', shadow)
+    group.appendChild(core)
+  }
+
+  const glint = document.createElementNS(SVG_NS, 'circle')
+  glint.setAttribute('cx', '0')
+  glint.setAttribute('cy', '0')
+  glint.setAttribute('r', '2.1')
+  glint.setAttribute('fill', 'rgba(255,255,255,0.95)')
+  group.appendChild(glint)
+  return group
 }
 
 export const exportAnimatedJourneyGif = async ({
@@ -826,10 +1112,22 @@ export const exportAnimatedJourneySvg = ({
   filenameBase,
 }: ExportAnimatedSvgOptions): void => {
   const clone = cloneSvgWithInlineStyles(svg)
-  const renderedCurves = resolveJourneyStepPathsFromRenderedSvg(clone, journey)
-  const curves =
-    renderedCurves.length > 0 ? renderedCurves : resolveJourneyStepCurves(workspace, journey)
-  if (!curves.length) {
+  const playbackTicks = resolveJourneyPlaybackTicks(journey)
+  if (!playbackTicks.length) {
+    throw new Error('The selected journey has no valid steps for animated SVG export.')
+  }
+  const playbackEdgeIds = new Set<string>()
+  playbackTicks.forEach((tick) => {
+    tick.steps.forEach((step) => playbackEdgeIds.add(step.edgeId))
+  })
+  const renderedPathMap = resolveRenderedSvgPathMap(clone)
+  const workspacePathMap = resolveWorkspacePathMapForEdgeIds(workspace, playbackEdgeIds)
+  const mergedPathMap = new Map<string, string>(workspacePathMap)
+  renderedPathMap.forEach((path, edgeId) => {
+    mergedPathMap.set(edgeId, path)
+  })
+  const lanes = resolveJourneyAnimatedSvgLanes(journey, mergedPathMap)
+  if (!lanes.length) {
     throw new Error('The selected journey has no valid steps for animated SVG export.')
   }
 
@@ -847,64 +1145,40 @@ export const exportAnimatedJourneySvg = ({
     clone.insertBefore(defs, clone.firstChild)
   }
 
-  const style = document.createElementNS(SVG_NS, 'style')
-  style.textContent = `
-.export-journey-orb {
-  fill: ${journey.colorKey};
-  filter: drop-shadow(0 0 8px ${journey.colorKey});
-}
-.export-journey-halo {
-  fill: ${journey.colorKey};
-  opacity: 0.28;
-}
-  `
-  defs.appendChild(style)
-
   const overlay = document.createElementNS(SVG_NS, 'g')
   overlay.setAttribute('pointer-events', 'none')
 
   const travelDurationMs = Math.max(MIN_TRAVEL_DURATION_MS, playerSpeedMs)
-  const timeline = resolveJourneyLoopTimeline(
-    curves.map((curve) => resolveSvgPathLength(curve.path)),
-    travelDurationMs,
-  )
-  const motionPath = curves.map((curve) => curve.path).join(' ')
-  const keyTimes = timeline.keyTimes.join(';')
-  const keyPoints = timeline.keyPoints.map((value) => value.toFixed(6)).join(';')
-  const halo = document.createElementNS(SVG_NS, 'circle')
-  halo.setAttribute('r', '11')
-  halo.setAttribute('class', 'export-journey-halo')
-  const orb = document.createElementNS(SVG_NS, 'circle')
-  orb.setAttribute('r', '6.2')
-  orb.setAttribute('class', 'export-journey-orb')
+  const totalTicks = playbackTicks.length
+  for (const lane of lanes) {
+    if (!lane.steps.length) {
+      continue
+    }
+    const lanePath = lane.steps.map((step) => step.path).join(' ')
+    if (!lanePath.trim()) {
+      continue
+    }
+    const laneTimeline = resolveJourneyAnimatedSvgLaneLoopTimeline(lane, totalTicks, travelDurationMs)
+    const laneGroup = createLaneMarkerVisual(lane.shape, lane.color)
+    appendAnimatedMotionToNode(laneGroup, {
+      durationMs: laneTimeline.totalDurationMs,
+      path: lanePath,
+      keyTimes: laneTimeline.keyTimes,
+      keyPoints: laneTimeline.keyPoints,
+    })
+    appendLaneVisibilityAnimation(
+      laneGroup,
+      laneTimeline.firstTickIndex,
+      laneTimeline.lastTickIndex,
+      totalTicks,
+      laneTimeline.totalDurationMs,
+    )
+    overlay.appendChild(laneGroup)
+  }
 
-  const orbMotion = document.createElementNS(SVG_NS, 'animateMotion')
-  orbMotion.setAttribute('dur', `${timeline.totalDurationMs}ms`)
-  orbMotion.setAttribute('repeatCount', 'indefinite')
-  orbMotion.setAttribute('calcMode', 'linear')
-  orbMotion.setAttribute('path', motionPath)
-  orbMotion.setAttribute('keyTimes', keyTimes)
-  orbMotion.setAttribute('keyPoints', keyPoints)
-  orb.appendChild(orbMotion)
-
-  const haloMotion = document.createElementNS(SVG_NS, 'animateMotion')
-  haloMotion.setAttribute('dur', `${timeline.totalDurationMs}ms`)
-  haloMotion.setAttribute('repeatCount', 'indefinite')
-  haloMotion.setAttribute('calcMode', 'linear')
-  haloMotion.setAttribute('path', motionPath)
-  haloMotion.setAttribute('keyTimes', keyTimes)
-  haloMotion.setAttribute('keyPoints', keyPoints)
-  halo.appendChild(haloMotion)
-
-  const pulse = document.createElementNS(SVG_NS, 'animate')
-  pulse.setAttribute('attributeName', 'r')
-  pulse.setAttribute('values', '9.4;12;9.4')
-  pulse.setAttribute('dur', '520ms')
-  pulse.setAttribute('repeatCount', 'indefinite')
-  halo.appendChild(pulse)
-
-  overlay.appendChild(halo)
-  overlay.appendChild(orb)
+  if (!overlay.childNodes.length) {
+    throw new Error('The selected journey has no valid steps for animated SVG export.')
+  }
   const worldLayer = clone.querySelector('g[transform]')
   if (worldLayer instanceof SVGGElement) {
     worldLayer.appendChild(overlay)

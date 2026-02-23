@@ -20,6 +20,13 @@ import {
 import { resolveEdgeCurve, type ResolvedEdgeCurve } from '../../engine/edgeCurve'
 import type { EdgeModel, NodeModel } from '../../model/types'
 import { resolveJourneyFocusScope } from '../../journeys/focus'
+import {
+  type JourneyPlaybackTickStep,
+  resolveJourneyPlaybackTick,
+  resolveJourneyPlaybackTicks,
+  resolveJourneyPrimaryTickStep,
+} from '../../journeys/playbackPlan'
+import { deriveThreadTimelineColor } from '../../journeys/timelineRows'
 import { protocolPresets } from '../../presets/catalog'
 import { iconForKey } from '../../presets/iconPipeline'
 import { useEditorStore } from '../../store/useEditorStore'
@@ -128,6 +135,17 @@ type TrailParticle = {
   alpha: number
   radius: number
   position: { x: number; y: number }
+}
+
+type PlayerLaneVisual = {
+  laneId: string
+  laneKind: 'main' | 'thread'
+  threadId?: string
+  edgeId: string
+  color: string
+  curve: EdgeCurvePath
+  highlightNodes?: string[]
+  shape: PlayerMarkerShape
 }
 
 type ConnectionTarget = {
@@ -462,6 +480,81 @@ const hexToRgba = (color: string, alpha: number): string => {
   return `rgba(${red}, ${green}, ${blue}, ${alpha})`
 }
 
+type PlayerMarkerShape = 'orb' | 'square' | 'triangle'
+
+const resolvePlayerMarkerShape = (
+  laneKind: JourneyPlaybackTickStep['laneKind'],
+  threadOrder?: number,
+): PlayerMarkerShape => {
+  if (laneKind === 'main') {
+    return 'orb'
+  }
+  if ((threadOrder ?? 0) <= 0) {
+    return 'square'
+  }
+  return 'triangle'
+}
+
+const drawPlayerMarker = (
+  context: CanvasRenderingContext2D,
+  position: { x: number; y: number },
+  color: string,
+  radius: number,
+  inverseZoom: number,
+  shape: PlayerMarkerShape,
+) => {
+  const drawShapePath = (scale = 1) => {
+    const r = radius * scale
+    if (shape === 'orb') {
+      context.beginPath()
+      context.arc(position.x, position.y, r, 0, Math.PI * 2)
+      return
+    }
+    if (shape === 'square') {
+      const half = r * 0.95
+      const corner = Math.max(1.2 * inverseZoom, half * 0.24)
+      context.beginPath()
+      context.moveTo(position.x - half + corner, position.y - half)
+      context.lineTo(position.x + half - corner, position.y - half)
+      context.quadraticCurveTo(position.x + half, position.y - half, position.x + half, position.y - half + corner)
+      context.lineTo(position.x + half, position.y + half - corner)
+      context.quadraticCurveTo(position.x + half, position.y + half, position.x + half - corner, position.y + half)
+      context.lineTo(position.x - half + corner, position.y + half)
+      context.quadraticCurveTo(position.x - half, position.y + half, position.x - half, position.y + half - corner)
+      context.lineTo(position.x - half, position.y - half + corner)
+      context.quadraticCurveTo(position.x - half, position.y - half, position.x - half + corner, position.y - half)
+      context.closePath()
+      return
+    }
+    const top = { x: position.x, y: position.y - r * 1.16 }
+    const right = { x: position.x + r * 1.08, y: position.y + r * 0.9 }
+    const left = { x: position.x - r * 1.08, y: position.y + r * 0.9 }
+    context.beginPath()
+    context.moveTo(top.x, top.y)
+    context.lineTo(right.x, right.y)
+    context.lineTo(left.x, left.y)
+    context.closePath()
+  }
+
+  drawShapePath(1.95)
+  context.fillStyle = hexToRgba(color, 0.22)
+  context.shadowColor = hexToRgba(color, 0.35)
+  context.shadowBlur = ORB_SHADOW_BLUR * 1.3 * inverseZoom
+  context.fill()
+
+  drawShapePath(1)
+  context.fillStyle = hexToRgba(color, 0.98)
+  context.shadowColor = hexToRgba(color, 0.98)
+  context.shadowBlur = ORB_SHADOW_BLUR * inverseZoom
+  context.fill()
+
+  context.beginPath()
+  context.arc(position.x, position.y, radius * 0.34, 0, Math.PI * 2)
+  context.fillStyle = 'rgba(255,255,255,0.95)'
+  context.shadowBlur = 0
+  context.fill()
+}
+
 export const DiagramCanvas = ({
   presentationMode = false,
   forceGridHidden = false,
@@ -487,8 +580,8 @@ export const DiagramCanvas = ({
   const stepArrivalStartTsRef = useRef<number | null>(null)
   const playerStepArrivedRef = useRef(false)
   const stepAdvanceRequestedRef = useRef(false)
-  const orbPositionRef = useRef<{ x: number; y: number } | null>(null)
-  const lastTrailPositionRef = useRef<{ x: number; y: number } | null>(null)
+  const playerMarkerPositionsRef = useRef<Map<string, { x: number; y: number }>>(new Map())
+  const lastTrailPositionByLaneRef = useRef<Map<string, { x: number; y: number }>>(new Map())
   const edgeLabelZoomRef = useRef<{ edgeId: string; pointerId: number } | null>(null)
   const inlineTextInputRef = useRef<HTMLInputElement | null>(null)
   const inlineTextTextareaRef = useRef<HTMLTextAreaElement | null>(null)
@@ -771,60 +864,107 @@ export const DiagramCanvas = ({
   const playerJourney = playerJourneyId
     ? workspace.journeys[playerJourneyId]
     : undefined
-  const sortedPlayerSteps = useMemo(
-    () =>
-      playerJourney
-        ? playerJourney.steps.slice().sort((left, right) => left.n - right.n)
-        : [],
+  const playerPlaybackTicks = useMemo(
+    () => resolveJourneyPlaybackTicks(playerJourney),
     [playerJourney],
   )
-  const currentPlayerStep = sortedPlayerSteps[playerStepIndex]
-  const currentPlayerEdgeId = currentPlayerStep?.edgeId ?? null
-  const currentPlayerCurve = useMemo(() => {
-    if (!currentPlayerEdgeId) {
-      return null
+  const currentPlayerTick = useMemo(
+    () => resolveJourneyPlaybackTick(playerJourney, playerStepIndex),
+    [playerJourney, playerStepIndex],
+  )
+  const currentPlayerTickPrimaryStep = resolveJourneyPrimaryTickStep(currentPlayerTick)
+  const currentPlayerEdgeId = currentPlayerTickPrimaryStep?.edgeId ?? null
+  const threadOrderById = useMemo(() => {
+    const order = new Map<string, number>()
+    let nextOrder = 0
+    for (const tick of playerPlaybackTicks) {
+      for (const tickStep of tick.steps) {
+        if (tickStep.laneKind !== 'thread' || !tickStep.threadId || order.has(tickStep.threadId)) {
+          continue
+        }
+        order.set(tickStep.threadId, nextOrder)
+        nextOrder += 1
+      }
     }
-    const edge = workspace.edges[currentPlayerEdgeId]
-    return edge ? resolveEdgeCurve(edge, workspace.nodes) : null
-  }, [currentPlayerEdgeId, workspace.edges, workspace.nodes])
-  const currentPlayerColor = playerJourney?.colorKey ?? '#f59e0b'
+    return order
+  }, [playerPlaybackTicks])
+  const currentPlayerLaneVisuals = useMemo(() => {
+    const baseColor = playerJourney?.colorKey ?? '#f59e0b'
+    const lanes: PlayerLaneVisual[] = []
+    for (const tickStep of currentPlayerTick?.steps ?? []) {
+      const edge = workspace.edges[tickStep.edgeId]
+      if (!edge) {
+        continue
+      }
+      const curve = resolveEdgeCurve(edge, workspace.nodes)
+      if (!curve) {
+        continue
+      }
+      const color =
+        tickStep.laneKind === 'thread' && tickStep.threadId
+          ? deriveThreadTimelineColor(baseColor, threadOrderById.get(tickStep.threadId) ?? 0)
+          : baseColor
+      const threadOrder =
+        tickStep.laneKind === 'thread' && tickStep.threadId
+          ? (threadOrderById.get(tickStep.threadId) ?? 0)
+          : undefined
+      lanes.push({
+        laneId: tickStep.laneId,
+        laneKind: tickStep.laneKind,
+        threadId: tickStep.threadId,
+        edgeId: tickStep.edgeId,
+        color,
+        curve,
+        highlightNodes: tickStep.highlightNodes,
+        shape: resolvePlayerMarkerShape(tickStep.laneKind, threadOrder),
+      })
+    }
+    return lanes
+  }, [currentPlayerTick?.steps, playerJourney?.colorKey, threadOrderById, workspace.edges, workspace.nodes])
   const animatedEdgeIdSet = useMemo(() => {
     const ids = new Set<string>()
     if (selectedEdgeId) {
       ids.add(selectedEdgeId)
     }
-    if (currentPlayerEdgeId) {
-      ids.add(currentPlayerEdgeId)
+    for (const step of currentPlayerTick?.steps ?? []) {
+      ids.add(step.edgeId)
     }
     const contextJourneyId = effectiveJourneyFilterId ?? activeJourneyId
     if (contextJourneyId) {
       const journey = workspace.journeys[contextJourneyId]
       for (const step of journey?.steps ?? []) {
         ids.add(step.edgeId)
+        for (const thread of step.threads ?? []) {
+          for (const threadStep of thread.steps ?? []) {
+            ids.add(threadStep.edgeId)
+          }
+        }
       }
     }
     return ids
-  }, [activeJourneyId, currentPlayerEdgeId, effectiveJourneyFilterId, selectedEdgeId, workspace.journeys])
+  }, [activeJourneyId, currentPlayerTick?.steps, effectiveJourneyFilterId, selectedEdgeId, workspace.journeys])
 
   const highlightedNodeIds = useMemo(() => {
-    if (!playerHighlightNodes || !currentPlayerEdgeId) {
+    if (!playerHighlightNodes || !(currentPlayerTick?.steps.length ?? 0)) {
       return new Set<string>()
     }
-    const edge = workspace.edges[currentPlayerEdgeId]
-    if (!edge) {
-      return new Set<string>()
-    }
-    const set = new Set<string>([edge.from.nodeId])
-    if (!playerIsRunning || playerStepArrivedForUi) {
-      set.add(edge.to.nodeId)
-    }
-    for (const nodeId of currentPlayerStep?.highlightNodes ?? []) {
-      set.add(nodeId)
+    const set = new Set<string>()
+    for (const tickStep of currentPlayerTick?.steps ?? []) {
+      const edge = workspace.edges[tickStep.edgeId]
+      if (!edge) {
+        continue
+      }
+      set.add(edge.from.nodeId)
+      if (!playerIsRunning || playerStepArrivedForUi) {
+        set.add(edge.to.nodeId)
+      }
+      for (const nodeId of tickStep.highlightNodes ?? []) {
+        set.add(nodeId)
+      }
     }
     return set
   }, [
-    currentPlayerEdgeId,
-    currentPlayerStep?.highlightNodes,
+    currentPlayerTick?.steps,
     playerHighlightNodes,
     playerIsRunning,
     playerStepArrivedForUi,
@@ -856,8 +996,8 @@ export const DiagramCanvas = ({
 
   useEffect(() => {
     trailsRef.current = []
-    orbPositionRef.current = null
-    lastTrailPositionRef.current = null
+    playerMarkerPositionsRef.current.clear()
+    lastTrailPositionByLaneRef.current.clear()
     stepKeyRef.current = null
     stepStartTsRef.current = null
     stepArrivalStartTsRef.current = null
@@ -916,7 +1056,7 @@ export const DiagramCanvas = ({
       return
     }
     trailsRef.current = []
-    lastTrailPositionRef.current = null
+    lastTrailPositionByLaneRef.current.clear()
     const trailCanvas = trailCanvasRef.current
     const context = trailCanvas?.getContext('2d')
     if (trailCanvas && context) {
@@ -928,8 +1068,8 @@ export const DiagramCanvas = ({
     if (playerIsRunning) {
       return
     }
-    orbPositionRef.current = null
-    lastTrailPositionRef.current = null
+    playerMarkerPositionsRef.current.clear()
+    lastTrailPositionByLaneRef.current.clear()
     trailsRef.current = []
     const trailCanvas = trailCanvasRef.current
     const context = trailCanvas?.getContext('2d')
@@ -1014,9 +1154,12 @@ export const DiagramCanvas = ({
       const safeZoom = Math.max(viewportSnapshot.zoom, 0.25)
       const inverseSafeZoom = 1 / safeZoom
 
-      const stepKey = currentPlayerEdgeId
-        ? `${viewId}:${playerJourneyId ?? ''}:${playerStepIndex}:${currentPlayerEdgeId}`
-        : null
+      const stepKey =
+        currentPlayerLaneVisuals.length > 0
+          ? `${viewId}:${playerJourneyId ?? ''}:${playerStepIndex}:${currentPlayerLaneVisuals
+              .map((lane) => `${lane.laneId}:${lane.edgeId}`)
+              .join('|')}`
+          : null
 
       if (stepKey !== stepKeyRef.current) {
         stepKeyRef.current = stepKey
@@ -1024,14 +1167,14 @@ export const DiagramCanvas = ({
         stepArrivalStartTsRef.current = null
         playerStepArrivedRef.current = false
         stepAdvanceRequestedRef.current = false
-        orbPositionRef.current = null
-        lastTrailPositionRef.current = null
+        playerMarkerPositionsRef.current.clear()
+        lastTrailPositionByLaneRef.current.clear()
         setPlayerStepArrivedForUi(false)
       }
 
       let travelProgress = 0
       let shouldAdvanceStep = false
-      if (playerIsRunning && stepKey && currentPlayerCurve) {
+      if (playerIsRunning && stepKey && currentPlayerLaneVisuals.length > 0) {
         const elapsed = Math.max(0, timestamp - (stepStartTsRef.current ?? timestamp))
         travelProgress = resolveTravelProgress(elapsed, playerSpeedMs)
         const hasArrived = travelProgress >= 1
@@ -1040,8 +1183,8 @@ export const DiagramCanvas = ({
           setPlayerStepArrivedForUi(hasArrived)
         }
         const isFinalStep =
-          sortedPlayerSteps.length > 0 &&
-          playerStepIndex >= sortedPlayerSteps.length - 1
+          playerPlaybackTicks.length > 0 &&
+          playerStepIndex >= playerPlaybackTicks.length - 1
         const arrivalState = resolveArrivalAdvance({
           travelProgress,
           nowMs: timestamp,
@@ -1052,38 +1195,52 @@ export const DiagramCanvas = ({
         stepArrivalStartTsRef.current = arrivalState.arrivalStartedAtMs
         shouldAdvanceStep = arrivalState.shouldAdvance
 
-        const orbPoint = cubicPointAt(currentPlayerCurve, travelProgress)
-        orbPositionRef.current = orbPoint
+        const markerPositions = playerMarkerPositionsRef.current
+        markerPositions.clear()
+        for (const lane of currentPlayerLaneVisuals) {
+          const markerPoint = cubicPointAt(lane.curve, travelProgress)
+          markerPositions.set(lane.laneId, markerPoint)
+        }
         if (playerTrailEnabled) {
+          const minSpacing = TRAIL_MIN_SPACING * inverseSafeZoom
           if (travelProgress > 0) {
-            const lastTrail = lastTrailPositionRef.current
-            const minSpacing = TRAIL_MIN_SPACING * inverseSafeZoom
-            const trailPoints = buildTrailPoints(lastTrail, orbPoint, minSpacing)
-            if (trailPoints.length > 0) {
+            for (const lane of currentPlayerLaneVisuals) {
+              const markerPoint = markerPositions.get(lane.laneId)
+              if (!markerPoint) {
+                continue
+              }
+              const previousTrailPoint = lastTrailPositionByLaneRef.current.get(lane.laneId) ?? null
+              const trailPoints = buildTrailPoints(previousTrailPoint, markerPoint, minSpacing)
+              if (!trailPoints.length) {
+                continue
+              }
               for (const point of trailPoints) {
                 trailsRef.current.push({
                   id: nextTrailIdRef.current,
-                  color: currentPlayerColor,
+                  color: lane.color,
                   alpha: TRAIL_INITIAL_ALPHA,
                   radius: TRAIL_PARTICLE_RADIUS * inverseSafeZoom,
                   position: point,
                 })
                 nextTrailIdRef.current += 1
               }
-              lastTrailPositionRef.current = trailPoints[trailPoints.length - 1]
-              if (trailsRef.current.length > MAX_TRAILS) {
-                trimArrayStartInPlace(trailsRef.current, MAX_TRAILS)
-              }
+              lastTrailPositionByLaneRef.current.set(
+                lane.laneId,
+                trailPoints[trailPoints.length - 1],
+              )
+            }
+            if (trailsRef.current.length > MAX_TRAILS) {
+              trimArrayStartInPlace(trailsRef.current, MAX_TRAILS)
             }
           } else {
-            lastTrailPositionRef.current = null
+            lastTrailPositionByLaneRef.current.clear()
           }
         } else {
-          lastTrailPositionRef.current = null
+          lastTrailPositionByLaneRef.current.clear()
         }
       } else {
-        orbPositionRef.current = null
-        lastTrailPositionRef.current = null
+        playerMarkerPositionsRef.current.clear()
+        lastTrailPositionByLaneRef.current.clear()
         stepArrivalStartTsRef.current = null
         if (playerStepArrivedRef.current) {
           playerStepArrivedRef.current = false
@@ -1106,19 +1263,21 @@ export const DiagramCanvas = ({
         metrics.pixelRatio * viewportSnapshot.y,
       )
 
-      if (playerIsRunning && currentPlayerCurve && playerTrailEnabled) {
-        drawCurveTrack(context, currentPlayerCurve, {
-          color: currentPlayerColor,
-          alpha: PLAYER_TRACK_BASE_ALPHA,
-          width: 2.2 * inverseSafeZoom,
-          glow: 9 * inverseSafeZoom,
-        })
-        drawCurveProgress(context, currentPlayerCurve, travelProgress, {
-          color: currentPlayerColor,
-          alpha: PLAYER_TRACK_PROGRESS_ALPHA,
-          width: 3.3 * inverseSafeZoom,
-          glow: 16 * inverseSafeZoom,
-        })
+      if (playerIsRunning && currentPlayerLaneVisuals.length > 0 && playerTrailEnabled) {
+        for (const lane of currentPlayerLaneVisuals) {
+          drawCurveTrack(context, lane.curve, {
+            color: lane.color,
+            alpha: PLAYER_TRACK_BASE_ALPHA,
+            width: 2.2 * inverseSafeZoom,
+            glow: 9 * inverseSafeZoom,
+          })
+          drawCurveProgress(context, lane.curve, travelProgress, {
+            color: lane.color,
+            alpha: PLAYER_TRACK_PROGRESS_ALPHA,
+            width: 3.3 * inverseSafeZoom,
+            glow: 16 * inverseSafeZoom,
+          })
+        }
       }
 
       if (playerTrailEnabled) {
@@ -1137,33 +1296,22 @@ export const DiagramCanvas = ({
         compactPositiveAlphaInPlace(trailsRef.current)
       }
 
-      if (playerIsRunning && orbPositionRef.current) {
+      if (playerIsRunning && playerMarkerPositionsRef.current.size > 0) {
         const orbRadius = ORB_RADIUS * inverseSafeZoom
-        context.beginPath()
-        context.arc(orbPositionRef.current.x, orbPositionRef.current.y, orbRadius * 1.95, 0, Math.PI * 2)
-        context.fillStyle = hexToRgba(currentPlayerColor, 0.22)
-        context.shadowColor = hexToRgba(currentPlayerColor, 0.35)
-        context.shadowBlur = ORB_SHADOW_BLUR * 1.3 * inverseSafeZoom
-        context.fill()
-
-        context.beginPath()
-        context.arc(orbPositionRef.current.x, orbPositionRef.current.y, orbRadius, 0, Math.PI * 2)
-        context.fillStyle = hexToRgba(currentPlayerColor, 0.98)
-        context.shadowColor = hexToRgba(currentPlayerColor, 0.98)
-        context.shadowBlur = ORB_SHADOW_BLUR * inverseSafeZoom
-        context.fill()
-
-        context.beginPath()
-        context.arc(
-          orbPositionRef.current.x,
-          orbPositionRef.current.y,
-          orbRadius * 0.4,
-          0,
-          Math.PI * 2,
-        )
-        context.fillStyle = 'rgba(255,255,255,0.95)'
-        context.shadowBlur = 0
-        context.fill()
+        for (const lane of currentPlayerLaneVisuals) {
+          const markerPosition = playerMarkerPositionsRef.current.get(lane.laneId)
+          if (!markerPosition) {
+            continue
+          }
+          drawPlayerMarker(
+            context,
+            markerPosition,
+            lane.color,
+            orbRadius,
+            inverseSafeZoom,
+            lane.shape,
+          )
+        }
       }
 
       context.restore()
@@ -1177,7 +1325,8 @@ export const DiagramCanvas = ({
         rafId = window.requestAnimationFrame(drawFrame)
       } else {
         lastFrameTsRef.current = null
-        orbPositionRef.current = null
+        playerMarkerPositionsRef.current.clear()
+        lastTrailPositionByLaneRef.current.clear()
         trailsRef.current = []
         context.setTransform(metrics.pixelRatio, 0, 0, metrics.pixelRatio, 0, 0)
         context.clearRect(0, 0, metrics.width, metrics.height)
@@ -1196,15 +1345,14 @@ export const DiagramCanvas = ({
       }
     }
   }, [
-    currentPlayerColor,
-    currentPlayerCurve,
     currentPlayerEdgeId,
+    currentPlayerLaneVisuals,
     playerIsRunning,
     playerJourneyId,
     playerSpeedMs,
     playerStepIndex,
     playerTrailEnabled,
-    sortedPlayerSteps.length,
+    playerPlaybackTicks.length,
     stepPlayer,
     viewId,
   ])

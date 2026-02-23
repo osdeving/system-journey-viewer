@@ -139,6 +139,7 @@ Reserved structural keywords:
 - `drilldown`
 - `contains`
 - `journey`
+- `thread`
 - `color`
 - `metadata`
 - `ui-layout`
@@ -198,10 +199,16 @@ edge-decl            = identifier , ":" , identifier , "->" , identifier ,
 journey-decl         = "journey" , identifier , string ,
                        [ "color" , color-token ] ,
                        "{" ,
-                       { journey-step } ,
+                       { journey-item } ,
                        "}" ;
 
+journey-item         = journey-step | journey-thread ;
+
 journey-step         = identifier ;
+
+journey-thread       = "thread" , identifier , "{" ,
+                       { journey-step } ,
+                       "}" ;
 
 metadata-ui-layout-decl
                      = "metadata" , "ui-layout" , "{" ,
@@ -370,6 +377,39 @@ Rules:
 - Numeric step prefixes are not part of SJV Script.
 - If `color` is omitted, the reference parser defaults to `#2563eb`.
 
+### 5.6.1 Experimental top-level parallel threads (V1 parser + compiler + basic player support)
+
+SJV Script now reserves `thread` blocks inside `journey` for top-level parallel branches:
+
+```sjv
+journey j_parallel "Parallel" color #2563eb {
+  e_main_1
+  e_main_2
+  thread t_1 {
+    e_branch_1
+    e_branch_2
+  }
+  e_main_3
+}
+```
+
+V1 parser semantics:
+
+- `thread` blocks are allowed only directly inside a `journey` block.
+- A `thread` block must appear **after at least one main journey step**.
+- The thread is attached to the **previous main step** (fork anchor).
+- Thread bodies contain only edge-ID lines (same syntax as journey steps).
+- Nested thread blocks are invalid in V1.
+
+Current implementation status:
+
+- Parser/AST support: available
+- Runtime compiler support: available (thread blocks compile into journey step metadata on the previous main step)
+- Player scheduler support: available (playback advances by execution ticks: main lane + active top-level threads)
+- Timeline panel multi-lane rendering: available (thread rows are grouped by playback tick and shown as indented lanes)
+- Canvas playback multi-lane rendering: available (parallel lanes animate simultaneously with lane-colored markers/trails)
+- Animated export multi-lane rendering: pending (threaded journeys are still blocked from animated export)
+
 ## 5.7 Optional UI Metadata (`metadata ui-layout`)
 
 This block stores visual/editor metadata without changing runtime graph semantics.
@@ -441,6 +481,7 @@ Recommended:
 
 - Notes should not participate in normal runtime edges.
 - Journeys should not include note references.
+- Nested journey thread blocks are invalid in V1.
 
 The SJV app importer/runtime rejects note-to-node runtime edges during editor operations.
 

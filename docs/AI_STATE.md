@@ -320,6 +320,10 @@
 - SJV import/sync now treats script-provided `metadata ui-layout` as authoritative (skips local layout overlay when present), and sync mode now propagates non-DSL workspace edits back into the SJV text with loop guards.
 - `docs/STATE_PERSISTENCE_MAP.md` documents the persistence domains and precedence rules (editor snapshot, shell UI layout, local layout cache, and SJV metadata).
 - `docs/SJV_SCRIPT_SPEC.md` is now an implementer-grade reference spec with lexical rules, EBNF grammar, semantic validation rules, parser tolerance notes, and reference normalization/default behavior (suitable for external compiler/interpreter implementations).
+- Experimental local branch (`tmp/ai/20260223-threads-parallel-journeys`) now supports top-level `journey ... thread ... {}` blocks end-to-end across parser/spec, runtime compiler, tick-based player scheduling, multi-lane timeline rendering, multi-lane canvas playback animation, and animated export (GIF/MP4 via live canvas capture + animated SVG multi-lane markers using the same playback tick plan).
+- Animated SVG export now preserves lane identity per marker (`main=orb`, `thread1=square`, `thread2+=triangle`) and thread start/finish windows within the shared global tick timeline (delayed start lanes stay hidden until their first tick; finished lanes hide after their last tick).
+- Help Guide markdown rendering now strips HTML comments before passing content to `ReactMarkdown`, preventing top-of-file `<!-- Purpose: ... -->` headers from leaking into the Help tab UI.
+- Persistence/help/tutorial regressions were revalidated after the thread/export work (editor snapshot, UI layout persistence, guided tutorial, Help panel source render, full web lint/test/build).
 
 ## Suggested Next Increments
 
@@ -327,3 +331,4 @@
 - Add full floating undocked windows and saved layout presets.
 - Extend SJV UI metadata coverage to manual edge routes / additional visual properties if full canvas geometry parity is required in script-only workflows.
 - Add integration tests for animated export pipeline and presentation mode regressions.
+- Parallel journey execution (`thread` blocks inside `journey`) remains under active local exploration on a local branch; animated export support is now implemented, and the next likely slices are animated-export polish (if needed) and UI authoring features for thread editing/reorder inside timeline.

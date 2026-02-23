@@ -2,7 +2,7 @@
  * Purpose: Orchestrate the desktop-style SJV web app shell, window layout, and editor interactions.
  */
 
-import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Fragment, Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type {
   ChangeEvent,
   PointerEvent as ReactPointerEvent,
@@ -96,7 +96,9 @@ import {
 } from './file/recentWorkspaces'
 import helpGuideMarkdown from './help/help.md?raw'
 import { resolveJourneyFocusScope } from './journeys/focus'
+import { resolveJourneyPlaybackLength } from './journeys/playbackPlan'
 import { resolvePlayerStepLabel } from './journeys/playerStepLabel'
+import { resolveJourneyTimelineRows } from './journeys/timelineRows'
 import { resolveModeShortcutAction } from './keyboard/modeShortcuts'
 import {
   resolveDockSideWidth,
@@ -144,6 +146,8 @@ import {
   MANAGED_WINDOW_DEFAULT_HOST_BY_ID,
   MANAGED_WINDOW_FLOATING_UI_CONFIG,
 } from './windowing/windowUiConfig'
+
+const SANITIZED_HELP_GUIDE_MARKDOWN = helpGuideMarkdown.replace(/<!--[\s\S]*?-->/g, '').trimStart()
 
 const DEBOUNCE_SAVE_MS = 900
 const DEFAULT_LEFT_SIDEBAR_WIDTH = 240
@@ -813,14 +817,15 @@ function App() {
     [journeyFocusScope],
   )
   const activeJourney = activeJourneyId ? workspace.journeys[activeJourneyId] : undefined
-  const activeJourneySteps = useMemo(
-    () =>
-      activeJourney
-        ? activeJourney.steps.slice().sort((left, right) => left.n - right.n)
-        : [],
+  const activeJourneyTimelineRows = useMemo(
+    () => resolveJourneyTimelineRows(activeJourney),
     [activeJourney],
   )
   const playerJourney = playerJourneyId ? workspace.journeys[playerJourneyId] : undefined
+  const playerJourneyPlaybackLength = useMemo(
+    () => resolveJourneyPlaybackLength(playerJourney),
+    [playerJourney],
+  )
   const currentPlayerStepLabel = useMemo(
     () => resolvePlayerStepLabel(playerJourney, workspace.edges, playerStepIndex),
     [playerJourney, playerStepIndex, workspace.edges],
@@ -3047,10 +3052,9 @@ function App() {
       setExportError('The selected journey has no steps for animated export.')
       return
     }
-
     const filenameBase = `${workspace.workspace.name}-${journey.name}`
     const exportSpeedMs = resolveExportPlaybackSpeedMs(playerSpeedMs)
-    const durationMs = resolveJourneyAnimationDurationMs(journey.steps.length, exportSpeedMs)
+    const durationMs = resolveJourneyAnimationDurationMs(resolveJourneyPlaybackLength(journey), exportSpeedMs)
 
     setExportError(null)
     setAnimatedExportRunning(true)
@@ -3150,40 +3154,119 @@ function App() {
       <div className="journey-timeline-toolbar">
         <strong>Active journey timeline</strong>
         <span className="player-step-info">
-          Step {playerStepIndex + 1}/{playerJourney?.steps.length ?? 0}
+          Step {playerStepIndex + 1}/{playerJourneyPlaybackLength}
         </span>
       </div>
       {activeJourney ? (
         <ol className="journey-steps">
-          {activeJourneySteps.map((step) => (
-            <li
-              key={`${activeJourney.id}:${step.edgeId}`}
-              className="journey-step-item journey-item"
-              draggable
-              onDragStart={() => onJourneyStepDragStart(activeJourney.id, step.edgeId)}
-              onDragOver={(event) => {
-                event.preventDefault()
-                event.dataTransfer.dropEffect = 'move'
-              }}
-              onDrop={() => onJourneyStepDrop(activeJourney.id, step.edgeId)}
-              onDragEnd={() => {
-                journeyStepDragRef.current = null
-              }}
-            >
-              <span className="journey-drag-handle" aria-hidden="true">
-                <GripVertical size={13} />
-              </span>
-              <span className="journey-color-dot" style={{ background: activeJourney.colorKey }} />
-              <span>
-                {step.n}. {workspace.edges[step.edgeId]?.label ?? step.edgeId}
-              </span>
-              <span className="journey-step-actions">
-                <button type="button" onClick={() => removeEdgeFromJourney(activeJourney.id, step.edgeId)}>
-                  Remove
-                </button>
-              </span>
-            </li>
-          ))}
+          {activeJourneyTimelineRows.map((row) => {
+            const isCurrentTick = activeJourney.id === playerJourneyId && row.tickIndex === playerStepIndex
+            return (
+              <Fragment key={`${activeJourney.id}:${row.key}`}>
+                {row.showTickBadge ? (
+                  <li
+                    className={[
+                      'journey-tick-group-header',
+                      row.tickStepCount > 1 ? 'journey-tick-group-header-parallel' : '',
+                      isCurrentTick ? 'journey-tick-group-header-current' : '',
+                    ]
+                      .filter(Boolean)
+                      .join(' ')}
+                  >
+                    <span className="journey-tick-group-title">Tick {row.tickIndex + 1}</span>
+                    {row.tickStepCount > 1 ? (
+                      <span className="journey-thread-pill journey-thread-pill-parallel">
+                        Parallel x{row.tickStepCount}
+                      </span>
+                    ) : null}
+                    {isCurrentTick ? (
+                      <span className="journey-thread-pill journey-tick-current-pill">Current</span>
+                    ) : null}
+                  </li>
+                ) : null}
+                <li
+                  className={[
+                    'journey-step-item',
+                    'journey-item',
+                    row.laneKind === 'thread' ? 'journey-step-item-thread' : 'journey-step-item-main',
+                    isCurrentTick ? 'journey-step-item-current-tick' : '',
+                  ]
+                    .filter(Boolean)
+                    .join(' ')}
+                  draggable={row.laneKind === 'main'}
+                  onDragStart={row.laneKind === 'main' ? () => onJourneyStepDragStart(activeJourney.id, row.edgeId) : undefined}
+                  onDragOver={
+                    row.laneKind === 'main'
+                      ? (event) => {
+                          event.preventDefault()
+                          event.dataTransfer.dropEffect = 'move'
+                        }
+                      : undefined
+                  }
+                  onDrop={row.laneKind === 'main' ? () => onJourneyStepDrop(activeJourney.id, row.edgeId) : undefined}
+                  onDragEnd={
+                    row.laneKind === 'main'
+                      ? () => {
+                          journeyStepDragRef.current = null
+                        }
+                      : undefined
+                  }
+                >
+                  <span
+                    className={[
+                      'journey-tick-badge',
+                      row.showTickBadge ? '' : 'journey-tick-badge-placeholder',
+                      row.tickStepCount > 1 ? 'journey-tick-badge-parallel' : '',
+                    ]
+                      .filter(Boolean)
+                      .join(' ')}
+                    title={
+                      row.showTickBadge
+                        ? `Tick ${row.tickIndex + 1}${row.tickStepCount > 1 ? ` (${row.tickStepCount} parallel edges)` : ''}`
+                        : undefined
+                    }
+                    aria-hidden={!row.showTickBadge}
+                  >
+                    {row.showTickBadge ? row.tickIndex + 1 : ''}
+                  </span>
+                  <span className="journey-drag-handle" aria-hidden="true">
+                    {row.laneKind === 'main' ? <GripVertical size={13} /> : <Workflow size={12} />}
+                  </span>
+                  <span className="journey-color-dot" style={{ background: row.accentColor }} />
+                  <span className="journey-step-label">
+                    {row.laneKind === 'thread' ? (
+                      <span
+                        className="journey-thread-pill"
+                        style={{ borderColor: row.accentColor, color: row.accentColor }}
+                      >
+                        Thread {row.threadId}
+                      </span>
+                    ) : null}
+                    {row.laneKind === 'thread' && row.tickStepCount > 1 ? (
+                      <span className="journey-thread-pill journey-thread-pill-tick">
+                        Tick {row.tickIndex + 1}
+                      </span>
+                    ) : null}
+                    <span>
+                      {row.laneKind === 'main'
+                        ? `${row.laneStepNumber}. `
+                        : `${row.threadId}.${row.laneStepNumber} `}
+                      {workspace.edges[row.edgeId]?.label ?? row.edgeId}
+                    </span>
+                  </span>
+                  <span className="journey-step-actions">
+                    {row.laneKind === 'main' ? (
+                      <button type="button" onClick={() => removeEdgeFromJourney(activeJourney.id, row.edgeId)}>
+                        Remove
+                      </button>
+                    ) : (
+                      <span className="journey-step-thread-note">Script-managed</span>
+                    )}
+                  </span>
+                </li>
+              </Fragment>
+            )
+          })}
         </ol>
       ) : (
         <p>Select a journey on the sidebar to view the timeline.</p>
@@ -3315,7 +3398,7 @@ function App() {
               Load Tutorial Workspace ({uiPreferences.showcaseLocale.toUpperCase()})
             </button>
           </div>
-          <ReactMarkdown>{helpGuideMarkdown}</ReactMarkdown>
+          <ReactMarkdown>{SANITIZED_HELP_GUIDE_MARKDOWN}</ReactMarkdown>
         </>
       ) : null}
       {helpSection === 'gallery' ? (
@@ -3941,7 +4024,7 @@ function App() {
             />
           </label>
           <span className="player-step-info">
-            Step {playerStepIndex + 1}/{playerJourney?.steps.length ?? 0}
+            Step {playerStepIndex + 1}/{playerJourneyPlaybackLength}
           </span>
         </div>
       </section>
@@ -5446,7 +5529,7 @@ function App() {
             <div className="mode-indicators mode-indicators-presentation">
               <span className="mode-pill mode-pill-active">View: Presentation</span>
               <span className={playerIsRunning ? 'mode-pill mode-pill-playing' : 'mode-pill'}>
-                Step {playerStepIndex + 1}/{playerJourney?.steps.length ?? 0}
+                Step {playerStepIndex + 1}/{playerJourneyPlaybackLength}
               </span>
               {currentPlayerStepLabel ? (
                 <span

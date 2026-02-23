@@ -22,6 +22,12 @@ export interface LiteEdge {
 
 export interface LiteJourneyStep {
   edgeId: string
+  threads?: LiteJourneyThread[]
+}
+
+export interface LiteJourneyThread {
+  id: string
+  steps: LiteJourneyStep[]
 }
 
 export interface LiteJourney {

@@ -70,6 +70,17 @@ export const edgeSchema = z.object({
   }),
 })
 
+const journeyThreadStepSchema = z.object({
+  n: z.number().int().positive(),
+  edgeId: z.string().min(1),
+  highlightNodes: z.array(z.string()).optional(),
+})
+
+const journeyThreadSchema = z.object({
+  id: z.string().min(1),
+  steps: z.array(journeyThreadStepSchema),
+})
+
 export const journeySchema = z.object({
   id: z.string().min(1),
   name: z.string().min(1),
@@ -79,6 +90,7 @@ export const journeySchema = z.object({
       n: z.number().int().positive(),
       edgeId: z.string().min(1),
       highlightNodes: z.array(z.string()).optional(),
+      threads: z.array(journeyThreadSchema).optional(),
     }),
   ),
   player: z.object({

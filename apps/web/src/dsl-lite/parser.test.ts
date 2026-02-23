@@ -73,6 +73,52 @@ workspace "Notes" {
 }
 `
 
+const threadedJourneyScript = `
+workspace "Parallel Thread Demo" {
+  view v_main container {
+    container a "A" tech spring-boot
+    container b "B" tech spring-boot
+    container c "C" tech spring-boot
+    container d "D" tech spring-boot
+
+    e_1: a -> b : http "step 1"
+    e_2: b -> d : http "step 2"
+    e_3: a -> c : http "parallel step 1"
+    e_4: c -> d : http "parallel step 2"
+
+    journey j_parallel "Parallel" color #2563eb {
+      e_1
+      thread t_1 {
+        e_3
+        e_4
+      }
+      e_2
+    }
+  }
+}
+`
+
+const nestedThreadJourneyScript = `
+workspace "Nested Thread Demo" {
+  view v_main container {
+    container a "A"
+    container b "B"
+    container c "C"
+    e_1: a -> b
+    e_2: a -> c
+
+    journey j_parallel "Parallel" {
+      e_1
+      thread t_1 {
+        thread t_2 {
+          e_2
+        }
+      }
+    }
+  }
+}
+`
+
 const escapedTextScript = `
 workspace "Escaped \\"Workspace\\"" {
   view v_main container {
@@ -190,6 +236,39 @@ describe('SJV Script parser and conversion', () => {
     expect(exported).toContain('metadata ui-layout')
     expect(exported).toContain('node app at 140 220 size 280 120 fill #2563eb text #ffffff')
     expect(exported).toContain('edge e_app_api label 0.72 side right angle -18')
+  })
+
+  it('parses top-level journey thread blocks attached to the previous main step', () => {
+    const ast = parseLiteDsl(threadedJourneyScript)
+    const journey = ast.views[0]?.journeys[0]
+
+    expect(journey).toBeDefined()
+    expect(journey?.steps).toHaveLength(2)
+    expect(journey?.steps[0]?.edgeId).toBe('e_1')
+    expect(journey?.steps[0]?.threads).toHaveLength(1)
+    expect(journey?.steps[0]?.threads?.[0]?.id).toBe('t_1')
+    expect(journey?.steps[0]?.threads?.[0]?.steps.map((step) => step.edgeId)).toEqual(['e_3', 'e_4'])
+    expect(journey?.steps[1]?.edgeId).toBe('e_2')
+  })
+
+  it('rejects nested journey thread blocks in parser v1', () => {
+    expect(() => parseLiteDsl(nestedThreadJourneyScript)).toThrow(
+      'SJV Script invalid: nested thread blocks are not supported yet.',
+    )
+  })
+
+  it('compiles and re-exports parsed thread journeys preserving thread blocks', () => {
+    const ast = parseLiteDsl(threadedJourneyScript)
+    const workspace = liteToFullWorkspace(ast)
+    const journey = Object.values(workspace.journeys)[0]
+
+    expect(journey?.steps[0]?.threads).toHaveLength(1)
+    expect(journey?.steps[0]?.threads?.[0]?.steps.map((step) => step.edgeId)).toHaveLength(2)
+
+    const exported = fullWorkspaceToLiteDsl(workspace)
+    expect(exported).toContain('thread t_1 {')
+    expect(exported).toContain('parallel-step-1')
+    expect(exported).toContain('parallel-step-2')
   })
 
   it('exports semantic edge and journey IDs when internal IDs are generic', () => {

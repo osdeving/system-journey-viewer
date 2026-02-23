@@ -6,6 +6,11 @@ import { create } from 'zustand'
 import { immer } from 'zustand/middleware/immer'
 import { nearestPortId, nodeCenter } from '../engine/geometry'
 import { journeyColorByIndex } from '../journeys/colors'
+import {
+  resolveJourneyPlaybackLength,
+  resolveJourneyPlaybackTick,
+  resolveJourneyPrimaryTickStep,
+} from '../journeys/playbackPlan'
 import { autoArrangeView } from '../layout/autoArrange'
 import { createDefaultWorkspace } from '../model/defaultWorkspace'
 import {
@@ -22,6 +27,7 @@ import type {
   JourneyFilterAutoLayoutMode,
   JourneyFilterLayoutMode,
   JourneyFilterOffscopeRenderMode,
+  JourneyStep,
   NodeBounds,
   NodeModel,
   ViewportState,
@@ -375,9 +381,7 @@ const clampEdgeLabelAngle = (angleDeg: number): number =>
 const resolveEdgeLabelSide = (side?: string): 'left' | 'right' =>
   side === 'right' ? 'right' : 'left'
 
-const normalizeJourneySteps = (
-  steps: Array<{ n: number; edgeId: string }>,
-): Array<{ n: number; edgeId: string }> =>
+const normalizeJourneySteps = <T extends { n: number }>(steps: T[]): T[] =>
   steps.map((step, index) => ({ ...step, n: index + 1 }))
 
 const nextViewKindForDrilldown = (viewKind: WorkspaceModel['views'][string]['kind']) => {
@@ -518,16 +522,15 @@ const syncPlayerForJourneySteps = (
     return
   }
   const activePlayerJourney = state.workspace.journeys[state.playerJourneyId]
-  const sortedSteps =
-    activePlayerJourney?.steps.slice().sort((left, right) => left.n - right.n) ?? []
-  if (!sortedSteps.length) {
+  const playbackLength = resolveJourneyPlaybackLength(activePlayerJourney)
+  if (!playbackLength) {
     state.playerIsRunning = false
     state.playerStepIndex = 0
     state.playerConfettiNodeId = null
     return
   }
-  if (state.playerStepIndex >= sortedSteps.length) {
-    state.playerStepIndex = sortedSteps.length - 1
+  if (state.playerStepIndex >= playbackLength) {
+    state.playerStepIndex = playbackLength - 1
     state.playerIsRunning = false
   }
 }
@@ -554,13 +557,38 @@ const removeEdgeFromWorkspaceState = (
   }
 
   for (const journey of Object.values(state.workspace.journeys)) {
-    if (!journey.steps.some((step) => step.edgeId === edgeId)) {
+    const removeFromThreadSteps = (threadSteps: JourneyStep[]): JourneyStep[] =>
+      normalizeJourneySteps(
+        threadSteps
+          .slice()
+          .sort((left, right) => left.n - right.n)
+          .filter((step) => step.edgeId !== edgeId),
+      )
+
+    const hasEdgeInJourney =
+      journey.steps.some((step) => step.edgeId === edgeId) ||
+      journey.steps.some((step) => (step.threads ?? []).some((thread) => thread.steps.some((threadStep) => threadStep.edgeId === edgeId)))
+    if (!hasEdgeInJourney) {
       continue
     }
     const ordered = journey.steps
       .slice()
       .sort((left, right) => left.n - right.n)
       .filter((step) => step.edgeId !== edgeId)
+      .map((step) => {
+        const filteredThreads = (step.threads ?? [])
+          .map((thread) => ({
+            ...thread,
+            steps: removeFromThreadSteps(thread.steps),
+          }))
+          .filter((thread) => thread.steps.length > 0)
+        if (filteredThreads.length) {
+          return { ...step, threads: filteredThreads }
+        }
+        const stepWithoutThreads = { ...step }
+        delete stepWithoutThreads.threads
+        return stepWithoutThreads
+      })
     journey.steps = normalizeJourneySteps(ordered)
   }
 
@@ -1623,12 +1651,12 @@ export const useEditorStore = create<EditorState>()(
         if (!journey) {
           return
         }
-        const sortedSteps = journey.steps.slice().sort((left, right) => left.n - right.n)
-        if (!sortedSteps.length) {
+        const playbackLength = resolveJourneyPlaybackLength(journey)
+        if (!playbackLength) {
           return
         }
         if (state.playerStepIndex <= 0) {
-          state.playerStepIndex = state.playerLoop ? sortedSteps.length - 1 : 0
+          state.playerStepIndex = state.playerLoop ? playbackLength - 1 : 0
           state.playerIsRunning = false
           return
         }
@@ -1646,15 +1674,16 @@ export const useEditorStore = create<EditorState>()(
           state.playerIsRunning = false
           return
         }
-        const sortedSteps = journey.steps.slice().sort((left, right) => left.n - right.n)
-        if (!sortedSteps.length) {
+        const playbackLength = resolveJourneyPlaybackLength(journey)
+        if (!playbackLength) {
           state.playerIsRunning = false
           return
         }
-        const isLastStep = state.playerStepIndex >= sortedSteps.length - 1
+        const isLastStep = state.playerStepIndex >= playbackLength - 1
         if (isLastStep) {
-          const finalStep = sortedSteps[sortedSteps.length - 1]
-          const finalEdge = state.workspace.edges[finalStep.edgeId]
+          const finalTick = resolveJourneyPlaybackTick(journey, Math.max(0, playbackLength - 1))
+          const finalPrimaryStep = resolveJourneyPrimaryTickStep(finalTick)
+          const finalEdge = finalPrimaryStep ? state.workspace.edges[finalPrimaryStep.edgeId] : undefined
           state.playerConfettiNodeId = finalEdge?.to.nodeId ?? null
           state.playerConfettiNonce += 1
           if (state.playerLoop) {

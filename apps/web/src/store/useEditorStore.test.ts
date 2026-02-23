@@ -3,6 +3,8 @@
  */
 
 import { beforeEach, describe, expect, it } from 'vitest'
+import { liteToFullWorkspace } from '../dsl-lite/convert'
+import { parseLiteDsl } from '../dsl-lite/parser'
 import { useEditorStore } from './useEditorStore'
 
 describe('useEditorStore', () => {
@@ -550,6 +552,53 @@ describe('useEditorStore', () => {
     updated = useEditorStore.getState()
     expect(updated.playerStepIndex).toBe(updated.workspace.journeys[journeyId].steps.length - 1)
     expect(updated.playerIsRunning).toBe(false)
+  })
+
+  it('advances player by parallel playback ticks for threaded journeys', () => {
+    const state = useEditorStore.getState()
+    const threadedScript = `
+workspace "Threaded" {
+  view v_main container {
+    container a "A"
+    container b "B"
+    container c "C"
+    container d "D"
+
+    e_1: a -> b : http "step 1"
+    e_2: b -> d : http "step 2"
+    e_3: a -> c : http "parallel 1"
+    e_4: c -> d : http "parallel 2"
+
+    journey j_main "Main" color #2563eb {
+      e_1
+      thread t_1 {
+        e_3
+        e_4
+      }
+      e_2
+    }
+  }
+}
+`
+
+    const workspace = liteToFullWorkspace(parseLiteDsl(threadedScript))
+    state.replaceWorkspace(workspace, 'v_main')
+    state.setPlayerJourney('j_main')
+    state.setPlayerLoop(false)
+
+    state.stepPlayer()
+    let updated = useEditorStore.getState()
+    expect(updated.playerStepIndex).toBe(1)
+
+    state.stepPlayer()
+    updated = useEditorStore.getState()
+    expect(updated.playerStepIndex).toBe(2)
+
+    state.stepPlayer()
+    updated = useEditorStore.getState()
+    expect(updated.playerStepIndex).toBe(2)
+    expect(updated.playerIsRunning).toBe(false)
+    expect(updated.playerConfettiNodeId).toBe('n_v_main_d')
   })
 
   it('allows enabling and disabling player trail rendering', () => {

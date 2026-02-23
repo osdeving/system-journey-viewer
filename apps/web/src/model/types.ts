@@ -99,6 +99,16 @@ export interface JourneyStep {
   n: number
   edgeId: string
   highlightNodes?: string[]
+  threads?: JourneyThread[]
+}
+
+export interface JourneyThread {
+  id: string
+  steps: Array<{
+    n: number
+    edgeId: string
+    highlightNodes?: string[]
+  }>
 }
 
 export interface JourneyModel {

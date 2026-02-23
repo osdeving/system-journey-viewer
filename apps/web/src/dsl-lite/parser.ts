@@ -5,6 +5,7 @@
 import type {
   LiteJourney,
   LiteJourneyStep,
+  LiteJourneyThread,
   LiteUiLayoutView,
   LiteViewAst,
   LiteWorkspaceAst,
@@ -98,13 +99,30 @@ export const parseLiteDsl = (input: string): LiteWorkspaceAst => {
 
   let openView: LiteViewAst | null = null
   let openJourney: LiteJourney | null = null
+  let openJourneyThread: LiteJourneyThread | null = null
   let openUiLayout = false
   let openUiLayoutView: LiteUiLayoutView | null = null
+
+  const closeJourneyThread = () => {
+    if (!openJourneyThread) {
+      return
+    }
+    if (!openJourney) {
+      throw new Error('SJV Script invalid: thread block found outside journey.')
+    }
+    const previousMainStep = openJourney.steps[openJourney.steps.length - 1]
+    if (!previousMainStep) {
+      throw new Error('SJV Script invalid: thread block must appear after a main journey step.')
+    }
+    previousMainStep.threads = [...(previousMainStep.threads ?? []), openJourneyThread]
+    openJourneyThread = null
+  }
 
   const closeJourney = () => {
     if (!openJourney || !openView) {
       return
     }
+    closeJourneyThread()
     openView.journeys.push(openJourney)
     openJourney = null
   }
@@ -131,6 +149,10 @@ export const parseLiteDsl = (input: string): LiteWorkspaceAst => {
       continue
     }
     if (line === '}') {
+      if (openJourneyThread) {
+        closeJourneyThread()
+        continue
+      }
       if (openJourney) {
         closeJourney()
         continue
@@ -234,6 +256,31 @@ export const parseLiteDsl = (input: string): LiteWorkspaceAst => {
     }
 
     if (openJourney) {
+      const threadMatch = line.match(/^thread\s+([A-Za-z0-9_-]+)\s*\{$/)
+      if (threadMatch) {
+        if (openJourneyThread) {
+          throw new Error('SJV Script invalid: nested thread blocks are not supported yet.')
+        }
+        openJourneyThread = {
+          id: threadMatch[1],
+          steps: [],
+        }
+        continue
+      }
+
+      if (openJourneyThread) {
+        const nestedThreadMatch = line.match(/^thread\s+([A-Za-z0-9_-]+)\s*\{$/)
+        if (nestedThreadMatch) {
+          throw new Error('SJV Script invalid: nested thread blocks are not supported yet.')
+        }
+        const threadStepMatch = line.match(/^([A-Za-z0-9_-]+)$/)
+        if (threadStepMatch) {
+          openJourneyThread.steps.push({ edgeId: threadStepMatch[1] })
+          continue
+        }
+        throw new Error('SJV Script invalid: thread blocks only allow edge ID step lines.')
+      }
+
       const stepMatch = line.match(/^([A-Za-z0-9_-]+)$/)
       if (stepMatch) {
         openJourney.steps.push({ edgeId: stepMatch[1] })
@@ -300,6 +347,7 @@ export const parseLiteDsl = (input: string): LiteWorkspaceAst => {
 
   closeView()
   closeJourney()
+  closeJourneyThread()
   closeUiLayoutView()
 
   if (!result.views.length) {

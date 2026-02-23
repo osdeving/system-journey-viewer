@@ -2662,13 +2662,128 @@
   gap: calc(var(--sjv-density-toolbar-gap) - 2px);
 }
 
+.journey-tick-group-header {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: #64748b;
+  font-size: calc(var(--sjv-density-control-font) - 1px);
+  padding: 1px 4px 0;
+  opacity: 0.78;
+}
+
+.journey-tick-group-header-parallel {
+  opacity: 0.9;
+}
+
+.journey-tick-group-header-current {
+  color: #1d4ed8;
+  opacity: 1;
+}
+
+.journey-tick-group-title {
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
 .journey-step-item {
   display: grid;
-  grid-template-columns: auto auto 1fr auto;
+  grid-template-columns: auto auto auto 1fr auto;
   align-items: center;
   gap: var(--sjv-density-toolbar-gap);
   border-radius: 10px;
   padding: var(--sjv-density-dock-tab-py) var(--sjv-density-dock-tab-px);
+}
+
+.journey-step-item-main {
+  border: 1px solid rgba(148, 163, 184, 0.22);
+}
+
+.journey-step-item-thread {
+  margin-left: calc(var(--sjv-density-dock-tab-px) + 8px);
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  background: rgba(241, 245, 249, 0.5);
+}
+
+.journey-step-item-current-tick {
+  box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.25);
+  background: rgba(219, 234, 254, 0.35);
+}
+
+.journey-tick-badge {
+  min-width: 1.4rem;
+  height: 1.4rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  background: rgba(255, 255, 255, 0.9);
+  color: #475569;
+  font-size: calc(var(--sjv-density-control-font) - 2px);
+  font-weight: 700;
+  line-height: 1;
+}
+
+.journey-tick-badge-parallel {
+  border-color: rgba(37, 99, 235, 0.35);
+  color: #1d4ed8;
+  background: rgba(239, 246, 255, 0.95);
+}
+
+.journey-tick-badge-placeholder {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.journey-step-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.journey-step-label > span:last-child {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.journey-thread-pill {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  background: rgba(255, 255, 255, 0.86);
+  color: #334155;
+  font-size: calc(var(--sjv-density-control-font) - 2px);
+  padding: 1px 6px;
+  white-space: nowrap;
+}
+
+.journey-thread-pill-parallel {
+  border-color: rgba(14, 165, 233, 0.35);
+  background: rgba(224, 242, 254, 0.82);
+  color: #075985;
+}
+
+.journey-thread-pill-tick {
+  border-color: rgba(100, 116, 139, 0.25);
+  background: rgba(248, 250, 252, 0.8);
+  color: #475569;
+}
+
+.journey-tick-current-pill {
+  border-color: rgba(37, 99, 235, 0.28);
+  background: rgba(219, 234, 254, 0.92);
+  color: #1d4ed8;
+}
+
+.journey-step-thread-note {
+  color: #64748b;
+  font-size: calc(var(--sjv-density-control-font) - 2px);
+  white-space: nowrap;
 }
 
 .journey-steps li[draggable='true'] {
@@ -3521,6 +3636,68 @@
 .theme-dark .journey-item.journey-active {
   border-color: #60a5fa;
   background: #1e3a8a;
+}
+
+.theme-dark .journey-step-item-main {
+  border-color: rgba(71, 85, 105, 0.45);
+}
+
+.theme-dark .journey-step-item-thread {
+  border-color: rgba(71, 85, 105, 0.35);
+  background: rgba(30, 41, 59, 0.55);
+}
+
+.theme-dark .journey-step-item-current-tick {
+  background: rgba(37, 99, 235, 0.16);
+  box-shadow: 0 0 0 1px rgba(96, 165, 250, 0.25);
+}
+
+.theme-dark .journey-tick-group-header {
+  color: #94a3b8;
+}
+
+.theme-dark .journey-tick-group-header-current {
+  color: #93c5fd;
+}
+
+.theme-dark .journey-tick-badge {
+  border-color: rgba(100, 116, 139, 0.45);
+  background: rgba(15, 23, 42, 0.9);
+  color: #cbd5e1;
+}
+
+.theme-dark .journey-tick-badge-parallel {
+  border-color: rgba(96, 165, 250, 0.45);
+  background: rgba(30, 58, 138, 0.4);
+  color: #bfdbfe;
+}
+
+.theme-dark .journey-thread-pill {
+  border-color: rgba(100, 116, 139, 0.42);
+  background: rgba(15, 23, 42, 0.7);
+  color: #dbeafe;
+}
+
+.theme-dark .journey-thread-pill-parallel {
+  border-color: rgba(56, 189, 248, 0.42);
+  background: rgba(8, 47, 73, 0.68);
+  color: #bae6fd;
+}
+
+.theme-dark .journey-thread-pill-tick {
+  border-color: rgba(100, 116, 139, 0.3);
+  background: rgba(15, 23, 42, 0.72);
+  color: #cbd5e1;
+}
+
+.theme-dark .journey-tick-current-pill {
+  border-color: rgba(96, 165, 250, 0.38);
+  background: rgba(30, 58, 138, 0.5);
+  color: #bfdbfe;
+}
+
+.theme-dark .journey-step-thread-note {
+  color: #94a3b8;
 }
 
 .theme-dark .journey-speed-control {

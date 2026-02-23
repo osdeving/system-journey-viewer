@@ -15,6 +15,135 @@ const cloneWorkspace = (workspace: WorkspaceModel): WorkspaceModel => {
   return JSON.parse(JSON.stringify(workspace)) as WorkspaceModel
 }
 
+const PARALLEL_SHOWCASE_JOURNEY_ID = 'j_c_parallel_threads'
+const STAGGERED_PARALLEL_SHOWCASE_JOURNEY_ID = 'j_c_parallel_staggered'
+
+const injectParallelThreadShowcaseJourney = (workspace: WorkspaceModel, locale: ShowcaseLocale): void => {
+  const containerView = workspace.views.v_container
+  if (!containerView) {
+    return
+  }
+
+  workspace.journeys[PARALLEL_SHOWCASE_JOURNEY_ID] = {
+    id: PARALLEL_SHOWCASE_JOURNEY_ID,
+    name:
+      locale === 'pt'
+        ? 'Demo de Jornadas Paralelas (Threads)'
+        : 'Parallel Journey Threads Demo',
+    colorKey: '#0ea5e9',
+    steps: [
+      { n: 1, edgeId: 'e_c_1' },
+      { n: 2, edgeId: 'e_c_2' },
+      { n: 3, edgeId: 'e_c_3' },
+      { n: 4, edgeId: 'e_c_4' },
+      {
+        n: 5,
+        edgeId: 'e_c_5',
+        threads: [
+          {
+            id: 't_projection',
+            steps: [
+              { n: 1, edgeId: 'e_c_6' },
+              { n: 2, edgeId: 'e_c_7' },
+              { n: 3, edgeId: 'e_c_8' },
+              { n: 4, edgeId: 'e_c_6' },
+              { n: 5, edgeId: 'e_c_7' },
+              { n: 6, edgeId: 'e_c_8' },
+            ],
+          },
+          {
+            id: 't_read_probe',
+            steps: [
+              { n: 1, edgeId: 'e_c_10' },
+              { n: 2, edgeId: 'e_c_11' },
+              { n: 3, edgeId: 'e_c_10' },
+              { n: 4, edgeId: 'e_c_11' },
+              { n: 5, edgeId: 'e_c_10' },
+              { n: 6, edgeId: 'e_c_11' },
+            ],
+          },
+        ],
+      },
+      { n: 6, edgeId: 'e_c_9' },
+      { n: 7, edgeId: 'e_c_10' },
+      { n: 8, edgeId: 'e_c_11' },
+      { n: 9, edgeId: 'e_c_9' },
+      { n: 10, edgeId: 'e_c_10' },
+      { n: 11, edgeId: 'e_c_11' },
+      { n: 12, edgeId: 'e_c_10' },
+      { n: 13, edgeId: 'e_c_11' },
+    ],
+    player: { loop: true, speedMs: 1800, pauseOnStep: false },
+  }
+
+  workspace.journeys[STAGGERED_PARALLEL_SHOWCASE_JOURNEY_ID] = {
+    id: STAGGERED_PARALLEL_SHOWCASE_JOURNEY_ID,
+    name:
+      locale === 'pt'
+        ? 'Threads Paralelas com Inicio Escalonado'
+        : 'Parallel Threads with Staggered Start',
+    colorKey: '#f97316',
+    steps: [
+      { n: 1, edgeId: 'e_c_1' },
+      { n: 2, edgeId: 'e_c_2' },
+      { n: 3, edgeId: 'e_c_3' },
+      {
+        n: 4,
+        edgeId: 'e_c_4',
+        threads: [
+          {
+            id: 't_projection',
+            steps: [
+              { n: 1, edgeId: 'e_c_6' },
+              { n: 2, edgeId: 'e_c_7' },
+              { n: 3, edgeId: 'e_c_8' },
+              { n: 4, edgeId: 'e_c_7' },
+            ],
+          },
+        ],
+      },
+      { n: 5, edgeId: 'e_c_5' },
+      { n: 6, edgeId: 'e_c_9' },
+      {
+        n: 7,
+        edgeId: 'e_c_10',
+        threads: [
+          {
+            id: 't_read_probe_late',
+            steps: [
+              { n: 1, edgeId: 'e_c_11' },
+              { n: 2, edgeId: 'e_c_10' },
+              { n: 3, edgeId: 'e_c_11' },
+            ],
+          },
+        ],
+      },
+      { n: 8, edgeId: 'e_c_11' },
+      { n: 9, edgeId: 'e_c_9' },
+      { n: 10, edgeId: 'e_c_10' },
+      { n: 11, edgeId: 'e_c_11' },
+    ],
+    player: { loop: true, speedMs: 1800, pauseOnStep: false },
+  }
+
+  if (!containerView.journeyIds.includes(PARALLEL_SHOWCASE_JOURNEY_ID)) {
+    const afterPrimaryIndex = containerView.journeyIds.indexOf('j_c_1')
+    if (afterPrimaryIndex >= 0) {
+      containerView.journeyIds.splice(afterPrimaryIndex + 1, 0, PARALLEL_SHOWCASE_JOURNEY_ID)
+    } else {
+      containerView.journeyIds.push(PARALLEL_SHOWCASE_JOURNEY_ID)
+    }
+  }
+  if (!containerView.journeyIds.includes(STAGGERED_PARALLEL_SHOWCASE_JOURNEY_ID)) {
+    const parallelIndex = containerView.journeyIds.indexOf(PARALLEL_SHOWCASE_JOURNEY_ID)
+    if (parallelIndex >= 0) {
+      containerView.journeyIds.splice(parallelIndex + 1, 0, STAGGERED_PARALLEL_SHOWCASE_JOURNEY_ID)
+    } else {
+      containerView.journeyIds.push(STAGGERED_PARALLEL_SHOWCASE_JOURNEY_ID)
+    }
+  }
+}
+
 const applyPortugueseText = (workspace: WorkspaceModel): void => {
   workspace.workspace.name = 'Plataforma de Pedidos - Showcase'
   workspace.views.v_container.name = 'Visao de Containers'
@@ -71,6 +200,8 @@ const applyPortugueseText = (workspace: WorkspaceModel): void => {
 
   const namesByJourneyId: Record<string, string> = {
     j_c_1: 'Criacao de Pedido (Sync + Evento)',
+    [PARALLEL_SHOWCASE_JOURNEY_ID]: 'Demo de Jornadas Paralelas (Threads)',
+    [STAGGERED_PARALLEL_SHOWCASE_JOURNEY_ID]: 'Threads Paralelas com Inicio Escalonado',
     j_c_2: 'Atualizacao Assincrona de Projecao',
     j_c_3: 'Consulta de Pedido',
     j_comp_1: 'Orquestracao de Componentes (ms-orders)',
@@ -108,6 +239,8 @@ export const createShowcaseWorkspace = (
   mode: ShowcaseMode = 'showcase',
 ): WorkspaceModel => {
   const workspace = cloneWorkspace(createDefaultWorkspace())
+
+  injectParallelThreadShowcaseJourney(workspace, locale)
 
   workspace.workspace.id =
     locale === 'pt'

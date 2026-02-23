@@ -22,4 +22,12 @@ describe('DiagramCanvas source regressions', () => {
     expect(diagramCanvasSource).toContain('node-depth-fill')
     expect(diagramCanvasSource).toContain('node-depth-rim')
   })
+
+  it('supports parallel playback marker shapes and multi-lane animation tracks', () => {
+    expect(diagramCanvasSource).toContain("type PlayerMarkerShape = 'orb' | 'square' | 'triangle'")
+    expect(diagramCanvasSource).toContain('resolvePlayerMarkerShape')
+    expect(diagramCanvasSource).toContain('currentPlayerLaneVisuals')
+    expect(diagramCanvasSource).toContain('playerMarkerPositionsRef')
+    expect(diagramCanvasSource).toContain('drawPlayerMarker(')
+  })
 })

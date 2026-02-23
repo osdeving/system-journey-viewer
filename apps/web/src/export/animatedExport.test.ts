@@ -6,10 +6,12 @@ import { describe, expect, it } from 'vitest'
 import {
   resolveExportPlaybackSpeedMs,
   resolveGifPaletteSampleIndices,
+  resolveJourneyAnimatedSvgLanes,
   resolveJourneyAnimationDurationMs,
   resolveJourneyLoopTimeline,
   resolveVideoMimeType,
 } from './animatedExport'
+import type { JourneyModel } from '../model/types'
 
 describe('animated export helpers', () => {
   it('computes journey duration with step speed and arrival hold', () => {
@@ -75,5 +77,58 @@ describe('animated export helpers', () => {
     expect(timeline.totalDurationMs).toBe(1280)
     expect(timeline.keyTimes).toEqual([0, 0.46875, 0.5, 0.96875, 1])
     expect(timeline.keyPoints).toEqual([0, 0.4, 0.4, 1, 1])
+  })
+
+  it('resolves animated svg lanes for threaded journeys with per-lane shapes and tick order', () => {
+    const journey: JourneyModel = {
+      id: 'j_parallel',
+      name: 'Parallel',
+      colorKey: '#2563eb',
+      steps: [
+        { n: 1, edgeId: 'e_1' },
+        {
+          n: 2,
+          edgeId: 'e_2',
+          threads: [
+            {
+              id: 't_projection',
+              steps: [
+                { n: 1, edgeId: 'e_t1_1' },
+                { n: 2, edgeId: 'e_t1_2' },
+              ],
+            },
+            {
+              id: 't_probe',
+              steps: [{ n: 1, edgeId: 'e_t2_1' }],
+            },
+          ],
+        },
+        { n: 3, edgeId: 'e_3' },
+      ],
+      player: {
+        loop: true,
+        speedMs: 900,
+        pauseOnStep: false,
+      },
+    }
+    const edgePaths = new Map<string, string>([
+      ['e_1', 'M0 0 L10 0'],
+      ['e_2', 'M10 0 L20 0'],
+      ['e_3', 'M20 0 L30 0'],
+      ['e_t1_1', 'M20 0 L20 10'],
+      ['e_t1_2', 'M20 10 L20 20'],
+      ['e_t2_1', 'M20 0 L30 10'],
+    ])
+
+    const lanes = resolveJourneyAnimatedSvgLanes(journey, edgePaths)
+
+    expect(lanes.map((lane) => ({ laneId: lane.laneId, shape: lane.shape }))).toEqual([
+      { laneId: 'main', shape: 'orb' },
+      { laneId: 'thread:t_projection', shape: 'square' },
+      { laneId: 'thread:t_probe', shape: 'triangle' },
+    ])
+    expect(lanes[0]?.steps.map((step) => step.tickIndex)).toEqual([0, 1, 2])
+    expect(lanes[1]?.steps.map((step) => step.tickIndex)).toEqual([2, 3])
+    expect(lanes[2]?.steps.map((step) => step.tickIndex)).toEqual([2])
   })
 })

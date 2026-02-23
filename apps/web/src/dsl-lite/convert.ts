@@ -303,9 +303,29 @@ const buildViewBlock = (
         usedJourneyTokens,
         `journey_${view.id}`,
       )
-      const steps = stepTokens.map(
-        (stepToken) => `      ${toJourneyStepText({ edgeId: stepToken })}`,
-      )
+      const steps = journey.steps
+        .slice()
+        .sort((left, right) => left.n - right.n)
+        .flatMap((step) => {
+          const mainStepToken = edgeTokensById.get(step.edgeId)
+          if (!mainStepToken) {
+            return []
+          }
+          const lines = [`      ${toJourneyStepText({ edgeId: mainStepToken })}`]
+          for (const thread of step.threads ?? []) {
+            const threadStepLines = thread.steps
+              .slice()
+              .sort((left, right) => left.n - right.n)
+              .map((threadStep) => edgeTokensById.get(threadStep.edgeId))
+              .filter((edgeToken): edgeToken is string => !!edgeToken)
+              .map((edgeToken) => `        ${toJourneyStepText({ edgeId: edgeToken })}`)
+            if (!threadStepLines.length) {
+              continue
+            }
+            lines.push(`      thread ${thread.id} {`, ...threadStepLines, '      }')
+          }
+          return lines
+        })
 
       return [
         `    journey ${journeyToken} "${encodeScriptText(journey.name)}" color ${journey.colorKey} {`,
@@ -552,11 +572,30 @@ export const liteToFullWorkspace = (ast: LiteWorkspaceAst): WorkspaceModel => {
     view.journeys.forEach((journey, index) => {
       const edgeLookupForView = edgeIdByTokenByView.get(view.id) ?? new Map<string, string>()
       const steps = journey.steps
-        .map((step, stepIndex) => ({
-          n: stepIndex + 1,
-          edgeId: edgeLookupForView.get(step.edgeId),
-        }))
-        .filter((step): step is { n: number; edgeId: string } => !!step.edgeId)
+        .map((step, stepIndex) => {
+          const edgeId = edgeLookupForView.get(step.edgeId)
+          if (!edgeId) {
+            return null
+          }
+          const threads = (step.threads ?? [])
+            .map((thread) => ({
+              id: sanitizeToken(thread.id, `t_${stepIndex + 1}`),
+              steps: thread.steps
+                .map((threadStep, threadStepIndex) => ({
+                  n: threadStepIndex + 1,
+                  edgeId: edgeLookupForView.get(threadStep.edgeId),
+                }))
+                .filter((threadStep): threadStep is { n: number; edgeId: string } => !!threadStep.edgeId),
+            }))
+            .filter((thread) => thread.steps.length > 0)
+
+          return {
+            n: stepIndex + 1,
+            edgeId,
+            ...(threads.length ? { threads } : {}),
+          }
+        })
+        .filter((step): step is { n: number; edgeId: string; threads?: Array<{ id: string; steps: { n: number; edgeId: string }[] }> } => !!step)
 
       const preferredJourneyId = sanitizeToken(
         journey.id,

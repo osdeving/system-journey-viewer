@@ -2,35 +2,31 @@
  * Purpose: Provide journey-specific logic for focus, playback labels, and timeline behavior.
  */
 
-import type { EdgeModel, JourneyModel, JourneyStep } from '../model/types'
-
-const byStepOrder = (left: JourneyStep, right: JourneyStep): number => left.n - right.n
-
-const resolveCurrentJourneyStep = (
-  journey: JourneyModel | undefined,
-  playerStepIndex: number,
-): JourneyStep | null => {
-  if (!journey) {
-    return null
-  }
-  const sortedSteps = journey.steps.slice().sort(byStepOrder)
-  return sortedSteps[playerStepIndex] ?? null
-}
+import type { EdgeModel, JourneyModel } from '../model/types'
+import { resolveJourneyPlaybackTick, resolveJourneyPrimaryTickStep } from './playbackPlan'
 
 export const resolvePlayerStepLabel = (
   journey: JourneyModel | undefined,
   edges: Record<string, EdgeModel>,
   playerStepIndex: number,
 ): string | null => {
-  const currentStep = resolveCurrentJourneyStep(journey, playerStepIndex)
-  if (!currentStep) {
+  const tick = resolveJourneyPlaybackTick(journey, playerStepIndex)
+  const primaryStep = resolveJourneyPrimaryTickStep(tick)
+  if (!primaryStep) {
     return null
   }
 
-  const edgeLabel = edges[currentStep.edgeId]?.label.trim()
-  if (edgeLabel) {
-    return edgeLabel
+  const labels = tick?.steps
+    .map((step) => edges[step.edgeId]?.label.trim() || step.edgeId)
+    .filter((label) => !!label) ?? []
+
+  if (!labels.length) {
+    return edges[primaryStep.edgeId]?.label.trim() || primaryStep.edgeId
   }
 
-  return currentStep.edgeId
+  if (labels.length === 1) {
+    return labels[0]
+  }
+
+  return `${labels[0]} (+${labels.length - 1} parallel)`
 }

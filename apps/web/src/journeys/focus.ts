@@ -1,8 +1,8 @@
 /**
- * Purpose: Provide journey-specific logic for focus, playback labels, and timeline behavior.
+ * Purpose: Provide journey-specific focus logic (including threaded journey branches) for canvas filtering.
  */
 
-import type { WorkspaceModel } from '../model/types'
+import type { JourneyStep, WorkspaceModel } from '../model/types'
 
 export type JourneyFocusScope = {
   edgeIds: Set<string>
@@ -11,6 +11,20 @@ export type JourneyFocusScope = {
 
 const sortByStepOrder = <T extends { n: number }>(steps: T[]): T[] =>
   steps.slice().sort((left, right) => left.n - right.n)
+
+const forEachJourneyStep = (
+  steps: JourneyStep[],
+  visit: (step: JourneyStep) => void,
+) => {
+  for (const step of sortByStepOrder(steps)) {
+    visit(step)
+    for (const thread of step.threads ?? []) {
+      for (const threadStep of sortByStepOrder(thread.steps)) {
+        visit(threadStep as JourneyStep)
+      }
+    }
+  }
+}
 
 const addBoundaryParents = (
   workspace: WorkspaceModel,
@@ -56,13 +70,13 @@ export const resolveJourneyFocusScope = (
   const focusedEdgeIds = new Set<string>()
   const focusedNodeIds = new Set<string>()
 
-  for (const step of sortByStepOrder(journey.steps)) {
+  forEachJourneyStep(journey.steps, (step) => {
     if (!edgeIdsInView.has(step.edgeId)) {
-      continue
+      return
     }
     const edge = workspace.edges[step.edgeId]
     if (!edge) {
-      continue
+      return
     }
     focusedEdgeIds.add(edge.id)
     if (nodeIdsInView.has(edge.from.nodeId)) {
@@ -76,7 +90,7 @@ export const resolveJourneyFocusScope = (
         focusedNodeIds.add(highlightNodeId)
       }
     }
-  }
+  })
 
   if (!focusedEdgeIds.size) {
     return null

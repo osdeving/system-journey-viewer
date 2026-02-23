@@ -16,6 +16,7 @@ const KEYWORDS = [
   'drilldown',
   'contains',
   'journey',
+  'thread',
   'color',
   'metadata',
   'ui-layout',

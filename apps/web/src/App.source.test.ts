@@ -128,6 +128,11 @@ describe('App source regressions', () => {
     expect(appSource).toContain('<GuidedTutorialOverlay')
   })
 
+  it('sanitizes help markdown comments before rendering the Guide tab', () => {
+    expect(appSource).toContain('const SANITIZED_HELP_GUIDE_MARKDOWN = helpGuideMarkdown.replace(/<!--[\\s\\S]*?-->/g, \'\').trimStart()')
+    expect(appSource).toContain('<ReactMarkdown>{SANITIZED_HELP_GUIDE_MARKDOWN}</ReactMarkdown>')
+  })
+
   it('renders managed window hosts in dedicated left/right/bottom layout regions', () => {
     expect(appSource).toContain('managedLeftHostVisible')
     expect(appSource).toContain('managedRightHostVisible')

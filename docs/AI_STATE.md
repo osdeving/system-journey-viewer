@@ -324,6 +324,10 @@
 - Animated SVG export now preserves lane identity per marker (`main=orb`, `thread1=square`, `thread2+=triangle`) and thread start/finish windows within the shared global tick timeline (delayed start lanes stay hidden until their first tick; finished lanes hide after their last tick).
 - Help Guide markdown rendering now strips HTML comments before passing content to `ReactMarkdown`, preventing top-of-file `<!-- Purpose: ... -->` headers from leaking into the Help tab UI.
 - Persistence/help/tutorial regressions were revalidated after the thread/export work (editor snapshot, UI layout persistence, guided tutorial, Help panel source render, full web lint/test/build).
+- Animated GIF/MP4 export readability is now normalized for cross-monitor viewing:
+  - the app temporarily fits the selected journey into the canvas before capture,
+  - raster output dimensions are normalized into a default `1280x720` bounding box (aspect-preserving),
+  - export SVG serialization now adds a fallback `viewBox` when absent so resized output dimensions scale content correctly instead of making it appear smaller.
 
 ## Suggested Next Increments
 

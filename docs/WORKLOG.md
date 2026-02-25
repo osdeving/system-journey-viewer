@@ -2561,6 +2561,7 @@ Chronological engineering log. Entries are kept concise and focused on behavior 
   - added pure activation-bar segment inference from rendered message placements (source + target participation, self-message dedupe, gap-based merge).
 - `apps/web/src/components/sequence/SequenceDiagramView.tsx`
   - renderer now infers participant activation segments and paints activation bars per row slice (including parallel groups),
+  - row-slice rendering now adds controlled vertical bleed to prevent visible activation gaps between adjacent timeline rows,
   - message arrows now anchor to activation-bar edges for non-actor participants,
   - removed per-message target-only activation rectangles to avoid inconsistent semantics.
 

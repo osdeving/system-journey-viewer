@@ -4,7 +4,10 @@
 
 import { useId, useMemo, type ReactElement } from 'react'
 import { CanvasText } from '../canvas/CanvasText'
-import { resolveSequenceActivationSegments } from '../../sequence/activationBars'
+import {
+  resolveSequenceActivationRowSlice,
+  resolveSequenceActivationSegments,
+} from '../../sequence/activationBars'
 import type {
   SequenceDiagramScene,
   SequenceMessage,
@@ -104,6 +107,7 @@ type LayoutMessagePlacement = {
 }
 
 const ACTIVATION_BAR_WIDTH = 12
+const ACTIVATION_ROW_BLEED = 8
 
 const clampByte = (value: number): number => Math.max(0, Math.min(255, Math.round(value)))
 
@@ -428,18 +432,6 @@ const collectLayoutMessagePlacements = (rows: LayoutRow[]): LayoutMessagePlaceme
   return placements
 }
 
-const resolveRowActivationSliceHeight = (segmentStartY: number, segmentEndY: number, rowY: number, rowHeight: number) => {
-  const startY = Math.max(segmentStartY, rowY)
-  const endY = Math.min(segmentEndY, rowY + rowHeight)
-  if (endY <= startY) {
-    return null
-  }
-  return {
-    y: startY,
-    height: endY - startY,
-  }
-}
-
 const ParticipantHeader = ({
   participant,
 }: {
@@ -662,7 +654,10 @@ export const SequenceDiagramView = ({ scene, theme }: SequenceDiagramViewProps) 
       if (!participant) {
         return []
       }
-      const slice = resolveRowActivationSliceHeight(segment.startY, segment.endY, rowY, rowHeight)
+      const slice = resolveSequenceActivationRowSlice(segment, rowY, rowHeight, {
+        topBleed: ACTIVATION_ROW_BLEED,
+        bottomBleed: ACTIVATION_ROW_BLEED,
+      })
       if (!slice) {
         return []
       }

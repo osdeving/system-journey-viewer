@@ -15,6 +15,11 @@ export interface SequenceActivationSegment {
   endY: number
 }
 
+export interface SequenceActivationRowSlice {
+  y: number
+  height: number
+}
+
 export type ResolveSequenceActivationSegmentsOptions = {
   topInset?: number
   bottomInset?: number
@@ -23,6 +28,25 @@ export type ResolveSequenceActivationSegmentsOptions = {
 }
 
 const clampNonNegative = (value: number): number => (Number.isFinite(value) ? Math.max(0, value) : 0)
+
+export const resolveSequenceActivationRowSlice = (
+  segment: Pick<SequenceActivationSegment, 'startY' | 'endY'>,
+  rowY: number,
+  rowHeight: number,
+  options?: { topBleed?: number; bottomBleed?: number },
+): SequenceActivationRowSlice | null => {
+  const clipTop = clampNonNegative(rowY - (options?.topBleed ?? 0))
+  const clipBottom = clampNonNegative(rowY + rowHeight + (options?.bottomBleed ?? 0))
+  const startY = Math.max(segment.startY, clipTop)
+  const endY = Math.min(segment.endY, clipBottom)
+  if (endY <= startY) {
+    return null
+  }
+  return {
+    y: startY,
+    height: endY - startY,
+  }
+}
 
 export const resolveSequenceActivationSegments = (
   placements: SequenceActivationMessagePlacement[],
@@ -97,4 +121,3 @@ export const resolveSequenceActivationSegments = (
       left.endY - right.endY,
   )
 }
-

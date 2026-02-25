@@ -2547,3 +2547,27 @@ Chronological engineering log. Entries are kept concise and focused on behavior 
 
 - Current sequence rendering is intentionally inferred/read-only (not a sequence editor) and does not yet model explicit semantic blocks like `alt/opt/loop` because those semantics are not first-class in SJV journeys yet.
 - The new IR is the intended seam for future manual enrichment and/or PlantUML export generation without coupling renderer and DSL parsing logic.
+
+## 2026-02-25 - Sequence presentation activation semantics hotfix (continuous activation bars)
+
+### Scope
+
+- Corrected the inferred sequence renderer so participant activation is represented as a continuous activation bar across adjacent message activity instead of only highlighting the message target row.
+- Improved arrow anchoring so messages visually connect to activation bars (more formal sequence-diagram semantics).
+
+### Changes
+
+- `apps/web/src/sequence/activationBars.ts`, `apps/web/src/sequence/activationBars.test.ts`
+  - added pure activation-bar segment inference from rendered message placements (source + target participation, self-message dedupe, gap-based merge).
+- `apps/web/src/components/sequence/SequenceDiagramView.tsx`
+  - renderer now infers participant activation segments and paints activation bars per row slice (including parallel groups),
+  - message arrows now anchor to activation-bar edges for non-actor participants,
+  - removed per-message target-only activation rectangles to avoid inconsistent semantics.
+
+### Validation
+
+- `git diff --check`
+- `npm --workspace @sjv/web run test:run -- src/sequence/activationBars.test.ts src/sequence/deriveSequenceScene.test.ts`
+- `npm --workspace @sjv/web run lint`
+- `npm --workspace @sjv/web run test:run`
+- `npm --workspace @sjv/web run build`

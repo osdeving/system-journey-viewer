@@ -4,6 +4,7 @@
 
 import { useId, useMemo, type ReactElement } from 'react'
 import { CanvasText } from '../canvas/CanvasText'
+import { resolveSequenceActivationSegments } from '../../sequence/activationBars'
 import type {
   SequenceDiagramScene,
   SequenceMessage,
@@ -95,6 +96,14 @@ type SequenceDiagramLayout = {
   participants: LayoutParticipant[]
   rows: LayoutRow[]
 }
+
+type LayoutMessagePlacement = {
+  message: SequenceMessage
+  y: number
+  height: number
+}
+
+const ACTIVATION_BAR_WIDTH = 12
 
 const clampByte = (value: number): number => Math.max(0, Math.min(255, Math.round(value)))
 
@@ -394,6 +403,43 @@ const resolveLayout = (scene: SequenceDiagramScene): SequenceDiagramLayout => {
   }
 }
 
+const collectLayoutMessagePlacements = (rows: LayoutRow[]): LayoutMessagePlacement[] => {
+  const placements: LayoutMessagePlacement[] = []
+  for (const row of rows) {
+    if (row.kind === 'message') {
+      placements.push({
+        message: row.row.message,
+        y: row.y,
+        height: row.height,
+      })
+      continue
+    }
+    if (row.kind !== 'parallel') {
+      continue
+    }
+    for (const branch of row.branches) {
+      placements.push({
+        message: branch.message,
+        y: branch.y,
+        height: branch.height,
+      })
+    }
+  }
+  return placements
+}
+
+const resolveRowActivationSliceHeight = (segmentStartY: number, segmentEndY: number, rowY: number, rowHeight: number) => {
+  const startY = Math.max(segmentStartY, rowY)
+  const endY = Math.min(segmentEndY, rowY + rowHeight)
+  if (endY <= startY) {
+    return null
+  }
+  return {
+    y: startY,
+    height: endY - startY,
+  }
+}
+
 const ParticipantHeader = ({
   participant,
 }: {
@@ -468,7 +514,6 @@ const renderMessageGlyph = (
   wrappedLabel: string,
   labelLineCount: number,
   y: number,
-  height: number,
   participants: Map<string, LayoutParticipant>,
   markerIds: { sync: string; async: string },
   theme: 'light' | 'dark',
@@ -492,24 +537,32 @@ const renderMessageGlyph = (
   const labelBoxHeight = 18 + Math.max(0, labelLineCount - 1) * 13
   const labelBoxFill = mixHexColors(message.accentColor, theme === 'dark' ? '#0f172a' : '#ffffff', theme === 'dark' ? 0.45 : 0.84)
   const labelBoxBorder = mixHexColors(message.accentColor, theme === 'dark' ? '#e2e8f0' : '#0f172a', theme === 'dark' ? 0.12 : 0.06)
-  const activationFill = mixHexColors(message.accentColor, theme === 'dark' ? '#e2e8f0' : '#ffffff', theme === 'dark' ? 0.28 : 0.62)
   const markerEnd = `url(#${message.arrowStyle === 'async' ? markerIds.async : markerIds.sync})`
   const strokeDasharray = message.arrowStyle === 'async' ? '6 5' : undefined
+  const fromActivationInset = from.kind === 'actor' ? 0 : ACTIVATION_BAR_WIDTH / 2
+  const toActivationInset = to.kind === 'actor' ? 0 : ACTIVATION_BAR_WIDTH / 2
+
+  const resolveArrowX = (sourceX: number, targetX: number, sourceInset: number, targetInset: number) => {
+    if (sourceX < targetX) {
+      return {
+        x1: sourceX + sourceInset,
+        x2: targetX - targetInset,
+      }
+    }
+    if (sourceX > targetX) {
+      return {
+        x1: sourceX - sourceInset,
+        x2: targetX + targetInset,
+      }
+    }
+    return { x1: sourceX, x2: targetX }
+  }
+
+  const arrowXs = resolveArrowX(from.centerX, to.centerX, fromActivationInset, toActivationInset)
+  const selfBaseX = from.centerX + fromActivationInset
 
   return (
     <g>
-      <rect
-        x={to.centerX - 5}
-        y={y + 14}
-        width={10}
-        height={Math.max(20, height - 22)}
-        rx={4}
-        fill={activationFill}
-        stroke={mixHexColors(message.accentColor, '#ffffff', 0.35)}
-        strokeWidth={1}
-        opacity={0.92}
-      />
-
       <rect
         x={labelBoxX}
         y={labelY - 8}
@@ -535,9 +588,9 @@ const renderMessageGlyph = (
 
       {!message.isSelfMessage ? (
         <line
-          x1={from.centerX}
+          x1={arrowXs.x1}
           y1={arrowY}
-          x2={to.centerX}
+          x2={arrowXs.x2}
           y2={arrowY}
           stroke={message.accentColor}
           strokeWidth={2}
@@ -547,7 +600,7 @@ const renderMessageGlyph = (
         />
       ) : (
         <path
-          d={`M ${from.centerX} ${arrowY} C ${from.centerX + 40} ${arrowY}, ${from.centerX + 40} ${arrowY + 24}, ${from.centerX} ${
+          d={`M ${selfBaseX} ${arrowY} C ${selfBaseX + 40} ${arrowY}, ${selfBaseX + 40} ${arrowY + 24}, ${selfBaseX} ${
             arrowY + 24
           }`}
           fill="none"
@@ -566,6 +619,26 @@ export const SequenceDiagramView = ({ scene, theme }: SequenceDiagramViewProps) 
   const markerBaseId = useId().replace(/[^a-zA-Z0-9_-]/g, '_')
   const palette = useMemo(() => resolvePalette(theme), [theme])
   const layout = useMemo(() => (scene ? resolveLayout(scene) : null), [scene])
+  const participantsById = useMemo(
+    () => new Map((layout?.participants ?? []).map((participant) => [participant.id, participant])),
+    [layout],
+  )
+  const activationSegments = useMemo(() => {
+    if (!layout) {
+      return []
+    }
+    const placements = collectLayoutMessagePlacements(layout.rows)
+    const rawSegments = resolveSequenceActivationSegments(
+      placements.map((placement) => ({
+        fromParticipantId: placement.message.fromParticipantId,
+        toParticipantId: placement.message.toParticipantId,
+        y: placement.y,
+        height: placement.height,
+      })),
+      { mergeGap: 34 },
+    )
+    return rawSegments.filter((segment) => participantsById.get(segment.participantId)?.kind !== 'actor')
+  }, [layout, participantsById])
 
   if (!scene || !layout) {
     return (
@@ -578,11 +651,46 @@ export const SequenceDiagramView = ({ scene, theme }: SequenceDiagramViewProps) 
     )
   }
 
-  const participantsById = new Map(layout.participants.map((participant) => [participant.id, participant]))
   const markerIds = {
     sync: `${markerBaseId}_arrow_sync`,
     async: `${markerBaseId}_arrow_async`,
   }
+
+  const renderActivationBarsForRow = (rowY: number, rowHeight: number): ReactElement[] =>
+    activationSegments.flatMap((segment) => {
+      const participant = participantsById.get(segment.participantId)
+      if (!participant) {
+        return []
+      }
+      const slice = resolveRowActivationSliceHeight(segment.startY, segment.endY, rowY, rowHeight)
+      if (!slice) {
+        return []
+      }
+      const fill = mixHexColors(
+        participant.fillColor,
+        palette.panelBackground,
+        theme === 'dark' ? 0.28 : 0.58,
+      )
+      const stroke = mixHexColors(
+        participant.borderColor,
+        theme === 'dark' ? '#e2e8f0' : '#0f172a',
+        theme === 'dark' ? 0.18 : 0.1,
+      )
+      return [
+        <rect
+          key={`activation:${segment.participantId}:${rowY}:${slice.y}:${slice.height}`}
+          x={participant.centerX - ACTIVATION_BAR_WIDTH / 2}
+          y={slice.y}
+          width={ACTIVATION_BAR_WIDTH}
+          height={Math.max(1, slice.height)}
+          rx={5}
+          fill={fill}
+          stroke={stroke}
+          strokeWidth={1}
+          opacity={0.94}
+        />,
+      ]
+    })
 
   return (
     <div className="sequence-diagram-surface">
@@ -676,6 +784,7 @@ export const SequenceDiagramView = ({ scene, theme }: SequenceDiagramViewProps) 
                     strokeWidth={1.1}
                     opacity={0.96}
                   />
+                  {renderActivationBarsForRow(rowLayout.y, rowLayout.height)}
                   <text
                     x={layout.contentLeft + 14}
                     y={rowLayout.y + rowLayout.height / 2}
@@ -706,6 +815,7 @@ export const SequenceDiagramView = ({ scene, theme }: SequenceDiagramViewProps) 
                     strokeWidth={1.2}
                     opacity={0.97}
                   />
+                  {renderActivationBarsForRow(rowLayout.y, rowLayout.height)}
                   {rowLayout.row.label ? (
                     <text
                       x={rowLayout.boxX + 12}
@@ -746,6 +856,7 @@ export const SequenceDiagramView = ({ scene, theme }: SequenceDiagramViewProps) 
                     fill={stripeFill}
                     opacity={0.84}
                   />
+                  {renderActivationBarsForRow(rowLayout.y, rowLayout.height)}
                   {renderTickPill(layout.contentLeft + 8, rowLayout.y + rowLayout.height - 14, rowLayout.row.tickLabel, palette)}
                   {renderTickPill(
                     layout.contentLeft + 76,
@@ -758,15 +869,14 @@ export const SequenceDiagramView = ({ scene, theme }: SequenceDiagramViewProps) 
                     },
                   )}
                   <g style={{ color: rowLayout.row.message.accentColor }}>
-                    {renderMessageGlyph(
-                      rowLayout.row.message,
-                      rowLayout.wrappedLabel,
-                      rowLayout.labelLineCount,
-                      rowLayout.y,
-                      rowLayout.height,
-                      participantsById,
-                      markerIds,
-                      theme,
+                      {renderMessageGlyph(
+                        rowLayout.row.message,
+                        rowLayout.wrappedLabel,
+                        rowLayout.labelLineCount,
+                        rowLayout.y,
+                        participantsById,
+                        markerIds,
+                        theme,
                     )}
                   </g>
                 </g>
@@ -795,6 +905,19 @@ export const SequenceDiagramView = ({ scene, theme }: SequenceDiagramViewProps) 
                   stroke={groupBorder}
                   strokeWidth={1.25}
                 />
+                {rowLayout.branches.map((branch) => (
+                  <rect
+                    key={`branch-bg:${branch.message.id}`}
+                    x={layout.contentLeft + 8}
+                    y={branch.y}
+                    width={layout.contentWidth - 16}
+                    height={branch.height}
+                    rx={10}
+                    fill={mixHexColors(branch.message.accentColor, palette.panelBackground, theme === 'dark' ? 0.84 : 0.92)}
+                    opacity={0.97}
+                  />
+                ))}
+                {renderActivationBarsForRow(rowLayout.y, rowLayout.height)}
                 <text
                   x={layout.contentLeft + 12}
                   y={rowLayout.y + 16}
@@ -807,15 +930,6 @@ export const SequenceDiagramView = ({ scene, theme }: SequenceDiagramViewProps) 
 
                 {rowLayout.branches.map((branch) => (
                   <g key={branch.message.id}>
-                    <rect
-                      x={layout.contentLeft + 8}
-                      y={branch.y}
-                      width={layout.contentWidth - 16}
-                      height={branch.height}
-                      rx={10}
-                      fill={mixHexColors(branch.message.accentColor, palette.panelBackground, theme === 'dark' ? 0.84 : 0.92)}
-                      opacity={0.97}
-                    />
                     {renderTickPill(
                       layout.contentLeft + 16,
                       branch.y + branch.height - 13,
@@ -832,7 +946,6 @@ export const SequenceDiagramView = ({ scene, theme }: SequenceDiagramViewProps) 
                         branch.wrappedLabel,
                         branch.labelLineCount,
                         branch.y,
-                        branch.height,
                         participantsById,
                         markerIds,
                         theme,

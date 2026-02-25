@@ -1805,6 +1805,55 @@
   isolation: isolate;
 }
 
+.sequence-diagram-surface {
+  position: absolute;
+  inset: 0;
+  overflow: auto;
+  padding: 18px;
+  background:
+    radial-gradient(circle at 8% 8%, rgba(14, 165, 233, 0.14), transparent 38%),
+    radial-gradient(circle at 92% 12%, rgba(59, 130, 246, 0.12), transparent 42%),
+    linear-gradient(180deg, rgba(248, 250, 252, 0.88), rgba(241, 245, 249, 0.82));
+}
+
+.sequence-diagram-scroll {
+  min-width: 100%;
+  min-height: 100%;
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-start;
+}
+
+.sequence-diagram-svg {
+  display: block;
+  max-width: none;
+  box-shadow: 0 22px 44px rgba(15, 23, 42, 0.18);
+  border-radius: 18px;
+}
+
+.sequence-diagram-empty {
+  margin: auto;
+  max-width: 480px;
+  padding: 20px 22px;
+  border-radius: 14px;
+  border: 1px solid rgba(148, 163, 184, 0.45);
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 16px 30px rgba(15, 23, 42, 0.12);
+}
+
+.sequence-diagram-empty h3 {
+  margin: 0 0 8px;
+  font-size: 15px;
+  color: #0f172a;
+}
+
+.sequence-diagram-empty p {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.45;
+  color: #475569;
+}
+
 .canvas-back-arrow {
   position: absolute;
   left: 10px;
@@ -3586,6 +3635,31 @@
   border-color: #38bdf8;
   background: linear-gradient(180deg, #0c4a6e, #075985);
   color: #e0f2fe;
+}
+
+.theme-dark .sequence-diagram-surface {
+  background:
+    radial-gradient(circle at 8% 8%, rgba(14, 165, 233, 0.14), transparent 38%),
+    radial-gradient(circle at 92% 12%, rgba(96, 165, 250, 0.14), transparent 42%),
+    linear-gradient(180deg, rgba(2, 6, 23, 0.86), rgba(15, 23, 42, 0.78));
+}
+
+.theme-dark .sequence-diagram-svg {
+  box-shadow: 0 22px 44px rgba(2, 6, 23, 0.42);
+}
+
+.theme-dark .sequence-diagram-empty {
+  background: rgba(15, 23, 42, 0.92);
+  border-color: rgba(71, 85, 105, 0.9);
+  box-shadow: 0 16px 30px rgba(2, 6, 23, 0.34);
+}
+
+.theme-dark .sequence-diagram-empty h3 {
+  color: #f8fafc;
+}
+
+.theme-dark .sequence-diagram-empty p {
+  color: #cbd5e1;
 }
 
 .theme-dark .topbar-actions button:hover {

@@ -133,6 +133,19 @@ describe('App source regressions', () => {
     expect(appSource).toContain('<ReactMarkdown>{SANITIZED_HELP_GUIDE_MARKDOWN}</ReactMarkdown>')
   })
 
+  it('supports a presentation sequence-diagram surface with static export actions', () => {
+    expect(appSource).toContain("type PresentationSurface = 'journey' | 'sequence'")
+    expect(appSource).toContain("const [presentationSurface, setPresentationSurface] = useState<PresentationSurface>('journey')")
+    expect(appSource).toContain("import { SequenceDiagramView } from './components/sequence/SequenceDiagramView'")
+    expect(appSource).toContain("value={presentationSurface}")
+    expect(appSource).toContain('Surface: Sequence diagram')
+    expect(appSource).toContain('Export Sequence SVG')
+    expect(appSource).toContain('Export Sequence PNG')
+    expect(appSource).toContain('Export Sequence PDF')
+    expect(appSource).toContain('<SequenceDiagramView scene={presentationSequenceScene} theme={theme} />')
+    expect(appSource).toContain("document.querySelector(sequenceModeActive ? '.sequence-diagram-svg' : '.diagram-canvas')")
+  })
+
   it('renders managed window hosts in dedicated left/right/bottom layout regions', () => {
     expect(appSource).toContain('managedLeftHostVisible')
     expect(appSource).toContain('managedRightHostVisible')

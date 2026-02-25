@@ -58,6 +58,7 @@ import {
   ZoomOut,
 } from 'lucide-react'
 import './App.css'
+import { SequenceDiagramView } from './components/sequence/SequenceDiagramView'
 import { OverflowStrip } from './components/chrome/OverflowStrip'
 import { SplashScreen } from './components/chrome/SplashScreen'
 import { GuidedTutorialOverlay } from './components/tutorial/GuidedTutorialOverlay'
@@ -116,6 +117,7 @@ import { nodePresetsByCategory, protocolPresets, resolveNodePreset } from './pre
 import { iconForKey } from './presets/iconPipeline'
 import { applyWorkspaceLayout, loadWorkspaceLayout, saveWorkspaceLayout } from './store/layoutPersistence'
 import { useEditorStore } from './store/useEditorStore'
+import { deriveSequenceDiagramScene } from './sequence/deriveSequenceScene'
 import {
   buildViewHierarchyOptions,
   resolvePreferredEntryViewId,
@@ -211,6 +213,7 @@ type DockTab = 'palette' | 'inspector' | 'journeys' | 'timeline' | 'dsl' | 'help
 type DockPosition = 'left' | 'right' | 'bottom' | 'floating'
 type DesktopMenuId = 'file' | 'edit' | 'view' | 'window' | 'journey' | 'insert' | 'settings' | 'help'
 type PlayerAnimationPreset = 'cinematic' | 'orb' | 'minimal'
+type PresentationSurface = 'journey' | 'sequence'
 type FileWriteMode = 'prompt' | 'reuse'
 type StepDragState = { journeyId: string; edgeId: string }
 type HelpSection = 'guide' | 'gallery' | 'about'
@@ -711,6 +714,7 @@ function App() {
   const [dslMaximized, setDslMaximized] = useState(windowLayoutBootstrap.dslMaximized)
   const [focusMode, setFocusMode] = useState(windowLayoutBootstrap.focusMode)
   const [presentationMode, setPresentationMode] = useState(windowLayoutBootstrap.presentationMode)
+  const [presentationSurface, setPresentationSurface] = useState<PresentationSurface>('journey')
   const [leftSidebarCollapsed, setLeftSidebarCollapsed] = useState(false)
   const [dockCollapsed, setDockCollapsed] = useState(windowLayoutBootstrap.dockCollapsed)
   const [drawerCollapsed, setDrawerCollapsed] = useState(windowLayoutBootstrap.drawerCollapsed)
@@ -831,8 +835,25 @@ function App() {
     () => resolvePlayerStepLabel(playerJourney, workspace.edges, playerStepIndex),
     [playerJourney, playerStepIndex, workspace.edges],
   )
+  const presentationSequenceScene = useMemo(
+    () =>
+      playerJourneyId
+        ? deriveSequenceDiagramScene({
+            workspace,
+            viewId: currentViewId,
+            journeyId: playerJourneyId,
+            theme,
+          })
+        : null,
+    [currentViewId, playerJourneyId, theme, workspace],
+  )
   const currentViewModeLabel = viewKindLabel[currentView.kind] ?? currentView.kind
-  const playerModeLabel = playerIsRunning ? 'Animation' : 'Render'
+  const playerModeLabel =
+    presentationMode && presentationSurface === 'sequence'
+      ? 'Sequence'
+      : playerIsRunning
+        ? 'Animation'
+        : 'Render'
   const immersiveMode = focusMode || presentationMode
   const canNavigateBack = viewHistory.length > 0
   const legacyDockShellAvailable = dockTabOrder.some((tab) => !isManagedDockTab(tab))
@@ -2963,18 +2984,26 @@ function App() {
   }, [deleteCurrentSelection, duplicateCurrentSelection, redoHistory, runAutoArrange, undoHistory])
 
   const exportFromCanvas = async (format: 'svg' | 'png' | 'pdf') => {
-    const svg = document.querySelector('.diagram-canvas')
+    const sequenceModeActive = presentationMode && presentationSurface === 'sequence'
+    const svg = document.querySelector(sequenceModeActive ? '.sequence-diagram-svg' : '.diagram-canvas')
     if (!(svg instanceof SVGSVGElement)) {
-      setExportError('Canvas not found for export.')
+      setExportError(sequenceModeActive ? 'Sequence diagram not found for export.' : 'Canvas not found for export.')
       return
     }
     try {
+      const sequenceFilenameBase =
+        sequenceModeActive && playerJourney
+          ? `sequence-${playerJourney.name
+              .toLowerCase()
+              .replace(/[^a-z0-9]+/g, '-')
+              .replace(/(^-|-$)/g, '') || 'diagram'}`
+          : null
       if (format === 'svg') {
-        exportSvg(svg)
+        exportSvg(svg, sequenceFilenameBase ? `${sequenceFilenameBase}.svg` : undefined)
       } else if (format === 'png') {
-        await exportPng(svg)
+        await exportPng(svg, sequenceFilenameBase ? `${sequenceFilenameBase}.png` : undefined)
       } else {
-        await exportPdf(svg)
+        await exportPdf(svg, sequenceFilenameBase ? `${sequenceFilenameBase}.pdf` : undefined)
       }
       setExportError(null)
     } catch (error) {
@@ -5598,21 +5627,32 @@ function App() {
           ) : (
             <div className="mode-indicators mode-indicators-presentation">
               <span className="mode-pill mode-pill-active">View: Presentation</span>
-              <span className={playerIsRunning ? 'mode-pill mode-pill-playing' : 'mode-pill'}>
-                Step {playerStepIndex + 1}/{playerJourneyPlaybackLength}
-              </span>
-              {currentPlayerStepLabel ? (
-                <span
-                  className={
-                    playerIsRunning
-                      ? 'mode-pill mode-pill-playing mode-pill-step-name'
-                      : 'mode-pill mode-pill-step-name'
-                  }
-                  title={withTooltip(currentPlayerStepLabel)}
-                >
-                  {currentPlayerStepLabel}
-                </span>
-              ) : null}
+              {presentationSurface === 'sequence' ? (
+                <>
+                  <span className="mode-pill mode-pill-active">Surface: Sequence</span>
+                  <span className="mode-pill mode-pill-step-name" title={withTooltip(playerJourney?.name ?? 'Select a journey')}>
+                    {playerJourney ? `Journey: ${playerJourney.name}` : 'Journey: select'}
+                  </span>
+                </>
+              ) : (
+                <>
+                  <span className={playerIsRunning ? 'mode-pill mode-pill-playing' : 'mode-pill'}>
+                    Step {playerStepIndex + 1}/{playerJourneyPlaybackLength}
+                  </span>
+                  {currentPlayerStepLabel ? (
+                    <span
+                      className={
+                        playerIsRunning
+                          ? 'mode-pill mode-pill-playing mode-pill-step-name'
+                          : 'mode-pill mode-pill-step-name'
+                      }
+                      title={withTooltip(currentPlayerStepLabel)}
+                    >
+                      {currentPlayerStepLabel}
+                    </span>
+                  ) : null}
+                </>
+              )}
             </div>
           )}
         </div>
@@ -5624,13 +5664,19 @@ function App() {
                 value={playerJourneyId ?? ''}
                 onChange={(event) => {
                   const nextJourneyId = event.target.value || null
-                  activateJourneyPlayback(nextJourneyId)
+                  if (presentationSurface === 'sequence') {
+                    setPlayerJourney(nextJourneyId)
+                    setPlayerRunning(false)
+                    resetPlayer()
+                  } else {
+                    activateJourneyPlayback(nextJourneyId)
+                  }
                   if (nextJourneyId) {
                     setActiveJourney(nextJourneyId)
                   }
                 }}
               >
-                <option value="">Player: select journey</option>
+                <option value="">{presentationSurface === 'sequence' ? 'Sequence: select journey' : 'Player: select journey'}</option>
                 {viewJourneys.map((journey) => (
                   <option key={journey.id} value={journey.id}>
                     {journey.name}
@@ -5639,73 +5685,124 @@ function App() {
               </select>
               <select
                 className="presentation-select"
-                value={playerAnimationPreset}
-                onChange={(event) => applyPlayerAnimationPreset(event.target.value as PlayerAnimationPreset)}
+                value={presentationSurface}
+                onChange={(event) => {
+                  const nextSurface = event.target.value as PresentationSurface
+                  setPresentationSurface(nextSurface)
+                  if (nextSurface === 'sequence') {
+                    setPlayerRunning(false)
+                  }
+                }}
               >
-                <option value="cinematic">Animation: Cinematic</option>
-                <option value="orb">Animation: Orb only</option>
-                <option value="minimal">Animation: Minimal</option>
+                <option value="journey">Surface: Journey animation</option>
+                <option value="sequence">Surface: Sequence diagram</option>
               </select>
-              <div className="journey-player-actions journey-player-actions-iconic" role="group" aria-label="Player controls">
-                <button type="button" disabled={!playerJourney} onClick={() => prevPlayerStep()} aria-label="Previous step">
-                  <SkipBack size={15} />
-                </button>
-                <button
-                  type="button"
-                  disabled={!playerJourney}
-                  onClick={() => setPlayerRunning(!playerIsRunning)}
-                  aria-label={playerIsRunning ? 'Pause player' : 'Start player'}
-                >
-                  {playerIsRunning ? <Pause size={16} /> : <Play size={16} />}
-                </button>
-                <button type="button" disabled={!playerJourney} onClick={() => stepPlayer()} aria-label="Next step">
-                  <SkipForward size={15} />
-                </button>
-                <button type="button" disabled={!playerJourney} onClick={() => resetPlayer()} aria-label="Reset player">
-                  <RotateCcw size={15} />
-                </button>
-              </div>
-              <label className="journey-speed-control presentation-speed-control">
-                Speed
-                <input
-                  type="range"
-                  min={120}
-                  max={1800}
-                  step={60}
-                  value={playerSpeedMs}
-                  onChange={(event) => setPlayerSpeedMs(Number(event.target.value))}
-                />
-              </label>
-              <button
-                type="button"
-                className="presentation-export-button"
-                disabled={!playerJourney || animatedExportRunning}
-                onClick={() => {
-                  void exportAnimatedFromCanvas('gif')
-                }}
-              >
-                {animatedExportRunning ? 'Exporting...' : 'Export GIF'}
-              </button>
-              <button
-                type="button"
-                className="presentation-export-button"
-                disabled={!playerJourney || animatedExportRunning}
-                onClick={() => {
-                  void exportAnimatedFromCanvas('mp4')
-                }}
-              >
-                {animatedExportRunning ? 'Exporting...' : 'Export MP4'}
-              </button>
-              <button
-                type="button"
-                className="presentation-export-button"
-                disabled={!playerJourney || animatedExportRunning}
-                onClick={() => {
-                  void exportAnimatedFromCanvas('svg')
-                }}
-              >
-                {animatedExportRunning ? 'Exporting...' : 'Export Animated SVG'}
-              </button>
+              {presentationSurface === 'sequence' ? (
+                <>
+                  <button
+                    type="button"
+                    className="presentation-export-button"
+                    disabled={!presentationSequenceScene}
+                    onClick={() => {
+                      void exportFromCanvas('svg')
+                    }}
+                  >
+                    Export Sequence SVG
+                  </button>
+                  <button
+                    type="button"
+                    className="presentation-export-button"
+                    disabled={!presentationSequenceScene}
+                    onClick={() => {
+                      void exportFromCanvas('png')
+                    }}
+                  >
+                    Export Sequence PNG
+                  </button>
+                  <button
+                    type="button"
+                    className="presentation-export-button"
+                    disabled={!presentationSequenceScene}
+                    onClick={() => {
+                      void exportFromCanvas('pdf')
+                    }}
+                  >
+                    Export Sequence PDF
+                  </button>
+                </>
+              ) : (
+                <>
+                  <select
+                    className="presentation-select"
+                    value={playerAnimationPreset}
+                    onChange={(event) => applyPlayerAnimationPreset(event.target.value as PlayerAnimationPreset)}
+                  >
+                    <option value="cinematic">Animation: Cinematic</option>
+                    <option value="orb">Animation: Orb only</option>
+                    <option value="minimal">Animation: Minimal</option>
+                  </select>
+                  <div className="journey-player-actions journey-player-actions-iconic" role="group" aria-label="Player controls">
+                    <button type="button" disabled={!playerJourney} onClick={() => prevPlayerStep()} aria-label="Previous step">
+                      <SkipBack size={15} />
+                    </button>
+                    <button
+                      type="button"
+                      disabled={!playerJourney}
+                      onClick={() => setPlayerRunning(!playerIsRunning)}
+                      aria-label={playerIsRunning ? 'Pause player' : 'Start player'}
+                    >
+                      {playerIsRunning ? <Pause size={16} /> : <Play size={16} />}
+                    </button>
+                    <button type="button" disabled={!playerJourney} onClick={() => stepPlayer()} aria-label="Next step">
+                      <SkipForward size={15} />
+                    </button>
+                    <button type="button" disabled={!playerJourney} onClick={() => resetPlayer()} aria-label="Reset player">
+                      <RotateCcw size={15} />
+                    </button>
+                  </div>
+                  <label className="journey-speed-control presentation-speed-control">
+                    Speed
+                    <input
+                      type="range"
+                      min={120}
+                      max={1800}
+                      step={60}
+                      value={playerSpeedMs}
+                      onChange={(event) => setPlayerSpeedMs(Number(event.target.value))}
+                    />
+                  </label>
+                  <button
+                    type="button"
+                    className="presentation-export-button"
+                    disabled={!playerJourney || animatedExportRunning}
+                    onClick={() => {
+                      void exportAnimatedFromCanvas('gif')
+                    }}
+                  >
+                    {animatedExportRunning ? 'Exporting...' : 'Export GIF'}
+                  </button>
+                  <button
+                    type="button"
+                    className="presentation-export-button"
+                    disabled={!playerJourney || animatedExportRunning}
+                    onClick={() => {
+                      void exportAnimatedFromCanvas('mp4')
+                    }}
+                  >
+                    {animatedExportRunning ? 'Exporting...' : 'Export MP4'}
+                  </button>
+                  <button
+                    type="button"
+                    className="presentation-export-button"
+                    disabled={!playerJourney || animatedExportRunning}
+                    onClick={() => {
+                      void exportAnimatedFromCanvas('svg')
+                    }}
+                  >
+                    {animatedExportRunning ? 'Exporting...' : 'Export Animated SVG'}
+                  </button>
+                </>
+              )}
               <button type="button" className="focus-toggle-button" onClick={() => togglePresentationMode()}>
                 Exit presentation
               </button>
@@ -5977,25 +6074,29 @@ function App() {
               : 'Drag from one handle to another to create an edge'}
           </p>
         ) : null}
-        <DiagramCanvas
-          presentationMode={presentationMode}
-          forceGridHidden={presentationMode}
-          exportFocusJourneyId={exportFocusJourneyId}
-          nodeDepthEffectsEnabled={uiPreferences.nodeDepthEffectsEnabled}
-          onEdgePointerStart={(edgeId, event) => {
-            if (
-              event.ctrlKey ||
-              event.metaKey ||
-              event.altKey ||
-              activeTool === 'connector' ||
-              Boolean(pendingConnectionFrom)
-            ) {
-              setDraggedEdgeId(null)
-              return
-            }
-            setDraggedEdgeId(edgeId)
-          }}
-        />
+        {presentationMode && presentationSurface === 'sequence' ? (
+          <SequenceDiagramView scene={presentationSequenceScene} theme={theme} />
+        ) : (
+          <DiagramCanvas
+            presentationMode={presentationMode}
+            forceGridHidden={presentationMode}
+            exportFocusJourneyId={exportFocusJourneyId}
+            nodeDepthEffectsEnabled={uiPreferences.nodeDepthEffectsEnabled}
+            onEdgePointerStart={(edgeId, event) => {
+              if (
+                event.ctrlKey ||
+                event.metaKey ||
+                event.altKey ||
+                activeTool === 'connector' ||
+                Boolean(pendingConnectionFrom)
+              ) {
+                setDraggedEdgeId(null)
+                return
+              }
+              setDraggedEdgeId(edgeId)
+            }}
+          />
+        )}
       </main>
       {managedRightHostVisible ? (
         <aside className="managed-host-sidebar managed-host-sidebar-right" data-tutorial-id="managed-host-right">

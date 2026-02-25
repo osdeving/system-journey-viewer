@@ -10,6 +10,7 @@
 - Latest topbar hotfix follow-up (2026-02-21, night pass) removed fixed top-row sizing (now `auto`) and updated toolbar row wrapping/overflow so menu + toolbar content no longer clips at the canvas edge.
 - Latest desktop shell refinement (2026-02-22) compacted the topbar by collapsing logo + menubar into one row, hiding topbar mode pills, and moving viewport controls (zoom/grid/snap/theme/auto-layout) to the main menu only.
 - Latest workflow/docs increment (2026-02-22) refreshed repository `AGENTS.md` for the actual monorepo stack and expanded local skills for UI layout regressions, SJV Script changes, `gh` PR/merge flow, showcase/tutorial curation, docs synchronization, export validation, theme/palette accessibility tuning, Playwright visual capture, and local persistence migrations.
+- Latest presentation sequence increment (2026-02-25) adds a native inferred sequence-diagram surface (read-only) in Presentation mode, backed by a sequence IR with static `SVG/PNG/PDF` export support and no external renderer dependency.
 - Architecture baseline:
   - custom SVG editor engine (internal adapter, no paid lock-in),
   - versioned FULL model (`schemaVersion: 1.0`) as source of truth,
@@ -58,12 +59,18 @@
 - Static export (`SVG`, `PNG`, `PDF`).
 - Animated export (`GIF`, `MP4`, animated `SVG`) with journey timeline playback.
 - Presentation mode with clean rendering and export-focused controls.
+- Presentation mode now supports two surfaces:
+  - journey animation (existing animated canvas playback/export),
+  - inferred sequence diagram (native static SVG renderer from current view + journey, with static `SVG/PNG/PDF` exports).
 - Workspace file lifecycle in-browser UI:
   - `New File` (blank workspace),
   - `Open File` (snapshot or SJV Script import: `.json/.sjv/.dsl/.txt`),
   - `Save File` with File System Access API support (handle reuse on `Ctrl/Cmd+S` and Save As on `Ctrl/Cmd+Shift+S`, with download fallback as `.sjv.json`).
   - entry view selection for SJV Script import now respects drilldown hierarchy (root/top-level view first, instead of arbitrary view key order).
 - View hierarchy selector in topbar allows direct navigation across all nested views.
+- Sequence-diagram inference layer (new domain seam):
+  - derives participants/messages/notes/parallel tick groups from journey playback ticks + current view entities,
+  - keeps sequence rendering decoupled from SJV parser and canvas animation internals (future-friendly for PlantUML export).
 - `replaceWorkspace`/`goToView` now rebuild breadcrumb-compatible history from hierarchy, so `Back` works even when opening a deep view directly.
 
 ## Animation and Player State

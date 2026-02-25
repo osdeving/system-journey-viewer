@@ -2514,3 +2514,36 @@ Chronological engineering log. Entries are kept concise and focused on behavior 
 - `npm --workspace @sjv/web run test:run -- src/export/animatedExport.test.ts src/App.source.test.ts`
 - `npm --workspace @sjv/web run lint`
 - `npm --workspace @sjv/web run build`
+
+## 2026-02-25 - Presentation sequence diagram preview (inferred journey renderer, static exports)
+
+### Scope
+
+- Added a non-editing sequence-diagram presentation surface inferred from the current SJV journey + C4-like view entities.
+- Kept the feature internal/native (no PlantUML/server dependency) and prepared the architecture for future PlantUML export by introducing a sequence IR.
+
+### Changes
+
+- `apps/web/src/sequence/types.ts`, `apps/web/src/sequence/deriveSequenceScene.ts`, `apps/web/src/sequence/deriveSequenceScene.test.ts`
+  - added a sequence-diagram IR (`participants`, `message/parallel/note/section` rows),
+  - added inference from the current view + selected journey (participants, sync/async arrows, self-calls, thread-based parallel ticks, attached canvas notes).
+- `apps/web/src/components/sequence/SequenceDiagramView.tsx`
+  - added a branded static SVG renderer for the inferred sequence IR (lifelines, participant headers, notes, message arrows, parallel tick groups).
+- `apps/web/src/App.tsx`, `apps/web/src/App.css`, `apps/web/src/App.source.test.ts`
+  - presentation toolbar now supports a `Surface` selector (`Journey animation` / `Sequence diagram`),
+  - sequence surface renders inside the main presentation area,
+  - static export actions (`SVG/PNG/PDF`) now target the sequence SVG when that surface is active,
+  - added source regression coverage for the presentation sequence integration.
+
+### Validation
+
+- `git diff --check`
+- `npm --workspace @sjv/web run test:run -- src/sequence/deriveSequenceScene.test.ts src/App.source.test.ts`
+- `npm --workspace @sjv/web run lint`
+- `npm --workspace @sjv/web run test:run`
+- `npm --workspace @sjv/web run build`
+
+### Notes
+
+- Current sequence rendering is intentionally inferred/read-only (not a sequence editor) and does not yet model explicit semantic blocks like `alt/opt/loop` because those semantics are not first-class in SJV journeys yet.
+- The new IR is the intended seam for future manual enrichment and/or PlantUML export generation without coupling renderer and DSL parsing logic.

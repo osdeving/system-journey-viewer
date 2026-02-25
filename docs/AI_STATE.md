@@ -10,7 +10,7 @@
 - Latest topbar hotfix follow-up (2026-02-21, night pass) removed fixed top-row sizing (now `auto`) and updated toolbar row wrapping/overflow so menu + toolbar content no longer clips at the canvas edge.
 - Latest desktop shell refinement (2026-02-22) compacted the topbar by collapsing logo + menubar into one row, hiding topbar mode pills, and moving viewport controls (zoom/grid/snap/theme/auto-layout) to the main menu only.
 - Latest workflow/docs increment (2026-02-22) refreshed repository `AGENTS.md` for the actual monorepo stack and expanded local skills for UI layout regressions, SJV Script changes, `gh` PR/merge flow, showcase/tutorial curation, docs synchronization, export validation, theme/palette accessibility tuning, Playwright visual capture, and local persistence migrations.
-- Latest presentation sequence increment (2026-02-25) adds a native inferred sequence-diagram surface (read-only) in Presentation mode, backed by a sequence IR with static `SVG/PNG/PDF` export support and no external renderer dependency.
+- Latest presentation sequence increment (2026-02-25) adds a native inferred sequence-diagram surface (read-only) in Presentation mode, backed by a sequence IR with static `SVG/PNG/PDF` export support and no external renderer dependency; follow-up hotfix now renders merged participant activation bars (source+target participation) and anchors arrows to activation-bar edges for more formal sequence semantics.
 - Architecture baseline:
   - custom SVG editor engine (internal adapter, no paid lock-in),
   - versioned FULL model (`schemaVersion: 1.0`) as source of truth,

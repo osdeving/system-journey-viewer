@@ -4,7 +4,7 @@
 
 - Context: the web app needed a low-friction hosted option for personal/tester auth plus cloud storage of workspace snapshots without introducing a custom backend.
 - Decision: add an optional browser-side Supabase integration for manual email/password auth and per-user `EditorSnapshot` persistence, while keeping local browser persistence as the default offline-safe path.
-- Consequence: cloud save/load can be enabled with only public Supabase config in Vercel/Vite, the slice remains manual (not autosynced), and the same client-side pattern now also covers generated SJV scripts plus user-scoped private gallery media via Supabase Storage, signed preview URLs, and RLS-protected metadata tables exposed directly in the main app chrome.
+- Consequence: cloud save/load can be enabled with only public Supabase config in Vercel/Vite, the slice remains manual (not autosynced), and the same client-side pattern now also covers generated SJV scripts plus user-scoped private gallery media via Supabase Storage, signed preview URLs, and automatic post-export uploads for standard local `PNG/GIF/MP4` flows.
 
 ## 2026-02-20 - SJV Script v2 (Breaking) for Deterministic Edges and Ordered Journeys
 

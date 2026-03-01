@@ -164,7 +164,7 @@ The current integration is intentionally small:
 - top-right cloud badge
   - sign in / sign out without opening `Preferences`
   - quick save/load for the current workspace
-  - direct `PNG` / `GIF` / `MP4` export into the private `gallery` bucket
+  - shows auto-upload status for standard local `PNG` / `GIF` / `MP4` exports
   - local upload, refresh, and a shortcut into `Help > Export Gallery`
 - `Preferences > Supabase Cloud`
   - the same manual auth/save/load controls remain available as a fallback
@@ -174,15 +174,13 @@ The current integration is intentionally small:
   - list and download your recent gallery assets
 - `Help > Export Gallery`
   - shows your live private gallery when signed in (using signed preview URLs for the private bucket)
-  - can export current `PNG` / `GIF` / `MP4` output directly into Supabase
+  - focuses on viewing uploaded assets plus local upload / refresh actions
 - `File` menu
   - `Save to Supabase Cloud`
   - `Load from Supabase Cloud`
   - `Save Script to Supabase Cloud`
   - `Load Script from Supabase Cloud`
   - `Upload Media to Supabase Gallery`
-  - `Export PNG to Supabase Gallery`
-  - `Export GIF to Supabase Gallery`
-  - `Export MP4 to Supabase Gallery`
+  - standard `Export PNG`, `Export GIF`, and `Export MP4` now auto-upload after the local file is generated when you are signed in
 
 This slice stores one cloud record per `(user_id, workspace_id)` for both `workspaces` and `scripts`, keeps `gallery_assets` metadata in Postgres, and stores the file binaries in the private `gallery` bucket. Local browser persistence remains the primary fallback.

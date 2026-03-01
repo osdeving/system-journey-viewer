@@ -12,6 +12,7 @@ import {
 import { deriveThreadTimelineColor } from '../journeys/timelineRows'
 import type { JourneyModel, WorkspaceModel } from '../model/types'
 import { GIFEncoder, applyPalette, quantize } from 'gifenc'
+import { saveBlobAsFile } from './exporters'
 
 const DEFAULT_FRAME_RATE_GIF = 16
 const DEFAULT_FRAME_RATE_VIDEO = 24
@@ -653,18 +654,7 @@ export const resolveJourneyLoopTimeline = (
   }
 }
 
-const downloadBlob = (blob: Blob, filename: string): void => {
-  const url = URL.createObjectURL(blob)
-  const anchor = document.createElement('a')
-  anchor.href = url
-  anchor.download = filename
-  document.body.appendChild(anchor)
-  anchor.click()
-  document.body.removeChild(anchor)
-  URL.revokeObjectURL(url)
-}
-
-const resolveFilenameBase = (raw?: string): string => {
+export const resolveAnimatedExportFilenameBase = (raw?: string): string => {
   const normalized = (raw ?? 'journey').trim().toLowerCase()
   const collapsed = normalized
     .replace(/[^a-z0-9\-_\s]+/g, '')
@@ -1009,16 +999,17 @@ const createLaneMarkerVisual = (
   return group
 }
 
-export const exportAnimatedJourneyGif = async ({
+export const createAnimatedJourneyGifBlob = async ({
   svg,
   trailCanvas,
   canvasPanel,
   durationMs,
   resolveBaseKey,
-  filenameBase,
+  filenameBase: _filenameBase,
   fps = DEFAULT_FRAME_RATE_GIF,
   outputDimensions,
-}: ExportAnimatedGifOptions): Promise<void> => {
+}: ExportAnimatedGifOptions): Promise<Blob> => {
+  void _filenameBase
   const renderer = createCompositionRenderer(svg, trailCanvas, canvasPanel, outputDimensions)
   const frameDelayMs = Math.max(20, Math.round(1000 / Math.max(1, fps)))
   const rgbaFrames: Uint8Array[] = []
@@ -1068,22 +1059,33 @@ export const exportAnimatedJourneyGif = async ({
   const output = gif.bytesView()
   const outputBuffer = new ArrayBuffer(output.byteLength)
   new Uint8Array(outputBuffer).set(output)
-  const blob = new Blob([outputBuffer], { type: 'image/gif' })
-  downloadBlob(blob, `${resolveFilenameBase(filenameBase)}.gif`)
+  return new Blob([outputBuffer], { type: 'image/gif' })
 }
 
-export const exportAnimatedJourneyVideo = async ({
+export const exportAnimatedJourneyGif = async ({
+  filenameBase,
+  ...options
+}: ExportAnimatedGifOptions): Promise<void> => {
+  const blob = await createAnimatedJourneyGifBlob({
+    ...options,
+    filenameBase,
+  })
+  saveBlobAsFile(blob, `${resolveAnimatedExportFilenameBase(filenameBase)}.gif`)
+}
+
+export const createAnimatedJourneyVideoBlob = async ({
   svg,
   trailCanvas,
   canvasPanel,
   durationMs,
   resolveBaseKey,
-  filenameBase,
+  filenameBase: _filenameBase,
   fps = DEFAULT_FRAME_RATE_VIDEO,
   outputDimensions,
   preferredExtension = 'mp4',
   allowFallback = true,
-}: ExportAnimatedVideoOptions): Promise<VideoMimeSelection> => {
+}: ExportAnimatedVideoOptions): Promise<{ blob: Blob; mime: VideoMimeSelection }> => {
+  void _filenameBase
   if (typeof MediaRecorder === 'undefined') {
     throw new Error('Your browser does not support video export via MediaRecorder.')
   }
@@ -1136,18 +1138,35 @@ export const exportAnimatedJourneyVideo = async ({
   await stopPromise
   stream.getTracks().forEach((track) => track.stop())
 
-  const blob = new Blob(chunks, { type: mime.mimeType })
-  downloadBlob(blob, `${resolveFilenameBase(filenameBase)}.${mime.extension}`)
-  return mime
+  return {
+    blob: new Blob(chunks, { type: mime.mimeType }),
+    mime,
+  }
 }
 
-export const exportAnimatedJourneySvg = ({
+export const exportAnimatedJourneyVideo = async ({
+  filenameBase,
+  ...options
+}: ExportAnimatedVideoOptions): Promise<VideoMimeSelection> => {
+  const result = await createAnimatedJourneyVideoBlob({
+    ...options,
+    filenameBase,
+  })
+  saveBlobAsFile(
+    result.blob,
+    `${resolveAnimatedExportFilenameBase(filenameBase)}.${result.mime.extension}`,
+  )
+  return result.mime
+}
+
+export const createAnimatedJourneySvgBlob = ({
   svg,
   workspace,
   journey,
   playerSpeedMs,
-  filenameBase,
-}: ExportAnimatedSvgOptions): void => {
+  filenameBase: _filenameBase,
+}: ExportAnimatedSvgOptions): Blob => {
+  void _filenameBase
   const clone = cloneSvgWithInlineStyles(svg)
   const playbackTicks = resolveJourneyPlaybackTicks(journey)
   if (!playbackTicks.length) {
@@ -1224,6 +1243,18 @@ export const exportAnimatedJourneySvg = ({
   }
 
   const xml = new XMLSerializer().serializeToString(clone)
-  const blob = new Blob([xml], { type: 'image/svg+xml;charset=utf-8' })
-  downloadBlob(blob, `${resolveFilenameBase(filenameBase)}-animated.svg`)
+  return new Blob([xml], { type: 'image/svg+xml;charset=utf-8' })
+}
+
+export const exportAnimatedJourneySvg = ({
+  filenameBase,
+  ...options
+}: ExportAnimatedSvgOptions): void => {
+  saveBlobAsFile(
+    createAnimatedJourneySvgBlob({
+      ...options,
+      filenameBase,
+    }),
+    `${resolveAnimatedExportFilenameBase(filenameBase)}-animated.svg`,
+  )
 }

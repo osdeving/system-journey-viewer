@@ -71,7 +71,7 @@ type GalleryAssetRecord = {
 
 type GalleryUploadRecord = {
   path: string
-  file: File
+  file: File | Blob
   contentType: string
 }
 
@@ -109,6 +109,11 @@ type GalleryDownloadResult = {
   error: CloudError | null
 }
 
+type GallerySignedUrlResult = {
+  url: string | null
+  error: CloudError | null
+}
+
 type WorkspaceCloudStoreDeps = {
   signInWithPassword: (credentials: { email: string; password: string }) => Promise<AuthResult>
   signOut: () => Promise<VoidResult>
@@ -123,6 +128,7 @@ type WorkspaceCloudStoreDeps = {
   insertGalleryAsset: (record: GalleryAssetRecord) => Promise<GalleryInsertResult>
   listGalleryAssets: (userId: string) => Promise<GalleryListResult>
   downloadGalleryFile: (storagePath: string) => Promise<GalleryDownloadResult>
+  createGallerySignedUrl: (storagePath: string, expiresIn: number) => Promise<GallerySignedUrlResult>
 }
 
 const SIGN_IN_REQUIRED_MESSAGE = 'Sign in to Supabase before using cloud save/load.'
@@ -146,6 +152,12 @@ const sanitizeFileName = (value: string): string =>
     .replace(/[^a-zA-Z0-9._-]+/g, '-')
     .replace(/-+/g, '-')
     .replace(/^-+|-+$/g, '') || 'asset'
+
+const assertSupportedGalleryContentType = (contentType: string): void => {
+  if (!contentType.startsWith('image/') && !contentType.startsWith('video/')) {
+    throw new Error('Only image and video files are supported for the gallery.')
+  }
+}
 
 const toGalleryAsset = (value: {
   id: string
@@ -265,10 +277,7 @@ export const createSupabaseWorkspaceCloudStore = (deps: WorkspaceCloudStoreDeps)
     const user = await requireSignedInUser(deps)
     const normalizedFileName = sanitizeFileName(file.name)
     const normalizedType = file.type.trim()
-
-    if (!normalizedType.startsWith('image/') && !normalizedType.startsWith('video/')) {
-      throw new Error('Only image and video files are supported for the gallery.')
-    }
+    assertSupportedGalleryContentType(normalizedType)
 
     const assetId = deps.createId()
     const storagePath = `${user.id}/${assetId}/${normalizedFileName}`
@@ -287,6 +296,52 @@ export const createSupabaseWorkspaceCloudStore = (deps: WorkspaceCloudStoreDeps)
       storagePath,
       contentType: normalizedType,
       sizeBytes: file.size,
+    })
+    unwrapError(metadataResult.error)
+
+    if (!metadataResult.asset) {
+      throw new Error('Supabase did not return the new gallery asset metadata.')
+    }
+
+    return metadataResult.asset
+  },
+
+  async uploadGalleryAssetBlob(
+    blob: Blob,
+    options: {
+      fileName: string
+      title?: string
+      contentType?: string
+    },
+  ): Promise<SupabaseGalleryAsset> {
+    const user = await requireSignedInUser(deps)
+    const normalizedFileName = sanitizeFileName(options.fileName)
+    const normalizedType = (options.contentType ?? blob.type).trim()
+    if (!normalizedFileName) {
+      throw new Error('A gallery file name is required.')
+    }
+    if (!normalizedType) {
+      throw new Error('A gallery content type is required.')
+    }
+    assertSupportedGalleryContentType(normalizedType)
+
+    const assetId = deps.createId()
+    const storagePath = `${user.id}/${assetId}/${normalizedFileName}`
+
+    const uploadResult = await deps.uploadGalleryFile({
+      path: storagePath,
+      file: blob,
+      contentType: normalizedType,
+    })
+    unwrapError(uploadResult.error)
+
+    const metadataResult = await deps.insertGalleryAsset({
+      userId: user.id,
+      title: options.title?.trim() || normalizedFileName,
+      fileName: normalizedFileName,
+      storagePath,
+      contentType: normalizedType,
+      sizeBytes: blob.size,
     })
     unwrapError(metadataResult.error)
 
@@ -318,6 +373,22 @@ export const createSupabaseWorkspaceCloudStore = (deps: WorkspaceCloudStoreDeps)
     }
 
     return result.blob
+  },
+
+  async createGalleryAssetPreviewUrl(storagePath: string, expiresInSeconds = 3600): Promise<string> {
+    const user = await requireSignedInUser(deps)
+    if (!storagePath.startsWith(`${user.id}/`)) {
+      throw new Error('Requested gallery asset is outside the signed-in user scope.')
+    }
+
+    const result = await deps.createGallerySignedUrl(storagePath, Math.max(60, Math.round(expiresInSeconds)))
+    unwrapError(result.error)
+
+    if (!result.url) {
+      throw new Error('Supabase returned an empty signed URL.')
+    }
+
+    return result.url
   },
 })
 
@@ -477,6 +548,16 @@ export const supabaseWorkspaceCloudStore = browserClient
 
         return {
           blob: data ?? null,
+          error: normalizeError(error),
+        }
+      },
+      createGallerySignedUrl: async (storagePath, expiresIn) => {
+        const { data, error } = await browserClient.storage
+          .from(SUPABASE_GALLERY_BUCKET)
+          .createSignedUrl(storagePath, expiresIn)
+
+        return {
+          url: data?.signedUrl ?? null,
           error: normalizeError(error),
         }
       },

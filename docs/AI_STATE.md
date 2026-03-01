@@ -13,6 +13,7 @@
 - Latest presentation sequence increment (2026-02-25) adds a native inferred sequence-diagram surface (read-only) in Presentation mode, backed by a sequence IR with static `SVG/PNG/PDF` export support and no external renderer dependency; follow-up hotfix now renders merged participant activation bars (source+target participation) and anchors arrows to activation-bar edges for more formal sequence semantics.
 - Latest cloud bootstrap increment (2026-03-01) adds an optional Supabase browser integration for manual email/password auth plus per-user cloud save/load of the current workspace snapshot, with safe Vercel public-env bridging and a SQL bootstrap guide for the `workspaces` table.
 - Latest cloud storage follow-up (2026-03-01, later pass) extends the optional Supabase integration with generated SJV Script persistence plus private `gallery` bucket upload/list/download backed by `gallery_assets` metadata.
+- Latest cloud UI/export increment (2026-03-01, final pass) promotes Supabase into the main desktop chrome with a top-right cloud badge, direct `PNG/GIF/MP4` export into the private gallery bucket, and a live `Help > Export Gallery` backed by signed preview URLs instead of static sample assets.
 - Architecture baseline:
   - custom SVG editor engine (internal adapter, no paid lock-in),
   - versioned FULL model (`schemaVersion: 1.0`) as source of truth,
@@ -70,10 +71,12 @@
   - `Save File` with File System Access API support (handle reuse on `Ctrl/Cmd+S` and Save As on `Ctrl/Cmd+Shift+S`, with download fallback as `.sjv.json`).
   - entry view selection for SJV Script import now respects drilldown hierarchy (root/top-level view first, instead of arbitrary view key order).
 - Optional Supabase cloud workspace persistence:
-  - manual sign-in/sign-out from `Preferences`,
+  - manual sign-in/sign-out from `Preferences` and the top-right cloud badge,
   - manual save/load of the current `EditorSnapshot` keyed by `(user, workspace id)`,
   - manual save/load of the generated SJV Script keyed by `(user, workspace id)`,
   - manual upload/list/download of private user gallery assets (`PNG/GIF/MP4`) in the `gallery` bucket,
+  - direct `PNG/GIF/MP4` export from the UI straight into the private gallery (no local download step),
+  - signed preview URLs let the private gallery render inside `Help > Export Gallery`,
   - local browser persistence remains the default fallback and continues to autosave independently.
 - View hierarchy selector in topbar allows direct navigation across all nested views.
 - Sequence-diagram inference layer (new domain seam):
@@ -166,6 +169,8 @@
   - dynamic topbar height measurement prevents overflow/wrap regressions from shrinking canvas/drawer space,
   - toolbar is now grouped and rendered in a dedicated row with section-level visibility preferences,
   - tooltips are user-configurable from settings/preferences.
+- Cloud chrome enhancement:
+  - a top-right Supabase badge now exposes login state, quick save/load, direct export, upload, refresh, and gallery access without opening `Preferences`.
 - Menubar/toolbar regression fix:
   - desktop menu dropdowns are no longer clipped by topbar/menu container overflow,
   - topbar height now expands to fit wrapped content using scroll-height-aware measurement.
@@ -227,6 +232,7 @@
   - Preferences also includes a `Show splash now` action for replaying the startup splash.
 - Help and onboarding enhancements:
   - help panel now has `Guide`, `Export Gallery`, and `About` sections,
+  - `Export Gallery` now reflects the signed-in user’s live private Supabase media instead of static bundled samples,
   - startup splash presents app identity/version (`MVP Beta`) and ownership label (`Willams Sousa`),
   - showcase/tutorial loading supports `EN` and `PT` variants from menus/preferences.
 - Drilldown affordance enhancement:

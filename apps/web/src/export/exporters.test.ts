@@ -3,7 +3,7 @@
  */
 
 import { describe, expect, it } from 'vitest'
-import { serializeCanvasSvg } from './exporters'
+import { createSvgExportBlob, serializeCanvasSvg } from './exporters'
 
 describe('export helpers', () => {
   it('serializes an svg element with namespace', () => {
@@ -21,5 +21,16 @@ describe('export helpers', () => {
 
     expect(serialized).toContain('xmlns="http://www.w3.org/2000/svg"')
     expect(serialized).toContain('<rect')
+  })
+
+  it('creates an svg blob that can be reused for cloud uploads', async () => {
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg')
+    svg.setAttribute('width', '320')
+    svg.setAttribute('height', '180')
+
+    const blob = createSvgExportBlob(svg)
+
+    expect(blob.type).toBe('image/svg+xml;charset=utf-8')
+    expect(blob.size).toBeGreaterThan(0)
   })
 })

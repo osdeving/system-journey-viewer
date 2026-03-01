@@ -5,6 +5,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   resolveAnimatedExportRasterOutputDimensions,
+  resolveAnimatedExportFilenameBase,
   resolveExportPlaybackSpeedMs,
   resolveGifPaletteSampleIndices,
   resolveJourneyAnimatedSvgLanes,
@@ -90,6 +91,11 @@ describe('animated export helpers', () => {
     })
   })
 
+  it('normalizes animated export file names for reusable upload/download flows', () => {
+    expect(resolveAnimatedExportFilenameBase(' Orders Platform / Demo Run ')).toBe('orders-platform-demo-run')
+    expect(resolveAnimatedExportFilenameBase('')).toBe('journey')
+  })
+
   it('resolves animated svg lanes for threaded journeys with per-lane shapes and tick order', () => {
     const journey: JourneyModel = {
       id: 'j_parallel',
@@ -142,4 +148,5 @@ describe('animated export helpers', () => {
     expect(lanes[1]?.steps.map((step) => step.tickIndex)).toEqual([2, 3])
     expect(lanes[2]?.steps.map((step) => step.tickIndex)).toEqual([2])
   })
+
 })

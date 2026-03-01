@@ -38,6 +38,13 @@ describe('App source regressions', () => {
 
   it('includes manual Supabase auth plus workspace, script, and gallery actions', () => {
     expect(appSource).toContain("supabaseCloudConfigured")
+    expect(appSource).toContain('Open Supabase cloud panel')
+    expect(appSource).toContain('Use the top-right cloud badge for quick sign-in, gallery access, and direct exports.')
+    expect(appSource).toContain('Open gallery')
+    expect(appSource).toContain('Upload local')
+    expect(appSource).toContain('Export PNG to Gallery')
+    expect(appSource).toContain('Export GIF to Gallery')
+    expect(appSource).toContain('Export MP4 to Gallery')
     expect(appSource).toContain('Sign In to Supabase')
     expect(appSource).toContain('Save Workspace to Cloud')
     expect(appSource).toContain('Load Workspace from Cloud')
@@ -50,6 +57,9 @@ describe('App source regressions', () => {
     expect(appSource).toContain('Save Script to Supabase Cloud')
     expect(appSource).toContain('Load Script from Supabase Cloud')
     expect(appSource).toContain('Upload Media to Supabase Gallery')
+    expect(appSource).toContain('Export PNG to Supabase Gallery')
+    expect(appSource).toContain('Export GIF to Supabase Gallery')
+    expect(appSource).toContain('Export MP4 to Supabase Gallery')
   })
 
   it('keeps SJV Script panel free of Codex action buttons', () => {

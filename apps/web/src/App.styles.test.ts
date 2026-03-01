@@ -103,7 +103,7 @@ describe('App boundary styles', () => {
     expect(appCss).toMatch(/\.topbar\s*\{[^}]*overflow:\s*visible;[^}]*\}/s)
     expect(appCss).toContain('.app-layout-density-compact')
     expect(appCss).toContain('--sjv-density-topbar-gap')
-    expect(appCss).toMatch(/\.topbar-meta\s*\{[^}]*grid-template-columns:\s*auto minmax\(0,\s*1fr\);[^}]*\}/s)
+    expect(appCss).toMatch(/\.topbar-meta\s*\{[^}]*grid-template-columns:\s*auto minmax\(0,\s*1fr\) auto;[^}]*\}/s)
     expect(appCss).toMatch(/\.app-brand-copy\s*\{[^}]*display:\s*none;[^}]*\}/s)
     expect(appCss).toMatch(/\.mode-indicators\s*\{[^}]*display:\s*none;[^}]*\}/s)
     expect(appCss).toContain('.desktop-menu-bar')
@@ -117,6 +117,10 @@ describe('App boundary styles', () => {
     expect(appCss).toMatch(
       /\.app-layout-presentation\s+\.topbar\s*\{[^}]*grid-template-columns:\s*auto minmax\(0,\s*1fr\);[^}]*\}/s,
     )
+    expect(appCss).toContain('.topbar-cloud-shell')
+    expect(appCss).toContain('.topbar-cloud-badge')
+    expect(appCss).toContain('.topbar-cloud-panel')
+    expect(appCss).toContain('.topbar-cloud-field')
     expect(appCss).toMatch(
       /\.app-layout-presentation\s+\.topbar-actions\s*\{[^}]*grid-column:\s*2;[^}]*grid-row:\s*1;[^}]*flex-wrap:\s*nowrap;[^}]*overflow-x:\s*auto;[^}]*\}/s,
     )
@@ -154,6 +158,9 @@ describe('App boundary styles', () => {
     expect(appCss).toContain('.guided-tutorial-requirement-complete')
     expect(appCss).toContain('.guided-tutorial-primary-button')
     expect(appCss).toContain('.help-guide-actions')
+    expect(appCss).toContain('.help-gallery-preview-empty')
+    expect(appCss).toContain('.help-gallery-empty')
+    expect(appCss).toContain('.help-gallery-card-actions')
     expect(appCss).toContain('.theme-dark .help-guide-actions button')
   })
 

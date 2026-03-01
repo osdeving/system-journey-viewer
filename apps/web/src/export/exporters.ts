@@ -26,7 +26,7 @@ const buildSvgString = (svg: SVGSVGElement): { xml: string; width: number; heigh
   return { xml, width, height }
 }
 
-const downloadBlob = (blob: Blob, filename: string): void => {
+export const saveBlobAsFile = (blob: Blob, filename: string): void => {
   const url = URL.createObjectURL(blob)
   const anchor = document.createElement('a')
   anchor.href = url
@@ -83,24 +83,12 @@ const toPngBlob = async (svg: SVGSVGElement): Promise<Blob> => {
 
 export const serializeCanvasSvg = (svg: SVGSVGElement): string => buildSvgString(svg).xml
 
-export const exportSvg = (svg: SVGSVGElement, filename = 'diagram.svg'): void => {
-  const xml = serializeCanvasSvg(svg)
-  const blob = new Blob([xml], { type: 'image/svg+xml;charset=utf-8' })
-  downloadBlob(blob, filename)
-}
+export const createSvgExportBlob = (svg: SVGSVGElement): Blob =>
+  new Blob([serializeCanvasSvg(svg)], { type: 'image/svg+xml;charset=utf-8' })
 
-export const exportPng = async (
-  svg: SVGSVGElement,
-  filename = 'diagram.png',
-): Promise<void> => {
-  const blob = await toPngBlob(svg)
-  downloadBlob(blob, filename)
-}
+export const createPngExportBlob = async (svg: SVGSVGElement): Promise<Blob> => toPngBlob(svg)
 
-export const exportPdf = async (
-  svg: SVGSVGElement,
-  filename = 'diagram.pdf',
-): Promise<void> => {
+export const createPdfExportBlob = async (svg: SVGSVGElement): Promise<Blob> => {
   const blob = await toPngBlob(svg)
   const imageUrl = URL.createObjectURL(blob)
   const image = await new Promise<HTMLImageElement>((resolve, reject) => {
@@ -116,6 +104,24 @@ export const exportPdf = async (
     format: [image.width, image.height],
   })
   pdf.addImage(image, 'PNG', 0, 0, image.width, image.height)
-  pdf.save(filename)
   URL.revokeObjectURL(imageUrl)
+  return pdf.output('blob') as Blob
+}
+
+export const exportSvg = (svg: SVGSVGElement, filename = 'diagram.svg'): void => {
+  saveBlobAsFile(createSvgExportBlob(svg), filename)
+}
+
+export const exportPng = async (
+  svg: SVGSVGElement,
+  filename = 'diagram.png',
+): Promise<void> => {
+  saveBlobAsFile(await createPngExportBlob(svg), filename)
+}
+
+export const exportPdf = async (
+  svg: SVGSVGElement,
+  filename = 'diagram.pdf',
+): Promise<void> => {
+  saveBlobAsFile(await createPdfExportBlob(svg), filename)
 }

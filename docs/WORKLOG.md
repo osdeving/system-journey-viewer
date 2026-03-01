@@ -2795,3 +2795,42 @@ Chronological engineering log. Entries are kept concise and focused on behavior 
 - `npm --workspace @sjv/web run lint`
 - `npm --workspace @sjv/web run test:run`
 - `npm --workspace @sjv/web run build`
+
+## 2026-03-01 - Mobile shell route and desktop panel UX refinement
+
+### Scope
+
+- Added a dedicated mobile-first shell at `/m` with touch-first auto-open and pinch zoom support on the shared canvas.
+- Refined desktop panel defaults and panel affordances without changing the existing desktop workbench architecture.
+
+### Changes
+
+- `apps/web/src/App.tsx`, `apps/web/src/App.source.test.ts`, `apps/web/src/App.styles.test.ts`
+  - added a route-aware alternate mobile shell that keeps the same store/domain logic but swaps in a touch-first chrome,
+  - auto-opens `/m` for narrow touch-first devices while keeping desktop as the default shell elsewhere,
+  - moved the shared Supabase cloud badge into a reusable UI block used by both shells,
+  - added reusable `PanelGroup` usage across `Journeys`, `Preferences`, `Palette`, and `Inspector`,
+  - made `Journeys` groups collapsible with only the list open by default, and collapsed `Supabase Cloud` by default in Settings,
+  - strengthened journey sidebar row layout, right-aligned filter affordance, and clearer edge-drag drop targeting.
+- `apps/web/src/components/chrome/PanelGroup.tsx`, `apps/web/src/components/chrome/PanelGroup.test.tsx`
+  - added a reusable collapsible panel-group component for tab/dock content with an interaction test.
+- `apps/web/src/layout/mobileShellRoute.ts`, `apps/web/src/layout/mobileShellRoute.test.ts`
+  - extracted the pure route + touch heuristic helpers that decide when `/m` should render.
+- `apps/web/src/components/canvas/DiagramCanvas.tsx`, `apps/web/src/components/canvas/DiagramCanvas.source.test.ts`, `apps/web/src/diagram/canvas/pinchZoom.ts`, `apps/web/src/diagram/canvas/pinchZoom.test.ts`
+  - added two-finger pinch zoom using touch events on the shared canvas shell,
+  - kept touch gestures isolated to the canvas target via `targetTouches`,
+  - added a dedicated drag-state prop so the currently dragged edge gets a stronger journey-drop highlight.
+- `apps/web/src/components/canvas/JourneyEdge.tsx`, `apps/web/src/components/canvas/JourneyEdge.test.ts`, `apps/web/src/diagram/edges/journeyEdgeClassName.ts`
+  - added an explicit `edge-journey-dragging` class while dragging an edge into a journey,
+  - strengthened selected-edge styling so it reads closer to the hover treatment.
+- `apps/web/src/windowing/windowUiConfig.ts`
+  - changed the default dock host for `Journey Timeline` and `SJV Script` from `bottom` to `right`.
+- `apps/web/src/App.css`
+  - added mobile shell styling, reusable panel-group styling, pinch-safe canvas touch handling, clearer edge/journey drop visuals, and stronger filter-button hover feedback.
+
+### Validation
+
+- `npm --workspace @sjv/web run lint`
+- `npm --workspace @sjv/web run test:run`
+- `npm --workspace @sjv/web run build`
+- `git diff --check`

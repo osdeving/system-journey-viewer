@@ -122,6 +122,11 @@ describe('App boundary styles', () => {
     expect(appCss).toContain('.topbar-cloud-badge')
     expect(appCss).toContain('.topbar-cloud-panel')
     expect(appCss).toContain('.topbar-cloud-field')
+    expect(appCss).toContain('.mobile-app')
+    expect(appCss).toContain('.mobile-topbar')
+    expect(appCss).toContain('.mobile-panel-shell')
+    expect(appCss).toContain('.mobile-panel-tab')
+    expect(appCss).toContain('.mobile-toolbar-button')
     expect(appCss).toMatch(
       /\.app-layout-presentation\s+\.topbar-actions\s*\{[^}]*grid-column:\s*2;[^}]*grid-row:\s*1;[^}]*flex-wrap:\s*nowrap;[^}]*overflow-x:\s*auto;[^}]*\}/s,
     )
@@ -137,6 +142,7 @@ describe('App boundary styles', () => {
     expect(appCss).toContain('.node-port-affordance')
     expect(appCss).toContain('.node-port-highlight')
     expect(appCss).toContain('.edge-hitarea')
+    expect(appCss).toContain('.edge-journey-dragging')
     expect(appCss).toContain('.diagram-canvas-depth-off .node-depth-layer')
     expect(appCss).toContain('.node-depth-fill')
     expect(appCss).toContain('.node-depth-rim')
@@ -145,6 +151,9 @@ describe('App boundary styles', () => {
     expect(appCss).toContain('.edge-label-draggable')
     expect(appCss).toContain('.edge-label-vertical')
     expect(appCss).toContain('.edge-selected-indicator')
+    expect(appCss).toContain('.panel-group')
+    expect(appCss).toContain('.panel-group-toggle')
+    expect(appCss).toContain('.journey-filter-button')
   })
 
   it('styles the guided tutorial overlay and help guide actions', () => {

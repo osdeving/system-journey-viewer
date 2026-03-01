@@ -58,6 +58,7 @@ import {
   ZoomOut,
 } from 'lucide-react'
 import './App.css'
+import { PanelGroup } from './components/chrome/PanelGroup'
 import { SequenceDiagramView } from './components/sequence/SequenceDiagramView'
 import { OverflowStrip } from './components/chrome/OverflowStrip'
 import { SplashScreen } from './components/chrome/SplashScreen'
@@ -119,6 +120,12 @@ import {
 } from './layout/dockSizing'
 import { resolveLayoutGridTemplateRows } from './layout/layoutGrid'
 import { clampFloatingDockRect, type FloatingDockRect } from './layout/floatingDock'
+import {
+  buildMobileShellPath,
+  resolveRequestedAppShellMode,
+  shouldAutoOpenMobileShell,
+  type AppShellMode,
+} from './layout/mobileShellRoute'
 import { resolveTopbarHeight } from './layout/topbarSizing'
 import { BLANK_WORKSPACE_VIEW_ID, createBlankWorkspace } from './model/blankWorkspace'
 import type { EditorSnapshot, JourneyModel, ViewportState, WorkspaceModel } from './model/types'
@@ -256,6 +263,27 @@ type UiPreferences = {
   showcaseLocale: ShowcaseLocale
   density: UiDensity
   toolbarVisibility: Record<ToolbarSectionId, boolean>
+}
+
+const resolveInitialAppShellMode = (): AppShellMode => {
+  if (typeof window === 'undefined') {
+    return 'desktop'
+  }
+  const routeMode = resolveRequestedAppShellMode(window.location.pathname)
+  if (routeMode === 'mobile') {
+    return routeMode
+  }
+  const pointerCoarse =
+    typeof window.matchMedia === 'function' &&
+    window.matchMedia('(pointer: coarse)').matches
+  return window.location.pathname === '/' &&
+    shouldAutoOpenMobileShell({
+      innerWidth: window.innerWidth,
+      maxTouchPoints: navigator.maxTouchPoints ?? 0,
+      pointerCoarse,
+    })
+    ? 'mobile'
+    : 'desktop'
 }
 
 type HistoryStoreSnapshot = {
@@ -730,6 +758,9 @@ function App() {
   const [dslError, setDslError] = useState<string | null>(null)
   const [exportError, setExportError] = useState<string | null>(null)
   const [exportStatus, setExportStatus] = useState<string | null>(null)
+  const [appShellMode, setAppShellMode] = useState<AppShellMode>(() => resolveInitialAppShellMode())
+  const [mobilePanelTab, setMobilePanelTab] = useState<DockTab>('journeys')
+  const [mobilePanelCollapsed, setMobilePanelCollapsed] = useState(false)
   const [draggedEdgeId, setDraggedEdgeId] = useState<string | null>(null)
   const [animatedExportRunning, setAnimatedExportRunning] = useState(false)
   const [exportFocusJourneyId, setExportFocusJourneyId] = useState<string | null>(null)
@@ -847,6 +878,26 @@ function App() {
   )
   const breadcrumb = [...viewHistory, currentViewId]
   const supabaseCloudReady = supabaseCloudConfigured && !!supabaseCloudUser
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return
+    }
+    const routeMode = resolveRequestedAppShellMode(window.location.pathname)
+    if (routeMode === 'mobile') {
+      if (appShellMode !== 'mobile') {
+        setAppShellMode('mobile')
+      }
+      return
+    }
+    if (appShellMode !== 'mobile') {
+      return
+    }
+    if (window.location.pathname === '/') {
+      window.history.replaceState(window.history.state, '', buildMobileShellPath(window.location.search, window.location.hash))
+    }
+  }, [appShellMode])
+
   const viewJourneys = useMemo(
     () =>
       currentView.journeyIds
@@ -4108,84 +4159,85 @@ function App() {
 
   const preferencesPanelContent = (
     <div className="preferences-body">
-      <label className="preferences-toggle">
-        <input
-          type="checkbox"
-          checked={uiPreferences.tooltipsEnabled}
-          onChange={(event) =>
-            setUiPreferences((current) => ({
-              ...current,
-              tooltipsEnabled: event.target.checked,
-            }))
-          }
-        />
-        Enable tooltips
-      </label>
-      <label className="preferences-toggle">
-        <input
-          type="checkbox"
-          checked={uiPreferences.splashEnabled}
-          onChange={(event) =>
-            setUiPreferences((current) => ({
-              ...current,
-              splashEnabled: event.target.checked,
-            }))
-          }
-        />
-        Show startup splash
-      </label>
-      <label className="preferences-toggle">
-        <input
-          type="checkbox"
-          checked={uiPreferences.nodeDepthEffectsEnabled}
-          onChange={(event) =>
-            setUiPreferences((current) => ({
-              ...current,
-              nodeDepthEffectsEnabled: event.target.checked,
-            }))
-          }
-        />
-        Enable node depth effects (3D look)
-      </label>
-      <button
-        type="button"
-        className="preferences-inline-action"
-        onClick={() => setSplashVisible(true)}
-      >
-        Show splash now
-      </button>
-      <label className="preferences-select">
-        Showcase language
-        <select
-          value={uiPreferences.showcaseLocale}
-          onChange={(event) =>
-            setUiPreferences((current) => ({
-              ...current,
-              showcaseLocale: event.target.value as ShowcaseLocale,
-            }))
-          }
+      <PanelGroup title="Experience">
+        <label className="preferences-toggle">
+          <input
+            type="checkbox"
+            checked={uiPreferences.tooltipsEnabled}
+            onChange={(event) =>
+              setUiPreferences((current) => ({
+                ...current,
+                tooltipsEnabled: event.target.checked,
+              }))
+            }
+          />
+          Enable tooltips
+        </label>
+        <label className="preferences-toggle">
+          <input
+            type="checkbox"
+            checked={uiPreferences.splashEnabled}
+            onChange={(event) =>
+              setUiPreferences((current) => ({
+                ...current,
+                splashEnabled: event.target.checked,
+              }))
+            }
+          />
+          Show startup splash
+        </label>
+        <label className="preferences-toggle">
+          <input
+            type="checkbox"
+            checked={uiPreferences.nodeDepthEffectsEnabled}
+            onChange={(event) =>
+              setUiPreferences((current) => ({
+                ...current,
+                nodeDepthEffectsEnabled: event.target.checked,
+              }))
+            }
+          />
+          Enable node depth effects (3D look)
+        </label>
+        <button
+          type="button"
+          className="preferences-inline-action"
+          onClick={() => setSplashVisible(true)}
         >
-          <option value="en">English</option>
-          <option value="pt">Portuguese</option>
-        </select>
-      </label>
-      <label className="preferences-select">
-        UI density
-        <select
-          value={uiPreferences.density}
-          onChange={(event) =>
-            setUiPreferences((current) => ({
-              ...current,
-              density: event.target.value as UiDensity,
-            }))
-          }
-        >
-          <option value="comfortable">Comfortable</option>
-          <option value="compact">Compact</option>
-        </select>
-      </label>
-      <fieldset className="preferences-fieldset">
-        <legend>Toolbar sections</legend>
+          Show splash now
+        </button>
+        <label className="preferences-select">
+          Showcase language
+          <select
+            value={uiPreferences.showcaseLocale}
+            onChange={(event) =>
+              setUiPreferences((current) => ({
+                ...current,
+                showcaseLocale: event.target.value as ShowcaseLocale,
+              }))
+            }
+          >
+            <option value="en">English</option>
+            <option value="pt">Portuguese</option>
+          </select>
+        </label>
+        <label className="preferences-select">
+          UI density
+          <select
+            value={uiPreferences.density}
+            onChange={(event) =>
+              setUiPreferences((current) => ({
+                ...current,
+                density: event.target.value as UiDensity,
+              }))
+            }
+          >
+            <option value="comfortable">Comfortable</option>
+            <option value="compact">Compact</option>
+          </select>
+        </label>
+      </PanelGroup>
+      <PanelGroup title="Toolbar sections">
         <label className="preferences-toggle">
           <input
             type="checkbox"
@@ -4218,9 +4270,8 @@ function App() {
           />
           Modes
         </label>
-      </fieldset>
-      <fieldset className="preferences-fieldset">
-        <legend>Supabase Cloud</legend>
+      </PanelGroup>
+      <PanelGroup title="Supabase Cloud" defaultExpanded={false}>
         <p className="preferences-status">Use the top-right cloud badge for quick sign-in, gallery access, and automatic upload after standard PNG/GIF/MP4 exports.</p>
         <p className="preferences-status">{supabaseCloudStatus}</p>
         <p className="preferences-status">Current workspace id: {workspace.workspace.id}</p>
@@ -4370,7 +4421,7 @@ function App() {
             <p className="preferences-status">No Supabase gallery assets yet.</p>
           )}
         </div>
-      </fieldset>
+      </PanelGroup>
     </div>
   )
 
@@ -4378,9 +4429,8 @@ function App() {
     <div className="dock-content-section">
       <h2>Palette</h2>
       <p>Drag to canvas:</p>
-      {Object.entries(nodePresetsByCategory).map(([category, presets]) => (
-        <div key={category} className="toolbox-group">
-          <h3>{category}</h3>
+      {Object.entries(nodePresetsByCategory).map(([category, presets], index) => (
+        <PanelGroup key={category} title={category} defaultExpanded={index === 0} className="toolbox-group">
           <ul className="toolbox-list">
             {presets.map((preset) => (
               <li
@@ -4397,7 +4447,7 @@ function App() {
               </li>
             ))}
           </ul>
-        </div>
+        </PanelGroup>
       ))}
     </div>
   )
@@ -4459,193 +4509,197 @@ function App() {
         <p>{selectedNodes.length} selected components (current focus: {selectedNode?.name ?? 'n/a'}).</p>
       ) : null}
       {selectedNode ? (
-        <div className="inspector-form">
-          <label htmlFor="node-id">ID</label>
-          <input id="node-id" value={selectedNode.id} disabled />
-          <label htmlFor="node-kind">Type</label>
-          <input id="node-kind" value={selectedNode.kind} disabled />
-          <label htmlFor="node-name">Name</label>
-          {selectedNode.kind === 'note' ? (
-            <textarea
-              id="node-name"
-              data-tutorial-id="inspector-node-name"
-              rows={4}
-              value={selectedNode.name}
-              onChange={(event) => setNodeNameWithTutorialTracking(selectedNode.id, event.target.value)}
-            />
-          ) : (
-            <input
-              id="node-name"
-              data-tutorial-id="inspector-node-name"
-              value={selectedNode.name}
-              onChange={(event) => setNodeNameWithTutorialTracking(selectedNode.id, event.target.value)}
-            />
-          )}
-          <label htmlFor="node-preset">Preset</label>
-          <input
-            id="node-preset"
-            value={resolveNodePreset(selectedNode.presetId ?? '')?.label ?? 'Custom'}
-            disabled
-          />
-          <label htmlFor="node-tech">Technology</label>
-          <input
-            id="node-tech"
-            value={selectedNode.tech?.label ?? ''}
-            onChange={(event) => setNodeTech(selectedNode.id, event.target.value)}
-          />
-          {selectedNode.kind !== 'boundary' ? (
-            <>
-              <label htmlFor="node-color">Node color</label>
+        <PanelGroup title="Node details">
+          <div className="inspector-form">
+            <label htmlFor="node-id">ID</label>
+            <input id="node-id" value={selectedNode.id} disabled />
+            <label htmlFor="node-kind">Type</label>
+            <input id="node-kind" value={selectedNode.kind} disabled />
+            <label htmlFor="node-name">Name</label>
+            {selectedNode.kind === 'note' ? (
+              <textarea
+                id="node-name"
+                data-tutorial-id="inspector-node-name"
+                rows={4}
+                value={selectedNode.name}
+                onChange={(event) => setNodeNameWithTutorialTracking(selectedNode.id, event.target.value)}
+              />
+            ) : (
               <input
-                id="node-color"
-                type="color"
-                value={
-                  isHexColor(selectedNode.style?.fillColor)
-                    ? selectedNode.style?.fillColor ?? '#2563eb'
-                    : '#2563eb'
-                }
-                onChange={(event) => setNodeColor(selectedNode.id, event.target.value)}
+                id="node-name"
+                data-tutorial-id="inspector-node-name"
+                value={selectedNode.name}
+                onChange={(event) => setNodeNameWithTutorialTracking(selectedNode.id, event.target.value)}
               />
-              <label>Suggested palette ({theme === 'dark' ? 'Tailwind dark' : 'Tailwind light'})</label>
-              <div className="node-color-presets">
-                {nodeColorPresets.map((color) => (
-                  <button
-                    key={color}
-                    type="button"
-                    className={
-                      selectedNode.style?.fillColor === color
-                        ? 'node-color-chip node-color-chip-active'
-                        : 'node-color-chip'
-                    }
-                    style={{ background: color }}
-                    title={withTooltip(color)}
-                    onClick={() => setNodeColor(selectedNode.id, color)}
-                  />
-                ))}
-              </div>
-            </>
-          ) : null}
-          <label htmlFor="node-text-color">Text color</label>
-          <input
-            id="node-text-color"
-            type="color"
-            value={
-              isHexColor(selectedNode.style?.textColor)
-                ? selectedNode.style?.textColor ?? (theme === 'dark' ? '#f8fafc' : '#0f172a')
-                : theme === 'dark'
-                  ? '#f8fafc'
-                  : '#0f172a'
-            }
-            onChange={(event) => setNodeTextColor(selectedNode.id, event.target.value)}
-          />
-          <label>Text palette</label>
-          <div className="node-color-presets">
-            {nodeTextColorPresets.map((color) => (
-              <button
-                key={color}
-                type="button"
-                className={
-                  selectedNode.style?.textColor === color
-                    ? 'node-color-chip node-color-chip-active'
-                    : 'node-color-chip'
-                }
-                style={{ background: color }}
-                title={withTooltip(color)}
-                onClick={() => setNodeTextColor(selectedNode.id, color)}
-              />
-            ))}
+            )}
+            <label htmlFor="node-preset">Preset</label>
+            <input
+              id="node-preset"
+              value={resolveNodePreset(selectedNode.presetId ?? '')?.label ?? 'Custom'}
+              disabled
+            />
+            <label htmlFor="node-tech">Technology</label>
+            <input
+              id="node-tech"
+              value={selectedNode.tech?.label ?? ''}
+              onChange={(event) => setNodeTech(selectedNode.id, event.target.value)}
+            />
+            {selectedNode.kind !== 'boundary' ? (
+              <>
+                <label htmlFor="node-color">Node color</label>
+                <input
+                  id="node-color"
+                  type="color"
+                  value={
+                    isHexColor(selectedNode.style?.fillColor)
+                      ? selectedNode.style?.fillColor ?? '#2563eb'
+                      : '#2563eb'
+                  }
+                  onChange={(event) => setNodeColor(selectedNode.id, event.target.value)}
+                />
+                <label>Suggested palette ({theme === 'dark' ? 'Tailwind dark' : 'Tailwind light'})</label>
+                <div className="node-color-presets">
+                  {nodeColorPresets.map((color) => (
+                    <button
+                      key={color}
+                      type="button"
+                      className={
+                        selectedNode.style?.fillColor === color
+                          ? 'node-color-chip node-color-chip-active'
+                          : 'node-color-chip'
+                      }
+                      style={{ background: color }}
+                      title={withTooltip(color)}
+                      onClick={() => setNodeColor(selectedNode.id, color)}
+                    />
+                  ))}
+                </div>
+              </>
+            ) : null}
+            <label htmlFor="node-text-color">Text color</label>
+            <input
+              id="node-text-color"
+              type="color"
+              value={
+                isHexColor(selectedNode.style?.textColor)
+                  ? selectedNode.style?.textColor ?? (theme === 'dark' ? '#f8fafc' : '#0f172a')
+                  : theme === 'dark'
+                    ? '#f8fafc'
+                    : '#0f172a'
+              }
+              onChange={(event) => setNodeTextColor(selectedNode.id, event.target.value)}
+            />
+            <label>Text palette</label>
+            <div className="node-color-presets">
+              {nodeTextColorPresets.map((color) => (
+                <button
+                  key={color}
+                  type="button"
+                  className={
+                    selectedNode.style?.textColor === color
+                      ? 'node-color-chip node-color-chip-active'
+                      : 'node-color-chip'
+                  }
+                  style={{ background: color }}
+                  title={withTooltip(color)}
+                  onClick={() => setNodeTextColor(selectedNode.id, color)}
+                />
+              ))}
+            </div>
+            <div className="inspector-actions">
+              <button type="button" onClick={() => duplicateCurrentSelection()}>
+                Duplicate
+              </button>
+              <button type="button" onClick={() => deleteCurrentSelection()}>
+                Delete
+              </button>
+            </div>
           </div>
-          <div className="inspector-actions">
-            <button type="button" onClick={() => duplicateCurrentSelection()}>
-              Duplicate
-            </button>
-            <button type="button" onClick={() => deleteCurrentSelection()}>
-              Delete
-            </button>
-          </div>
-        </div>
+        </PanelGroup>
       ) : null}
       {selectedEdge ? (
-        <div className="inspector-form">
-          <label htmlFor="edge-id">ID</label>
-          <input id="edge-id" value={selectedEdge.id} disabled />
-          <label htmlFor="edge-label">Label</label>
-          <input
-            id="edge-label"
-            data-tutorial-id="inspector-edge-label"
-            value={selectedEdge.label}
-            onChange={(event) => setEdgeLabelWithTutorialTracking(selectedEdge.id, event.target.value)}
-          />
-          <label htmlFor="edge-protocol">Protocol</label>
-          <select
-            id="edge-protocol"
-            data-tutorial-id="inspector-edge-protocol"
-            value={selectedEdge.protocolPresetId}
-            onChange={(event) => setEdgeProtocolWithTutorialTracking(selectedEdge.id, event.target.value)}
-          >
-            {protocolPresets.map((protocol) => (
-              <option key={protocol.id} value={protocol.id}>
-                {protocol.label}
-              </option>
-            ))}
-          </select>
-          <label htmlFor="edge-label-position">Label Position</label>
-          <input
-            id="edge-label-position"
-            type="range"
-            min={0.08}
-            max={0.92}
-            step={0.01}
-            value={selectedEdge.style.labelPosition ?? 0.5}
-            onChange={(event) => setEdgeLabelPosition(selectedEdge.id, Number(event.target.value))}
-          />
-          <span className="edge-label-position-value">
-            {Math.round((selectedEdge.style.labelPosition ?? 0.5) * 100)}%
-          </span>
-          <label htmlFor="edge-label-side">Label Side</label>
-          <select
-            id="edge-label-side"
-            value={selectedEdge.style.labelSide ?? 'left'}
-            onChange={(event) =>
-              setEdgeLabelSide(selectedEdge.id, event.target.value as 'left' | 'right')
-            }
-          >
-            <option value="left">Left / Top</option>
-            <option value="right">Right / Bottom</option>
-          </select>
-          <label htmlFor="edge-label-angle">Label Rotation</label>
-          <input
-            id="edge-label-angle"
-            type="range"
-            min={-180}
-            max={180}
-            step={1}
-            value={selectedEdge.style.labelAngle ?? 0}
-            onChange={(event) => setEdgeLabelAngle(selectedEdge.id, Number(event.target.value))}
-          />
-          <span className="edge-label-position-value">
-            {Math.round(selectedEdge.style.labelAngle ?? 0)}°
-          </span>
-          <div className="inspector-actions">
-            <button type="button" onClick={() => duplicateCurrentSelection()}>
-              Duplicate
-            </button>
-            <button type="button" onClick={() => deleteCurrentSelection()}>
-              Delete
+        <PanelGroup title="Edge details">
+          <div className="inspector-form">
+            <label htmlFor="edge-id">ID</label>
+            <input id="edge-id" value={selectedEdge.id} disabled />
+            <label htmlFor="edge-label">Label</label>
+            <input
+              id="edge-label"
+              data-tutorial-id="inspector-edge-label"
+              value={selectedEdge.label}
+              onChange={(event) => setEdgeLabelWithTutorialTracking(selectedEdge.id, event.target.value)}
+            />
+            <label htmlFor="edge-protocol">Protocol</label>
+            <select
+              id="edge-protocol"
+              data-tutorial-id="inspector-edge-protocol"
+              value={selectedEdge.protocolPresetId}
+              onChange={(event) => setEdgeProtocolWithTutorialTracking(selectedEdge.id, event.target.value)}
+            >
+              {protocolPresets.map((protocol) => (
+                <option key={protocol.id} value={protocol.id}>
+                  {protocol.label}
+                </option>
+              ))}
+            </select>
+            <label htmlFor="edge-label-position">Label Position</label>
+            <input
+              id="edge-label-position"
+              type="range"
+              min={0.08}
+              max={0.92}
+              step={0.01}
+              value={selectedEdge.style.labelPosition ?? 0.5}
+              onChange={(event) => setEdgeLabelPosition(selectedEdge.id, Number(event.target.value))}
+            />
+            <span className="edge-label-position-value">
+              {Math.round((selectedEdge.style.labelPosition ?? 0.5) * 100)}%
+            </span>
+            <label htmlFor="edge-label-side">Label Side</label>
+            <select
+              id="edge-label-side"
+              value={selectedEdge.style.labelSide ?? 'left'}
+              onChange={(event) =>
+                setEdgeLabelSide(selectedEdge.id, event.target.value as 'left' | 'right')
+              }
+            >
+              <option value="left">Left / Top</option>
+              <option value="right">Right / Bottom</option>
+            </select>
+            <label htmlFor="edge-label-angle">Label Rotation</label>
+            <input
+              id="edge-label-angle"
+              type="range"
+              min={-180}
+              max={180}
+              step={1}
+              value={selectedEdge.style.labelAngle ?? 0}
+              onChange={(event) => setEdgeLabelAngle(selectedEdge.id, Number(event.target.value))}
+            />
+            <span className="edge-label-position-value">
+              {Math.round(selectedEdge.style.labelAngle ?? 0)}°
+            </span>
+            <div className="inspector-actions">
+              <button type="button" onClick={() => duplicateCurrentSelection()}>
+                Duplicate
+              </button>
+              <button type="button" onClick={() => deleteCurrentSelection()}>
+                Delete
+              </button>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                if (activeJourneyId) {
+                  addEdgeToJourney(activeJourneyId, selectedEdge.id)
+                }
+              }}
+              disabled={!activeJourneyId}
+            >
+              Add to Active Journey
             </button>
           </div>
-          <button
-            type="button"
-            onClick={() => {
-              if (activeJourneyId) {
-                addEdgeToJourney(activeJourneyId, selectedEdge.id)
-              }
-            }}
-            disabled={!activeJourneyId}
-          >
-            Add to Active Journey
-          </button>
-        </div>
+        </PanelGroup>
       ) : null}
     </div>
   )
@@ -4653,8 +4707,7 @@ function App() {
   const journeysDockContent = (
     <div className="dock-content-section">
       <h2>Journeys</h2>
-      <section className="journey-side-group">
-        <h3>Creation</h3>
+      <PanelGroup title="Creation" defaultExpanded={false} className="journey-side-group">
         <div className="journey-side-create">
           <input
             placeholder="New journey"
@@ -4673,9 +4726,8 @@ function App() {
             Create journey
           </button>
         </div>
-      </section>
-      <section className="journey-side-group">
-        <h3>Filter & Layout</h3>
+      </PanelGroup>
+      <PanelGroup title="Filter & Layout" defaultExpanded={false} className="journey-side-group">
         <div className="journey-side-filter">
           <select
             value={journeyFilterId ?? ''}
@@ -4740,9 +4792,8 @@ function App() {
             Apply layout now
           </button>
         </div>
-      </section>
-      <section className="journey-side-group">
-        <h3>Player</h3>
+      </PanelGroup>
+      <PanelGroup title="Player" defaultExpanded={false} className="journey-side-group">
         <div className="journey-side-player">
           <select value={playerJourneyId ?? ''} onChange={(event) => activateJourneyPlayback(event.target.value || null)}>
             <option value="">Player: select journey</option>
@@ -4820,9 +4871,8 @@ function App() {
             Step {playerStepIndex + 1}/{playerJourneyPlaybackLength}
           </span>
         </div>
-      </section>
-      <section className="journey-side-group">
-        <h3>Journeys</h3>
+      </PanelGroup>
+      <PanelGroup title="Journeys" defaultExpanded className="journey-side-group">
         <div className="journey-list journey-list-sidebar">
           {viewJourneys.map((journey) => (
             <div
@@ -4857,6 +4907,7 @@ function App() {
               <span>{journey.name}</span>
               <button
                 type="button"
+                className="journey-filter-button"
                 onClick={(event) => {
                   event.stopPropagation()
                   const nextJourneyFilter = journeyFilterId === journey.id ? null : journey.id
@@ -4874,7 +4925,7 @@ function App() {
             </div>
           ))}
         </div>
-      </section>
+      </PanelGroup>
     </div>
   )
 
@@ -5182,6 +5233,353 @@ function App() {
     return (
       <div className={windowId === 'dsl' ? 'dock-tab-body dock-tab-body-dsl' : 'dock-tab-body'}>
         {content}
+      </div>
+    )
+  }
+
+  const handleCanvasEdgePointerStart = (
+    edgeId: string,
+    event: ReactPointerEvent<SVGGElement>,
+  ) => {
+    if (
+      event.ctrlKey ||
+      event.metaKey ||
+      event.altKey ||
+      activeTool === 'connector' ||
+      Boolean(pendingConnectionFrom)
+    ) {
+      setDraggedEdgeId(null)
+      return
+    }
+    setDraggedEdgeId(edgeId)
+  }
+
+  const mobileDockTabs: DockTab[] = ['palette', 'inspector', 'journeys', 'timeline', 'dsl', 'help', 'preferences']
+  const cloudBadgeControl = (
+    <div ref={topbarCloudShellRef} className="topbar-cloud-shell">
+      <button
+        type="button"
+        className={[
+          'topbar-cloud-badge',
+          supabaseCloudPanelOpen ? 'topbar-cloud-badge-open' : '',
+          supabaseCloudReady ? 'topbar-cloud-badge-ready' : '',
+        ]
+          .filter(Boolean)
+          .join(' ')}
+        onClick={() => setSupabaseCloudPanelOpen((current) => !current)}
+        aria-expanded={supabaseCloudPanelOpen}
+        aria-haspopup="dialog"
+        aria-label="Open Supabase cloud panel"
+      >
+        <span className="topbar-cloud-badge-copy">
+          <strong>{supabaseCloudUser?.email ?? (supabaseCloudConfigured ? 'Supabase Cloud' : 'Cloud Offline')}</strong>
+          <span>
+            {!supabaseCloudConfigured
+              ? 'Not configured'
+              : supabaseCloudReady
+                ? `${supabaseGalleryAssets.length} asset${supabaseGalleryAssets.length === 1 ? '' : 's'}`
+                : 'Sign in required'}
+          </span>
+        </span>
+        <span
+          className={
+            supabaseCloudReady
+              ? 'topbar-cloud-badge-dot topbar-cloud-badge-dot-ready'
+              : 'topbar-cloud-badge-dot'
+          }
+          aria-hidden="true"
+        />
+      </button>
+      {supabaseCloudPanelOpen ? (
+        <div className="topbar-cloud-panel" role="dialog" aria-label="Supabase cloud panel">
+          <p className="topbar-cloud-status">{supabaseCloudStatus}</p>
+          {!supabaseCloudConfigured ? (
+            <p className="topbar-cloud-hint">{SUPABASE_PUBLIC_ENV_HINT}</p>
+          ) : supabaseCloudUser ? (
+            <>
+              <p className="topbar-cloud-hint">
+                Standard PNG/GIF/MP4 exports now auto-upload here after the local file is generated.
+              </p>
+              <div className="topbar-cloud-actions">
+                <button
+                  type="button"
+                  disabled={supabaseCloudBusy}
+                  onClick={() => {
+                    void saveWorkspaceToSupabaseCloud()
+                  }}
+                >
+                  Save
+                </button>
+                <button
+                  type="button"
+                  disabled={supabaseCloudBusy}
+                  onClick={() => {
+                    void loadWorkspaceFromSupabaseCloud()
+                  }}
+                >
+                  Load
+                </button>
+              </div>
+              <div className="topbar-cloud-actions topbar-cloud-actions-secondary">
+                <button
+                  type="button"
+                  disabled={supabaseCloudBusy}
+                  onClick={() => openSupabaseGalleryPicker()}
+                >
+                  Upload local
+                </button>
+                <button
+                  type="button"
+                  disabled={supabaseCloudBusy}
+                  onClick={() => {
+                    void refreshSupabaseGalleryAssets()
+                  }}
+                >
+                  Refresh
+                </button>
+                <button
+                  type="button"
+                  disabled={supabaseCloudBusy}
+                  onClick={() => openSupabaseGalleryWindow()}
+                >
+                  Open gallery
+                </button>
+                <button
+                  type="button"
+                  disabled={supabaseCloudBusy}
+                  onClick={() => {
+                    void signOutOfSupabaseCloud()
+                  }}
+                >
+                  Sign out
+                </button>
+              </div>
+            </>
+          ) : (
+            <div className="topbar-cloud-form">
+              <label className="topbar-cloud-field">
+                Email
+                <input
+                  type="email"
+                  value={supabaseAuthDraft.email}
+                  onChange={(event) =>
+                    setSupabaseAuthDraft((current) => ({
+                      ...current,
+                      email: event.target.value,
+                    }))
+                  }
+                  placeholder="tester@example.com"
+                  autoComplete="email"
+                />
+              </label>
+              <label className="topbar-cloud-field">
+                Password
+                <input
+                  type="password"
+                  value={supabaseAuthDraft.password}
+                  onChange={(event) =>
+                    setSupabaseAuthDraft((current) => ({
+                      ...current,
+                      password: event.target.value,
+                    }))
+                  }
+                  placeholder="Your Supabase password"
+                  autoComplete="current-password"
+                />
+              </label>
+              <div className="topbar-cloud-actions topbar-cloud-actions-secondary">
+                <button
+                  type="button"
+                  disabled={supabaseCloudBusy}
+                  onClick={() => {
+                    void signInToSupabaseCloud()
+                  }}
+                >
+                  {supabaseCloudBusy ? 'Working...' : 'Sign in'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSupabaseCloudPanelOpen(false)}
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      ) : null}
+    </div>
+  )
+
+  if (appShellMode === 'mobile') {
+    return (
+      <div
+        ref={layoutRef}
+        className={`mobile-app app-layout-density-${uiPreferences.density} ${
+          theme === 'dark' ? 'theme-dark' : 'theme-light'
+        }`}
+      >
+        <input
+          ref={snapshotFileInputRef}
+          type="file"
+          accept=".json,.sjv,.sjv.json,.dsl,.txt,application/json,text/plain"
+          hidden
+          onChange={(event) => {
+            void onWorkspaceFileInputChange(event)
+          }}
+        />
+        <input
+          ref={supabaseGalleryFileInputRef}
+          type="file"
+          accept=".png,.gif,.mp4,image/*,video/*"
+          hidden
+          onChange={(event) => {
+            void onSupabaseGalleryFileInputChange(event)
+          }}
+        />
+        <SplashScreen
+          visible={splashVisible}
+          versionLabel={APP_VERSION_LABEL}
+          copyrightLabel={`Copyright ${APP_COPYRIGHT_LABEL}`}
+          onDismiss={() => setSplashVisible(false)}
+        />
+        <header ref={topbarRef} className="mobile-topbar">
+          <div className="mobile-topbar-row">
+            <div className="mobile-brand-copy">
+              <strong>{workspace.workspace.name}</strong>
+              <span>{breadcrumb.map((viewId) => workspace.views[viewId]?.name ?? viewId).join(' / ')}</span>
+            </div>
+            {cloudBadgeControl}
+          </div>
+          <div className="mobile-toolbar" role="toolbar" aria-label="Mobile canvas tools">
+            <button
+              type="button"
+              className="mobile-toolbar-button"
+              onClick={() => {
+                void openWorkspaceFilePicker()
+              }}
+            >
+              Open
+            </button>
+            <button
+              type="button"
+              className="mobile-toolbar-button"
+              onClick={() => {
+                void saveWorkspaceFile('reuse')
+              }}
+            >
+              Save
+            </button>
+            <button
+              type="button"
+              className={activeTool === 'select' ? 'mobile-toolbar-button mobile-toolbar-button-active' : 'mobile-toolbar-button'}
+              onClick={() => setActiveTool('select')}
+            >
+              Select
+            </button>
+            <button
+              type="button"
+              className={activeTool === 'connector' ? 'mobile-toolbar-button mobile-toolbar-button-active' : 'mobile-toolbar-button'}
+              onClick={() => setActiveTool('connector')}
+            >
+              Connect
+            </button>
+            <button
+              type="button"
+              className="mobile-toolbar-button"
+              onClick={() => setMobilePanelCollapsed((current) => !current)}
+            >
+              {mobilePanelCollapsed ? 'Show panels' : 'Hide panels'}
+            </button>
+          </div>
+          {exportError ? <p className="topbar-error">{exportError}</p> : null}
+          {!exportError && exportStatus ? <p className="topbar-status">{exportStatus}</p> : null}
+        </header>
+        <main
+          ref={canvasPanelRef}
+          className={`canvas-panel mobile-canvas-panel ${
+            gridEnabled && !presentationMode ? 'canvas-panel-grid-visible' : 'canvas-panel-grid-hidden'
+          } ${presentationMode ? 'canvas-panel-presentation' : ''}`}
+        >
+          {!presentationMode && canNavigateBack ? (
+            <button
+              type="button"
+              className="canvas-back-arrow"
+              onClick={() => navigateBack()}
+              aria-label="Back to previous view"
+            >
+              <Undo2 size={16} />
+            </button>
+          ) : null}
+          {!presentationMode && activeTool === 'connector' ? (
+            <p className={canNavigateBack ? 'canvas-hint canvas-hint-with-back' : 'canvas-hint'}>
+              {pendingConnectionFrom
+                ? `Select a destination to connect from ${pendingConnectionFrom}${pendingConnectionPortId ? `:${pendingConnectionPortId}` : ''}`
+                : 'Drag from one handle to another to create an edge'}
+            </p>
+          ) : null}
+          {presentationMode && presentationSurface === 'sequence' ? (
+            <SequenceDiagramView scene={presentationSequenceScene} theme={theme} />
+          ) : (
+            <DiagramCanvas
+              presentationMode={presentationMode}
+              forceGridHidden={presentationMode}
+              exportFocusJourneyId={exportFocusJourneyId}
+              nodeDepthEffectsEnabled={uiPreferences.nodeDepthEffectsEnabled}
+              draggedEdgeId={draggedEdgeId}
+              onEdgePointerStart={handleCanvasEdgePointerStart}
+            />
+          )}
+        </main>
+        <section
+          className={
+            mobilePanelCollapsed
+              ? 'mobile-panel-shell mobile-panel-shell-collapsed'
+              : 'mobile-panel-shell'
+          }
+        >
+          <div className="mobile-panel-tabs" role="tablist" aria-label="Mobile panels">
+            {mobileDockTabs.map((tab) => (
+              <button
+                key={tab}
+                type="button"
+                role="tab"
+                aria-selected={mobilePanelTab === tab}
+                className={mobilePanelTab === tab ? 'mobile-panel-tab mobile-panel-tab-active' : 'mobile-panel-tab'}
+                onClick={() => {
+                  setMobilePanelTab(tab)
+                  setMobilePanelCollapsed(false)
+                }}
+              >
+                {dockLabelByTab[tab]}
+              </button>
+            ))}
+            <span className="mobile-panel-tabs-spacer" />
+            <button
+              type="button"
+              className="mobile-panel-toggle"
+              onClick={() => setMobilePanelCollapsed((current) => !current)}
+            >
+              {mobilePanelCollapsed ? 'Expand' : 'Collapse'}
+            </button>
+          </div>
+          {!mobilePanelCollapsed ? (
+            <div className="mobile-panel-body">{resolveDockTabContent(mobilePanelTab)}</div>
+          ) : null}
+        </section>
+        {guidedTutorialStepIndex !== null ? (
+          <GuidedTutorialOverlay
+            step={guidedTutorialCurrentStep ?? GUIDED_UI_TUTORIAL_STEPS[guidedTutorialStepIndex]}
+            stepIndex={guidedTutorialStepIndex}
+            totalSteps={GUIDED_UI_TUTORIAL_STEPS.length}
+            canAdvance={guidedTutorialCurrentStepCompletion.isComplete}
+            requiresAction={guidedTutorialCurrentStepCompletion.requiresAction}
+            completionPrompt={guidedTutorialCurrentStepCompletion.prompt}
+            onNext={() => nextGuidedTutorialStep()}
+            onBack={() => previousGuidedTutorialStep()}
+            onSkip={() => closeGuidedTutorial()}
+          />
+        ) : null}
       </div>
     )
   }
@@ -6385,159 +6783,7 @@ function App() {
             </div>
             </nav>
           ) : null}
-          <div ref={topbarCloudShellRef} className="topbar-cloud-shell">
-            <button
-              type="button"
-              className={[
-                'topbar-cloud-badge',
-                supabaseCloudPanelOpen ? 'topbar-cloud-badge-open' : '',
-                supabaseCloudReady ? 'topbar-cloud-badge-ready' : '',
-              ]
-                .filter(Boolean)
-                .join(' ')}
-              onClick={() => setSupabaseCloudPanelOpen((current) => !current)}
-              aria-expanded={supabaseCloudPanelOpen}
-              aria-haspopup="dialog"
-              aria-label="Open Supabase cloud panel"
-            >
-              <span className="topbar-cloud-badge-copy">
-                <strong>{supabaseCloudUser?.email ?? (supabaseCloudConfigured ? 'Supabase Cloud' : 'Cloud Offline')}</strong>
-                <span>
-                  {!supabaseCloudConfigured
-                    ? 'Not configured'
-                    : supabaseCloudReady
-                      ? `${supabaseGalleryAssets.length} asset${supabaseGalleryAssets.length === 1 ? '' : 's'}`
-                      : 'Sign in required'}
-                </span>
-              </span>
-              <span
-                className={
-                  supabaseCloudReady
-                    ? 'topbar-cloud-badge-dot topbar-cloud-badge-dot-ready'
-                    : 'topbar-cloud-badge-dot'
-                }
-                aria-hidden="true"
-              />
-            </button>
-            {supabaseCloudPanelOpen ? (
-              <div className="topbar-cloud-panel" role="dialog" aria-label="Supabase cloud panel">
-                <p className="topbar-cloud-status">{supabaseCloudStatus}</p>
-                {!supabaseCloudConfigured ? (
-                  <p className="topbar-cloud-hint">{SUPABASE_PUBLIC_ENV_HINT}</p>
-                ) : supabaseCloudUser ? (
-                  <>
-                    <p className="topbar-cloud-hint">
-                      Standard PNG/GIF/MP4 exports now auto-upload here after the local file is generated.
-                    </p>
-                    <div className="topbar-cloud-actions">
-                      <button
-                        type="button"
-                        disabled={supabaseCloudBusy}
-                        onClick={() => {
-                          void saveWorkspaceToSupabaseCloud()
-                        }}
-                      >
-                        Save
-                      </button>
-                      <button
-                        type="button"
-                        disabled={supabaseCloudBusy}
-                        onClick={() => {
-                          void loadWorkspaceFromSupabaseCloud()
-                        }}
-                      >
-                        Load
-                      </button>
-                    </div>
-                    <div className="topbar-cloud-actions topbar-cloud-actions-secondary">
-                      <button
-                        type="button"
-                        disabled={supabaseCloudBusy}
-                        onClick={() => openSupabaseGalleryPicker()}
-                      >
-                        Upload local
-                      </button>
-                      <button
-                        type="button"
-                        disabled={supabaseCloudBusy}
-                        onClick={() => {
-                          void refreshSupabaseGalleryAssets()
-                        }}
-                      >
-                        Refresh
-                      </button>
-                      <button
-                        type="button"
-                        disabled={supabaseCloudBusy}
-                        onClick={() => openSupabaseGalleryWindow()}
-                      >
-                        Open gallery
-                      </button>
-                      <button
-                        type="button"
-                        disabled={supabaseCloudBusy}
-                        onClick={() => {
-                          void signOutOfSupabaseCloud()
-                        }}
-                      >
-                        Sign out
-                      </button>
-                    </div>
-                  </>
-                ) : (
-                  <div className="topbar-cloud-form">
-                    <label className="topbar-cloud-field">
-                      Email
-                      <input
-                        type="email"
-                        value={supabaseAuthDraft.email}
-                        onChange={(event) =>
-                          setSupabaseAuthDraft((current) => ({
-                            ...current,
-                            email: event.target.value,
-                          }))
-                        }
-                        placeholder="tester@example.com"
-                        autoComplete="email"
-                      />
-                    </label>
-                    <label className="topbar-cloud-field">
-                      Password
-                      <input
-                        type="password"
-                        value={supabaseAuthDraft.password}
-                        onChange={(event) =>
-                          setSupabaseAuthDraft((current) => ({
-                            ...current,
-                            password: event.target.value,
-                          }))
-                        }
-                        placeholder="Your Supabase password"
-                        autoComplete="current-password"
-                      />
-                    </label>
-                    <div className="topbar-cloud-actions topbar-cloud-actions-secondary">
-                      <button
-                        type="button"
-                        disabled={supabaseCloudBusy}
-                        onClick={() => {
-                          void signInToSupabaseCloud()
-                        }}
-                      >
-                        {supabaseCloudBusy ? 'Working...' : 'Sign in'}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setSupabaseCloudPanelOpen(false)}
-                      >
-                        Close
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            ) : null}
-          </div>
+          {cloudBadgeControl}
           {!presentationMode ? (
             <div className="mode-indicators">
                 <span className={activeTool === 'connector' ? 'mode-pill mode-pill-active' : 'mode-pill'}>
@@ -7009,19 +7255,8 @@ function App() {
             forceGridHidden={presentationMode}
             exportFocusJourneyId={exportFocusJourneyId}
             nodeDepthEffectsEnabled={uiPreferences.nodeDepthEffectsEnabled}
-            onEdgePointerStart={(edgeId, event) => {
-              if (
-                event.ctrlKey ||
-                event.metaKey ||
-                event.altKey ||
-                activeTool === 'connector' ||
-                Boolean(pendingConnectionFrom)
-              ) {
-                setDraggedEdgeId(null)
-                return
-              }
-              setDraggedEdgeId(edgeId)
-            }}
+            draggedEdgeId={draggedEdgeId}
+            onEdgePointerStart={handleCanvasEdgePointerStart}
           />
         )}
       </main>

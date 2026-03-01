@@ -36,13 +36,20 @@ describe('App source regressions', () => {
     expect(appSource).toContain('nodeDepthEffectsEnabled={uiPreferences.nodeDepthEffectsEnabled}')
   })
 
-  it('includes manual Supabase auth and cloud workspace actions', () => {
+  it('includes manual Supabase auth plus workspace, script, and gallery actions', () => {
     expect(appSource).toContain("supabaseCloudConfigured")
     expect(appSource).toContain('Sign In to Supabase')
     expect(appSource).toContain('Save Workspace to Cloud')
     expect(appSource).toContain('Load Workspace from Cloud')
+    expect(appSource).toContain('Save Generated SJV Script')
+    expect(appSource).toContain('Load Latest SJV Script')
+    expect(appSource).toContain('Upload File to Gallery')
+    expect(appSource).toContain('Refresh Gallery List')
     expect(appSource).toContain('Save to Supabase Cloud')
     expect(appSource).toContain('Load from Supabase Cloud')
+    expect(appSource).toContain('Save Script to Supabase Cloud')
+    expect(appSource).toContain('Load Script from Supabase Cloud')
+    expect(appSource).toContain('Upload Media to Supabase Gallery')
   })
 
   it('keeps SJV Script panel free of Codex action buttons', () => {

@@ -12,6 +12,7 @@
 - Latest workflow/docs increment (2026-02-22) refreshed repository `AGENTS.md` for the actual monorepo stack and expanded local skills for UI layout regressions, SJV Script changes, `gh` PR/merge flow, showcase/tutorial curation, docs synchronization, export validation, theme/palette accessibility tuning, Playwright visual capture, and local persistence migrations.
 - Latest presentation sequence increment (2026-02-25) adds a native inferred sequence-diagram surface (read-only) in Presentation mode, backed by a sequence IR with static `SVG/PNG/PDF` export support and no external renderer dependency; follow-up hotfix now renders merged participant activation bars (source+target participation) and anchors arrows to activation-bar edges for more formal sequence semantics.
 - Latest cloud bootstrap increment (2026-03-01) adds an optional Supabase browser integration for manual email/password auth plus per-user cloud save/load of the current workspace snapshot, with safe Vercel public-env bridging and a SQL bootstrap guide for the `workspaces` table.
+- Latest cloud storage follow-up (2026-03-01, later pass) extends the optional Supabase integration with generated SJV Script persistence plus private `gallery` bucket upload/list/download backed by `gallery_assets` metadata.
 - Architecture baseline:
   - custom SVG editor engine (internal adapter, no paid lock-in),
   - versioned FULL model (`schemaVersion: 1.0`) as source of truth,
@@ -71,6 +72,8 @@
 - Optional Supabase cloud workspace persistence:
   - manual sign-in/sign-out from `Preferences`,
   - manual save/load of the current `EditorSnapshot` keyed by `(user, workspace id)`,
+  - manual save/load of the generated SJV Script keyed by `(user, workspace id)`,
+  - manual upload/list/download of private user gallery assets (`PNG/GIF/MP4`) in the `gallery` bucket,
   - local browser persistence remains the default fallback and continues to autosave independently.
 - View hierarchy selector in topbar allows direct navigation across all nested views.
 - Sequence-diagram inference layer (new domain seam):

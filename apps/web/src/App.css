@@ -1013,6 +1013,12 @@
   cursor: pointer;
 }
 
+.preferences-inline-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sjv-density-toolbar-gap);
+}
+
 .preferences-toggle {
   display: inline-flex;
   align-items: center;
@@ -1037,6 +1043,14 @@
   font-size: var(--sjv-density-control-font);
 }
 
+.preferences-select input {
+  border: 1px solid #cbd5e1;
+  border-radius: var(--sjv-density-dock-tab-radius);
+  padding: var(--sjv-density-dock-tab-py) var(--sjv-density-dock-tab-px);
+  font-size: var(--sjv-density-control-font);
+  min-width: 0;
+}
+
 .preferences-fieldset {
   border: 1px solid #d5deeb;
   border-radius: calc(var(--sjv-density-dock-tab-radius) + 2px);
@@ -1051,6 +1065,13 @@
   font-size: 12px;
   color: #475569;
   padding: 0 6px;
+}
+
+.preferences-status {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: #475569;
 }
 
 .help-window .floating-window-body {
@@ -3550,12 +3571,14 @@
 .theme-dark .preferences-window .floating-window-header strong,
 .theme-dark .preferences-toggle,
 .theme-dark .preferences-select,
-.theme-dark .preferences-fieldset legend {
+.theme-dark .preferences-fieldset legend,
+.theme-dark .preferences-status {
   color: #cbd5e1;
 }
 
 .theme-dark .floating-window-close,
-.theme-dark .preferences-select select {
+.theme-dark .preferences-select select,
+.theme-dark .preferences-select input {
   background: #1e293b;
   border-color: #475569;
   color: #e2e8f0;

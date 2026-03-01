@@ -97,6 +97,12 @@ import {
   type RecentWorkspaceEntry,
 } from './file/recentWorkspaces'
 import helpGuideMarkdown from './help/help.md?raw'
+import {
+  SUPABASE_PUBLIC_ENV_HINT,
+  supabaseCloudConfigured,
+  supabaseWorkspaceCloudStore,
+  type SupabaseCloudUser,
+} from './integrations/supabase/workspaceCloudStore'
 import { resolveJourneyFocusScope } from './journeys/focus'
 import { resolveJourneyPlaybackLength, resolveJourneyPlaybackTicks } from './journeys/playbackPlan'
 import { resolvePlayerStepLabel } from './journeys/playerStepLabel'
@@ -219,6 +225,10 @@ type StepDragState = { journeyId: string; edgeId: string }
 type HelpSection = 'guide' | 'gallery' | 'about'
 type ToolbarSectionId = 'navigation' | 'editing' | 'viewport' | 'panels' | 'modes'
 type UiDensity = 'comfortable' | 'compact'
+type SupabaseAuthDraft = {
+  email: string
+  password: string
+}
 
 type UiPreferences = {
   tooltipsEnabled: boolean
@@ -723,6 +733,17 @@ function App() {
   const [activeDockTab, setActiveDockTab] = useState<DockTab>(windowLayoutBootstrap.activeDockTab)
   const [floatingDockRect, setFloatingDockRect] = useState<FloatingDockRect>(windowLayoutBootstrap.floatingDockRect)
   const [recentWorkspaces, setRecentWorkspaces] = useState<RecentWorkspaceEntry[]>(() => loadRecentWorkspaces())
+  const [supabaseAuthDraft, setSupabaseAuthDraft] = useState<SupabaseAuthDraft>({
+    email: '',
+    password: '',
+  })
+  const [supabaseCloudUser, setSupabaseCloudUser] = useState<SupabaseCloudUser | null>(null)
+  const [supabaseCloudBusy, setSupabaseCloudBusy] = useState(false)
+  const [supabaseCloudStatus, setSupabaseCloudStatus] = useState<string>(() =>
+    supabaseCloudConfigured
+      ? 'Sign in to enable Supabase cloud save/load.'
+      : `Supabase cloud is not configured. ${SUPABASE_PUBLIC_ENV_HINT}`,
+  )
   const [openDesktopMenu, setOpenDesktopMenu] = useState<DesktopMenuId | null>(null)
   const [guidedTutorialStepIndex, setGuidedTutorialStepIndex] = useState<number | null>(null)
   const [guidedTutorialEventCounts, setGuidedTutorialEventCounts] = useState<Record<string, number>>({})
@@ -1471,6 +1492,21 @@ function App() {
     window.setTimeout(() => setExportStatus(null), timeoutMs)
   }, [])
 
+  useEffect(() => {
+    if (!supabaseWorkspaceCloudStore) {
+      return
+    }
+
+    return supabaseWorkspaceCloudStore.observeAuth((user) => {
+      setSupabaseCloudUser(user)
+      setSupabaseCloudStatus(
+        user
+          ? `Supabase ready for ${user.email ?? user.id}.`
+          : 'Signed out. Sign in to enable Supabase cloud save/load.',
+      )
+    })
+  }, [])
+
   const restoreWindowLayout = useCallback(() => {
     const fallback = createDefaultWindowLayoutBootstrap(topbarHeight)
     if (typeof window === 'undefined') {
@@ -1573,6 +1609,100 @@ function App() {
     }),
     [currentViewId, viewport, workspace],
   )
+
+  const signInToSupabaseCloud = useCallback(async () => {
+    if (!supabaseWorkspaceCloudStore) {
+      setSupabaseCloudStatus(`Supabase cloud is not configured. ${SUPABASE_PUBLIC_ENV_HINT}`)
+      return
+    }
+
+    setSupabaseCloudBusy(true)
+    try {
+      const user = await supabaseWorkspaceCloudStore.signIn(
+        supabaseAuthDraft.email,
+        supabaseAuthDraft.password,
+      )
+      setSupabaseCloudUser(user)
+      setSupabaseCloudStatus(`Signed in as ${user.email ?? user.id}.`)
+      setTransientStatus('Supabase sign-in successful.')
+    } catch (error) {
+      setSupabaseCloudStatus(
+        error instanceof Error ? `Supabase sign-in failed: ${error.message}` : 'Supabase sign-in failed.',
+      )
+    } finally {
+      setSupabaseCloudBusy(false)
+    }
+  }, [setTransientStatus, supabaseAuthDraft.email, supabaseAuthDraft.password])
+
+  const signOutOfSupabaseCloud = useCallback(async () => {
+    if (!supabaseWorkspaceCloudStore) {
+      setSupabaseCloudStatus(`Supabase cloud is not configured. ${SUPABASE_PUBLIC_ENV_HINT}`)
+      return
+    }
+
+    setSupabaseCloudBusy(true)
+    try {
+      await supabaseWorkspaceCloudStore.signOut()
+      setSupabaseCloudUser(null)
+      setSupabaseCloudStatus('Signed out. Sign in to enable Supabase cloud save/load.')
+      setTransientStatus('Supabase sign-out complete.')
+    } catch (error) {
+      setSupabaseCloudStatus(
+        error instanceof Error ? `Supabase sign-out failed: ${error.message}` : 'Supabase sign-out failed.',
+      )
+    } finally {
+      setSupabaseCloudBusy(false)
+    }
+  }, [setTransientStatus])
+
+  const saveWorkspaceToSupabaseCloud = useCallback(async () => {
+    if (!supabaseWorkspaceCloudStore) {
+      setSupabaseCloudStatus(`Supabase cloud is not configured. ${SUPABASE_PUBLIC_ENV_HINT}`)
+      return
+    }
+
+    setSupabaseCloudBusy(true)
+    try {
+      await supabaseWorkspaceCloudStore.saveWorkspace(buildEditorSnapshot())
+      setSupabaseCloudStatus(`Cloud copy saved for workspace "${workspace.workspace.name}".`)
+      setTransientStatus('Workspace saved to Supabase cloud.')
+    } catch (error) {
+      setSupabaseCloudStatus(
+        error instanceof Error ? `Cloud save failed: ${error.message}` : 'Cloud save failed.',
+      )
+    } finally {
+      setSupabaseCloudBusy(false)
+    }
+  }, [buildEditorSnapshot, setTransientStatus, workspace.workspace.name])
+
+  const loadWorkspaceFromSupabaseCloud = useCallback(async () => {
+    if (!supabaseWorkspaceCloudStore) {
+      setSupabaseCloudStatus(`Supabase cloud is not configured. ${SUPABASE_PUBLIC_ENV_HINT}`)
+      return
+    }
+
+    setSupabaseCloudBusy(true)
+    try {
+      const snapshot = await supabaseWorkspaceCloudStore.loadWorkspace(workspace.workspace.id)
+      if (!snapshot) {
+        setSupabaseCloudStatus(`No cloud snapshot found for workspace id "${workspace.workspace.id}".`)
+        return
+      }
+
+      replaceWorkspace(snapshot.workspace, snapshot.currentViewId)
+      setViewport(snapshot.viewport)
+      setDslText(fullWorkspaceToLiteDsl(snapshot.workspace))
+      setDslError(null)
+      setSupabaseCloudStatus(`Loaded cloud snapshot for workspace "${snapshot.workspace.workspace.name}".`)
+      setTransientStatus('Workspace loaded from Supabase cloud.')
+    } catch (error) {
+      setSupabaseCloudStatus(
+        error instanceof Error ? `Cloud load failed: ${error.message}` : 'Cloud load failed.',
+      )
+    } finally {
+      setSupabaseCloudBusy(false)
+    }
+  }, [replaceWorkspace, setTransientStatus, setViewport, workspace.workspace.id])
 
   const saveWorkspaceFile = useCallback(
     async (mode: FileWriteMode = 'reuse') => {
@@ -3677,6 +3807,85 @@ function App() {
           Modes
         </label>
       </fieldset>
+      <fieldset className="preferences-fieldset">
+        <legend>Supabase Cloud</legend>
+        <p className="preferences-status">{supabaseCloudStatus}</p>
+        <p className="preferences-status">Current workspace id: {workspace.workspace.id}</p>
+        <label className="preferences-select">
+          Supabase email
+          <input
+            type="email"
+            value={supabaseAuthDraft.email}
+            onChange={(event) =>
+              setSupabaseAuthDraft((current) => ({
+                ...current,
+                email: event.target.value,
+              }))
+            }
+            placeholder="tester@example.com"
+            autoComplete="email"
+          />
+        </label>
+        <label className="preferences-select">
+          Supabase password
+          <input
+            type="password"
+            value={supabaseAuthDraft.password}
+            onChange={(event) =>
+              setSupabaseAuthDraft((current) => ({
+                ...current,
+                password: event.target.value,
+              }))
+            }
+            placeholder="Your Supabase password"
+            autoComplete="current-password"
+          />
+        </label>
+        <div className="preferences-inline-actions">
+          <button
+            type="button"
+            className="preferences-inline-action"
+            disabled={!supabaseCloudConfigured || supabaseCloudBusy}
+            onClick={() => {
+              void signInToSupabaseCloud()
+            }}
+          >
+            {supabaseCloudBusy ? 'Working...' : 'Sign In to Supabase'}
+          </button>
+          <button
+            type="button"
+            className="preferences-inline-action"
+            disabled={!supabaseCloudConfigured || !supabaseCloudUser || supabaseCloudBusy}
+            onClick={() => {
+              void signOutOfSupabaseCloud()
+            }}
+          >
+            Sign Out
+          </button>
+        </div>
+        <div className="preferences-inline-actions">
+          <button
+            type="button"
+            className="preferences-inline-action"
+            disabled={!supabaseCloudConfigured || !supabaseCloudUser || supabaseCloudBusy}
+            onClick={() => {
+              void saveWorkspaceToSupabaseCloud()
+            }}
+          >
+            Save Workspace to Cloud
+          </button>
+          <button
+            type="button"
+            className="preferences-inline-action"
+            disabled={!supabaseCloudConfigured || !supabaseCloudUser || supabaseCloudBusy}
+            onClick={() => {
+              void loadWorkspaceFromSupabaseCloud()
+            }}
+          >
+            Load Workspace from Cloud
+          </button>
+        </div>
+      </fieldset>
     </div>
   )
 
@@ -4627,6 +4836,36 @@ function App() {
                   </button>
                   <button type="button" role="menuitem" onClick={() => runDesktopMenuAction(() => hydrate())}>
                     {renderDesktopMenuItem(<RotateCcw size={13} />, 'Reload Snapshot', <kbd>Ctrl+R</kbd>)}
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    disabled={!supabaseCloudConfigured || !supabaseCloudUser || supabaseCloudBusy}
+                    onClick={() =>
+                      runDesktopMenuAction(() => {
+                        void saveWorkspaceToSupabaseCloud()
+                      })
+                    }
+                  >
+                    {renderDesktopMenuItem(
+                      <Save size={13} />,
+                      supabaseCloudBusy ? 'Cloud Busy...' : 'Save to Supabase Cloud',
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    disabled={!supabaseCloudConfigured || !supabaseCloudUser || supabaseCloudBusy}
+                    onClick={() =>
+                      runDesktopMenuAction(() => {
+                        void loadWorkspaceFromSupabaseCloud()
+                      })
+                    }
+                  >
+                    {renderDesktopMenuItem(
+                      <Download size={13} />,
+                      supabaseCloudBusy ? 'Cloud Busy...' : 'Load from Supabase Cloud',
+                    )}
                   </button>
                   <button
                     type="button"

@@ -11,6 +11,7 @@
 - Latest desktop shell refinement (2026-02-22) compacted the topbar by collapsing logo + menubar into one row, hiding topbar mode pills, and moving viewport controls (zoom/grid/snap/theme/auto-layout) to the main menu only.
 - Latest workflow/docs increment (2026-02-22) refreshed repository `AGENTS.md` for the actual monorepo stack and expanded local skills for UI layout regressions, SJV Script changes, `gh` PR/merge flow, showcase/tutorial curation, docs synchronization, export validation, theme/palette accessibility tuning, Playwright visual capture, and local persistence migrations.
 - Latest presentation sequence increment (2026-02-25) adds a native inferred sequence-diagram surface (read-only) in Presentation mode, backed by a sequence IR with static `SVG/PNG/PDF` export support and no external renderer dependency; follow-up hotfix now renders merged participant activation bars (source+target participation) and anchors arrows to activation-bar edges for more formal sequence semantics.
+- Latest cloud bootstrap increment (2026-03-01) adds an optional Supabase browser integration for manual email/password auth plus per-user cloud save/load of the current workspace snapshot, with safe Vercel public-env bridging and a SQL bootstrap guide for the `workspaces` table.
 - Architecture baseline:
   - custom SVG editor engine (internal adapter, no paid lock-in),
   - versioned FULL model (`schemaVersion: 1.0`) as source of truth,
@@ -67,6 +68,10 @@
   - `Open File` (snapshot or SJV Script import: `.json/.sjv/.dsl/.txt`),
   - `Save File` with File System Access API support (handle reuse on `Ctrl/Cmd+S` and Save As on `Ctrl/Cmd+Shift+S`, with download fallback as `.sjv.json`).
   - entry view selection for SJV Script import now respects drilldown hierarchy (root/top-level view first, instead of arbitrary view key order).
+- Optional Supabase cloud workspace persistence:
+  - manual sign-in/sign-out from `Preferences`,
+  - manual save/load of the current `EditorSnapshot` keyed by `(user, workspace id)`,
+  - local browser persistence remains the default fallback and continues to autosave independently.
 - View hierarchy selector in topbar allows direct navigation across all nested views.
 - Sequence-diagram inference layer (new domain seam):
   - derives participants/messages/notes/parallel tick groups from journey playback ticks + current view entities,

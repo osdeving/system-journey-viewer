@@ -57,6 +57,7 @@ Managed window state, host layout helpers, and window UI configuration metadata.
 - `src/model/`: core workspace model types and fixtures/defaults
 - `src/export/`: static/animated export pipeline
 - `src/file/`: file import/export and recent files support
+- `src/integrations/`: external service adapters (for example Supabase browser auth/cloud persistence)
 - `src/journeys/`: journey focus/player helpers
 - `src/engine/`: low-level geometry/curve engine primitives
 

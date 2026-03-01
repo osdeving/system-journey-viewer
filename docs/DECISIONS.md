@@ -1,5 +1,11 @@
 # Decisions
 
+## 2026-03-01 - Client-Side Supabase as the First Cloud Persistence Slice
+
+- Context: the web app needed a low-friction hosted option for personal/tester auth plus cloud storage of workspace snapshots without introducing a custom backend.
+- Decision: add an optional browser-side Supabase integration for manual email/password auth and per-user `EditorSnapshot` persistence, while keeping local browser persistence as the default offline-safe path.
+- Consequence: cloud save/load can be enabled with only public Supabase config in Vercel/Vite, but the current slice intentionally remains manual (not autosynced) and depends on RLS-protected Supabase tables.
+
 ## 2026-02-20 - SJV Script v2 (Breaking) for Deterministic Edges and Ordered Journeys
 
 - Context: the previous script format relied on source/target matching and numeric journey indices, which became ambiguous with parallel edges and prone to authoring errors.

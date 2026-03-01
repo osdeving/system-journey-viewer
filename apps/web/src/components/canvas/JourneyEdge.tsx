@@ -87,6 +87,12 @@ export const JourneyEdge = ({
       <path
         d={path}
         fill="none"
+        className="edge-hitarea"
+        aria-hidden="true"
+      />
+      <path
+        d={path}
+        fill="none"
         markerEnd="url(#edge-arrow)"
         className={resolveJourneyEdgeClassName({ isSelected, isPlayerEdge, isFlowAnimated, isDimmed })}
       />

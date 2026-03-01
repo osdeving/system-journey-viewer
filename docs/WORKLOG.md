@@ -2771,3 +2771,27 @@ Chronological engineering log. Entries are kept concise and focused on behavior 
 - `npm --workspace @sjv/web run lint`
 - `npm --workspace @sjv/web run test:run`
 - `npm --workspace @sjv/web run build`
+
+## 2026-03-01 - Edge selection hit-area hotfix
+
+### Scope
+
+- Made dashed edges easier to select without changing automatic edge routing or visual stroke thickness.
+
+### Changes
+
+- `apps/web/src/components/canvas/JourneyEdge.tsx`, `apps/web/src/components/canvas/JourneyEdge.source.test.ts`
+  - added an invisible path ahead of the visible edge stroke so pointer events can be captured on a wider target area,
+  - added source regression coverage for the dedicated hit-area path.
+- `apps/web/src/App.css`, `apps/web/src/App.styles.test.ts`
+  - added `.edge-hitarea` with transparent stroke and `pointer-events: stroke` for wider edge targeting,
+  - updated style regression coverage to keep the wider hit area present.
+- `docs/AI_STATE.md`
+  - recorded the edge-selection targeting refinement in the current snapshot.
+
+### Validation
+
+- `npm --workspace @sjv/web run test:run -- src/components/canvas/JourneyEdge.source.test.ts src/components/canvas/JourneyEdge.test.ts src/App.styles.test.ts`
+- `npm --workspace @sjv/web run lint`
+- `npm --workspace @sjv/web run test:run`
+- `npm --workspace @sjv/web run build`

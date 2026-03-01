@@ -2323,17 +2323,33 @@
   stroke-width: 1.35;
   cursor: crosshair;
   filter: drop-shadow(0 0 4px rgba(14, 165, 233, 0.32));
+  transition: fill 0.15s ease, stroke 0.15s ease, filter 0.15s ease;
+}
+
+.node-port-affordance {
+  fill: rgba(59, 130, 246, 0.14);
+  stroke: color-mix(in srgb, var(--sjv-edge-preview) 88%, #ffffff);
+  stroke-width: 1.6;
+  pointer-events: none;
   transform-box: fill-box;
   transform-origin: center;
-  transition: fill 0.15s ease, stroke 0.15s ease, filter 0.15s ease, transform 0.15s ease;
+  opacity: 0.94;
+  filter: drop-shadow(0 0 10px color-mix(in srgb, var(--sjv-edge-preview) 62%, transparent));
+  animation: node-port-affordance-pulse 1.1s ease-in-out infinite;
+}
+
+.node-port-affordance-active {
+  fill: rgba(59, 130, 246, 0.18);
+  stroke-width: 1.9;
+  opacity: 1;
+  filter: drop-shadow(0 0 12px color-mix(in srgb, var(--sjv-edge-preview) 76%, transparent));
 }
 
 .node-port-hover {
   fill: color-mix(in srgb, var(--sjv-edge-preview) 44%, #ffffff);
   stroke: color-mix(in srgb, var(--sjv-edge-preview) 76%, #ffffff);
   stroke-width: 1.95;
-  filter: drop-shadow(0 0 10px color-mix(in srgb, var(--sjv-edge-preview) 64%, transparent));
-  transform: scale(1.18);
+  filter: drop-shadow(0 0 8px color-mix(in srgb, var(--sjv-edge-preview) 54%, transparent));
 }
 
 .node-port-highlight {
@@ -2341,7 +2357,23 @@
   stroke: color-mix(in srgb, var(--sjv-edge-preview) 82%, #ffffff);
   stroke-width: 2.2;
   filter: drop-shadow(0 0 8px color-mix(in srgb, var(--sjv-edge-preview) 72%, transparent));
-  transform: scale(1.28);
+}
+
+@keyframes node-port-affordance-pulse {
+  0% {
+    opacity: 0.58;
+    transform: scale(0.84);
+  }
+
+  50% {
+    opacity: 1;
+    transform: scale(1.02);
+  }
+
+  100% {
+    opacity: 0.58;
+    transform: scale(0.84);
+  }
 }
 
 .node-border-hitarea {

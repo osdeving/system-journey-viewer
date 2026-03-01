@@ -2813,23 +2813,43 @@ export const DiagramCanvas = ({
                   </CanvasText>
                 ) : null}
                 {!presentationMode
-                  ? node.ports.map((port) => (
-                      <circle
-                        key={port.id}
-                        className={resolveNodePortClassName({
-                          isHovered: hoveredPortKey === `${node.id}:${port.id}`,
-                          isConnectionTarget:
-                            hoveredConnectionTarget?.nodeId === node.id &&
-                            hoveredConnectionTarget.portId === port.id,
-                        })}
-                        cx={node.bounds.w * port.x}
-                        cy={node.bounds.h * port.y}
-                        r={4}
-                        onPointerEnter={() => onPortPointerEnter(node.id, port.id)}
-                        onPointerLeave={() => onPortPointerLeave(node.id, port.id)}
-                        onPointerDown={(event) => onPortPointerDown(event, node, port.id)}
-                      />
-                    ))
+                  ? node.ports.map((port) => {
+                      const isHoveredPort = hoveredPortKey === `${node.id}:${port.id}`
+                      const isConnectionTargetPort =
+                        hoveredConnectionTarget?.nodeId === node.id &&
+                        hoveredConnectionTarget.portId === port.id
+                      const cx = node.bounds.w * port.x
+                      const cy = node.bounds.h * port.y
+                      return (
+                        <g key={port.id}>
+                          {isHoveredPort || isConnectionTargetPort ? (
+                            <circle
+                              className={
+                                isConnectionTargetPort
+                                  ? 'node-port-affordance node-port-affordance-active'
+                                  : 'node-port-affordance'
+                              }
+                              cx={cx}
+                              cy={cy}
+                              r={9}
+                              aria-hidden="true"
+                            />
+                          ) : null}
+                          <circle
+                            className={resolveNodePortClassName({
+                              isHovered: isHoveredPort,
+                              isConnectionTarget: isConnectionTargetPort,
+                            })}
+                            cx={cx}
+                            cy={cy}
+                            r={4}
+                            onPointerEnter={() => onPortPointerEnter(node.id, port.id)}
+                            onPointerLeave={() => onPortPointerLeave(node.id, port.id)}
+                            onPointerDown={(event) => onPortPointerDown(event, node, port.id)}
+                          />
+                        </g>
+                      )
+                    })
                   : null}
               </g>
             )

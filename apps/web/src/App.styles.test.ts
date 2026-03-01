@@ -123,6 +123,7 @@ describe('App boundary styles', () => {
     expect(appCss).toContain('.topbar-cloud-panel')
     expect(appCss).toContain('.topbar-cloud-field')
     expect(appCss).toContain('.mobile-app')
+    expect(appCss).toContain('.mobile-shell-frame')
     expect(appCss).toContain('.mobile-topbar')
     expect(appCss).toContain('.mobile-topbar-meta')
     expect(appCss).toContain('.mobile-meta-pill')

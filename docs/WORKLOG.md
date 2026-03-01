@@ -2858,3 +2858,26 @@ Chronological engineering log. Entries are kept concise and focused on behavior 
 - `npm --workspace @sjv/web run test:run`
 - `npm --workspace @sjv/web run build`
 - `git diff --check`
+
+## 2026-03-01 - Mobile shell frame alignment fix
+
+### Scope
+
+- Fixed the `/m` shell layout so it stays structurally aligned instead of stretching awkwardly across wide desktop viewports.
+
+### Changes
+
+- `apps/web/src/App.tsx`, `apps/web/src/App.source.test.ts`
+  - wrapped the mobile shell in a dedicated `mobile-shell-frame` so header, canvas, and bottom panel share the same column and sizing context,
+  - kept the mobile panel tabs and canvas inside that shared frame to prevent the previously split/offset layout.
+- `apps/web/src/App.css`, `apps/web/src/App.styles.test.ts`
+  - added a centered constrained mobile frame on wider screens with rounded-shell containment,
+  - kept the mobile shell full-width on narrow screens,
+  - tuned the dark-mode frame styling to match the mobile chrome instead of leaving the shell visually detached.
+
+### Validation
+
+- `npm --workspace @sjv/web run lint`
+- `npm --workspace @sjv/web run test:run`
+- `npm --workspace @sjv/web run build`
+- `git diff --check`

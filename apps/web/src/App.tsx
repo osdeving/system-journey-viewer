@@ -86,7 +86,7 @@ import {
   resolveExportPlaybackSpeedMs,
   resolveJourneyAnimationDurationMs,
 } from './export/animatedExport'
-import { createPngExportBlob, exportPdf, exportPng, exportSvg, saveBlobAsFile } from './export/exporters'
+import { createPngExportBlob, exportPdf, exportSvg, saveBlobAsFile } from './export/exporters'
 import {
   buildWorkspaceFilename,
   parseWorkspaceSnapshotFile,
@@ -3379,6 +3379,32 @@ function App() {
     return () => window.removeEventListener('keydown', onEntityShortcut)
   }, [deleteCurrentSelection, duplicateCurrentSelection, redoHistory, runAutoArrange, undoHistory])
 
+  const autoUploadExportedMediaToSupabaseGallery = useCallback(
+    async (blob: Blob, fileName: string, title: string): Promise<boolean> => {
+      if (!supabaseCloudReady) {
+        return false
+      }
+
+      setSupabaseCloudBusy(true)
+      try {
+        const asset = await uploadGeneratedBlobToSupabaseGallery(blob, fileName, title)
+        setSupabaseCloudStatus(`Auto-uploaded "${asset.fileName}" after local export.`)
+        return true
+      } catch (error) {
+        setSupabaseCloudStatus(
+          error instanceof Error
+            ? `Automatic upload failed after local export: ${error.message}`
+            : 'Automatic upload failed after local export.',
+        )
+        setTransientStatus('Local export completed, but Supabase auto-upload failed.')
+        return false
+      } finally {
+        setSupabaseCloudBusy(false)
+      }
+    },
+    [setTransientStatus, supabaseCloudReady, uploadGeneratedBlobToSupabaseGallery],
+  )
+
   const exportFromCanvas = async (format: 'svg' | 'png' | 'pdf') => {
     const sequenceModeActive = presentationMode && presentationSurface === 'sequence'
     const svg = document.querySelector(sequenceModeActive ? '.sequence-diagram-svg' : '.diagram-canvas')
@@ -3397,7 +3423,24 @@ function App() {
       if (format === 'svg') {
         exportSvg(svg, sequenceFilenameBase ? `${sequenceFilenameBase}.svg` : undefined)
       } else if (format === 'png') {
-        await exportPng(svg, sequenceFilenameBase ? `${sequenceFilenameBase}.png` : undefined)
+        const fileName = sequenceFilenameBase ? `${sequenceFilenameBase}.png` : `${workspace.workspace.name}.png`
+        const blob = await createPngExportBlob(svg)
+        saveBlobAsFile(blob, fileName)
+        const autoUploaded = await autoUploadExportedMediaToSupabaseGallery(
+          blob,
+          fileName,
+          sequenceModeActive
+            ? playerJourney
+              ? `Sequence PNG · ${playerJourney.name}`
+              : 'Sequence PNG'
+            : `${workspace.workspace.name} PNG`,
+        )
+        setExportStatus(
+          autoUploaded
+            ? 'PNG exported and auto-uploaded to Supabase gallery.'
+            : 'PNG exported.',
+        )
+        window.setTimeout(() => setExportStatus(null), 2800)
       } else {
         await exportPdf(svg, sequenceFilenameBase ? `${sequenceFilenameBase}.pdf` : undefined)
       }
@@ -3406,64 +3449,6 @@ function App() {
       setExportError(error instanceof Error ? error.message : 'Failed to export file.')
     }
   }
-
-  const exportPngToSupabaseGallery = useCallback(async () => {
-    if (!supabaseWorkspaceCloudStore) {
-      setSupabaseCloudStatus(`Supabase cloud is not configured. ${SUPABASE_PUBLIC_ENV_HINT}`)
-      setSupabaseCloudPanelOpen(true)
-      return
-    }
-    if (!supabaseCloudUser) {
-      setSupabaseCloudStatus('Sign in to Supabase before exporting directly to the gallery.')
-      setSupabaseCloudPanelOpen(true)
-      return
-    }
-
-    const sequenceModeActive = presentationMode && presentationSurface === 'sequence'
-    const svg = document.querySelector(sequenceModeActive ? '.sequence-diagram-svg' : '.diagram-canvas')
-    if (!(svg instanceof SVGSVGElement)) {
-      setExportError(sequenceModeActive ? 'Sequence diagram not found for export.' : 'Canvas not found for export.')
-      return
-    }
-
-    setSupabaseCloudBusy(true)
-    try {
-      const sequenceFilenameBase =
-        sequenceModeActive && playerJourney
-          ? `sequence-${playerJourney.name
-              .toLowerCase()
-              .replace(/[^a-z0-9]+/g, '-')
-              .replace(/(^-|-$)/g, '') || 'diagram'}`
-          : null
-      const fileName = sequenceFilenameBase ? `${sequenceFilenameBase}.png` : `${workspace.workspace.name}.png`
-      const title = sequenceModeActive
-        ? playerJourney
-          ? `Sequence PNG · ${playerJourney.name}`
-          : 'Sequence PNG'
-        : `${workspace.workspace.name} PNG`
-      const blob = await createPngExportBlob(svg)
-      const asset = await uploadGeneratedBlobToSupabaseGallery(blob, fileName, title)
-      setSupabaseCloudStatus(`Uploaded "${asset.fileName}" to bucket "${SUPABASE_GALLERY_BUCKET}".`)
-      setTransientStatus('PNG exported directly to Supabase gallery.')
-      setExportError(null)
-      openSupabaseGalleryWindow()
-    } catch (error) {
-      setSupabaseCloudStatus(
-        error instanceof Error ? `Cloud export failed: ${error.message}` : 'Cloud export failed.',
-      )
-    } finally {
-      setSupabaseCloudBusy(false)
-    }
-  }, [
-    openSupabaseGalleryWindow,
-    playerJourney,
-    presentationMode,
-    presentationSurface,
-    setTransientStatus,
-    supabaseCloudUser,
-    uploadGeneratedBlobToSupabaseGallery,
-    workspace.workspace.name,
-  ])
 
   type PlayerExportSnapshot = {
     playerJourneyId: string | null
@@ -3758,68 +3743,26 @@ function App() {
       }
 
       saveBlobAsFile(asset.blob, asset.fileName)
-      setExportStatus(asset.successMessage)
+      const autoUploaded =
+        format === 'gif' || format === 'mp4'
+          ? await autoUploadExportedMediaToSupabaseGallery(
+              asset.blob,
+              asset.fileName,
+              format === 'gif'
+                ? `${workspace.workspace.name} Animated GIF`
+                : `${workspace.workspace.name} Journey MP4`,
+            )
+          : false
+      setExportStatus(
+        autoUploaded
+          ? format === 'gif'
+            ? 'Animated GIF exported and auto-uploaded to Supabase gallery.'
+            : 'MP4 exported and auto-uploaded to Supabase gallery.'
+          : asset.successMessage,
+      )
       window.setTimeout(() => setExportStatus(null), format === 'svg' ? 2800 : 3200)
     },
-    [renderAnimatedExportAsset],
-  )
-
-  const exportAnimatedToSupabaseGallery = useCallback(
-    async (format: 'gif' | 'mp4') => {
-      if (!supabaseWorkspaceCloudStore) {
-        setSupabaseCloudStatus(`Supabase cloud is not configured. ${SUPABASE_PUBLIC_ENV_HINT}`)
-        setSupabaseCloudPanelOpen(true)
-        return
-      }
-      if (!supabaseCloudUser) {
-        setSupabaseCloudStatus('Sign in to Supabase before exporting directly to the gallery.')
-        setSupabaseCloudPanelOpen(true)
-        return
-      }
-
-      setSupabaseCloudBusy(true)
-      try {
-        const asset = await renderAnimatedExportAsset(format)
-        if (!asset) {
-          return
-        }
-
-        const created = await uploadGeneratedBlobToSupabaseGallery(
-          asset.blob,
-          asset.fileName,
-          format === 'gif'
-            ? `${workspace.workspace.name} Animated GIF`
-            : `${workspace.workspace.name} Journey MP4`,
-        )
-        setSupabaseCloudStatus(`Uploaded "${created.fileName}" to bucket "${SUPABASE_GALLERY_BUCKET}".`)
-        setTransientStatus(
-          format === 'gif'
-            ? 'Animated GIF exported directly to Supabase gallery.'
-            : 'MP4 exported directly to Supabase gallery.',
-        )
-        setExportStatus(
-          format === 'gif'
-            ? 'Animated GIF uploaded to Supabase gallery.'
-            : 'MP4 uploaded to Supabase gallery.',
-        )
-        window.setTimeout(() => setExportStatus(null), 3200)
-        openSupabaseGalleryWindow()
-      } catch (error) {
-        setSupabaseCloudStatus(
-          error instanceof Error ? `Cloud export failed: ${error.message}` : 'Cloud export failed.',
-        )
-      } finally {
-        setSupabaseCloudBusy(false)
-      }
-    },
-    [
-      openSupabaseGalleryWindow,
-      renderAnimatedExportAsset,
-      setTransientStatus,
-      supabaseCloudUser,
-      uploadGeneratedBlobToSupabaseGallery,
-      workspace.workspace.name,
-    ],
+    [autoUploadExportedMediaToSupabaseGallery, renderAnimatedExportAsset, workspace.workspace.name],
   )
 
   const journeyTimelineContent = (
@@ -4079,38 +4022,11 @@ function App() {
           <p>
             {supabaseCloudConfigured
               ? supabaseCloudReady
-                ? 'Your private Supabase gallery is live below. Export PNG/GIF/MP4 directly to the bucket or upload local media.'
-                : 'Sign in from the top-right cloud badge to unlock your private Supabase gallery previews and direct exports.'
+                ? 'Your private Supabase gallery is live below. Standard PNG/GIF/MP4 exports now auto-upload here after the local file is generated.'
+                : 'Sign in from the top-right cloud badge to unlock your private Supabase gallery previews and automatic upload after each PNG/GIF/MP4 export.'
               : `Supabase cloud is not configured. ${SUPABASE_PUBLIC_ENV_HINT}`}
           </p>
           <div className="help-gallery-actions">
-            <button
-              type="button"
-              disabled={!supabaseCloudReady || supabaseCloudBusy}
-              onClick={() => {
-                void exportPngToSupabaseGallery()
-              }}
-            >
-              {supabaseCloudBusy ? 'Working...' : 'Export PNG to Gallery'}
-            </button>
-            <button
-              type="button"
-              disabled={!supabaseCloudReady || supabaseCloudBusy || animatedExportRunning}
-              onClick={() => {
-                void exportAnimatedToSupabaseGallery('gif')
-              }}
-            >
-              {animatedExportRunning ? 'Exporting...' : 'Export GIF to Gallery'}
-            </button>
-            <button
-              type="button"
-              disabled={!supabaseCloudReady || supabaseCloudBusy || animatedExportRunning}
-              onClick={() => {
-                void exportAnimatedToSupabaseGallery('mp4')
-              }}
-            >
-              {animatedExportRunning ? 'Exporting...' : 'Export MP4 to Gallery'}
-            </button>
             <button
               type="button"
               disabled={!supabaseCloudReady || supabaseCloudBusy}
@@ -4170,7 +4086,7 @@ function App() {
               </div>
             ) : (
               <p className="help-gallery-empty">
-                No Supabase gallery assets yet. Use the buttons above to export directly into your private bucket.
+                No Supabase gallery assets yet. Run a normal PNG/GIF/MP4 export while signed in, or upload local media here.
               </p>
             )
           ) : null}
@@ -4305,7 +4221,7 @@ function App() {
       </fieldset>
       <fieldset className="preferences-fieldset">
         <legend>Supabase Cloud</legend>
-        <p className="preferences-status">Use the top-right cloud badge for quick sign-in, gallery access, and direct exports.</p>
+        <p className="preferences-status">Use the top-right cloud badge for quick sign-in, gallery access, and automatic upload after standard PNG/GIF/MP4 exports.</p>
         <p className="preferences-status">{supabaseCloudStatus}</p>
         <p className="preferences-status">Current workspace id: {workspace.workspace.id}</p>
         <label className="preferences-select">
@@ -5511,21 +5427,6 @@ function App() {
                   <button
                     type="button"
                     role="menuitem"
-                    disabled={!supabaseCloudReady || supabaseCloudBusy}
-                    onClick={() =>
-                      runDesktopMenuAction(() => {
-                        void exportPngToSupabaseGallery()
-                      })
-                    }
-                  >
-                    {renderDesktopMenuItem(
-                      <Image size={13} />,
-                      supabaseCloudBusy ? 'Cloud Busy...' : 'Export PNG to Supabase Gallery',
-                    )}
-                  </button>
-                  <button
-                    type="button"
-                    role="menuitem"
                     onClick={() =>
                       runDesktopMenuAction(() => {
                         void exportFromCanvas('pdf')
@@ -5549,25 +5450,6 @@ function App() {
                   <button
                     type="button"
                     role="menuitem"
-                    disabled={!supabaseCloudReady || supabaseCloudBusy || animatedExportRunning}
-                    onClick={() =>
-                      runDesktopMenuAction(() => {
-                        void exportAnimatedToSupabaseGallery('gif')
-                      })
-                    }
-                  >
-                    {renderDesktopMenuItem(
-                      <Image size={13} />,
-                      animatedExportRunning
-                        ? 'Exporting...'
-                        : supabaseCloudBusy
-                          ? 'Cloud Busy...'
-                          : 'Export GIF to Supabase Gallery',
-                    )}
-                  </button>
-                  <button
-                    type="button"
-                    role="menuitem"
                     disabled={animatedExportRunning}
                     onClick={() =>
                       runDesktopMenuAction(() => {
@@ -5578,25 +5460,6 @@ function App() {
                     {renderDesktopMenuItem(
                       <Presentation size={13} />,
                       animatedExportRunning ? 'Exporting...' : 'Export MP4',
-                    )}
-                  </button>
-                  <button
-                    type="button"
-                    role="menuitem"
-                    disabled={!supabaseCloudReady || supabaseCloudBusy || animatedExportRunning}
-                    onClick={() =>
-                      runDesktopMenuAction(() => {
-                        void exportAnimatedToSupabaseGallery('mp4')
-                      })
-                    }
-                  >
-                    {renderDesktopMenuItem(
-                      <Presentation size={13} />,
-                      animatedExportRunning
-                        ? 'Exporting...'
-                        : supabaseCloudBusy
-                          ? 'Cloud Busy...'
-                          : 'Export MP4 to Supabase Gallery',
                     )}
                   </button>
                   <button
@@ -6563,6 +6426,9 @@ function App() {
                   <p className="topbar-cloud-hint">{SUPABASE_PUBLIC_ENV_HINT}</p>
                 ) : supabaseCloudUser ? (
                   <>
+                    <p className="topbar-cloud-hint">
+                      Standard PNG/GIF/MP4 exports now auto-upload here after the local file is generated.
+                    </p>
                     <div className="topbar-cloud-actions">
                       <button
                         type="button"
@@ -6581,33 +6447,6 @@ function App() {
                         }}
                       >
                         Load
-                      </button>
-                      <button
-                        type="button"
-                        disabled={supabaseCloudBusy}
-                        onClick={() => {
-                          void exportPngToSupabaseGallery()
-                        }}
-                      >
-                        PNG
-                      </button>
-                      <button
-                        type="button"
-                        disabled={supabaseCloudBusy || animatedExportRunning}
-                        onClick={() => {
-                          void exportAnimatedToSupabaseGallery('gif')
-                        }}
-                      >
-                        GIF
-                      </button>
-                      <button
-                        type="button"
-                        disabled={supabaseCloudBusy || animatedExportRunning}
-                        onClick={() => {
-                          void exportAnimatedToSupabaseGallery('mp4')
-                        }}
-                      >
-                        MP4
                       </button>
                     </div>
                     <div className="topbar-cloud-actions topbar-cloud-actions-secondary">

@@ -14,6 +14,7 @@
 - Latest cloud bootstrap increment (2026-03-01) adds an optional Supabase browser integration for manual email/password auth plus per-user cloud save/load of the current workspace snapshot, with safe Vercel public-env bridging and a SQL bootstrap guide for the `workspaces` table.
 - Latest cloud storage follow-up (2026-03-01, later pass) extends the optional Supabase integration with generated SJV Script persistence plus private `gallery` bucket upload/list/download backed by `gallery_assets` metadata.
 - Latest cloud UI/export increment (2026-03-01, final pass) promotes Supabase into the main desktop chrome with a top-right cloud badge, direct `PNG/GIF/MP4` export into the private gallery bucket, and a live `Help > Export Gallery` backed by signed preview URLs instead of static sample assets.
+- Latest cloud export automation increment (2026-03-01, final follow-up) moves cloud media sync into the standard local export flow so signed-in `PNG/GIF/MP4` exports auto-upload after download, removing redundant cloud-only export actions.
 - Architecture baseline:
   - custom SVG editor engine (internal adapter, no paid lock-in),
   - versioned FULL model (`schemaVersion: 1.0`) as source of truth,
@@ -75,7 +76,7 @@
   - manual save/load of the current `EditorSnapshot` keyed by `(user, workspace id)`,
   - manual save/load of the generated SJV Script keyed by `(user, workspace id)`,
   - manual upload/list/download of private user gallery assets (`PNG/GIF/MP4`) in the `gallery` bucket,
-  - direct `PNG/GIF/MP4` export from the UI straight into the private gallery (no local download step),
+  - standard local `PNG/GIF/MP4` exports auto-upload into the private gallery when a Supabase user is signed in,
   - signed preview URLs let the private gallery render inside `Help > Export Gallery`,
   - local browser persistence remains the default fallback and continues to autosave independently.
 - View hierarchy selector in topbar allows direct navigation across all nested views.
@@ -170,7 +171,7 @@
   - toolbar is now grouped and rendered in a dedicated row with section-level visibility preferences,
   - tooltips are user-configurable from settings/preferences.
 - Cloud chrome enhancement:
-  - a top-right Supabase badge now exposes login state, quick save/load, direct export, upload, refresh, and gallery access without opening `Preferences`.
+  - a top-right Supabase badge now exposes login state, quick save/load, upload, refresh, gallery access, and auto-upload status without opening `Preferences`.
 - Menubar/toolbar regression fix:
   - desktop menu dropdowns are no longer clipped by topbar/menu container overflow,
   - topbar height now expands to fit wrapped content using scroll-height-aware measurement.

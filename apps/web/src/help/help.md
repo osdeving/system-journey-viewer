@@ -123,8 +123,9 @@ Default playback/focus state:
 
 - Open from **Help > Open Export Gallery**.
 - When signed in, it shows your private Supabase gallery (`PNG`, `GIF`, `MP4`) instead of static sample assets.
-- Gallery actions can export the current workspace directly to Supabase (`PNG`, `GIF`, `MP4`) or upload local media into the private `gallery` bucket.
-- The top-right cloud badge gives quick access to sign-in, save/load, gallery refresh, and direct export shortcuts.
+- Standard local `PNG`, `GIF`, and `MP4` exports now auto-upload to Supabase after the browser download finishes (when you are signed in).
+- Gallery actions focus on local upload and refresh for the private `gallery` bucket.
+- The top-right cloud badge gives quick access to sign-in, save/load, gallery refresh, and automatic-upload status.
 
 ## Preferences Window
 

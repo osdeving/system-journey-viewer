@@ -2670,3 +2670,25 @@ Chronological engineering log. Entries are kept concise and focused on behavior 
 - `npm --workspace @sjv/web run lint`
 - `npm --workspace @sjv/web run test:run`
 - `npm --workspace @sjv/web run build`
+
+## 2026-03-01 - Supabase export auto-upload in the normal export flow
+
+### Scope
+
+- Removed the separate cloud-only export buttons and moved Supabase media sync into the normal local export flow.
+- Kept local downloads intact while automatically uploading signed-in `PNG`, `GIF`, and `MP4` exports to the private gallery after the file is generated.
+
+### Changes
+
+- `apps/web/src/App.tsx`, `apps/web/src/App.source.test.ts`
+  - added post-export auto-upload for standard `PNG` / `GIF` / `MP4` flows,
+  - removed redundant `Export * to Supabase Gallery` actions from the file menu, help gallery, and top-right cloud panel,
+  - updated UI copy to explain the new automatic upload behavior.
+- `apps/web/src/help/help.md`, `docs/SUPABASE_SETUP.md`, `docs/AI_STATE.md`, `docs/DECISIONS.md`
+  - updated docs/help text to describe automatic upload after the normal export workflow instead of separate cloud-only export commands.
+
+### Validation
+
+- `npm --workspace @sjv/web run lint`
+- `npm --workspace @sjv/web run test:run`
+- `npm --workspace @sjv/web run build`

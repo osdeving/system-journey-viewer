@@ -122,8 +122,9 @@ Default playback/focus state:
 ## Export Gallery
 
 - Open from **Help > Open Export Gallery**.
-- Includes sample GIF/MP4 exports and a static UI reference image.
-- Gallery actions can trigger live export (`GIF`, `MP4`, animated `SVG`) from your current workspace.
+- When signed in, it shows your private Supabase gallery (`PNG`, `GIF`, `MP4`) instead of static sample assets.
+- Gallery actions can export the current workspace directly to Supabase (`PNG`, `GIF`, `MP4`) or upload local media into the private `gallery` bucket.
+- The top-right cloud badge gives quick access to sign-in, save/load, gallery refresh, and direct export shortcuts.
 
 ## Preferences Window
 
@@ -133,6 +134,7 @@ Default playback/focus state:
   - Startup splash enable/disable.
   - Showcase language (`EN` / `PT`).
   - Toolbar section visibility (`Navigation`, `Editing`, `Viewport`, `Panels`, `Modes`).
+  - Supabase cloud status, plus the original advanced cloud controls as a fallback to the topbar badge.
 
 ## Startup Splash and About
 

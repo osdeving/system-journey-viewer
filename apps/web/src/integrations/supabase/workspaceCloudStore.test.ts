@@ -50,18 +50,18 @@ const createDeps = () => {
     error: null,
   })
   const uploadGalleryFile = vi.fn().mockResolvedValue({ error: null })
-  const insertGalleryAsset = vi.fn().mockResolvedValue({
+  const insertGalleryAsset = vi.fn().mockImplementation(async (record) => ({
     asset: {
       id: 'asset-row-1',
-      title: 'demo export.mp4',
-      fileName: 'demo-export.mp4',
-      storagePath: 'user-1/asset-1/demo-export.mp4',
-      contentType: 'video/mp4',
-      sizeBytes: 4096,
+      title: record.title,
+      fileName: record.fileName,
+      storagePath: record.storagePath,
+      contentType: record.contentType,
+      sizeBytes: record.sizeBytes,
       createdAt: '2026-03-01T00:00:00.000Z',
     },
     error: null,
-  })
+  }))
   const listGalleryAssets = vi.fn().mockResolvedValue({
     assets: [
       {
@@ -80,6 +80,10 @@ const createDeps = () => {
     blob: new Blob(['demo']),
     error: null,
   })
+  const createGallerySignedUrl = vi.fn().mockResolvedValue({
+    url: 'https://example.test/signed/demo-export.mp4',
+    error: null,
+  })
 
   return {
     deps: {
@@ -96,6 +100,7 @@ const createDeps = () => {
       insertGalleryAsset,
       listGalleryAssets,
       downloadGalleryFile,
+      createGallerySignedUrl,
     },
     mocks: {
       signInWithPassword,
@@ -111,6 +116,7 @@ const createDeps = () => {
       insertGalleryAsset,
       listGalleryAssets,
       downloadGalleryFile,
+      createGallerySignedUrl,
     },
   }
 }
@@ -190,6 +196,34 @@ describe('createSupabaseWorkspaceCloudStore', () => {
     expect(created.fileName).toBe('demo-export.mp4')
     expect(listed).toHaveLength(1)
     expect(blob.size).toBeGreaterThan(0)
+  })
+
+  it('uploads generated blobs and creates signed preview urls for private gallery assets', async () => {
+    const { deps, mocks } = createDeps()
+    const store = createSupabaseWorkspaceCloudStore(deps)
+    const blob = new Blob(['png'], { type: 'image/png' })
+
+    const created = await store.uploadGalleryAssetBlob(blob, {
+      fileName: 'diagram export.png',
+      title: 'Workspace PNG Export',
+    })
+    const previewUrl = await store.createGalleryAssetPreviewUrl(created.storagePath, 900)
+
+    expect(mocks.uploadGalleryFile).toHaveBeenCalledWith({
+      path: 'user-1/asset-1/diagram-export.png',
+      file: blob,
+      contentType: 'image/png',
+    })
+    expect(mocks.insertGalleryAsset).toHaveBeenCalledWith({
+      userId: 'user-1',
+      title: 'Workspace PNG Export',
+      fileName: 'diagram-export.png',
+      storagePath: 'user-1/asset-1/diagram-export.png',
+      contentType: 'image/png',
+      sizeBytes: blob.size,
+    })
+    expect(mocks.createGallerySignedUrl).toHaveBeenCalledWith('user-1/asset-1/diagram-export.png', 900)
+    expect(previewUrl).toBe('https://example.test/signed/demo-export.mp4')
   })
 
   it('requires a signed-in user before cloud persistence', async () => {

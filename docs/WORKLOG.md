@@ -2641,3 +2641,32 @@ Chronological engineering log. Entries are kept concise and focused on behavior 
 - `npm --workspace @sjv/web run lint`
 - `npm --workspace @sjv/web run build`
 - `npm --workspace @sjv/web run test:run`
+
+## 2026-03-01 - Supabase cloud UI promotion (topbar badge + direct export + live gallery)
+
+### Scope
+
+- Promoted the optional Supabase flow out of `Preferences` into the main desktop chrome so sign-in and gallery actions feel native to the app shell.
+- Added direct `PNG` / `GIF` / `MP4` export into the private Supabase gallery and replaced the static Help gallery with live private-media previews.
+
+### Changes
+
+- `apps/web/src/export/exporters.ts`, `apps/web/src/export/exporters.test.ts`
+  - added reusable export-blob helpers (`SVG`, `PNG`, `PDF`) plus a shared save helper so exports can be uploaded without forcing a browser download first.
+- `apps/web/src/export/animatedExport.ts`, `apps/web/src/export/animatedExport.test.ts`
+  - added reusable animated export blob helpers (`GIF`, `MP4`, animated `SVG`) and a filename normalizer shared by upload/download flows.
+- `apps/web/src/integrations/supabase/workspaceCloudStore.ts`, `apps/web/src/integrations/supabase/workspaceCloudStore.test.ts`
+  - added direct blob upload support for generated exports,
+  - added signed preview URL support for the private `gallery` bucket.
+- `apps/web/src/App.tsx`, `apps/web/src/App.css`, `apps/web/src/App.source.test.ts`, `apps/web/src/App.styles.test.ts`
+  - added a top-right Supabase cloud badge with inline sign-in and quick actions,
+  - added `Export PNG/GIF/MP4 to Supabase Gallery` actions,
+  - switched `Help > Export Gallery` from static bundled samples to the signed-in user’s live gallery previews.
+- `apps/web/src/help/help.md`, `docs/SUPABASE_SETUP.md`, `docs/AI_STATE.md`, `docs/DECISIONS.md`
+  - updated help/setup/state docs to match the new cloud workflow and gallery behavior.
+
+### Validation
+
+- `npm --workspace @sjv/web run lint`
+- `npm --workspace @sjv/web run test:run`
+- `npm --workspace @sjv/web run build`

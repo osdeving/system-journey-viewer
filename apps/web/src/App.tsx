@@ -78,14 +78,15 @@ import {
   resolveJourneyScriptTheme,
 } from './dsl-lite/monacoJourneyScript'
 import {
-  exportAnimatedJourneyGif,
-  exportAnimatedJourneySvg,
-  exportAnimatedJourneyVideo,
+  createAnimatedJourneyGifBlob,
+  createAnimatedJourneySvgBlob,
+  createAnimatedJourneyVideoBlob,
   resolveAnimatedExportRasterOutputDimensions,
+  resolveAnimatedExportFilenameBase,
   resolveExportPlaybackSpeedMs,
   resolveJourneyAnimationDurationMs,
 } from './export/animatedExport'
-import { exportPdf, exportPng, exportSvg } from './export/exporters'
+import { createPngExportBlob, exportPdf, exportPng, exportSvg, saveBlobAsFile } from './export/exporters'
 import {
   buildWorkspaceFilename,
   parseWorkspaceSnapshotFile,
@@ -763,7 +764,9 @@ function App() {
       ? 'Sign in to enable Supabase cloud save/load.'
       : `Supabase cloud is not configured. ${SUPABASE_PUBLIC_ENV_HINT}`,
   )
+  const [supabaseCloudPanelOpen, setSupabaseCloudPanelOpen] = useState(false)
   const [supabaseGalleryAssets, setSupabaseGalleryAssets] = useState<SupabaseGalleryAsset[]>([])
+  const [supabaseGalleryPreviewUrls, setSupabaseGalleryPreviewUrls] = useState<Record<string, string>>({})
   const [openDesktopMenu, setOpenDesktopMenu] = useState<DesktopMenuId | null>(null)
   const [guidedTutorialStepIndex, setGuidedTutorialStepIndex] = useState<number | null>(null)
   const [guidedTutorialEventCounts, setGuidedTutorialEventCounts] = useState<Record<string, number>>({})
@@ -780,6 +783,7 @@ function App() {
   const guidedTutorialStepEventBaselineRef = useRef<Record<string, number>>({})
   const lastGuidedTutorialSelectedNodeIdRef = useRef<string | null>(selectedNodeId)
   const lastGuidedTutorialSelectedEdgeIdRef = useRef<string | null>(selectedEdgeId)
+  const topbarCloudShellRef = useRef<HTMLDivElement | null>(null)
 
   const selectedNode = selectedNodeId ? workspace.nodes[selectedNodeId] : undefined
   const selectedEdge = selectedEdgeId ? workspace.edges[selectedEdgeId] : undefined
@@ -842,6 +846,7 @@ function App() {
     [workspace],
   )
   const breadcrumb = [...viewHistory, currentViewId]
+  const supabaseCloudReady = supabaseCloudConfigured && !!supabaseCloudUser
   const viewJourneys = useMemo(
     () =>
       currentView.journeyIds
@@ -1295,10 +1300,10 @@ function App() {
     setEdgeProtocol(edgeId, nextProtocolId)
   }
 
-  const openManagedFloatingWindow = (windowId: ManagedWindowId) => {
+  const openManagedFloatingWindow = useCallback((windowId: ManagedWindowId) => {
     recordGuidedTutorialEvent(`open-window:${windowId}`)
     setManagedWindows((current) => floatManagedWindow(current, windowId))
-  }
+  }, [recordGuidedTutorialEvent])
 
   const closeManagedWindowById = (windowId: ManagedWindowId) => {
     setManagedWindows((current) => closeManagedWindow(current, windowId))
@@ -1379,12 +1384,12 @@ function App() {
     openDockTab(tab)
   }
 
-  const openHelpWindow = (section: HelpSection) => {
+  const openHelpWindow = useCallback((section: HelpSection) => {
     setHelpSection(section)
     setFocusMode(false)
     setPresentationMode(false)
     openManagedFloatingWindow('help')
-  }
+  }, [openManagedFloatingWindow])
 
   const toggleToolbarSection = useCallback((sectionId: ToolbarSectionId) => {
     setUiPreferences((current) => ({
@@ -1649,14 +1654,96 @@ function App() {
   useEffect(() => {
     if (!supabaseCloudUser) {
       setSupabaseGalleryAssets([])
+      setSupabaseGalleryPreviewUrls({})
       return
     }
     void refreshSupabaseGalleryAssets()
   }, [refreshSupabaseGalleryAssets, supabaseCloudUser])
 
+  useEffect(() => {
+    if (!supabaseWorkspaceCloudStore || !supabaseCloudUser || !supabaseGalleryAssets.length) {
+      if (!supabaseGalleryAssets.length) {
+        setSupabaseGalleryPreviewUrls({})
+      }
+      return
+    }
+
+    const cloudStore = supabaseWorkspaceCloudStore
+    let cancelled = false
+
+    void Promise.all(
+      supabaseGalleryAssets.map(async (asset) => {
+        try {
+          const signedUrl = await cloudStore.createGalleryAssetPreviewUrl(
+            asset.storagePath,
+            3600,
+          )
+          return [asset.storagePath, signedUrl] as const
+        } catch {
+          return [asset.storagePath, null] as const
+        }
+      }),
+    ).then((entries) => {
+      if (cancelled) {
+        return
+      }
+
+      const nextPreviewUrls: Record<string, string> = {}
+      let missingPreviewCount = 0
+
+      entries.forEach(([storagePath, signedUrl]) => {
+        if (signedUrl) {
+          nextPreviewUrls[storagePath] = signedUrl
+        } else {
+          missingPreviewCount += 1
+        }
+      })
+
+      setSupabaseGalleryPreviewUrls(nextPreviewUrls)
+      if (missingPreviewCount > 0) {
+        setSupabaseCloudStatus(
+          `Some gallery previews could not be refreshed (${missingPreviewCount}/${entries.length}).`,
+        )
+      }
+    })
+
+    return () => {
+      cancelled = true
+    }
+  }, [supabaseCloudUser, supabaseGalleryAssets])
+
+  const openSupabaseGalleryWindow = useCallback(() => {
+    setHelpSection('gallery')
+    openHelpWindow('gallery')
+    setSupabaseCloudPanelOpen(false)
+  }, [openHelpWindow])
+
+  const uploadGeneratedBlobToSupabaseGallery = useCallback(
+    async (blob: Blob, fileName: string, title: string) => {
+      if (!supabaseWorkspaceCloudStore) {
+        throw new Error(`Supabase cloud is not configured. ${SUPABASE_PUBLIC_ENV_HINT}`)
+      }
+
+      const asset = await supabaseWorkspaceCloudStore.uploadGalleryAssetBlob(blob, {
+        fileName,
+        title,
+        contentType: blob.type,
+      })
+
+      setSupabaseGalleryAssets((current) => {
+        const next = [asset, ...current.filter((candidate) => candidate.id !== asset.id)]
+        return next.slice(0, 24)
+      })
+
+      return asset
+    },
+    [],
+  )
+
   const signInToSupabaseCloud = useCallback(async () => {
     if (!supabaseWorkspaceCloudStore) {
       setSupabaseCloudStatus(`Supabase cloud is not configured. ${SUPABASE_PUBLIC_ENV_HINT}`)
+      setSupabaseCloudPanelOpen(true)
       return
     }
 
@@ -1668,6 +1755,7 @@ function App() {
       )
       setSupabaseCloudUser(user)
       setSupabaseCloudStatus(`Signed in as ${user.email ?? user.id}.`)
+      setSupabaseCloudPanelOpen(false)
       setTransientStatus('Supabase sign-in successful.')
     } catch (error) {
       setSupabaseCloudStatus(
@@ -1681,6 +1769,7 @@ function App() {
   const signOutOfSupabaseCloud = useCallback(async () => {
     if (!supabaseWorkspaceCloudStore) {
       setSupabaseCloudStatus(`Supabase cloud is not configured. ${SUPABASE_PUBLIC_ENV_HINT}`)
+      setSupabaseCloudPanelOpen(true)
       return
     }
 
@@ -1689,6 +1778,7 @@ function App() {
       await supabaseWorkspaceCloudStore.signOut()
       setSupabaseCloudUser(null)
       setSupabaseCloudStatus('Signed out. Sign in to enable Supabase cloud save/load.')
+      setSupabaseCloudPanelOpen(false)
       setTransientStatus('Supabase sign-out complete.')
     } catch (error) {
       setSupabaseCloudStatus(
@@ -3037,10 +3127,17 @@ function App() {
 
   useEffect(() => {
     const onWindowPointerDown = (event: MouseEvent) => {
+      const target = event.target
+      if (
+        target instanceof Node &&
+        topbarCloudShellRef.current &&
+        !topbarCloudShellRef.current.contains(target)
+      ) {
+        setSupabaseCloudPanelOpen(false)
+      }
       if (!desktopMenuBarRef.current) {
         return
       }
-      const target = event.target
       if (target instanceof Node && desktopMenuBarRef.current.contains(target)) {
         return
       }
@@ -3050,6 +3147,7 @@ function App() {
     const onWindowKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         setOpenDesktopMenu(null)
+        setSupabaseCloudPanelOpen(false)
         return
       }
       if (!openDesktopMenu) {
@@ -3309,6 +3407,64 @@ function App() {
     }
   }
 
+  const exportPngToSupabaseGallery = useCallback(async () => {
+    if (!supabaseWorkspaceCloudStore) {
+      setSupabaseCloudStatus(`Supabase cloud is not configured. ${SUPABASE_PUBLIC_ENV_HINT}`)
+      setSupabaseCloudPanelOpen(true)
+      return
+    }
+    if (!supabaseCloudUser) {
+      setSupabaseCloudStatus('Sign in to Supabase before exporting directly to the gallery.')
+      setSupabaseCloudPanelOpen(true)
+      return
+    }
+
+    const sequenceModeActive = presentationMode && presentationSurface === 'sequence'
+    const svg = document.querySelector(sequenceModeActive ? '.sequence-diagram-svg' : '.diagram-canvas')
+    if (!(svg instanceof SVGSVGElement)) {
+      setExportError(sequenceModeActive ? 'Sequence diagram not found for export.' : 'Canvas not found for export.')
+      return
+    }
+
+    setSupabaseCloudBusy(true)
+    try {
+      const sequenceFilenameBase =
+        sequenceModeActive && playerJourney
+          ? `sequence-${playerJourney.name
+              .toLowerCase()
+              .replace(/[^a-z0-9]+/g, '-')
+              .replace(/(^-|-$)/g, '') || 'diagram'}`
+          : null
+      const fileName = sequenceFilenameBase ? `${sequenceFilenameBase}.png` : `${workspace.workspace.name}.png`
+      const title = sequenceModeActive
+        ? playerJourney
+          ? `Sequence PNG · ${playerJourney.name}`
+          : 'Sequence PNG'
+        : `${workspace.workspace.name} PNG`
+      const blob = await createPngExportBlob(svg)
+      const asset = await uploadGeneratedBlobToSupabaseGallery(blob, fileName, title)
+      setSupabaseCloudStatus(`Uploaded "${asset.fileName}" to bucket "${SUPABASE_GALLERY_BUCKET}".`)
+      setTransientStatus('PNG exported directly to Supabase gallery.')
+      setExportError(null)
+      openSupabaseGalleryWindow()
+    } catch (error) {
+      setSupabaseCloudStatus(
+        error instanceof Error ? `Cloud export failed: ${error.message}` : 'Cloud export failed.',
+      )
+    } finally {
+      setSupabaseCloudBusy(false)
+    }
+  }, [
+    openSupabaseGalleryWindow,
+    playerJourney,
+    presentationMode,
+    presentationSurface,
+    setTransientStatus,
+    supabaseCloudUser,
+    uploadGeneratedBlobToSupabaseGallery,
+    workspace.workspace.name,
+  ])
+
   type PlayerExportSnapshot = {
     playerJourneyId: string | null
     playerStepIndex: number
@@ -3319,7 +3475,7 @@ function App() {
     viewport: ViewportState
   }
 
-  const resolveCurrentExportJourneyId = (): string | null => {
+  const resolveCurrentExportJourneyId = useCallback((): string | null => {
     const candidates = [journeyFilterId, playerJourneyId, activeJourneyId]
     for (const candidate of candidates) {
       if (candidate && workspace.journeys[candidate]) {
@@ -3332,9 +3488,9 @@ function App() {
       }
     }
     return null
-  }
+  }, [activeJourneyId, currentView.journeyIds, journeyFilterId, playerJourneyId, workspace.journeys])
 
-  const restorePlayerAfterAnimatedExport = (snapshot: PlayerExportSnapshot): void => {
+  const restorePlayerAfterAnimatedExport = useCallback((snapshot: PlayerExportSnapshot): void => {
     setPlayerRunning(false)
     setPlayerLoop(snapshot.playerLoop)
     setPlayerSpeedMs(snapshot.playerSpeedMs)
@@ -3352,17 +3508,27 @@ function App() {
     }
     setPlayerRunning(snapshot.playerIsRunning)
     setViewport(snapshot.viewport)
-  }
+  }, [
+    setJourneyFilter,
+    setPlayerJourney,
+    setPlayerLoop,
+    setPlayerRunning,
+    setPlayerSpeedMs,
+    setViewport,
+    resetPlayer,
+    stepPlayer,
+    workspace.journeys,
+  ])
 
-  const waitForCanvasFrames = async (frames = 2): Promise<void> => {
+  const waitForCanvasFrames = useCallback(async (frames = 2): Promise<void> => {
     for (let index = 0; index < Math.max(1, frames); index += 1) {
       await new Promise<void>((resolve) => {
         window.requestAnimationFrame(() => resolve())
       })
     }
-  }
+  }, [])
 
-  const resolveAnimatedExportViewportForJourney = (journey: JourneyModel): ViewportState | null => {
+  const resolveAnimatedExportViewportForJourney = useCallback((journey: JourneyModel): ViewportState | null => {
     const canvasPanel = canvasPanelRef.current
     if (!canvasPanel) {
       return null
@@ -3414,112 +3580,126 @@ function App() {
       y: rect.height / 2 - centerY * clampedZoom,
       zoom: clampedZoom,
     }
+  }, [currentView.nodeIds, workspace])
+
+  type AnimatedCanvasExportAsset = {
+    blob: Blob
+    fileName: string
+    successMessage: string
   }
 
-  const exportAnimatedFromCanvas = async (format: 'gif' | 'mp4' | 'svg') => {
-    if (animatedExportRunning) {
-      return
-    }
-    const svg = document.querySelector('.diagram-canvas')
-    const trailCanvas = document.querySelector('.trail-canvas')
-    if (!(svg instanceof SVGSVGElement) || !(trailCanvas instanceof HTMLCanvasElement)) {
-      setExportError('Canvas not found for animated export.')
-      return
-    }
+  const renderAnimatedExportAsset = useCallback(
+    async (format: 'gif' | 'mp4' | 'svg'): Promise<AnimatedCanvasExportAsset | null> => {
+      if (animatedExportRunning) {
+        return null
+      }
+      const svg = document.querySelector('.diagram-canvas')
+      const trailCanvas = document.querySelector('.trail-canvas')
+      if (!(svg instanceof SVGSVGElement) || !(trailCanvas instanceof HTMLCanvasElement)) {
+        setExportError('Canvas not found for animated export.')
+        return null
+      }
 
-    const journeyId = resolveCurrentExportJourneyId()
-    if (!journeyId) {
-      setExportError('Select a journey to export.')
-      return
-    }
-    const journey = workspace.journeys[journeyId]
-    if (!journey || !journey.steps.length) {
-      setExportError('The selected journey has no steps for animated export.')
-      return
-    }
-    const filenameBase = `${workspace.workspace.name}-${journey.name}`
-    const exportSpeedMs = resolveExportPlaybackSpeedMs(playerSpeedMs)
-    const durationMs = resolveJourneyAnimationDurationMs(resolveJourneyPlaybackLength(journey), exportSpeedMs)
-    const exportViewport = resolveAnimatedExportViewportForJourney(journey)
-    const canvasRect = canvasPanelRef.current?.getBoundingClientRect()
-    const rasterOutputDimensions =
-      format === 'svg' || !canvasRect || canvasRect.width <= 0 || canvasRect.height <= 0
-        ? undefined
-        : resolveAnimatedExportRasterOutputDimensions(canvasRect.width, canvasRect.height)
-    const snapshot: PlayerExportSnapshot = {
-      playerJourneyId,
-      playerStepIndex,
-      playerIsRunning,
-      playerLoop,
-      playerSpeedMs,
-      journeyFilterId,
-      viewport: { ...viewport },
-    }
+      const journeyId = resolveCurrentExportJourneyId()
+      if (!journeyId) {
+        setExportError('Select a journey to export.')
+        return null
+      }
+      const journey = workspace.journeys[journeyId]
+      if (!journey || !journey.steps.length) {
+        setExportError('The selected journey has no steps for animated export.')
+        return null
+      }
+      const filenameBase = `${workspace.workspace.name}-${journey.name}`
+      const normalizedFilenameBase = resolveAnimatedExportFilenameBase(filenameBase)
+      const exportSpeedMs = resolveExportPlaybackSpeedMs(playerSpeedMs)
+      const durationMs = resolveJourneyAnimationDurationMs(resolveJourneyPlaybackLength(journey), exportSpeedMs)
+      const exportViewport = resolveAnimatedExportViewportForJourney(journey)
+      const canvasRect = canvasPanelRef.current?.getBoundingClientRect()
+      const rasterOutputDimensions =
+        format === 'svg' || !canvasRect || canvasRect.width <= 0 || canvasRect.height <= 0
+          ? undefined
+          : resolveAnimatedExportRasterOutputDimensions(canvasRect.width, canvasRect.height)
+      const snapshot: PlayerExportSnapshot = {
+        playerJourneyId,
+        playerStepIndex,
+        playerIsRunning,
+        playerLoop,
+        playerSpeedMs,
+        journeyFilterId,
+        viewport: { ...viewport },
+      }
 
-    setExportError(null)
-    setAnimatedExportRunning(true)
-    setExportFocusJourneyId(journeyId)
-    if (exportViewport) {
-      setViewport(exportViewport)
-    }
-    await waitForCanvasFrames(3)
+      setExportError(null)
+      setAnimatedExportRunning(true)
+      setExportFocusJourneyId(journeyId)
+      if (exportViewport) {
+        setViewport(exportViewport)
+      }
+      await waitForCanvasFrames(3)
 
-    if (format === 'svg') {
+      if (format === 'svg') {
+        try {
+          setExportStatus('Generating animated SVG...')
+          return {
+            blob: createAnimatedJourneySvgBlob({
+              svg,
+              workspace,
+              journey,
+              playerSpeedMs: exportSpeedMs,
+              filenameBase,
+            }),
+            fileName: `${normalizedFilenameBase}-animated.svg`,
+            successMessage: 'Animated SVG exported.',
+          }
+        } catch (error) {
+          setExportError(error instanceof Error ? error.message : 'Failed to export animated SVG.')
+          return null
+        } finally {
+          setViewport(snapshot.viewport)
+          setExportFocusJourneyId(null)
+          setAnimatedExportRunning(false)
+        }
+      }
+
       try {
-        setExportStatus('Generating animated SVG...')
-        exportAnimatedJourneySvg({
-          svg,
-          workspace,
-          journey,
-          playerSpeedMs: exportSpeedMs,
-          filenameBase,
-        })
-        setExportStatus('Animated SVG exported.')
-        window.setTimeout(() => setExportStatus(null), 2800)
-      } catch (error) {
-        setExportError(error instanceof Error ? error.message : 'Failed to export animated SVG.')
-      } finally {
-        setViewport(snapshot.viewport)
-        setExportFocusJourneyId(null)
-        setAnimatedExportRunning(false)
-      }
-      return
-    }
+        setExportStatus('Preparing animated capture...')
+        setPlayerLoop(false)
+        setPlayerSpeedMs(exportSpeedMs)
+        setPlayerJourney(journeyId)
+        resetPlayer()
+        setPlayerRunning(true)
+        await waitForCanvasFrames(4)
 
-    try {
-      setExportStatus('Preparing animated capture...')
-      setPlayerLoop(false)
-      setPlayerSpeedMs(exportSpeedMs)
-      setPlayerJourney(journeyId)
-      resetPlayer()
-      setPlayerRunning(true)
-      await waitForCanvasFrames(4)
+        const resolveBaseKey = () => {
+          const state = useEditorStore.getState()
+          return [
+            state.playerJourneyId ?? 'none',
+            state.playerStepIndex,
+            state.playerIsRunning ? 1 : 0,
+            state.playerConfettiNonce,
+          ].join(':')
+        }
 
-      const resolveBaseKey = () => {
-        const state = useEditorStore.getState()
-        return [
-          state.playerJourneyId ?? 'none',
-          state.playerStepIndex,
-          state.playerIsRunning ? 1 : 0,
-          state.playerConfettiNonce,
-        ].join(':')
-      }
+        if (format === 'gif') {
+          setExportStatus('Rendering animated GIF...')
+          return {
+            blob: await createAnimatedJourneyGifBlob({
+              svg,
+              trailCanvas,
+              canvasPanel: canvasPanelRef.current,
+              durationMs,
+              resolveBaseKey,
+              filenameBase,
+              outputDimensions: rasterOutputDimensions,
+            }),
+            fileName: `${normalizedFilenameBase}.gif`,
+            successMessage: 'Animated GIF exported.',
+          }
+        }
 
-      if (format === 'gif') {
-        setExportStatus('Rendering animated GIF...')
-        await exportAnimatedJourneyGif({
-          svg,
-          trailCanvas,
-          canvasPanel: canvasPanelRef.current,
-          durationMs,
-          resolveBaseKey,
-          filenameBase,
-          outputDimensions: rasterOutputDimensions,
-        })
-        setExportStatus('Animated GIF exported.')
-      } else {
         setExportStatus('Recording journey video...')
-        const video = await exportAnimatedJourneyVideo({
+        const video = await createAnimatedJourneyVideoBlob({
           svg,
           trailCanvas,
           canvasPanel: canvasPanelRef.current,
@@ -3530,21 +3710,117 @@ function App() {
           preferredExtension: 'mp4',
           allowFallback: false,
         })
-        setExportStatus(
-          video.extension === 'mp4'
-            ? 'MP4 video (mobile-compatible) exported.'
-            : 'Video exported.',
-        )
+        return {
+          blob: video.blob,
+          fileName: `${normalizedFilenameBase}.${video.mime.extension}`,
+          successMessage:
+            video.mime.extension === 'mp4'
+              ? 'MP4 video (mobile-compatible) exported.'
+              : 'Video exported.',
+        }
+      } catch (error) {
+        setExportError(error instanceof Error ? error.message : 'Failed to export animated journey.')
+        return null
+      } finally {
+        restorePlayerAfterAnimatedExport(snapshot)
+        setExportFocusJourneyId(null)
+        setAnimatedExportRunning(false)
       }
-      window.setTimeout(() => setExportStatus(null), 3200)
-    } catch (error) {
-      setExportError(error instanceof Error ? error.message : 'Failed to export animated journey.')
-    } finally {
-      restorePlayerAfterAnimatedExport(snapshot)
-      setExportFocusJourneyId(null)
-      setAnimatedExportRunning(false)
-    }
-  }
+    },
+    [
+      animatedExportRunning,
+      journeyFilterId,
+      playerIsRunning,
+      playerJourneyId,
+      playerLoop,
+      playerSpeedMs,
+      playerStepIndex,
+      resetPlayer,
+      setPlayerJourney,
+      setPlayerLoop,
+      setPlayerRunning,
+      setPlayerSpeedMs,
+      setViewport,
+      resolveAnimatedExportViewportForJourney,
+      resolveCurrentExportJourneyId,
+      restorePlayerAfterAnimatedExport,
+      waitForCanvasFrames,
+      viewport,
+      workspace,
+    ],
+  )
+
+  const exportAnimatedFromCanvas = useCallback(
+    async (format: 'gif' | 'mp4' | 'svg') => {
+      const asset = await renderAnimatedExportAsset(format)
+      if (!asset) {
+        return
+      }
+
+      saveBlobAsFile(asset.blob, asset.fileName)
+      setExportStatus(asset.successMessage)
+      window.setTimeout(() => setExportStatus(null), format === 'svg' ? 2800 : 3200)
+    },
+    [renderAnimatedExportAsset],
+  )
+
+  const exportAnimatedToSupabaseGallery = useCallback(
+    async (format: 'gif' | 'mp4') => {
+      if (!supabaseWorkspaceCloudStore) {
+        setSupabaseCloudStatus(`Supabase cloud is not configured. ${SUPABASE_PUBLIC_ENV_HINT}`)
+        setSupabaseCloudPanelOpen(true)
+        return
+      }
+      if (!supabaseCloudUser) {
+        setSupabaseCloudStatus('Sign in to Supabase before exporting directly to the gallery.')
+        setSupabaseCloudPanelOpen(true)
+        return
+      }
+
+      setSupabaseCloudBusy(true)
+      try {
+        const asset = await renderAnimatedExportAsset(format)
+        if (!asset) {
+          return
+        }
+
+        const created = await uploadGeneratedBlobToSupabaseGallery(
+          asset.blob,
+          asset.fileName,
+          format === 'gif'
+            ? `${workspace.workspace.name} Animated GIF`
+            : `${workspace.workspace.name} Journey MP4`,
+        )
+        setSupabaseCloudStatus(`Uploaded "${created.fileName}" to bucket "${SUPABASE_GALLERY_BUCKET}".`)
+        setTransientStatus(
+          format === 'gif'
+            ? 'Animated GIF exported directly to Supabase gallery.'
+            : 'MP4 exported directly to Supabase gallery.',
+        )
+        setExportStatus(
+          format === 'gif'
+            ? 'Animated GIF uploaded to Supabase gallery.'
+            : 'MP4 uploaded to Supabase gallery.',
+        )
+        window.setTimeout(() => setExportStatus(null), 3200)
+        openSupabaseGalleryWindow()
+      } catch (error) {
+        setSupabaseCloudStatus(
+          error instanceof Error ? `Cloud export failed: ${error.message}` : 'Cloud export failed.',
+        )
+      } finally {
+        setSupabaseCloudBusy(false)
+      }
+    },
+    [
+      openSupabaseGalleryWindow,
+      renderAnimatedExportAsset,
+      setTransientStatus,
+      supabaseCloudUser,
+      uploadGeneratedBlobToSupabaseGallery,
+      workspace.workspace.name,
+    ],
+  )
 
   const journeyTimelineContent = (
     <>
@@ -3801,51 +4077,103 @@ function App() {
       {helpSection === 'gallery' ? (
         <div className="help-gallery">
           <p>
-            Sample animated exports and live actions from the current workspace.
+            {supabaseCloudConfigured
+              ? supabaseCloudReady
+                ? 'Your private Supabase gallery is live below. Export PNG/GIF/MP4 directly to the bucket or upload local media.'
+                : 'Sign in from the top-right cloud badge to unlock your private Supabase gallery previews and direct exports.'
+              : `Supabase cloud is not configured. ${SUPABASE_PUBLIC_ENV_HINT}`}
           </p>
-          <div className="help-gallery-grid">
-            <article className="help-gallery-card">
-              <h3>Live Demo GIF</h3>
-              <img src="/gallery/readme-live-demo.gif" alt="Sample GIF export playback" loading="lazy" />
-            </article>
-            <article className="help-gallery-card">
-              <h3>Order Creation MP4</h3>
-              <video src="/gallery/orders-platform-showcase-order-creation-sync-event.mp4" controls muted loop preload="metadata" />
-            </article>
-            <article className="help-gallery-card">
-              <h3>UI Screenshot</h3>
-              <img src="/gallery/print-ui.png" alt="SJV interface screenshot" loading="lazy" />
-            </article>
-          </div>
           <div className="help-gallery-actions">
             <button
               type="button"
-              disabled={animatedExportRunning}
+              disabled={!supabaseCloudReady || supabaseCloudBusy}
               onClick={() => {
-                void exportAnimatedFromCanvas('gif')
+                void exportPngToSupabaseGallery()
               }}
             >
-              {animatedExportRunning ? 'Exporting...' : 'Export GIF now'}
+              {supabaseCloudBusy ? 'Working...' : 'Export PNG to Gallery'}
             </button>
             <button
               type="button"
-              disabled={animatedExportRunning}
+              disabled={!supabaseCloudReady || supabaseCloudBusy || animatedExportRunning}
               onClick={() => {
-                void exportAnimatedFromCanvas('mp4')
+                void exportAnimatedToSupabaseGallery('gif')
               }}
             >
-              {animatedExportRunning ? 'Exporting...' : 'Export MP4 now'}
+              {animatedExportRunning ? 'Exporting...' : 'Export GIF to Gallery'}
             </button>
             <button
               type="button"
-              disabled={animatedExportRunning}
+              disabled={!supabaseCloudReady || supabaseCloudBusy || animatedExportRunning}
               onClick={() => {
-                void exportAnimatedFromCanvas('svg')
+                void exportAnimatedToSupabaseGallery('mp4')
               }}
             >
-              {animatedExportRunning ? 'Exporting...' : 'Export Animated SVG now'}
+              {animatedExportRunning ? 'Exporting...' : 'Export MP4 to Gallery'}
+            </button>
+            <button
+              type="button"
+              disabled={!supabaseCloudReady || supabaseCloudBusy}
+              onClick={() => openSupabaseGalleryPicker()}
+            >
+              Upload Local Media
+            </button>
+            <button
+              type="button"
+              disabled={!supabaseCloudReady || supabaseCloudBusy}
+              onClick={() => {
+                void refreshSupabaseGalleryAssets()
+              }}
+            >
+              Refresh Gallery
             </button>
           </div>
+          {supabaseCloudReady ? (
+            supabaseGalleryAssets.length ? (
+              <div className="help-gallery-grid">
+                {supabaseGalleryAssets.map((asset) => {
+                  const previewUrl = supabaseGalleryPreviewUrls[asset.storagePath] ?? null
+                  return (
+                    <article key={asset.id} className="help-gallery-card">
+                      {asset.contentType.startsWith('video/') ? (
+                        previewUrl ? (
+                          <video src={previewUrl} controls muted loop preload="metadata" />
+                        ) : (
+                          <div className="help-gallery-preview-empty">Preparing secure video preview...</div>
+                        )
+                      ) : previewUrl ? (
+                        <img src={previewUrl} alt={asset.title} loading="lazy" />
+                      ) : (
+                        <div className="help-gallery-preview-empty">Preparing secure image preview...</div>
+                      )}
+                      <div className="help-gallery-card-copy">
+                        <h3>{asset.title}</h3>
+                        <p>{asset.fileName}</p>
+                        <p>
+                          {asset.contentType} · {formatBytesLabel(asset.sizeBytes)}
+                        </p>
+                      </div>
+                      <div className="help-gallery-card-actions">
+                        <button
+                          type="button"
+                          disabled={supabaseCloudBusy}
+                          onClick={() => {
+                            void downloadSupabaseGalleryAsset(asset)
+                          }}
+                        >
+                          Download
+                        </button>
+                      </div>
+                    </article>
+                  )
+                })}
+              </div>
+            ) : (
+              <p className="help-gallery-empty">
+                No Supabase gallery assets yet. Use the buttons above to export directly into your private bucket.
+              </p>
+            )
+          ) : null}
         </div>
       ) : null}
       {helpSection === 'about' ? (
@@ -3977,6 +4305,7 @@ function App() {
       </fieldset>
       <fieldset className="preferences-fieldset">
         <legend>Supabase Cloud</legend>
+        <p className="preferences-status">Use the top-right cloud badge for quick sign-in, gallery access, and direct exports.</p>
         <p className="preferences-status">{supabaseCloudStatus}</p>
         <p className="preferences-status">Current workspace id: {workspace.workspace.id}</p>
         <label className="preferences-select">
@@ -5182,6 +5511,21 @@ function App() {
                   <button
                     type="button"
                     role="menuitem"
+                    disabled={!supabaseCloudReady || supabaseCloudBusy}
+                    onClick={() =>
+                      runDesktopMenuAction(() => {
+                        void exportPngToSupabaseGallery()
+                      })
+                    }
+                  >
+                    {renderDesktopMenuItem(
+                      <Image size={13} />,
+                      supabaseCloudBusy ? 'Cloud Busy...' : 'Export PNG to Supabase Gallery',
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
                     onClick={() =>
                       runDesktopMenuAction(() => {
                         void exportFromCanvas('pdf')
@@ -5205,6 +5549,25 @@ function App() {
                   <button
                     type="button"
                     role="menuitem"
+                    disabled={!supabaseCloudReady || supabaseCloudBusy || animatedExportRunning}
+                    onClick={() =>
+                      runDesktopMenuAction(() => {
+                        void exportAnimatedToSupabaseGallery('gif')
+                      })
+                    }
+                  >
+                    {renderDesktopMenuItem(
+                      <Image size={13} />,
+                      animatedExportRunning
+                        ? 'Exporting...'
+                        : supabaseCloudBusy
+                          ? 'Cloud Busy...'
+                          : 'Export GIF to Supabase Gallery',
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
                     disabled={animatedExportRunning}
                     onClick={() =>
                       runDesktopMenuAction(() => {
@@ -5215,6 +5578,25 @@ function App() {
                     {renderDesktopMenuItem(
                       <Presentation size={13} />,
                       animatedExportRunning ? 'Exporting...' : 'Export MP4',
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    disabled={!supabaseCloudReady || supabaseCloudBusy || animatedExportRunning}
+                    onClick={() =>
+                      runDesktopMenuAction(() => {
+                        void exportAnimatedToSupabaseGallery('mp4')
+                      })
+                    }
+                  >
+                    {renderDesktopMenuItem(
+                      <Presentation size={13} />,
+                      animatedExportRunning
+                        ? 'Exporting...'
+                        : supabaseCloudBusy
+                          ? 'Cloud Busy...'
+                          : 'Export MP4 to Supabase Gallery',
                     )}
                   </button>
                   <button
@@ -6140,6 +6522,183 @@ function App() {
             </div>
             </nav>
           ) : null}
+          <div ref={topbarCloudShellRef} className="topbar-cloud-shell">
+            <button
+              type="button"
+              className={[
+                'topbar-cloud-badge',
+                supabaseCloudPanelOpen ? 'topbar-cloud-badge-open' : '',
+                supabaseCloudReady ? 'topbar-cloud-badge-ready' : '',
+              ]
+                .filter(Boolean)
+                .join(' ')}
+              onClick={() => setSupabaseCloudPanelOpen((current) => !current)}
+              aria-expanded={supabaseCloudPanelOpen}
+              aria-haspopup="dialog"
+              aria-label="Open Supabase cloud panel"
+            >
+              <span className="topbar-cloud-badge-copy">
+                <strong>{supabaseCloudUser?.email ?? (supabaseCloudConfigured ? 'Supabase Cloud' : 'Cloud Offline')}</strong>
+                <span>
+                  {!supabaseCloudConfigured
+                    ? 'Not configured'
+                    : supabaseCloudReady
+                      ? `${supabaseGalleryAssets.length} asset${supabaseGalleryAssets.length === 1 ? '' : 's'}`
+                      : 'Sign in required'}
+                </span>
+              </span>
+              <span
+                className={
+                  supabaseCloudReady
+                    ? 'topbar-cloud-badge-dot topbar-cloud-badge-dot-ready'
+                    : 'topbar-cloud-badge-dot'
+                }
+                aria-hidden="true"
+              />
+            </button>
+            {supabaseCloudPanelOpen ? (
+              <div className="topbar-cloud-panel" role="dialog" aria-label="Supabase cloud panel">
+                <p className="topbar-cloud-status">{supabaseCloudStatus}</p>
+                {!supabaseCloudConfigured ? (
+                  <p className="topbar-cloud-hint">{SUPABASE_PUBLIC_ENV_HINT}</p>
+                ) : supabaseCloudUser ? (
+                  <>
+                    <div className="topbar-cloud-actions">
+                      <button
+                        type="button"
+                        disabled={supabaseCloudBusy}
+                        onClick={() => {
+                          void saveWorkspaceToSupabaseCloud()
+                        }}
+                      >
+                        Save
+                      </button>
+                      <button
+                        type="button"
+                        disabled={supabaseCloudBusy}
+                        onClick={() => {
+                          void loadWorkspaceFromSupabaseCloud()
+                        }}
+                      >
+                        Load
+                      </button>
+                      <button
+                        type="button"
+                        disabled={supabaseCloudBusy}
+                        onClick={() => {
+                          void exportPngToSupabaseGallery()
+                        }}
+                      >
+                        PNG
+                      </button>
+                      <button
+                        type="button"
+                        disabled={supabaseCloudBusy || animatedExportRunning}
+                        onClick={() => {
+                          void exportAnimatedToSupabaseGallery('gif')
+                        }}
+                      >
+                        GIF
+                      </button>
+                      <button
+                        type="button"
+                        disabled={supabaseCloudBusy || animatedExportRunning}
+                        onClick={() => {
+                          void exportAnimatedToSupabaseGallery('mp4')
+                        }}
+                      >
+                        MP4
+                      </button>
+                    </div>
+                    <div className="topbar-cloud-actions topbar-cloud-actions-secondary">
+                      <button
+                        type="button"
+                        disabled={supabaseCloudBusy}
+                        onClick={() => openSupabaseGalleryPicker()}
+                      >
+                        Upload local
+                      </button>
+                      <button
+                        type="button"
+                        disabled={supabaseCloudBusy}
+                        onClick={() => {
+                          void refreshSupabaseGalleryAssets()
+                        }}
+                      >
+                        Refresh
+                      </button>
+                      <button
+                        type="button"
+                        disabled={supabaseCloudBusy}
+                        onClick={() => openSupabaseGalleryWindow()}
+                      >
+                        Open gallery
+                      </button>
+                      <button
+                        type="button"
+                        disabled={supabaseCloudBusy}
+                        onClick={() => {
+                          void signOutOfSupabaseCloud()
+                        }}
+                      >
+                        Sign out
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <div className="topbar-cloud-form">
+                    <label className="topbar-cloud-field">
+                      Email
+                      <input
+                        type="email"
+                        value={supabaseAuthDraft.email}
+                        onChange={(event) =>
+                          setSupabaseAuthDraft((current) => ({
+                            ...current,
+                            email: event.target.value,
+                          }))
+                        }
+                        placeholder="tester@example.com"
+                        autoComplete="email"
+                      />
+                    </label>
+                    <label className="topbar-cloud-field">
+                      Password
+                      <input
+                        type="password"
+                        value={supabaseAuthDraft.password}
+                        onChange={(event) =>
+                          setSupabaseAuthDraft((current) => ({
+                            ...current,
+                            password: event.target.value,
+                          }))
+                        }
+                        placeholder="Your Supabase password"
+                        autoComplete="current-password"
+                      />
+                    </label>
+                    <div className="topbar-cloud-actions topbar-cloud-actions-secondary">
+                      <button
+                        type="button"
+                        disabled={supabaseCloudBusy}
+                        onClick={() => {
+                          void signInToSupabaseCloud()
+                        }}
+                      >
+                        {supabaseCloudBusy ? 'Working...' : 'Sign in'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setSupabaseCloudPanelOpen(false)}
+                      >
+                        Close
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : null}
+          </div>
           {!presentationMode ? (
             <div className="mode-indicators">
                 <span className={activeTool === 'connector' ? 'mode-pill mode-pill-active' : 'mode-pill'}>

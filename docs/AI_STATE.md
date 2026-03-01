@@ -18,6 +18,7 @@
 - Latest export hotfix (2026-03-01, night pass) aligns animated export theme backgrounds to the SVG `viewBox`/source frame and pre-fills raster composition frames so wide MP4 exports no longer reveal black transparent regions.
 - Latest canvas affordance hotfix (2026-03-01, late-night pass) adds a pulsing blue hover cue on exact node ports and lets `Select` mode start a connection directly from that hover without leaving selection mode.
 - Latest edge targeting hotfix (2026-03-01, final pass) widens the invisible pointer hit area for dashed edges so selection no longer requires near-pixel-perfect clicks, while automatic curve routing remains unchanged.
+- Latest shell/interaction refinement (2026-03-01, after midnight) adds a dedicated `/m` mobile shell with touch-first auto-open, pinch zoom on the shared canvas, reusable collapsible panel groups across dock content, stronger journey edge-drop cues, and updated default docking so `Journey Timeline` / `SJV Script` open on the right instead of the bottom host.
 - Architecture baseline:
   - custom SVG editor engine (internal adapter, no paid lock-in),
   - versioned FULL model (`schemaVersion: 1.0`) as source of truth,
@@ -28,6 +29,10 @@
 ## Implemented Product Flows
 
 - Canvas editing with pan/zoom, grid/snap, nodes/edges, ports, and docking.
+- Touch-first mobile shell flow:
+  - dedicated `/m` route renders a simplified mobile chrome over the same workspace/store,
+  - narrow touch-first devices auto-open into that shell,
+  - canvas supports two-finger pinch zoom while reusing the same diagram engine.
 - Preset catalog for C4, infra, and hexagonal architecture semantics.
 - Theme persistence (`light` / `dark`) in workspace settings.
 - Journey creation, filtering, playback, and timeline editing controls.
@@ -124,6 +129,7 @@
 ## UI/UX State
 
 - Desktop-style menubar with controlled open/close behavior.
+- Reusable collapsible panel-group chrome now wraps multi-section tab content (Journeys, Preferences, Palette categories, and Inspector details), with `Journeys` list open by default and `Supabase Cloud` collapsed by default.
 - File menu now separates:
   - local browser snapshot operations (`Save Snapshot`, `Reload Snapshot`),
   - disk file operations (`New/Open/Save File`).
@@ -194,6 +200,10 @@
   - right dock panel starts hidden by default,
   - bottom workbench starts hidden by default,
   - users can reopen both via topbar panel toggles or the `View` menu.
+- Managed window open defaults now favor the side host more consistently:
+  - `Journey Timeline` opens docked right by default,
+  - `SJV Script` opens docked right by default,
+  - the bottom managed host remains opt-in instead of being the default landing zone for those panels.
 - Presentation topbar layout refinement:
   - presentation mode now keeps logo/meta and the presentation toolbar in the same topbar row,
   - status/error messages (when present) render on a separate row without breaking the primary toolbar line.

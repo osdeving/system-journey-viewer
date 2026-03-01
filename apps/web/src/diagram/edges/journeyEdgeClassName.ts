@@ -7,6 +7,7 @@ type JourneyEdgeClassState = {
   isPlayerEdge: boolean
   isFlowAnimated: boolean
   isDimmed: boolean
+  isDraggingToJourney?: boolean
 }
 
 export const resolveJourneyEdgeClassName = ({
@@ -14,12 +15,14 @@ export const resolveJourneyEdgeClassName = ({
   isPlayerEdge,
   isFlowAnimated,
   isDimmed,
+  isDraggingToJourney = false,
 }: JourneyEdgeClassState): string =>
   [
     'edge',
     isSelected ? 'edge-selected' : '',
     isPlayerEdge ? 'edge-player-active' : '',
     isDimmed ? 'edge-dimmed' : '',
+    isDraggingToJourney ? 'edge-journey-dragging' : '',
     'edge-flowing',
     isFlowAnimated ? 'edge-flowing-animated' : '',
   ]

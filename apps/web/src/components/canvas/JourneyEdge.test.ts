@@ -40,4 +40,16 @@ describe('resolveJourneyEdgeClassName', () => {
       }),
     ).toBe('edge edge-dimmed edge-flowing')
   })
+
+  it('adds a dedicated class while dragging an edge into a journey', () => {
+    expect(
+      resolveJourneyEdgeClassName({
+        isSelected: false,
+        isPlayerEdge: false,
+        isFlowAnimated: false,
+        isDimmed: false,
+        isDraggingToJourney: true,
+      }),
+    ).toBe('edge edge-journey-dragging edge-flowing')
+  })
 })

@@ -8,6 +8,7 @@ import type {
   MouseEvent as ReactMouseEvent,
   DragEvent,
   PointerEvent as ReactPointerEvent,
+  TouchEvent as ReactTouchEvent,
   WheelEvent,
 } from 'react'
 import {
@@ -62,6 +63,10 @@ import {
   compactPositiveAlphaInPlace,
   trimArrayStartInPlace,
 } from '../../diagram/player/trailMath'
+import {
+  resolvePinchGestureMetrics,
+  resolveViewportAfterPinch,
+} from '../../diagram/canvas/pinchZoom'
 
 type PanState = {
   pointerId: number
@@ -91,6 +96,12 @@ type ConnectionDragState = {
 type EdgeLabelDragState = {
   pointerId: number
   edgeId: string
+}
+
+type PinchGestureState = {
+  startDistance: number
+  startCenter: { x: number; y: number }
+  startViewport: { x: number; y: number; zoom: number }
 }
 
 type ResizeHandle = 'n' | 's' | 'e' | 'w' | 'ne' | 'nw' | 'se' | 'sw'
@@ -296,6 +307,7 @@ interface DiagramCanvasProps {
   forceGridHidden?: boolean
   exportFocusJourneyId?: string | null
   nodeDepthEffectsEnabled?: boolean
+  draggedEdgeId?: string | null
   onEdgePointerStart?: (
     edgeId: string,
     event: ReactPointerEvent<SVGGElement>,
@@ -561,6 +573,7 @@ export const DiagramCanvas = ({
   forceGridHidden = false,
   exportFocusJourneyId = null,
   nodeDepthEffectsEnabled = true,
+  draggedEdgeId = null,
   onEdgePointerStart,
 }: DiagramCanvasProps = {}) => {
   const panStateRef = useRef<PanState | null>(null)
@@ -569,6 +582,7 @@ export const DiagramCanvas = ({
   const edgeReconnectRef = useRef<EdgeReconnectState | null>(null)
   const edgeLabelDragRef = useRef<EdgeLabelDragState | null>(null)
   const edgeAnchorCycleRef = useRef(new Map<string, number>())
+  const pinchGestureRef = useRef<PinchGestureState | null>(null)
   const canvasRef = useRef<HTMLDivElement | null>(null)
   const trailCanvasRef = useRef<HTMLCanvasElement | null>(null)
   const trailCanvasMetricsRef = useRef({ width: 0, height: 0, pixelRatio: 1 })
@@ -1373,6 +1387,35 @@ export const DiagramCanvas = ({
     }
   }
 
+  const resolveTouchPointInCanvas = (
+    touch: Pick<Touch, 'clientX' | 'clientY'>,
+  ): { x: number; y: number } | null => {
+    const container = canvasRef.current
+    if (!container) {
+      return null
+    }
+    const rect = container.getBoundingClientRect()
+    return {
+      x: touch.clientX - rect.left,
+      y: touch.clientY - rect.top,
+    }
+  }
+
+  const cancelActiveCanvasInteraction = (): void => {
+    panStateRef.current = null
+    nodeDragStateRef.current = null
+    connectionDragRef.current = null
+    edgeReconnectRef.current = null
+    edgeLabelDragRef.current = null
+    edgeLabelZoomRef.current = null
+    setConnectionPreview(null)
+    setHoveredConnectionTarget(null)
+    setHoveredAnchorKey(null)
+    setHoveredPortKey(null)
+    setDragCursor(null)
+    setHoverCursor(null)
+  }
+
   const resolveNodeAtPoint = (
     point: { x: number; y: number },
     options?: { excludeNodeId?: string; includeNotes?: boolean },
@@ -1599,6 +1642,9 @@ export const DiagramCanvas = ({
   }
 
   const onBackgroundPointerDown = (event: ReactPointerEvent<SVGSVGElement>): void => {
+    if (pinchGestureRef.current && event.pointerType === 'touch') {
+      return
+    }
     if (event.button !== 0) {
       return
     }
@@ -1625,6 +1671,9 @@ export const DiagramCanvas = ({
   }
 
   const onBackgroundPointerMove = (event: ReactPointerEvent<SVGSVGElement>): void => {
+    if (pinchGestureRef.current && event.pointerType === 'touch') {
+      return
+    }
     const labelDrag = edgeLabelDragRef.current
     if (labelDrag && labelDrag.pointerId === event.pointerId) {
       const currentWorld = clientToWorld(event.clientX, event.clientY)
@@ -1771,6 +1820,9 @@ export const DiagramCanvas = ({
     mode: 'move' | 'resize',
     resizeHandle?: ResizeHandle,
   ): void => {
+    if (pinchGestureRef.current && event.pointerType === 'touch') {
+      return
+    }
     if (presentationMode) {
       return
     }
@@ -1840,6 +1892,9 @@ export const DiagramCanvas = ({
   }
 
   const onNodePointerMove = (event: ReactPointerEvent<SVGGElement>): void => {
+    if (pinchGestureRef.current && event.pointerType === 'touch') {
+      return
+    }
     const drag = nodeDragStateRef.current
     if (!drag || drag.pointerId !== event.pointerId) {
       return
@@ -2012,6 +2067,9 @@ export const DiagramCanvas = ({
     node: NodeModel,
     portId: string,
   ): void => {
+    if (pinchGestureRef.current && event.pointerType === 'touch') {
+      return
+    }
     if (presentationMode) {
       return
     }
@@ -2049,6 +2107,9 @@ export const DiagramCanvas = ({
     edgeId: string,
     event: ReactPointerEvent<SVGTextElement>,
   ): void => {
+    if (pinchGestureRef.current && event.pointerType === 'touch') {
+      return
+    }
     if (presentationMode) {
       return
     }
@@ -2073,6 +2134,9 @@ export const DiagramCanvas = ({
     event: ReactPointerEvent<SVGCircleElement>,
     anchor: EdgeAnchorHandle,
   ): void => {
+    if (pinchGestureRef.current && event.pointerType === 'touch') {
+      return
+    }
     if (presentationMode) {
       return
     }
@@ -2159,6 +2223,53 @@ export const DiagramCanvas = ({
     setHoveredAnchorKey((current) => (edgeReconnectRef.current ? current : null))
     if (!edgeReconnectRef.current) {
       setHoverCursor(null)
+    }
+  }
+
+  const onTouchStart = (event: ReactTouchEvent<HTMLDivElement>): void => {
+    if (event.targetTouches.length < 2) {
+      return
+    }
+    const firstPoint = resolveTouchPointInCanvas(event.targetTouches[0])
+    const secondPoint = resolveTouchPointInCanvas(event.targetTouches[1])
+    if (!firstPoint || !secondPoint) {
+      return
+    }
+    const metrics = resolvePinchGestureMetrics(firstPoint, secondPoint)
+    cancelActiveCanvasInteraction()
+    pinchGestureRef.current = {
+      startDistance: Math.max(metrics.distance, 1),
+      startCenter: metrics.center,
+      startViewport: { ...viewportRef.current },
+    }
+    event.preventDefault()
+  }
+
+  const onTouchMove = (event: ReactTouchEvent<HTMLDivElement>): void => {
+    const pinchGesture = pinchGestureRef.current
+    if (!pinchGesture || event.targetTouches.length < 2) {
+      return
+    }
+    const firstPoint = resolveTouchPointInCanvas(event.targetTouches[0])
+    const secondPoint = resolveTouchPointInCanvas(event.targetTouches[1])
+    if (!firstPoint || !secondPoint) {
+      return
+    }
+    const metrics = resolvePinchGestureMetrics(firstPoint, secondPoint)
+    setViewport(
+      resolveViewportAfterPinch({
+        startViewport: pinchGesture.startViewport,
+        startCenter: pinchGesture.startCenter,
+        currentCenter: metrics.center,
+        distanceRatio: metrics.distance / pinchGesture.startDistance,
+      }),
+    )
+    event.preventDefault()
+  }
+
+  const onTouchEnd = (event: ReactTouchEvent<HTMLDivElement>): void => {
+    if (pinchGestureRef.current && event.targetTouches.length < 2) {
+      pinchGestureRef.current = null
     }
   }
 
@@ -2310,7 +2421,17 @@ export const DiagramCanvas = ({
     dragCursor ?? hoverCursor ?? (presentationMode ? 'grab' : isConnectorMode ? 'crosshair' : 'grab')
 
   return (
-    <div className="canvas-shell" ref={canvasRef} onWheel={onWheel} onDrop={onDrop} onDragOver={onDragOver}>
+    <div
+      className="canvas-shell"
+      ref={canvasRef}
+      onWheel={onWheel}
+      onDrop={onDrop}
+      onDragOver={onDragOver}
+      onTouchStart={onTouchStart}
+      onTouchMove={onTouchMove}
+      onTouchEnd={onTouchEnd}
+      onTouchCancel={onTouchEnd}
+    >
       <svg
         className={
           nodeDepthEffectsEnabled
@@ -2397,6 +2518,7 @@ export const DiagramCanvas = ({
                 effectiveOffscopeRenderMode === 'dim' &&
                 !(focusedEdgeIdSet?.has(edge.id) ?? false)
               }
+              isDraggingToJourney={draggedEdgeId === edge.id}
               isInteractive={!presentationMode}
               onEdgePointerStart={onEdgePointerStart}
               onEdgeLabelPointerDown={onEdgeLabelPointerDown}

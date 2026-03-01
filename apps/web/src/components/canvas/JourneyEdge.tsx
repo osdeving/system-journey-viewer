@@ -28,6 +28,7 @@ interface JourneyEdgeProps {
   isPlayerEdge: boolean
   isFlowAnimated: boolean
   isDimmed: boolean
+  isDraggingToJourney?: boolean
   isInteractive: boolean
   onEdgePointerStart?: (
     edgeId: string,
@@ -54,6 +55,7 @@ export const JourneyEdge = ({
   isPlayerEdge,
   isFlowAnimated,
   isDimmed,
+  isDraggingToJourney = false,
   isInteractive,
   onEdgePointerStart,
   onEdgeLabelPointerDown,
@@ -94,7 +96,13 @@ export const JourneyEdge = ({
         d={path}
         fill="none"
         markerEnd="url(#edge-arrow)"
-        className={resolveJourneyEdgeClassName({ isSelected, isPlayerEdge, isFlowAnimated, isDimmed })}
+        className={resolveJourneyEdgeClassName({
+          isSelected,
+          isPlayerEdge,
+          isFlowAnimated,
+          isDimmed,
+          isDraggingToJourney,
+        })}
       />
       <CanvasText
         x={labelPlacement.point.x}

@@ -19,6 +19,16 @@ describe('App source regressions', () => {
     expect(appSource).toContain('const [drawerCollapsed, setDrawerCollapsed] = useState(windowLayoutBootstrap.drawerCollapsed)')
   })
 
+  it('routes touch-first devices into a dedicated mobile shell and keeps timeline/dsl opening on the right', () => {
+    expect(appSource).toContain("const [appShellMode, setAppShellMode] = useState<AppShellMode>(() => resolveInitialAppShellMode())")
+    expect(appSource).toContain("window.location.pathname === '/'")
+    expect(appSource).toContain("window.history.replaceState(window.history.state, '', buildMobileShellPath(window.location.search, window.location.hash))")
+    expect(appSource).toContain('if (appShellMode === \'mobile\') {')
+    expect(appSource).toContain('role="tablist" aria-label="Mobile panels"')
+    expect(windowUiConfigSource).toContain("timeline: 'right'")
+    expect(windowUiConfigSource).toContain("dsl: 'right'")
+  })
+
   it('persists UI density and applies a root density class', () => {
     expect(appSource).toContain("type UiDensity = 'comfortable' | 'compact'")
     expect(appSource).toContain("density: 'compact'")
@@ -64,6 +74,15 @@ describe('App source regressions', () => {
     expect(appSource).not.toContain('Export PNG to Supabase Gallery')
     expect(appSource).not.toContain('Export GIF to Supabase Gallery')
     expect(appSource).not.toContain('Export MP4 to Supabase Gallery')
+  })
+
+  it('uses reusable collapsible panel groups across dock content', () => {
+    expect(appSource).toContain("import { PanelGroup } from './components/chrome/PanelGroup'")
+    expect(appSource).toContain('<PanelGroup title="Creation" defaultExpanded={false} className="journey-side-group">')
+    expect(appSource).toContain('<PanelGroup title="Journeys" defaultExpanded className="journey-side-group">')
+    expect(appSource).toContain('<PanelGroup title="Supabase Cloud" defaultExpanded={false}>')
+    expect(appSource).toContain('<PanelGroup title="Node details">')
+    expect(appSource).toContain('<PanelGroup key={category} title={category} defaultExpanded={index === 0} className="toolbox-group">')
   })
 
   it('keeps SJV Script panel free of Codex action buttons', () => {

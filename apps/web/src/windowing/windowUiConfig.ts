@@ -21,8 +21,8 @@ export const MANAGED_WINDOW_DEFAULT_HOST_BY_ID: Record<ManagedWindowId, ManagedW
   palette: 'left',
   inspector: 'right',
   journeys: 'right',
-  timeline: 'bottom',
-  dsl: 'bottom',
+  timeline: 'right',
+  dsl: 'right',
   help: 'right',
   preferences: 'right',
 }

@@ -38,4 +38,12 @@ describe('DiagramCanvas source regressions', () => {
     expect(diagramCanvasSource).toContain('resolveNodePortClassName({')
     expect(diagramCanvasSource).toContain("'node-port-affordance node-port-affordance-active'")
   })
+
+  it('supports touch pinch zoom and highlights the edge being dragged into journeys', () => {
+    expect(diagramCanvasSource).toContain('draggedEdgeId?: string | null')
+    expect(diagramCanvasSource).toContain('resolveViewportAfterPinch({')
+    expect(diagramCanvasSource).toContain('onTouchStart={onTouchStart}')
+    expect(diagramCanvasSource).toContain('onTouchMove={onTouchMove}')
+    expect(diagramCanvasSource).toContain('isDraggingToJourney={draggedEdgeId === edge.id}')
+  })
 })

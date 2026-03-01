@@ -16,7 +16,7 @@
 - Latest cloud UI/export increment (2026-03-01, final pass) promotes Supabase into the main desktop chrome with a top-right cloud badge, direct `PNG/GIF/MP4` export into the private gallery bucket, and a live `Help > Export Gallery` backed by signed preview URLs instead of static sample assets.
 - Latest cloud export automation increment (2026-03-01, final follow-up) moves cloud media sync into the standard local export flow so signed-in `PNG/GIF/MP4` exports auto-upload after download, removing redundant cloud-only export actions.
 - Latest export hotfix (2026-03-01, night pass) aligns animated export theme backgrounds to the SVG `viewBox`/source frame and pre-fills raster composition frames so wide MP4 exports no longer reveal black transparent regions.
-- Latest canvas affordance hotfix (2026-03-01, late-night pass) adds a hover glow/grow cue on exact node ports and lets `Select` mode start a connection directly from that hover without leaving selection mode.
+- Latest canvas affordance hotfix (2026-03-01, late-night pass) adds a pulsing blue hover cue on exact node ports and lets `Select` mode start a connection directly from that hover without leaving selection mode.
 - Architecture baseline:
   - custom SVG editor engine (internal adapter, no paid lock-in),
   - versioned FULL model (`schemaVersion: 1.0`) as source of truth,
@@ -109,7 +109,7 @@
   - temporary connect mode while holding `Ctrl`,
   - modifier priority (`Ctrl+Alt`) that keeps drilldown gestures from being hijacked by connector mode,
   - target node/port highlight while dragging,
-  - exact port hover glow/grow feedback in both `Select` and connector flows,
+  - exact port hover pulsing blue cue in both `Select` and connector flows,
   - direct port-drag connection starts from `Select` mode when the pointer is exactly over a port,
   - release-to-connect with nearest-handle resolution.
 

@@ -2747,3 +2747,27 @@ Chronological engineering log. Entries are kept concise and focused on behavior 
 - `npm --workspace @sjv/web run lint`
 - `npm --workspace @sjv/web run test:run`
 - `npm --workspace @sjv/web run build`
+
+## 2026-03-01 - Canvas port affordance refinement (pulse halo cue)
+
+### Scope
+
+- Refined the new port affordance so the cue behaves like a visible blue pulse halo behind the port, instead of mainly scaling the port itself.
+
+### Changes
+
+- `apps/web/src/components/canvas/DiagramCanvas.tsx`, `apps/web/src/components/canvas/DiagramCanvas.source.test.ts`
+  - port hover/connection target now renders an explicit affordance circle behind the port,
+  - the source regression now checks for the dedicated affordance rendering path.
+- `apps/web/src/App.css`, `apps/web/src/App.styles.test.ts`
+  - replaced the prior port-grow emphasis with a pulsing blue halo animation,
+  - kept the inner port readable while preserving a stronger active-target state.
+- `apps/web/src/help/help.md`, `docs/UI_JOURNEYS_CAPABILITIES.md`, `docs/AI_STATE.md`
+  - updated wording to describe the blue pulse cue.
+
+### Validation
+
+- `npm --workspace @sjv/web run test:run -- src/components/canvas/DiagramCanvas.source.test.ts src/App.styles.test.ts src/diagram/nodes/nodePortClassName.test.ts`
+- `npm --workspace @sjv/web run lint`
+- `npm --workspace @sjv/web run test:run`
+- `npm --workspace @sjv/web run build`

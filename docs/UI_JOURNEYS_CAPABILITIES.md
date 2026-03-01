@@ -30,7 +30,7 @@ Quick operational reference for what the UI currently supports.
 2. Create communications (edges)
 - Switch to `Connector`.
 - Connect handles from source to target.
-- In `Select`, dragging from an exact port hover also starts a connection.
+- In `Select`, dragging from an exact port hover (when the blue pulse cue appears) also starts a connection.
 - Edit label and protocol in `Inspector`.
 
 3. Create and assemble journeys
@@ -102,7 +102,7 @@ Quick operational reference for what the UI currently supports.
   - Edge removal currently happens through node deletion or journey-step removal.
 - No complete journey administration yet (rename/delete in all flows).
 - No copy/paste workflow for selected nodes.
-- Connector mode and exact port hover in `Select` both support drag-based connection starts.
+- Connector mode and exact port hover in `Select` (with the pulse cue) both support drag-based connection starts.
 
 ## 5) Important Behaviors and Shortcuts
 

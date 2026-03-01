@@ -36,5 +36,6 @@ describe('DiagramCanvas source regressions', () => {
     expect(diagramCanvasSource).toContain("const canStartConnectionFromPort = activeTool === 'select' || isConnectorMode")
     expect(diagramCanvasSource).toContain('onPointerEnter={() => onPortPointerEnter(node.id, port.id)}')
     expect(diagramCanvasSource).toContain('resolveNodePortClassName({')
+    expect(diagramCanvasSource).toContain("'node-port-affordance node-port-affordance-active'")
   })
 })

@@ -124,9 +124,13 @@ describe('App boundary styles', () => {
     expect(appCss).toContain('.topbar-cloud-field')
     expect(appCss).toContain('.mobile-app')
     expect(appCss).toContain('.mobile-topbar')
+    expect(appCss).toContain('.mobile-topbar-meta')
+    expect(appCss).toContain('.mobile-meta-pill')
     expect(appCss).toContain('.mobile-panel-shell')
     expect(appCss).toContain('.mobile-panel-tab')
+    expect(appCss).toContain('.mobile-panel-heading')
     expect(appCss).toContain('.mobile-toolbar-button')
+    expect(appCss).toContain('.mobile-toolbar-button-compact')
     expect(appCss).toMatch(
       /\.app-layout-presentation\s+\.topbar-actions\s*\{[^}]*grid-column:\s*2;[^}]*grid-row:\s*1;[^}]*flex-wrap:\s*nowrap;[^}]*overflow-x:\s*auto;[^}]*\}/s,
     )

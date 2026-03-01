@@ -5,7 +5,7 @@
 ## Quick Start
 
 1. Drag nodes from **Palette** to the canvas.
-2. Use **Connector** mode (`C`) or hold `Ctrl` to connect ports.
+2. Use **Connector** mode (`C`), hold `Ctrl`, or drag directly from a glowing port while in **Select** mode.
 3. Create/select a journey in **Journeys**.
 4. Start player and follow `Step X/Y` timeline.
 
@@ -21,6 +21,7 @@ Default playback/focus state:
 - Pan: drag empty canvas.
 - Zoom: mouse wheel.
 - Select: click node/edge.
+- Drag from an exact port hover in **Select** mode to start a connection without leaving selection mode.
 - Multi-select: `Shift` or `Cmd/Ctrl` + click.
 - Delete selection: `Delete` / `Backspace`.
 - Duplicate selection: `Cmd/Ctrl + D`.

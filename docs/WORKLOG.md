@@ -2717,3 +2717,33 @@ Chronological engineering log. Entries are kept concise and focused on behavior 
 - `npm --workspace @sjv/web run lint`
 - `npm --workspace @sjv/web run test:run`
 - `npm --workspace @sjv/web run build`
+
+## 2026-03-01 - Canvas port affordance hotfix (select-mode direct drag)
+
+### Scope
+
+- Improved the node-port connection affordance so users get an explicit visual cue when the pointer is exactly over a port.
+- Added direct port-drag connection starts from `Select` mode without removing the existing `Connector` mode or `Ctrl` gesture.
+
+### Changes
+
+- `apps/web/src/components/canvas/DiagramCanvas.tsx`, `apps/web/src/components/canvas/DiagramCanvas.source.test.ts`
+  - added explicit hovered-port state,
+  - ports now show a dedicated hover affordance,
+  - dragging directly from an exact port hover in `Select` mode now starts a connection just like connector mode,
+  - added source regression coverage so this select-mode port drag path stays wired.
+- `apps/web/src/diagram/nodes/nodePortClassName.ts`, `apps/web/src/diagram/nodes/nodePortClassName.test.ts`
+  - extracted a pure helper for node-port class resolution,
+  - added unit tests for idle, hover, and connection-target styling combinations.
+- `apps/web/src/App.css`
+  - added a blue hover glow + subtle grow animation for ports,
+  - kept a stronger grow state for active connection targets.
+- `apps/web/src/help/help.md`, `docs/UI_JOURNEYS_CAPABILITIES.md`, `docs/AI_STATE.md`
+  - updated help and capability docs to describe direct port-drag from `Select` mode.
+
+### Validation
+
+- `npm --workspace @sjv/web run test:run -- src/diagram/nodes/nodePortClassName.test.ts src/components/canvas/DiagramCanvas.source.test.ts src/App.styles.test.ts`
+- `npm --workspace @sjv/web run lint`
+- `npm --workspace @sjv/web run test:run`
+- `npm --workspace @sjv/web run build`

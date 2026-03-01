@@ -37,6 +37,7 @@ import {
 } from '../../diagram/edges/edgeJourneyBadge'
 import { CanvasText } from './CanvasText'
 import { resolveHexConnectorRole } from '../../diagram/nodes/hexConnectorRole'
+import { resolveNodePortClassName } from '../../diagram/nodes/nodePortClassName'
 import { JourneyEdge } from './JourneyEdge'
 import {
   resolveDbCylinderShape,
@@ -591,6 +592,7 @@ export const DiagramCanvas = ({
   const [isCtrlConnectorActive, setIsCtrlConnectorActive] = useState(false)
   const [hoveredConnectionTarget, setHoveredConnectionTarget] = useState<ConnectionTarget | null>(null)
   const [hoveredAnchorKey, setHoveredAnchorKey] = useState<string | null>(null)
+  const [hoveredPortKey, setHoveredPortKey] = useState<string | null>(null)
   const [playerStepArrivedForUi, setPlayerStepArrivedForUi] = useState(false)
   const [inlineTextEdit, setInlineTextEdit] = useState<InlineTextEditState | null>(null)
 
@@ -1573,6 +1575,7 @@ export const DiagramCanvas = ({
       sourceNodeId,
       sourcePortId,
     }
+    setHoveredPortKey(null)
     setHoveredConnectionTarget(null)
     setConnectionPreview({
       from: start,
@@ -1606,6 +1609,7 @@ export const DiagramCanvas = ({
     if (isConnectorMode) {
       return
     }
+    setHoveredPortKey(null)
     panStateRef.current = {
       pointerId: event.pointerId,
       startX: event.clientX,
@@ -2011,12 +2015,34 @@ export const DiagramCanvas = ({
     if (presentationMode) {
       return
     }
-    if (!isConnectorMode || event.button !== 0) {
+    const canStartConnectionFromPort = activeTool === 'select' || isConnectorMode
+    if (!canStartConnectionFromPort || event.button !== 0) {
       return
     }
     event.preventDefault()
     event.stopPropagation()
     startConnectionDrag(event.pointerId, node.id, portId, event.currentTarget.ownerSVGElement)
+  }
+
+  const onPortPointerEnter = (nodeId: string, portId: string): void => {
+    if (presentationMode) {
+      return
+    }
+    setHoveredPortKey(`${nodeId}:${portId}`)
+    if (!connectionDragRef.current && !edgeReconnectRef.current && !nodeDragStateRef.current) {
+      setHoverCursor('crosshair')
+    }
+  }
+
+  const onPortPointerLeave = (nodeId: string, portId: string): void => {
+    if (presentationMode) {
+      return
+    }
+    const portKey = `${nodeId}:${portId}`
+    setHoveredPortKey((current) => (current === portKey ? null : current))
+    if (!connectionDragRef.current && !edgeReconnectRef.current && !nodeDragStateRef.current) {
+      setHoverCursor(null)
+    }
   }
 
   const onEdgeLabelPointerDown = (
@@ -2790,15 +2816,17 @@ export const DiagramCanvas = ({
                   ? node.ports.map((port) => (
                       <circle
                         key={port.id}
-                        className={
-                          hoveredConnectionTarget?.nodeId === node.id &&
-                          hoveredConnectionTarget.portId === port.id
-                            ? 'node-port node-port-highlight'
-                            : 'node-port'
-                        }
+                        className={resolveNodePortClassName({
+                          isHovered: hoveredPortKey === `${node.id}:${port.id}`,
+                          isConnectionTarget:
+                            hoveredConnectionTarget?.nodeId === node.id &&
+                            hoveredConnectionTarget.portId === port.id,
+                        })}
                         cx={node.bounds.w * port.x}
                         cy={node.bounds.h * port.y}
                         r={4}
+                        onPointerEnter={() => onPortPointerEnter(node.id, port.id)}
+                        onPointerLeave={() => onPortPointerLeave(node.id, port.id)}
                         onPointerDown={(event) => onPortPointerDown(event, node, port.id)}
                       />
                     ))

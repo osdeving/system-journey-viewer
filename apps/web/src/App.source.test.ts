@@ -21,10 +21,15 @@ describe('App source regressions', () => {
 
   it('routes touch-first devices into a dedicated mobile shell and keeps timeline/dsl opening on the right', () => {
     expect(appSource).toContain("const [appShellMode, setAppShellMode] = useState<AppShellMode>(() => resolveInitialAppShellMode())")
+    expect(appSource).toContain("const mobileDockTabLabel: Record<DockTab, string> = {")
+    expect(appSource).toContain("timeline: 'Steps'")
+    expect(appSource).toContain("preferences: 'Prefs'")
     expect(appSource).toContain("window.location.pathname === '/'")
     expect(appSource).toContain("window.history.replaceState(window.history.state, '', buildMobileShellPath(window.location.search, window.location.hash))")
     expect(appSource).toContain('if (appShellMode === \'mobile\') {')
     expect(appSource).toContain('role="tablist" aria-label="Mobile panels"')
+    expect(appSource).toContain('className="mobile-topbar-meta"')
+    expect(appSource).toContain('className="mobile-panel-heading"')
     expect(windowUiConfigSource).toContain("timeline: 'right'")
     expect(windowUiConfigSource).toContain("dsl: 'right'")
   })

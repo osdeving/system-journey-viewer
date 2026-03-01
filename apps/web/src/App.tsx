@@ -5255,6 +5255,15 @@ function App() {
   }
 
   const mobileDockTabs: DockTab[] = ['palette', 'inspector', 'journeys', 'timeline', 'dsl', 'help', 'preferences']
+  const mobileDockTabLabel: Record<DockTab, string> = {
+    palette: 'Palette',
+    inspector: 'Inspect',
+    journeys: 'Journeys',
+    timeline: 'Steps',
+    dsl: 'Script',
+    help: 'Help',
+    preferences: 'Prefs',
+  }
   const cloudBadgeControl = (
     <div ref={topbarCloudShellRef} className="topbar-cloud-shell">
       <button
@@ -5451,10 +5460,15 @@ function App() {
             </div>
             {cloudBadgeControl}
           </div>
+          <div className="mobile-topbar-meta">
+            <span className="mobile-meta-pill">{`View ${currentViewModeLabel}`}</span>
+            <span className="mobile-meta-pill">{activeTool === 'connector' ? 'Connector' : 'Select'}</span>
+            {playerJourney ? <span className="mobile-meta-pill">{`Journey ${playerJourney.name}`}</span> : null}
+          </div>
           <div className="mobile-toolbar" role="toolbar" aria-label="Mobile canvas tools">
             <button
               type="button"
-              className="mobile-toolbar-button"
+              className="mobile-toolbar-button mobile-toolbar-button-compact"
               onClick={() => {
                 void openWorkspaceFilePicker()
               }}
@@ -5463,7 +5477,7 @@ function App() {
             </button>
             <button
               type="button"
-              className="mobile-toolbar-button"
+              className="mobile-toolbar-button mobile-toolbar-button-compact"
               onClick={() => {
                 void saveWorkspaceFile('reuse')
               }}
@@ -5472,24 +5486,32 @@ function App() {
             </button>
             <button
               type="button"
-              className={activeTool === 'select' ? 'mobile-toolbar-button mobile-toolbar-button-active' : 'mobile-toolbar-button'}
+              className={
+                activeTool === 'select'
+                  ? 'mobile-toolbar-button mobile-toolbar-button-compact mobile-toolbar-button-active'
+                  : 'mobile-toolbar-button mobile-toolbar-button-compact'
+              }
               onClick={() => setActiveTool('select')}
             >
               Select
             </button>
             <button
               type="button"
-              className={activeTool === 'connector' ? 'mobile-toolbar-button mobile-toolbar-button-active' : 'mobile-toolbar-button'}
+              className={
+                activeTool === 'connector'
+                  ? 'mobile-toolbar-button mobile-toolbar-button-compact mobile-toolbar-button-active'
+                  : 'mobile-toolbar-button mobile-toolbar-button-compact'
+              }
               onClick={() => setActiveTool('connector')}
             >
               Connect
             </button>
             <button
               type="button"
-              className="mobile-toolbar-button"
+              className="mobile-toolbar-button mobile-toolbar-button-compact"
               onClick={() => setMobilePanelCollapsed((current) => !current)}
             >
-              {mobilePanelCollapsed ? 'Show panels' : 'Hide panels'}
+              {mobilePanelCollapsed ? 'Panels' : 'Hide'}
             </button>
           </div>
           {exportError ? <p className="topbar-error">{exportError}</p> : null}
@@ -5545,13 +5567,14 @@ function App() {
                 type="button"
                 role="tab"
                 aria-selected={mobilePanelTab === tab}
+                aria-label={dockLabelByTab[tab]}
                 className={mobilePanelTab === tab ? 'mobile-panel-tab mobile-panel-tab-active' : 'mobile-panel-tab'}
                 onClick={() => {
                   setMobilePanelTab(tab)
                   setMobilePanelCollapsed(false)
                 }}
               >
-                {dockLabelByTab[tab]}
+                {mobileDockTabLabel[tab]}
               </button>
             ))}
             <span className="mobile-panel-tabs-spacer" />
@@ -5560,11 +5583,17 @@ function App() {
               className="mobile-panel-toggle"
               onClick={() => setMobilePanelCollapsed((current) => !current)}
             >
-              {mobilePanelCollapsed ? 'Expand' : 'Collapse'}
+              {mobilePanelCollapsed ? 'Open' : 'Minimize'}
             </button>
           </div>
           {!mobilePanelCollapsed ? (
-            <div className="mobile-panel-body">{resolveDockTabContent(mobilePanelTab)}</div>
+            <div className="mobile-panel-body">
+              <div className="mobile-panel-heading">
+                <strong>{dockLabelByTab[mobilePanelTab]}</strong>
+                <span>Focused tools for quick touch access</span>
+              </div>
+              {resolveDockTabContent(mobilePanelTab)}
+            </div>
           ) : null}
         </section>
         {guidedTutorialStepIndex !== null ? (

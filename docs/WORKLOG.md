@@ -2834,3 +2834,27 @@ Chronological engineering log. Entries are kept concise and focused on behavior 
 - `npm --workspace @sjv/web run test:run`
 - `npm --workspace @sjv/web run build`
 - `git diff --check`
+
+## 2026-03-01 - Mobile shell polish pass
+
+### Scope
+
+- Tightened the touch-first mobile shell so the chrome feels denser and the bottom panel takes less vertical space on phones.
+
+### Changes
+
+- `apps/web/src/App.tsx`, `apps/web/src/App.source.test.ts`
+  - added short mobile tab labels (`Inspect`, `Steps`, `Script`, `Prefs`) while keeping the full panel names in `aria-label`,
+  - added a compact meta row (`View`, current tool, active journey) under the mobile title bar,
+  - shortened the panel toggle copy for smaller screens and added a compact mobile panel heading above the active panel body.
+- `apps/web/src/App.css`, `apps/web/src/App.styles.test.ts`
+  - reduced mobile topbar spacing, toolbar/button density, and panel-tab density,
+  - lowered the expanded bottom panel height cap so the canvas keeps more vertical room,
+  - added styling for the new mobile meta pills and panel heading.
+
+### Validation
+
+- `npm --workspace @sjv/web run lint`
+- `npm --workspace @sjv/web run test:run`
+- `npm --workspace @sjv/web run build`
+- `git diff --check`

@@ -19,6 +19,7 @@
 - Latest canvas affordance hotfix (2026-03-01, late-night pass) adds a pulsing blue hover cue on exact node ports and lets `Select` mode start a connection directly from that hover without leaving selection mode.
 - Latest edge targeting hotfix (2026-03-01, final pass) widens the invisible pointer hit area for dashed edges so selection no longer requires near-pixel-perfect clicks, while automatic curve routing remains unchanged.
 - Latest shell/interaction refinement (2026-03-01, after midnight) adds a dedicated `/m` mobile shell with touch-first auto-open, pinch zoom on the shared canvas, reusable collapsible panel groups across dock content, stronger journey edge-drop cues, and updated default docking so `Journey Timeline` / `SJV Script` open on the right instead of the bottom host.
+- Latest mobile polish pass (2026-03-01, follow-up) compacts the `/m` chrome further with shorter tab labels, a slimmer bottom panel, and a denser touch-first topbar so the canvas keeps more vertical space on phones.
 - Architecture baseline:
   - custom SVG editor engine (internal adapter, no paid lock-in),
   - versioned FULL model (`schemaVersion: 1.0`) as source of truth,
@@ -32,7 +33,9 @@
 - Touch-first mobile shell flow:
   - dedicated `/m` route renders a simplified mobile chrome over the same workspace/store,
   - narrow touch-first devices auto-open into that shell,
-  - canvas supports two-finger pinch zoom while reusing the same diagram engine.
+  - canvas supports two-finger pinch zoom while reusing the same diagram engine,
+  - mobile panel tabs now use shorter labels while preserving full accessibility labels,
+  - the mobile bottom panel is intentionally capped lower to keep more of the canvas visible.
 - Preset catalog for C4, infra, and hexagonal architecture semantics.
 - Theme persistence (`light` / `dark`) in workspace settings.
 - Journey creation, filtering, playback, and timeline editing controls.

@@ -11,6 +11,7 @@ import {
   resolveJourneyAnimatedSvgLanes,
   resolveJourneyAnimationDurationMs,
   resolveJourneyLoopTimeline,
+  resolveSvgThemeBackgroundFrame,
   resolveVideoMimeType,
 } from './animatedExport'
 import type { JourneyModel } from '../model/types'
@@ -94,6 +95,29 @@ describe('animated export helpers', () => {
   it('normalizes animated export file names for reusable upload/download flows', () => {
     expect(resolveAnimatedExportFilenameBase(' Orders Platform / Demo Run ')).toBe('orders-platform-demo-run')
     expect(resolveAnimatedExportFilenameBase('')).toBe('journey')
+  })
+
+  it('uses the svg viewBox frame for themed export backgrounds when present', () => {
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg')
+    svg.setAttribute('viewBox', '-120 -40 1440 810')
+
+    expect(resolveSvgThemeBackgroundFrame(svg, { width: 1280, height: 720 })).toEqual({
+      x: -120,
+      y: -40,
+      width: 1440,
+      height: 810,
+    })
+  })
+
+  it('falls back to source svg dimensions for themed export backgrounds when viewBox is absent', () => {
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg')
+
+    expect(resolveSvgThemeBackgroundFrame(svg, { width: 1280, height: 720 })).toEqual({
+      x: 0,
+      y: 0,
+      width: 1280,
+      height: 720,
+    })
   })
 
   it('resolves animated svg lanes for threaded journeys with per-lane shapes and tick order', () => {

@@ -2692,3 +2692,28 @@ Chronological engineering log. Entries are kept concise and focused on behavior 
 - `npm --workspace @sjv/web run lint`
 - `npm --workspace @sjv/web run test:run`
 - `npm --workspace @sjv/web run build`
+
+## 2026-03-01 - Animated export background hotfix (full-frame theme fill)
+
+### Scope
+
+- Fixed raster and animated-SVG export background coverage so wide scenes no longer leave transparent regions that show up as black in MP4 playback.
+- Kept the change limited to the animated export compositor and added regression coverage for SVG background framing.
+
+### Changes
+
+- `apps/web/src/export/animatedExport.ts`
+  - added `resolveSvgThemeBackgroundFrame` so export background layers use the SVG `viewBox` coordinate space when present, with source-dimension fallback when absent,
+  - applied the same background-frame logic to the animated SVG exporter and the raster (`GIF`/`MP4`) serializer,
+  - now pre-fills the composition canvas with the theme fallback color before drawing the rasterized SVG frame so residual transparency no longer becomes black in video output.
+- `apps/web/src/export/animatedExport.test.ts`
+  - added regression tests for `viewBox`-aware background framing and the no-`viewBox` source-dimension fallback.
+- `docs/AI_STATE.md`
+  - recorded the export hotfix in the current snapshot and export flow summary.
+
+### Validation
+
+- `npm --workspace @sjv/web run test:run -- src/export/animatedExport.test.ts`
+- `npm --workspace @sjv/web run lint`
+- `npm --workspace @sjv/web run test:run`
+- `npm --workspace @sjv/web run build`

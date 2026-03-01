@@ -86,6 +86,13 @@ type JourneyLoopTimeline = {
   keyPoints: number[]
 }
 
+type SvgThemeBackgroundFrame = {
+  x: number
+  y: number
+  width: number
+  height: number
+}
+
 type VideoExtension = 'mp4' | 'webm'
 type CanvasThemeMode = 'light' | 'dark'
 
@@ -331,10 +338,41 @@ const createGradientStop = (
   return stop
 }
 
+export const resolveSvgThemeBackgroundFrame = (
+  svg: SVGSVGElement,
+  fallbackDimensions: { width: number; height: number },
+): SvgThemeBackgroundFrame => {
+  const rawViewBox = svg.getAttribute('viewBox')
+  if (rawViewBox) {
+    const values = rawViewBox
+      .trim()
+      .split(/[\s,]+/)
+      .map((value) => Number(value))
+    if (
+      values.length === 4 &&
+      values.every((value) => Number.isFinite(value)) &&
+      values[2] > 0 &&
+      values[3] > 0
+    ) {
+      return {
+        x: values[0],
+        y: values[1],
+        width: values[2],
+        height: values[3],
+      }
+    }
+  }
+  return {
+    x: 0,
+    y: 0,
+    width: Math.max(1, Math.round(fallbackDimensions.width)),
+    height: Math.max(1, Math.round(fallbackDimensions.height)),
+  }
+}
+
 const prependThemeBackground = (
   svg: SVGSVGElement,
-  width: number,
-  height: number,
+  frame: SvgThemeBackgroundFrame,
   mode: CanvasThemeMode,
 ): void => {
   const defs = ensureSvgDefs(svg)
@@ -388,34 +426,34 @@ const prependThemeBackground = (
   group.setAttribute('pointer-events', 'none')
 
   const base = document.createElementNS(SVG_NS, 'rect')
-  base.setAttribute('x', '0')
-  base.setAttribute('y', '0')
-  base.setAttribute('width', `${width}`)
-  base.setAttribute('height', `${height}`)
+  base.setAttribute('x', `${frame.x}`)
+  base.setAttribute('y', `${frame.y}`)
+  base.setAttribute('width', `${frame.width}`)
+  base.setAttribute('height', `${frame.height}`)
   base.setAttribute('fill', resolveThemeBaseColor(mode))
   group.appendChild(base)
 
   const linearLayer = document.createElementNS(SVG_NS, 'rect')
-  linearLayer.setAttribute('x', '0')
-  linearLayer.setAttribute('y', '0')
-  linearLayer.setAttribute('width', `${width}`)
-  linearLayer.setAttribute('height', `${height}`)
+  linearLayer.setAttribute('x', `${frame.x}`)
+  linearLayer.setAttribute('y', `${frame.y}`)
+  linearLayer.setAttribute('width', `${frame.width}`)
+  linearLayer.setAttribute('height', `${frame.height}`)
   linearLayer.setAttribute('fill', `url(#${linearId})`)
   group.appendChild(linearLayer)
 
   const radialPrimaryLayer = document.createElementNS(SVG_NS, 'rect')
-  radialPrimaryLayer.setAttribute('x', '0')
-  radialPrimaryLayer.setAttribute('y', '0')
-  radialPrimaryLayer.setAttribute('width', `${width}`)
-  radialPrimaryLayer.setAttribute('height', `${height}`)
+  radialPrimaryLayer.setAttribute('x', `${frame.x}`)
+  radialPrimaryLayer.setAttribute('y', `${frame.y}`)
+  radialPrimaryLayer.setAttribute('width', `${frame.width}`)
+  radialPrimaryLayer.setAttribute('height', `${frame.height}`)
   radialPrimaryLayer.setAttribute('fill', `url(#${radialPrimaryId})`)
   group.appendChild(radialPrimaryLayer)
 
   const radialSecondaryLayer = document.createElementNS(SVG_NS, 'rect')
-  radialSecondaryLayer.setAttribute('x', '0')
-  radialSecondaryLayer.setAttribute('y', '0')
-  radialSecondaryLayer.setAttribute('width', `${width}`)
-  radialSecondaryLayer.setAttribute('height', `${height}`)
+  radialSecondaryLayer.setAttribute('x', `${frame.x}`)
+  radialSecondaryLayer.setAttribute('y', `${frame.y}`)
+  radialSecondaryLayer.setAttribute('width', `${frame.width}`)
+  radialSecondaryLayer.setAttribute('height', `${frame.height}`)
   radialSecondaryLayer.setAttribute('fill', `url(#${radialSecondaryId})`)
   group.appendChild(radialSecondaryLayer)
 
@@ -432,10 +470,14 @@ const serializeStyledSvg = (
   const clone = cloneSvgWithInlineStyles(svg)
   const sourceDimensions = resolveSvgDimensions(svg)
   const { width, height } = dimensions ?? sourceDimensions
+  const backgroundFrame = resolveSvgThemeBackgroundFrame(clone, sourceDimensions)
   removeGridArtifacts(clone)
-  prependThemeBackground(clone, width, height, themeMode)
+  prependThemeBackground(clone, backgroundFrame, themeMode)
   if (!clone.hasAttribute('viewBox')) {
-    clone.setAttribute('viewBox', `0 0 ${sourceDimensions.width} ${sourceDimensions.height}`)
+    clone.setAttribute(
+      'viewBox',
+      `${backgroundFrame.x} ${backgroundFrame.y} ${backgroundFrame.width} ${backgroundFrame.height}`,
+    )
   }
   clone.setAttribute('width', `${width}`)
   clone.setAttribute('height', `${height}`)
@@ -508,11 +550,10 @@ const drawCompositionFrame = (
 ): void => {
   const { context, width, height, fallbackColor, baseImage } = renderer
   context.clearRect(0, 0, width, height)
+  context.fillStyle = fallbackColor
+  context.fillRect(0, 0, width, height)
   if (baseImage) {
     context.drawImage(baseImage, 0, 0, width, height)
-  } else {
-    context.fillStyle = fallbackColor
-    context.fillRect(0, 0, width, height)
   }
   context.save()
   context.globalCompositeOperation = 'screen'
@@ -1187,10 +1228,18 @@ export const createAnimatedJourneySvgBlob = ({
     throw new Error('The selected journey has no valid steps for animated SVG export.')
   }
 
-  const { width, height } = resolveSvgDimensions(svg)
+  const sourceDimensions = resolveSvgDimensions(svg)
+  const { width, height } = sourceDimensions
   const themeMode = resolveThemeMode(svg)
+  const backgroundFrame = resolveSvgThemeBackgroundFrame(clone, sourceDimensions)
   removeGridArtifacts(clone)
-  prependThemeBackground(clone, width, height, themeMode)
+  prependThemeBackground(clone, backgroundFrame, themeMode)
+  if (!clone.hasAttribute('viewBox')) {
+    clone.setAttribute(
+      'viewBox',
+      `${backgroundFrame.x} ${backgroundFrame.y} ${backgroundFrame.width} ${backgroundFrame.height}`,
+    )
+  }
   clone.setAttribute('width', `${width}`)
   clone.setAttribute('height', `${height}`)
   clone.setAttribute('xmlns', SVG_NS)

@@ -15,6 +15,7 @@
 - Latest cloud storage follow-up (2026-03-01, later pass) extends the optional Supabase integration with generated SJV Script persistence plus private `gallery` bucket upload/list/download backed by `gallery_assets` metadata.
 - Latest cloud UI/export increment (2026-03-01, final pass) promotes Supabase into the main desktop chrome with a top-right cloud badge, direct `PNG/GIF/MP4` export into the private gallery bucket, and a live `Help > Export Gallery` backed by signed preview URLs instead of static sample assets.
 - Latest cloud export automation increment (2026-03-01, final follow-up) moves cloud media sync into the standard local export flow so signed-in `PNG/GIF/MP4` exports auto-upload after download, removing redundant cloud-only export actions.
+- Latest export hotfix (2026-03-01, night pass) aligns animated export theme backgrounds to the SVG `viewBox`/source frame and pre-fills raster composition frames so wide MP4 exports no longer reveal black transparent regions.
 - Architecture baseline:
   - custom SVG editor engine (internal adapter, no paid lock-in),
   - versioned FULL model (`schemaVersion: 1.0`) as source of truth,
@@ -62,6 +63,7 @@
   - edge metadata also supports optional label font size.
 - Static export (`SVG`, `PNG`, `PDF`).
 - Animated export (`GIF`, `MP4`, animated `SVG`) with journey timeline playback.
+  - Export backgrounds now cover the full SVG scene frame (`viewBox`-aware) and raster composition pre-fills the theme base color to avoid black transparency in video playback.
 - Presentation mode with clean rendering and export-focused controls.
 - Presentation mode now supports two surfaces:
   - journey animation (existing animated canvas playback/export),

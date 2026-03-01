@@ -98,9 +98,11 @@ import {
 } from './file/recentWorkspaces'
 import helpGuideMarkdown from './help/help.md?raw'
 import {
+  SUPABASE_GALLERY_BUCKET,
   SUPABASE_PUBLIC_ENV_HINT,
   supabaseCloudConfigured,
   supabaseWorkspaceCloudStore,
+  type SupabaseGalleryAsset,
   type SupabaseCloudUser,
 } from './integrations/supabase/workspaceCloudStore'
 import { resolveJourneyFocusScope } from './journeys/focus'
@@ -206,6 +208,22 @@ const LIGHT_TEXT_COLOR_PRESETS = ['#0f172a', '#1e293b', '#334155', '#475569', '#
 const DARK_TEXT_COLOR_PRESETS = ['#ffffff', '#f8fafc', '#e2e8f0', '#cbd5e1', '#94a3b8', '#0f172a']
 
 const MonacoEditor = lazy(() => import('@monaco-editor/react'))
+
+const formatBytesLabel = (bytes: number): string => {
+  if (!Number.isFinite(bytes) || bytes < 0) {
+    return '0 B'
+  }
+  if (bytes < 1024) {
+    return `${bytes} B`
+  }
+  if (bytes < 1024 * 1024) {
+    return `${(bytes / 1024).toFixed(1)} KB`
+  }
+  if (bytes < 1024 * 1024 * 1024) {
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+  }
+  return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`
+}
 
 const viewKindLabel: Record<string, string> = {
   'system-context': 'System Context',
@@ -581,6 +599,7 @@ function App() {
   const topbarRef = useRef<HTMLElement | null>(null)
   const desktopMenuBarRef = useRef<HTMLDivElement | null>(null)
   const snapshotFileInputRef = useRef<HTMLInputElement | null>(null)
+  const supabaseGalleryFileInputRef = useRef<HTMLInputElement | null>(null)
   const canvasPanelRef = useRef<HTMLElement | null>(null)
   const dslRestoreHeightRef = useRef<number | null>(null)
   const previousViewIdRef = useRef<string | null>(null)
@@ -744,6 +763,7 @@ function App() {
       ? 'Sign in to enable Supabase cloud save/load.'
       : `Supabase cloud is not configured. ${SUPABASE_PUBLIC_ENV_HINT}`,
   )
+  const [supabaseGalleryAssets, setSupabaseGalleryAssets] = useState<SupabaseGalleryAsset[]>([])
   const [openDesktopMenu, setOpenDesktopMenu] = useState<DesktopMenuId | null>(null)
   const [guidedTutorialStepIndex, setGuidedTutorialStepIndex] = useState<number | null>(null)
   const [guidedTutorialEventCounts, setGuidedTutorialEventCounts] = useState<Record<string, number>>({})
@@ -1492,21 +1512,6 @@ function App() {
     window.setTimeout(() => setExportStatus(null), timeoutMs)
   }, [])
 
-  useEffect(() => {
-    if (!supabaseWorkspaceCloudStore) {
-      return
-    }
-
-    return supabaseWorkspaceCloudStore.observeAuth((user) => {
-      setSupabaseCloudUser(user)
-      setSupabaseCloudStatus(
-        user
-          ? `Supabase ready for ${user.email ?? user.id}.`
-          : 'Signed out. Sign in to enable Supabase cloud save/load.',
-      )
-    })
-  }, [])
-
   const restoreWindowLayout = useCallback(() => {
     const fallback = createDefaultWindowLayoutBootstrap(topbarHeight)
     if (typeof window === 'undefined') {
@@ -1610,6 +1615,45 @@ function App() {
     [currentViewId, viewport, workspace],
   )
 
+  const refreshSupabaseGalleryAssets = useCallback(async () => {
+    if (!supabaseWorkspaceCloudStore) {
+      setSupabaseCloudStatus(`Supabase cloud is not configured. ${SUPABASE_PUBLIC_ENV_HINT}`)
+      return
+    }
+
+    try {
+      const assets = await supabaseWorkspaceCloudStore.listGalleryAssets()
+      setSupabaseGalleryAssets(assets)
+    } catch (error) {
+      setSupabaseCloudStatus(
+        error instanceof Error ? `Gallery refresh failed: ${error.message}` : 'Gallery refresh failed.',
+      )
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!supabaseWorkspaceCloudStore) {
+      return
+    }
+
+    return supabaseWorkspaceCloudStore.observeAuth((user) => {
+      setSupabaseCloudUser(user)
+      setSupabaseCloudStatus(
+        user
+          ? `Supabase ready for ${user.email ?? user.id}.`
+          : 'Signed out. Sign in to enable Supabase cloud save/load.',
+      )
+    })
+  }, [])
+
+  useEffect(() => {
+    if (!supabaseCloudUser) {
+      setSupabaseGalleryAssets([])
+      return
+    }
+    void refreshSupabaseGalleryAssets()
+  }, [refreshSupabaseGalleryAssets, supabaseCloudUser])
+
   const signInToSupabaseCloud = useCallback(async () => {
     if (!supabaseWorkspaceCloudStore) {
       setSupabaseCloudStatus(`Supabase cloud is not configured. ${SUPABASE_PUBLIC_ENV_HINT}`)
@@ -1703,6 +1747,130 @@ function App() {
       setSupabaseCloudBusy(false)
     }
   }, [replaceWorkspace, setTransientStatus, setViewport, workspace.workspace.id])
+
+  const saveScriptToSupabaseCloud = useCallback(async () => {
+    if (!supabaseWorkspaceCloudStore) {
+      setSupabaseCloudStatus(`Supabase cloud is not configured. ${SUPABASE_PUBLIC_ENV_HINT}`)
+      return
+    }
+
+    setSupabaseCloudBusy(true)
+    try {
+      const generatedScript = fullWorkspaceToLiteDsl(workspace)
+      await supabaseWorkspaceCloudStore.saveScript(
+        workspace.workspace.id,
+        `${workspace.workspace.name} Script`,
+        generatedScript,
+      )
+      setSupabaseCloudStatus(`Cloud script saved for workspace "${workspace.workspace.name}".`)
+      setTransientStatus('SJV Script saved to Supabase cloud.')
+    } catch (error) {
+      setSupabaseCloudStatus(
+        error instanceof Error ? `Cloud script save failed: ${error.message}` : 'Cloud script save failed.',
+      )
+    } finally {
+      setSupabaseCloudBusy(false)
+    }
+  }, [setTransientStatus, workspace])
+
+  const loadScriptFromSupabaseCloud = useCallback(async () => {
+    if (!supabaseWorkspaceCloudStore) {
+      setSupabaseCloudStatus(`Supabase cloud is not configured. ${SUPABASE_PUBLIC_ENV_HINT}`)
+      return
+    }
+
+    setSupabaseCloudBusy(true)
+    try {
+      const script = await supabaseWorkspaceCloudStore.loadLatestScript(workspace.workspace.id)
+      if (!script) {
+        setSupabaseCloudStatus(`No cloud script found for workspace id "${workspace.workspace.id}".`)
+        return
+      }
+
+      setDslText(script.content)
+      try {
+        const imported = resolveWorkspaceFromDslText(script.content)
+        replaceWorkspace(imported.workspace, imported.entryViewId)
+        setViewport(DEFAULT_FILE_VIEWPORT)
+        setDslError(null)
+        setSupabaseCloudStatus(`Loaded cloud script "${script.title}".`)
+        setTransientStatus('SJV Script loaded from Supabase cloud.')
+      } catch (error) {
+        setDslError(error instanceof Error ? error.message : 'Failed to import SJV Script.')
+        setSupabaseCloudStatus(`Loaded cloud script "${script.title}" into the editor, but import failed.`)
+      }
+    } catch (error) {
+      setSupabaseCloudStatus(
+        error instanceof Error ? `Cloud script load failed: ${error.message}` : 'Cloud script load failed.',
+      )
+    } finally {
+      setSupabaseCloudBusy(false)
+    }
+  }, [replaceWorkspace, resolveWorkspaceFromDslText, setTransientStatus, setViewport, workspace.workspace.id])
+
+  const openSupabaseGalleryPicker = useCallback(() => {
+    supabaseGalleryFileInputRef.current?.click()
+  }, [])
+
+  const downloadSupabaseGalleryAsset = useCallback(
+    async (asset: SupabaseGalleryAsset) => {
+      if (!supabaseWorkspaceCloudStore) {
+        setSupabaseCloudStatus(`Supabase cloud is not configured. ${SUPABASE_PUBLIC_ENV_HINT}`)
+        return
+      }
+
+      setSupabaseCloudBusy(true)
+      try {
+        const blob = await supabaseWorkspaceCloudStore.downloadGalleryAsset(asset.storagePath)
+        const objectUrl = URL.createObjectURL(blob)
+        const link = document.createElement('a')
+        link.href = objectUrl
+        link.download = asset.fileName
+        document.body.append(link)
+        link.click()
+        link.remove()
+        URL.revokeObjectURL(objectUrl)
+        setSupabaseCloudStatus(`Downloaded gallery asset "${asset.fileName}".`)
+        setTransientStatus('Gallery asset downloaded from Supabase.')
+      } catch (error) {
+        setSupabaseCloudStatus(
+          error instanceof Error ? `Gallery download failed: ${error.message}` : 'Gallery download failed.',
+        )
+      } finally {
+        setSupabaseCloudBusy(false)
+      }
+    },
+    [setTransientStatus],
+  )
+
+  const onSupabaseGalleryFileInputChange = useCallback(
+    async (event: ChangeEvent<HTMLInputElement>) => {
+      const file = event.target.files?.[0]
+      event.target.value = ''
+      if (!file) {
+        return
+      }
+      if (!supabaseWorkspaceCloudStore) {
+        setSupabaseCloudStatus(`Supabase cloud is not configured. ${SUPABASE_PUBLIC_ENV_HINT}`)
+        return
+      }
+
+      setSupabaseCloudBusy(true)
+      try {
+        const asset = await supabaseWorkspaceCloudStore.uploadGalleryAsset(file)
+        setSupabaseGalleryAssets((current) => [asset, ...current].slice(0, 24))
+        setSupabaseCloudStatus(`Uploaded "${asset.fileName}" to bucket "${SUPABASE_GALLERY_BUCKET}".`)
+        setTransientStatus('Gallery asset uploaded to Supabase.')
+      } catch (error) {
+        setSupabaseCloudStatus(
+          error instanceof Error ? `Gallery upload failed: ${error.message}` : 'Gallery upload failed.',
+        )
+      } finally {
+        setSupabaseCloudBusy(false)
+      }
+    },
+    [setTransientStatus],
+  )
 
   const saveWorkspaceFile = useCallback(
     async (mode: FileWriteMode = 'reuse') => {
@@ -3885,6 +4053,78 @@ function App() {
             Load Workspace from Cloud
           </button>
         </div>
+        <div className="preferences-inline-actions">
+          <button
+            type="button"
+            className="preferences-inline-action"
+            disabled={!supabaseCloudConfigured || !supabaseCloudUser || supabaseCloudBusy}
+            onClick={() => {
+              void saveScriptToSupabaseCloud()
+            }}
+          >
+            Save Generated SJV Script
+          </button>
+          <button
+            type="button"
+            className="preferences-inline-action"
+            disabled={!supabaseCloudConfigured || !supabaseCloudUser || supabaseCloudBusy}
+            onClick={() => {
+              void loadScriptFromSupabaseCloud()
+            }}
+          >
+            Load Latest SJV Script
+          </button>
+        </div>
+        <p className="preferences-status">
+          Upload local PNG, GIF, or MP4 files to the private `{SUPABASE_GALLERY_BUCKET}` bucket.
+        </p>
+        <div className="preferences-inline-actions">
+          <button
+            type="button"
+            className="preferences-inline-action"
+            disabled={!supabaseCloudConfigured || !supabaseCloudUser || supabaseCloudBusy}
+            onClick={() => openSupabaseGalleryPicker()}
+          >
+            Upload File to Gallery
+          </button>
+          <button
+            type="button"
+            className="preferences-inline-action"
+            disabled={!supabaseCloudConfigured || !supabaseCloudUser || supabaseCloudBusy}
+            onClick={() => {
+              void refreshSupabaseGalleryAssets()
+            }}
+          >
+            Refresh Gallery List
+          </button>
+        </div>
+        <div className="preferences-gallery-list">
+          {supabaseGalleryAssets.length ? (
+            supabaseGalleryAssets.map((asset) => (
+              <div key={asset.id} className="preferences-gallery-item">
+                <div className="preferences-gallery-copy">
+                  <strong>{asset.title}</strong>
+                  <span>{asset.fileName}</span>
+                  <span>
+                    {asset.contentType} · {formatBytesLabel(asset.sizeBytes)}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  className="preferences-inline-action"
+                  disabled={supabaseCloudBusy}
+                  onClick={() => {
+                    void downloadSupabaseGalleryAsset(asset)
+                  }}
+                >
+                  Download
+                </button>
+              </div>
+            ))
+          ) : (
+            <p className="preferences-status">No Supabase gallery assets yet.</p>
+          )}
+        </div>
       </fieldset>
     </div>
   )
@@ -4718,6 +4958,15 @@ function App() {
           void onWorkspaceFileInputChange(event)
         }}
       />
+      <input
+        ref={supabaseGalleryFileInputRef}
+        type="file"
+        accept=".png,.gif,.mp4,image/*,video/*"
+        hidden
+        onChange={(event) => {
+          void onSupabaseGalleryFileInputChange(event)
+        }}
+      />
       <SplashScreen
         visible={splashVisible}
         versionLabel={APP_VERSION_LABEL}
@@ -4865,6 +5114,47 @@ function App() {
                     {renderDesktopMenuItem(
                       <Download size={13} />,
                       supabaseCloudBusy ? 'Cloud Busy...' : 'Load from Supabase Cloud',
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    disabled={!supabaseCloudConfigured || !supabaseCloudUser || supabaseCloudBusy}
+                    onClick={() =>
+                      runDesktopMenuAction(() => {
+                        void saveScriptToSupabaseCloud()
+                      })
+                    }
+                  >
+                    {renderDesktopMenuItem(
+                      <Code2 size={13} />,
+                      supabaseCloudBusy ? 'Cloud Busy...' : 'Save Script to Supabase Cloud',
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    disabled={!supabaseCloudConfigured || !supabaseCloudUser || supabaseCloudBusy}
+                    onClick={() =>
+                      runDesktopMenuAction(() => {
+                        void loadScriptFromSupabaseCloud()
+                      })
+                    }
+                  >
+                    {renderDesktopMenuItem(
+                      <Code2 size={13} />,
+                      supabaseCloudBusy ? 'Cloud Busy...' : 'Load Script from Supabase Cloud',
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    disabled={!supabaseCloudConfigured || !supabaseCloudUser || supabaseCloudBusy}
+                    onClick={() => runDesktopMenuAction(() => openSupabaseGalleryPicker())}
+                  >
+                    {renderDesktopMenuItem(
+                      <FolderOpen size={13} />,
+                      supabaseCloudBusy ? 'Cloud Busy...' : 'Upload Media to Supabase Gallery',
                     )}
                   </button>
                   <button

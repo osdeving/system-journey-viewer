@@ -2607,3 +2607,37 @@ Chronological engineering log. Entries are kept concise and focused on behavior 
 - `npm --workspace @sjv/web run lint`
 - `npm --workspace @sjv/web run build`
 - `npm --workspace @sjv/web run test:run`
+
+## 2026-03-01 - Supabase cloud follow-up (generated scripts + private gallery bucket)
+
+### Scope
+
+- Extended the optional Supabase integration beyond workspace snapshots so the app can also store generated SJV scripts and user-owned gallery media.
+- Kept the flow manual and user-scoped, avoiding background sync while enabling immediate upload/download workflows for private assets.
+
+### Changes
+
+- `apps/web/src/integrations/supabase/workspaceCloudStore.ts`, `apps/web/src/integrations/supabase/workspaceCloudStore.test.ts`
+  - expanded the client-side adapter with:
+    - `scripts` table save/load for the generated workspace DSL,
+    - `gallery_assets` metadata support,
+    - private `gallery` bucket upload/list/download helpers.
+- `apps/web/src/App.tsx`, `apps/web/src/App.css`, `apps/web/src/App.source.test.ts`
+  - `Preferences > Supabase Cloud` now supports:
+    - save/load generated SJV Script,
+    - upload local PNG/GIF/MP4 files,
+    - list and download recent gallery assets,
+  - `File` menu now includes:
+    - `Save Script to Supabase Cloud`,
+    - `Load Script from Supabase Cloud`,
+    - `Upload Media to Supabase Gallery`.
+- `docs/SUPABASE_SETUP.md`
+  - expanded SQL bootstrap to include `scripts` and `gallery_assets`,
+  - documented the required private `gallery` bucket and storage-object policies.
+
+### Validation
+
+- `npm --workspace @sjv/web run test:run -- src/integrations/supabase/workspaceCloudStore.test.ts src/App.source.test.ts`
+- `npm --workspace @sjv/web run lint`
+- `npm --workspace @sjv/web run build`
+- `npm --workspace @sjv/web run test:run`

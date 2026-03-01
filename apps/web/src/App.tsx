@@ -5423,7 +5423,6 @@ function App() {
   if (appShellMode === 'mobile') {
     return (
       <div
-        ref={layoutRef}
         className={`mobile-app app-layout-density-${uiPreferences.density} ${
           theme === 'dark' ? 'theme-dark' : 'theme-light'
         }`}
@@ -5452,150 +5451,152 @@ function App() {
           copyrightLabel={`Copyright ${APP_COPYRIGHT_LABEL}`}
           onDismiss={() => setSplashVisible(false)}
         />
-        <header ref={topbarRef} className="mobile-topbar">
-          <div className="mobile-topbar-row">
-            <div className="mobile-brand-copy">
-              <strong>{workspace.workspace.name}</strong>
-              <span>{breadcrumb.map((viewId) => workspace.views[viewId]?.name ?? viewId).join(' / ')}</span>
+        <div ref={layoutRef} className="mobile-shell-frame">
+          <header ref={topbarRef} className="mobile-topbar">
+            <div className="mobile-topbar-row">
+              <div className="mobile-brand-copy">
+                <strong>{workspace.workspace.name}</strong>
+                <span>{breadcrumb.map((viewId) => workspace.views[viewId]?.name ?? viewId).join(' / ')}</span>
+              </div>
+              {cloudBadgeControl}
             </div>
-            {cloudBadgeControl}
-          </div>
-          <div className="mobile-topbar-meta">
-            <span className="mobile-meta-pill">{`View ${currentViewModeLabel}`}</span>
-            <span className="mobile-meta-pill">{activeTool === 'connector' ? 'Connector' : 'Select'}</span>
-            {playerJourney ? <span className="mobile-meta-pill">{`Journey ${playerJourney.name}`}</span> : null}
-          </div>
-          <div className="mobile-toolbar" role="toolbar" aria-label="Mobile canvas tools">
-            <button
-              type="button"
-              className="mobile-toolbar-button mobile-toolbar-button-compact"
-              onClick={() => {
-                void openWorkspaceFilePicker()
-              }}
-            >
-              Open
-            </button>
-            <button
-              type="button"
-              className="mobile-toolbar-button mobile-toolbar-button-compact"
-              onClick={() => {
-                void saveWorkspaceFile('reuse')
-              }}
-            >
-              Save
-            </button>
-            <button
-              type="button"
-              className={
-                activeTool === 'select'
-                  ? 'mobile-toolbar-button mobile-toolbar-button-compact mobile-toolbar-button-active'
-                  : 'mobile-toolbar-button mobile-toolbar-button-compact'
-              }
-              onClick={() => setActiveTool('select')}
-            >
-              Select
-            </button>
-            <button
-              type="button"
-              className={
-                activeTool === 'connector'
-                  ? 'mobile-toolbar-button mobile-toolbar-button-compact mobile-toolbar-button-active'
-                  : 'mobile-toolbar-button mobile-toolbar-button-compact'
-              }
-              onClick={() => setActiveTool('connector')}
-            >
-              Connect
-            </button>
-            <button
-              type="button"
-              className="mobile-toolbar-button mobile-toolbar-button-compact"
-              onClick={() => setMobilePanelCollapsed((current) => !current)}
-            >
-              {mobilePanelCollapsed ? 'Panels' : 'Hide'}
-            </button>
-          </div>
-          {exportError ? <p className="topbar-error">{exportError}</p> : null}
-          {!exportError && exportStatus ? <p className="topbar-status">{exportStatus}</p> : null}
-        </header>
-        <main
-          ref={canvasPanelRef}
-          className={`canvas-panel mobile-canvas-panel ${
-            gridEnabled && !presentationMode ? 'canvas-panel-grid-visible' : 'canvas-panel-grid-hidden'
-          } ${presentationMode ? 'canvas-panel-presentation' : ''}`}
-        >
-          {!presentationMode && canNavigateBack ? (
-            <button
-              type="button"
-              className="canvas-back-arrow"
-              onClick={() => navigateBack()}
-              aria-label="Back to previous view"
-            >
-              <Undo2 size={16} />
-            </button>
-          ) : null}
-          {!presentationMode && activeTool === 'connector' ? (
-            <p className={canNavigateBack ? 'canvas-hint canvas-hint-with-back' : 'canvas-hint'}>
-              {pendingConnectionFrom
-                ? `Select a destination to connect from ${pendingConnectionFrom}${pendingConnectionPortId ? `:${pendingConnectionPortId}` : ''}`
-                : 'Drag from one handle to another to create an edge'}
-            </p>
-          ) : null}
-          {presentationMode && presentationSurface === 'sequence' ? (
-            <SequenceDiagramView scene={presentationSequenceScene} theme={theme} />
-          ) : (
-            <DiagramCanvas
-              presentationMode={presentationMode}
-              forceGridHidden={presentationMode}
-              exportFocusJourneyId={exportFocusJourneyId}
-              nodeDepthEffectsEnabled={uiPreferences.nodeDepthEffectsEnabled}
-              draggedEdgeId={draggedEdgeId}
-              onEdgePointerStart={handleCanvasEdgePointerStart}
-            />
-          )}
-        </main>
-        <section
-          className={
-            mobilePanelCollapsed
-              ? 'mobile-panel-shell mobile-panel-shell-collapsed'
-              : 'mobile-panel-shell'
-          }
-        >
-          <div className="mobile-panel-tabs" role="tablist" aria-label="Mobile panels">
-            {mobileDockTabs.map((tab) => (
+            <div className="mobile-topbar-meta">
+              <span className="mobile-meta-pill">{`View ${currentViewModeLabel}`}</span>
+              <span className="mobile-meta-pill">{activeTool === 'connector' ? 'Connector' : 'Select'}</span>
+              {playerJourney ? <span className="mobile-meta-pill">{`Journey ${playerJourney.name}`}</span> : null}
+            </div>
+            <div className="mobile-toolbar" role="toolbar" aria-label="Mobile canvas tools">
               <button
-                key={tab}
                 type="button"
-                role="tab"
-                aria-selected={mobilePanelTab === tab}
-                aria-label={dockLabelByTab[tab]}
-                className={mobilePanelTab === tab ? 'mobile-panel-tab mobile-panel-tab-active' : 'mobile-panel-tab'}
+                className="mobile-toolbar-button mobile-toolbar-button-compact"
                 onClick={() => {
-                  setMobilePanelTab(tab)
-                  setMobilePanelCollapsed(false)
+                  void openWorkspaceFilePicker()
                 }}
               >
-                {mobileDockTabLabel[tab]}
+                Open
               </button>
-            ))}
-            <span className="mobile-panel-tabs-spacer" />
-            <button
-              type="button"
-              className="mobile-panel-toggle"
-              onClick={() => setMobilePanelCollapsed((current) => !current)}
-            >
-              {mobilePanelCollapsed ? 'Open' : 'Minimize'}
-            </button>
-          </div>
-          {!mobilePanelCollapsed ? (
-            <div className="mobile-panel-body">
-              <div className="mobile-panel-heading">
-                <strong>{dockLabelByTab[mobilePanelTab]}</strong>
-                <span>Focused tools for quick touch access</span>
-              </div>
-              {resolveDockTabContent(mobilePanelTab)}
+              <button
+                type="button"
+                className="mobile-toolbar-button mobile-toolbar-button-compact"
+                onClick={() => {
+                  void saveWorkspaceFile('reuse')
+                }}
+              >
+                Save
+              </button>
+              <button
+                type="button"
+                className={
+                  activeTool === 'select'
+                    ? 'mobile-toolbar-button mobile-toolbar-button-compact mobile-toolbar-button-active'
+                    : 'mobile-toolbar-button mobile-toolbar-button-compact'
+                }
+                onClick={() => setActiveTool('select')}
+              >
+                Select
+              </button>
+              <button
+                type="button"
+                className={
+                  activeTool === 'connector'
+                    ? 'mobile-toolbar-button mobile-toolbar-button-compact mobile-toolbar-button-active'
+                    : 'mobile-toolbar-button mobile-toolbar-button-compact'
+                }
+                onClick={() => setActiveTool('connector')}
+              >
+                Connect
+              </button>
+              <button
+                type="button"
+                className="mobile-toolbar-button mobile-toolbar-button-compact"
+                onClick={() => setMobilePanelCollapsed((current) => !current)}
+              >
+                {mobilePanelCollapsed ? 'Panels' : 'Hide'}
+              </button>
             </div>
-          ) : null}
-        </section>
+            {exportError ? <p className="topbar-error">{exportError}</p> : null}
+            {!exportError && exportStatus ? <p className="topbar-status">{exportStatus}</p> : null}
+          </header>
+          <main
+            ref={canvasPanelRef}
+            className={`canvas-panel mobile-canvas-panel ${
+              gridEnabled && !presentationMode ? 'canvas-panel-grid-visible' : 'canvas-panel-grid-hidden'
+            } ${presentationMode ? 'canvas-panel-presentation' : ''}`}
+          >
+            {!presentationMode && canNavigateBack ? (
+              <button
+                type="button"
+                className="canvas-back-arrow"
+                onClick={() => navigateBack()}
+                aria-label="Back to previous view"
+              >
+                <Undo2 size={16} />
+              </button>
+            ) : null}
+            {!presentationMode && activeTool === 'connector' ? (
+              <p className={canNavigateBack ? 'canvas-hint canvas-hint-with-back' : 'canvas-hint'}>
+                {pendingConnectionFrom
+                  ? `Select a destination to connect from ${pendingConnectionFrom}${pendingConnectionPortId ? `:${pendingConnectionPortId}` : ''}`
+                  : 'Drag from one handle to another to create an edge'}
+              </p>
+            ) : null}
+            {presentationMode && presentationSurface === 'sequence' ? (
+              <SequenceDiagramView scene={presentationSequenceScene} theme={theme} />
+            ) : (
+              <DiagramCanvas
+                presentationMode={presentationMode}
+                forceGridHidden={presentationMode}
+                exportFocusJourneyId={exportFocusJourneyId}
+                nodeDepthEffectsEnabled={uiPreferences.nodeDepthEffectsEnabled}
+                draggedEdgeId={draggedEdgeId}
+                onEdgePointerStart={handleCanvasEdgePointerStart}
+              />
+            )}
+          </main>
+          <section
+            className={
+              mobilePanelCollapsed
+                ? 'mobile-panel-shell mobile-panel-shell-collapsed'
+                : 'mobile-panel-shell'
+            }
+          >
+            <div className="mobile-panel-tabs" role="tablist" aria-label="Mobile panels">
+              {mobileDockTabs.map((tab) => (
+                <button
+                  key={tab}
+                  type="button"
+                  role="tab"
+                  aria-selected={mobilePanelTab === tab}
+                  aria-label={dockLabelByTab[tab]}
+                  className={mobilePanelTab === tab ? 'mobile-panel-tab mobile-panel-tab-active' : 'mobile-panel-tab'}
+                  onClick={() => {
+                    setMobilePanelTab(tab)
+                    setMobilePanelCollapsed(false)
+                  }}
+                >
+                  {mobileDockTabLabel[tab]}
+                </button>
+              ))}
+              <span className="mobile-panel-tabs-spacer" />
+              <button
+                type="button"
+                className="mobile-panel-toggle"
+                onClick={() => setMobilePanelCollapsed((current) => !current)}
+              >
+                {mobilePanelCollapsed ? 'Open' : 'Minimize'}
+              </button>
+            </div>
+            {!mobilePanelCollapsed ? (
+              <div className="mobile-panel-body">
+                <div className="mobile-panel-heading">
+                  <strong>{dockLabelByTab[mobilePanelTab]}</strong>
+                  <span>Focused tools for quick touch access</span>
+                </div>
+                {resolveDockTabContent(mobilePanelTab)}
+              </div>
+            ) : null}
+          </section>
+        </div>
         {guidedTutorialStepIndex !== null ? (
           <GuidedTutorialOverlay
             step={guidedTutorialCurrentStep ?? GUIDED_UI_TUTORIAL_STEPS[guidedTutorialStepIndex]}

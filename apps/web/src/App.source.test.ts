@@ -27,6 +27,7 @@ describe('App source regressions', () => {
     expect(appSource).toContain("window.location.pathname === '/'")
     expect(appSource).toContain("window.history.replaceState(window.history.state, '', buildMobileShellPath(window.location.search, window.location.hash))")
     expect(appSource).toContain('if (appShellMode === \'mobile\') {')
+    expect(appSource).toContain('className="mobile-shell-frame"')
     expect(appSource).toContain('role="tablist" aria-label="Mobile panels"')
     expect(appSource).toContain('className="mobile-topbar-meta"')
     expect(appSource).toContain('className="mobile-panel-heading"')

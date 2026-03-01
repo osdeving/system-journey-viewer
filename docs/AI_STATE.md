@@ -17,6 +17,7 @@
 - Latest cloud export automation increment (2026-03-01, final follow-up) moves cloud media sync into the standard local export flow so signed-in `PNG/GIF/MP4` exports auto-upload after download, removing redundant cloud-only export actions.
 - Latest export hotfix (2026-03-01, night pass) aligns animated export theme backgrounds to the SVG `viewBox`/source frame and pre-fills raster composition frames so wide MP4 exports no longer reveal black transparent regions.
 - Latest canvas affordance hotfix (2026-03-01, late-night pass) adds a pulsing blue hover cue on exact node ports and lets `Select` mode start a connection directly from that hover without leaving selection mode.
+- Latest edge targeting hotfix (2026-03-01, final pass) widens the invisible pointer hit area for dashed edges so selection no longer requires near-pixel-perfect clicks, while automatic curve routing remains unchanged.
 - Architecture baseline:
   - custom SVG editor engine (internal adapter, no paid lock-in),
   - versioned FULL model (`schemaVersion: 1.0`) as source of truth,
@@ -151,6 +152,7 @@
 - Stronger edge editing UX:
   - selected edge marker rendered directly on path,
   - edge label isolation styling,
+  - wider invisible edge hit area improves selection tolerance without altering rendered stroke thickness,
   - draggable edge label position (plus inspector slider),
   - draggable label side flip (left/right side of edge),
   - readable label orientation (avoids upside-down text, vertical-safe orientation),

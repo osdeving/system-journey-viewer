@@ -2468,6 +2468,13 @@
   fill: #0f172a;
 }
 
+.edge-hitarea {
+  fill: none;
+  stroke: transparent;
+  stroke-width: 12;
+  pointer-events: stroke;
+}
+
 .edge-selected {
   stroke: var(--sjv-edge-selected);
   stroke-width: 3;

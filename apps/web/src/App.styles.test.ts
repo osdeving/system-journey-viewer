@@ -136,6 +136,7 @@ describe('App boundary styles', () => {
     expect(appCss).toContain('.node-connection-target')
     expect(appCss).toContain('.node-port-affordance')
     expect(appCss).toContain('.node-port-highlight')
+    expect(appCss).toContain('.edge-hitarea')
     expect(appCss).toContain('.diagram-canvas-depth-off .node-depth-layer')
     expect(appCss).toContain('.node-depth-fill')
     expect(appCss).toContain('.node-depth-rim')

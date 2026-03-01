@@ -2572,3 +2572,38 @@ Chronological engineering log. Entries are kept concise and focused on behavior 
 - `npm --workspace @sjv/web run lint`
 - `npm --workspace @sjv/web run test:run`
 - `npm --workspace @sjv/web run build`
+
+## 2026-03-01 - Supabase cloud workspace bootstrap (manual auth + save/load)
+
+### Scope
+
+- Added a first optional cloud-persistence slice for `apps/web` using Supabase browser auth and Postgres-backed workspace snapshots.
+- Kept existing local browser persistence as the default behavior and exposed cloud actions manually through `Preferences` and `File`.
+- Added setup docs so the project can be wired to a fresh Supabase project without server-side secrets in the browser.
+
+### Changes
+
+- `apps/web/src/integrations/supabase/config.ts`, `apps/web/src/integrations/supabase/config.test.ts`
+  - added public env resolution for Supabase with support for standard `VITE_*` vars and safe Vite build-time shims fed from Vercel/Supabase public values.
+- `apps/web/src/integrations/supabase/workspaceCloudStore.ts`, `apps/web/src/integrations/supabase/workspaceCloudStore.test.ts`
+  - added a small client-side Supabase adapter for:
+    - email/password sign-in/sign-out,
+    - auth observation,
+    - manual save/load of `EditorSnapshot` rows in `public.workspaces`.
+- `apps/web/src/App.tsx`, `apps/web/src/App.css`, `apps/web/src/App.source.test.ts`
+  - added a `Supabase Cloud` section in `Preferences`,
+  - added `Save to Supabase Cloud` and `Load from Supabase Cloud` actions in the `File` menu,
+  - wired manual cloud save/load to the current workspace id while preserving local autosave.
+- `apps/web/vite.config.ts`, `apps/web/src/vite-env.d.ts`, `apps/web/.env.example`
+  - added safe build-time bridging for `SUPABASE_URL` / `SUPABASE_ANON_KEY` into browser-safe constants without exposing secret Supabase integration vars,
+  - documented local env file shape.
+- `docs/SUPABASE_SETUP.md`, `docs/FILE_ATLAS.md`
+  - added a repo-local Supabase bootstrap guide (console steps + SQL for `public.workspaces`),
+  - registered `src/integrations/` in the file taxonomy.
+
+### Validation
+
+- `npm --workspace @sjv/web run test:run -- src/integrations/supabase/config.test.ts src/integrations/supabase/workspaceCloudStore.test.ts src/App.source.test.ts`
+- `npm --workspace @sjv/web run lint`
+- `npm --workspace @sjv/web run build`
+- `npm --workspace @sjv/web run test:run`

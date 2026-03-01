@@ -30,4 +30,11 @@ describe('DiagramCanvas source regressions', () => {
     expect(diagramCanvasSource).toContain('playerMarkerPositionsRef')
     expect(diagramCanvasSource).toContain('drawPlayerMarker(')
   })
+
+  it('supports direct port-drag connection affordance in select mode with explicit port hover state', () => {
+    expect(diagramCanvasSource).toContain('const [hoveredPortKey, setHoveredPortKey] = useState<string | null>(null)')
+    expect(diagramCanvasSource).toContain("const canStartConnectionFromPort = activeTool === 'select' || isConnectorMode")
+    expect(diagramCanvasSource).toContain('onPointerEnter={() => onPortPointerEnter(node.id, port.id)}')
+    expect(diagramCanvasSource).toContain('resolveNodePortClassName({')
+  })
 })

@@ -2,6 +2,28 @@
 
 Chronological engineering log. Entries are kept concise and focused on behavior and validation.
 
+## 2026-03-03 - Supabase cloud script picker filtered-count summary
+
+### Scope
+
+- Added a visible filtered-vs-total result count to the top-right Supabase cloud script picker.
+
+### Changes
+
+- `apps/web/src/App.tsx`, `apps/web/src/App.css`, `apps/web/src/App.source.test.ts`, `apps/web/src/App.styles.test.ts`
+  - added a live summary line above the saved-script list showing how many filtered results are currently visible out of the total saved scripts,
+  - added regression coverage for the new summary text and styling hook.
+- `docs/SUPABASE_SETUP.md`, `docs/AI_STATE.md`
+  - updated docs/session state to mention the live filtered/total count in the cloud script picker.
+
+### Validation
+
+- `git diff --check`
+- `npm --workspace @sjv/web run test:run -- src/App.source.test.ts src/App.styles.test.ts`
+- `npm --workspace @sjv/web run lint`
+- `npm --workspace @sjv/web run test:run`
+- `npm --workspace @sjv/web run build`
+
 ## 2026-03-03 - Supabase cloud script picker search filter
 
 ### Scope

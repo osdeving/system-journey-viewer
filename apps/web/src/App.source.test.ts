@@ -60,6 +60,7 @@ describe('App source regressions', () => {
     expect(appSource).toContain('Saved cloud scripts')
     expect(appSource).toContain('Filter scripts')
     expect(appSource).toContain('Search by title or workspace id')
+    expect(appSource).toContain('Showing ${filteredSupabaseCloudScripts.length} of ${supabaseCloudScripts.length} saved scripts.')
     expect(appSource).toContain('No saved scripts match this filter.')
     expect(appSource).toContain('Save script')
     expect(appSource).toContain('Load script')

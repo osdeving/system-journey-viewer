@@ -91,6 +91,12 @@ describe('App source regressions', () => {
     expect(appSource).not.toContain('Export MP4 to Supabase Gallery')
   })
 
+  it('preserves in-memory visual edge state during live DSL sync imports', () => {
+    expect(appSource).toContain("import { preserveWorkspaceVisualStateForDslSync } from './dsl-lite/preserveVisualState'")
+    expect(appSource).toContain('const dslSyncWorkspaceRef = useRef(workspace)')
+    expect(appSource).toContain('preserveWorkspaceVisualStateForDslSync(imported.workspace, dslSyncWorkspaceRef.current)')
+  })
+
   it('uses reusable collapsible panel groups across dock content', () => {
     expect(appSource).toContain("import { PanelGroup } from './components/chrome/PanelGroup'")
     expect(appSource).toContain('<PanelGroup title="Creation" defaultExpanded={false} className="journey-side-group">')

@@ -3010,10 +3010,20 @@ function App() {
     }
 
     const updateTopbarHeight = () => {
+      const inFlowTopbarContentHeight = Array.from(topbarElement.children).reduce((maxBottom, child) => {
+        if (!(child instanceof HTMLElement)) {
+          return maxBottom
+        }
+        const childPosition = window.getComputedStyle(child).position
+        if (childPosition === 'absolute' || childPosition === 'fixed') {
+          return maxBottom
+        }
+        return Math.max(maxBottom, child.offsetTop + child.offsetHeight)
+      }, 0)
       const nextHeight = resolveTopbarHeight({
         minHeight: DEFAULT_TOPBAR_HEIGHT,
         renderedHeight: topbarElement.getBoundingClientRect().height,
-        scrollHeight: topbarElement.scrollHeight,
+        contentHeight: inFlowTopbarContentHeight,
       })
       setTopbarHeight((current) => (current === nextHeight ? current : nextHeight))
     }

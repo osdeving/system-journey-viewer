@@ -6,12 +6,12 @@ import { describe, expect, it } from 'vitest'
 import { resolveTopbarHeight } from './topbarSizing'
 
 describe('resolveTopbarHeight', () => {
-  it('uses the scroll height when content exceeds rendered bounds', () => {
+  it('uses the in-flow content height when content exceeds rendered bounds', () => {
     expect(
       resolveTopbarHeight({
         minHeight: 108,
         renderedHeight: 108,
-        scrollHeight: 172,
+        contentHeight: 172,
       }),
     ).toBe(172)
   })
@@ -21,7 +21,7 @@ describe('resolveTopbarHeight', () => {
       resolveTopbarHeight({
         minHeight: 108,
         renderedHeight: 140.1,
-        scrollHeight: 138.6,
+        contentHeight: 138.6,
       }),
     ).toBe(141)
   })
@@ -31,7 +31,7 @@ describe('resolveTopbarHeight', () => {
       resolveTopbarHeight({
         minHeight: 108,
         renderedHeight: 88,
-        scrollHeight: 96,
+        contentHeight: 96,
       }),
     ).toBe(108)
   })
@@ -41,7 +41,7 @@ describe('resolveTopbarHeight', () => {
       resolveTopbarHeight({
         minHeight: 108,
         renderedHeight: Number.NaN,
-        scrollHeight: Number.POSITIVE_INFINITY,
+        contentHeight: Number.POSITIVE_INFINITY,
       }),
     ).toBe(108)
   })

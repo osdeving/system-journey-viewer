@@ -2,6 +2,30 @@
 
 Chronological engineering log. Entries are kept concise and focused on behavior and validation.
 
+## 2026-03-03 - Topbar sizing no longer clips full-height splitters after popovers
+
+### Scope
+
+- Fixed the desktop shell so side splitters keep their full-height hit area after opening and closing topbar popovers such as menus or the cloud badge panel.
+
+### Changes
+
+- `apps/web/src/App.tsx`, `apps/web/src/layout/topbarSizing.ts`, `apps/web/src/layout/topbarSizing.test.ts`, `apps/web/src/App.source.test.ts`
+  - topbar height measurement now uses the bottom edge of direct in-flow topbar children instead of `topbarElement.scrollHeight`,
+  - absolutely positioned overflow UI (menu dropdowns / popovers) no longer inflates the stored `topbarHeight` after it closes,
+  - side splitters that use `topbarHeight` for absolute positioning now keep starting at the real top of the content area instead of only highlighting a lower segment,
+  - added helper coverage plus a source regression for the new topbar-measurement contract.
+- `docs/AI_STATE.md`
+  - recorded the topbar/splitter sizing fix for future layout debugging.
+
+### Validation
+
+- `git diff --check`
+- `npm --workspace @sjv/web run test:run -- src/layout/topbarSizing.test.ts src/App.source.test.ts`
+- `npm --workspace @sjv/web run lint`
+- `npm --workspace @sjv/web run test:run`
+- `npm --workspace @sjv/web run build`
+
 ## 2026-03-03 - Manual SJV Import preserves current visual anchors
 
 ### Scope

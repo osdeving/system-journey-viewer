@@ -17,6 +17,7 @@
 - Latest cloud export automation increment (2026-03-01, final follow-up) moves cloud media sync into the standard local export flow so signed-in `PNG/GIF/MP4` exports auto-upload after download, removing redundant cloud-only export actions.
 - Latest cloud script load hotfix (2026-03-03) makes `Load Script from Supabase Cloud` list saved user scripts instead of only checking the current workspace ID, and keeps the selected cloud script row as the active save target until a new/local file replaces it.
 - Latest cloud script picker follow-up (2026-03-03, later pass) replaces the temporary browser prompt with a clickable saved-script list inside the top-right Supabase cloud panel, including active-save-target highlighting.
+- Latest cloud script picker search follow-up (2026-03-03, final pass) adds in-panel search/filter for saved cloud scripts by title or workspace ID.
 - Latest export hotfix (2026-03-01, night pass) aligns animated export theme backgrounds to the SVG `viewBox`/source frame and pre-fills raster composition frames so wide MP4 exports no longer reveal black transparent regions.
 - Latest canvas affordance hotfix (2026-03-01, late-night pass) adds a pulsing blue hover cue on exact node ports and lets `Select` mode start a connection directly from that hover without leaving selection mode.
 - Latest edge targeting hotfix (2026-03-01, final pass) widens the invisible pointer hit area for dashed edges so selection no longer requires near-pixel-perfect clicks, while automatic curve routing remains unchanged.
@@ -195,6 +196,7 @@
   - a top-right Supabase badge now exposes login state, quick save/load, upload, refresh, gallery access, and auto-upload status without opening `Preferences`.
 - Supabase SJV Script load/save flow:
   - `Load Script from Supabase Cloud` now opens a clickable list of saved scripts inside the top-right cloud panel,
+  - the saved-script list now supports search/filter by title or workspace ID,
   - after loading one of those scripts, later `Save Script to Supabase Cloud` actions keep updating that same cloud row until a new or local file is loaded.
 - Menubar/toolbar regression fix:
   - desktop menu dropdowns are no longer clipped by topbar/menu container overflow,

@@ -99,7 +99,10 @@ import {
   type RecentWorkspaceEntry,
 } from './file/recentWorkspaces'
 import helpGuideMarkdown from './help/help.md?raw'
-import { formatSupabaseCloudScriptUpdatedAt } from './integrations/supabase/cloudScriptSelection'
+import {
+  filterSupabaseCloudScripts,
+  formatSupabaseCloudScriptUpdatedAt,
+} from './integrations/supabase/cloudScriptSelection'
 import {
   SUPABASE_GALLERY_BUCKET,
   SUPABASE_PUBLIC_ENV_HINT,
@@ -800,6 +803,7 @@ function App() {
   const [supabaseCloudPanelOpen, setSupabaseCloudPanelOpen] = useState(false)
   const [supabaseCloudScripts, setSupabaseCloudScripts] = useState<SupabaseCloudScriptSummary[]>([])
   const [supabaseCloudScriptPickerOpen, setSupabaseCloudScriptPickerOpen] = useState(false)
+  const [supabaseCloudScriptSearch, setSupabaseCloudScriptSearch] = useState('')
   const [supabaseGalleryAssets, setSupabaseGalleryAssets] = useState<SupabaseGalleryAsset[]>([])
   const [supabaseGalleryPreviewUrls, setSupabaseGalleryPreviewUrls] = useState<Record<string, string>>({})
   const [activeSupabaseScriptWorkspaceId, setActiveSupabaseScriptWorkspaceId] = useState<string | null>(null)
@@ -829,6 +833,10 @@ function App() {
         .map((nodeId) => workspace.nodes[nodeId])
         .filter((node): node is NonNullable<typeof selectedNode> => !!node),
     [selectedNodeIds, workspace.nodes],
+  )
+  const filteredSupabaseCloudScripts = useMemo(
+    () => filterSupabaseCloudScripts(supabaseCloudScripts, supabaseCloudScriptSearch),
+    [supabaseCloudScriptSearch, supabaseCloudScripts],
   )
   const defaultNodeColorPresets = theme === 'dark' ? DARK_NODE_COLOR_PRESETS : LIGHT_NODE_COLOR_PRESETS
   const nodeColorPresets = useMemo(() => {
@@ -1812,6 +1820,7 @@ function App() {
       setSupabaseCloudUser(user)
       setSupabaseCloudScripts([])
       setSupabaseCloudScriptPickerOpen(false)
+      setSupabaseCloudScriptSearch('')
       setSupabaseCloudStatus(`Signed in as ${user.email ?? user.id}.`)
       setSupabaseCloudPanelOpen(false)
       setTransientStatus('Supabase sign-in successful.')
@@ -1837,6 +1846,7 @@ function App() {
       setSupabaseCloudUser(null)
       setSupabaseCloudScripts([])
       setSupabaseCloudScriptPickerOpen(false)
+      setSupabaseCloudScriptSearch('')
       setActiveSupabaseScriptWorkspaceId(null)
       setSupabaseCloudStatus('Signed out. Sign in to enable Supabase cloud save/load.')
       setSupabaseCloudPanelOpen(false)
@@ -1889,6 +1899,7 @@ function App() {
       setDslText(fullWorkspaceToLiteDsl(snapshot.workspace))
       setDslError(null)
       setSupabaseCloudScriptPickerOpen(false)
+      setSupabaseCloudScriptSearch('')
       setActiveSupabaseScriptWorkspaceId(null)
       setSupabaseCloudStatus(`Loaded cloud snapshot for workspace "${snapshot.workspace.workspace.name}".`)
       setTransientStatus('Workspace loaded from Supabase cloud.')
@@ -1952,6 +1963,7 @@ function App() {
     setSupabaseCloudBusy(true)
     try {
       const availableScripts = await supabaseWorkspaceCloudStore.listScripts()
+      setSupabaseCloudScriptSearch('')
       setSupabaseCloudScripts(availableScripts)
       setSupabaseCloudScriptPickerOpen(true)
       setSupabaseCloudStatus(
@@ -1963,6 +1975,7 @@ function App() {
       )
     } catch (error) {
       setSupabaseCloudScriptPickerOpen(false)
+      setSupabaseCloudScriptSearch('')
       setSupabaseCloudStatus(
         error instanceof Error ? `Cloud script load failed: ${error.message}` : 'Cloud script load failed.',
       )
@@ -1994,6 +2007,7 @@ function App() {
           setViewport(DEFAULT_FILE_VIEWPORT)
           setDslError(null)
           setSupabaseCloudScriptPickerOpen(false)
+          setSupabaseCloudScriptSearch('')
           setActiveSupabaseScriptWorkspaceId(selectedScript.workspaceId)
           setSupabaseCloudStatus(`Loaded cloud script "${script.title}".`)
           setSupabaseCloudPanelOpen(false)
@@ -2152,6 +2166,7 @@ function App() {
     setViewport(DEFAULT_FILE_VIEWPORT)
     workspaceFileHandleRef.current = null
     setSupabaseCloudScriptPickerOpen(false)
+    setSupabaseCloudScriptSearch('')
     setActiveSupabaseScriptWorkspaceId(null)
     setExportError(null)
     setTransientStatus('New workspace created.')
@@ -2165,6 +2180,7 @@ function App() {
         setViewport(snapshot.viewport)
         workspaceFileHandleRef.current = options?.fileHandle ?? null
         setSupabaseCloudScriptPickerOpen(false)
+        setSupabaseCloudScriptSearch('')
         setActiveSupabaseScriptWorkspaceId(null)
         setExportError(null)
         setTransientStatus(`Workspace file loaded: ${options?.fileName ?? 'workspace file'}`)
@@ -2176,6 +2192,7 @@ function App() {
           setViewport(DEFAULT_FILE_VIEWPORT)
           workspaceFileHandleRef.current = options?.fileHandle ?? null
           setSupabaseCloudScriptPickerOpen(false)
+          setSupabaseCloudScriptSearch('')
           setActiveSupabaseScriptWorkspaceId(null)
           setDslText(payload)
           setDslError(null)
@@ -3256,6 +3273,7 @@ function App() {
       ) {
         setSupabaseCloudPanelOpen(false)
         setSupabaseCloudScriptPickerOpen(false)
+        setSupabaseCloudScriptSearch('')
       }
       if (!desktopMenuBarRef.current) {
         return
@@ -3271,6 +3289,7 @@ function App() {
         setOpenDesktopMenu(null)
         setSupabaseCloudPanelOpen(false)
         setSupabaseCloudScriptPickerOpen(false)
+        setSupabaseCloudScriptSearch('')
         return
       }
       if (!openDesktopMenu) {
@@ -5358,6 +5377,7 @@ function App() {
             const next = !current
             if (!next) {
               setSupabaseCloudScriptPickerOpen(false)
+              setSupabaseCloudScriptSearch('')
             }
             return next
           })
@@ -5439,8 +5459,21 @@ function App() {
                 <div className="topbar-cloud-script-picker">
                   <p className="topbar-cloud-section-title">Saved cloud scripts</p>
                   {supabaseCloudScripts.length ? (
+                    <label className="topbar-cloud-script-search">
+                      <span className="topbar-cloud-script-search-label">Filter scripts</span>
+                      <input
+                        type="search"
+                        value={supabaseCloudScriptSearch}
+                        onChange={(event) => setSupabaseCloudScriptSearch(event.target.value)}
+                        placeholder="Search by title or workspace id"
+                        autoComplete="off"
+                      />
+                    </label>
+                  ) : null}
+                  {supabaseCloudScripts.length ? (
+                    filteredSupabaseCloudScripts.length ? (
                     <div className="topbar-cloud-script-list" aria-label="Saved Supabase SJV Scripts">
-                      {supabaseCloudScripts.map((script) => {
+                      {filteredSupabaseCloudScripts.map((script) => {
                         const isActiveTarget = activeSupabaseScriptWorkspaceId === script.workspaceId
                         return (
                           <button
@@ -5469,6 +5502,9 @@ function App() {
                         )
                       })}
                     </div>
+                    ) : (
+                      <p className="topbar-cloud-hint">No saved scripts match this filter.</p>
+                    )
                   ) : (
                     <p className="topbar-cloud-hint">No saved cloud scripts yet. Use Save script first.</p>
                   )}
@@ -5556,6 +5592,7 @@ function App() {
                   onClick={() => {
                     setSupabaseCloudPanelOpen(false)
                     setSupabaseCloudScriptPickerOpen(false)
+                    setSupabaseCloudScriptSearch('')
                   }}
                 >
                   Close

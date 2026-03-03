@@ -35,6 +35,13 @@ describe('App source regressions', () => {
     expect(windowUiConfigSource).toContain("dsl: 'right'")
   })
 
+  it('reopens managed panels in their remembered dock host and keeps the bottom workbench opt-in', () => {
+    expect(appSource).toContain('resolveManagedDockPlacementForPanelOpen')
+    expect(appSource).toContain('const drawerCollapsedBeforePresentationRef = useRef(true)')
+    expect(appSource).toContain('setDrawerCollapsed(drawerCollapsedBeforePresentationRef.current)')
+    expect((appSource.match(/setDrawerCollapsed\(false\)/g) ?? [])).toHaveLength(2)
+  })
+
   it('persists UI density and applies a root density class', () => {
     expect(appSource).toContain("type UiDensity = 'comfortable' | 'compact'")
     expect(appSource).toContain("density: 'compact'")

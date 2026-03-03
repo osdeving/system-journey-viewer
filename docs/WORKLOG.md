@@ -2,6 +2,33 @@
 
 Chronological engineering log. Entries are kept concise and focused on behavior and validation.
 
+## 2026-03-03 - Managed window reopen host memory and bottom workbench opt-in
+
+### Scope
+
+- Fixed panel-opening behavior so closed docked windows reopen in their remembered dock host instead of always forcing the default host.
+- Stopped the bottom workbench from auto-opening when leaving Presentation mode.
+
+### Changes
+
+- `apps/web/src/windowing/windowManager.ts`, `apps/web/src/windowing/windowManager.test.ts`
+  - added `resolveManagedDockPlacementForPanelOpen(...)` to reuse a remembered dock host (`left|right|bottom`) when reopening a closed panel,
+  - added regression coverage for the remembered-host resolution.
+- `apps/web/src/App.tsx`, `apps/web/src/App.source.test.ts`
+  - `Open ... Panel` actions now reopen a panel in its remembered dock host when it was previously moved, otherwise they still use the default host (`right`, except `Palette` on the left),
+  - added a small presentation-mode ref so the bottom workbench keeps its prior collapsed state when leaving Presentation mode instead of forcing itself open,
+  - added source regression coverage so the bottom workbench remains opt-in and the panel-open path keeps using the remembered-host helper.
+- `docs/AI_STATE.md`
+  - recorded the new remembered-host reopen behavior and the workbench-collapse preservation on Presentation exit.
+
+### Validation
+
+- `git diff --check`
+- `npm --workspace @sjv/web run test:run -- src/windowing/windowManager.test.ts src/App.source.test.ts`
+- `npm --workspace @sjv/web run lint`
+- `npm --workspace @sjv/web run test:run`
+- `npm --workspace @sjv/web run build`
+
 ## 2026-03-03 - DSL sync preserves manual visual edge anchors
 
 ### Scope

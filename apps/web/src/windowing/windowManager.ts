@@ -148,6 +148,12 @@ export const openManagedWindow = (
   }
 }
 
+export const resolveManagedDockPlacementForPanelOpen = (
+  windowState: ManagedWindowState,
+  defaultHost: ManagedWindowDockHostId,
+): ManagedWindowDockHostId =>
+  isHostId(windowState.placement) ? windowState.placement : defaultHost
+
 export const closeManagedWindow = (
   state: ManagedWindowsState,
   windowId: ManagedWindowId,

@@ -9,6 +9,7 @@ import {
   dockManagedWindow,
   floatManagedWindow,
   openManagedWindow,
+  resolveManagedDockPlacementForPanelOpen,
   restoreManagedWindowsState,
   reorderManagedHostTab,
   setManagedHostActiveTab,
@@ -96,6 +97,15 @@ describe('windowManager helpers', () => {
     expect(reopened.windows.help.placement).toBe('left')
     expect(reopened.hosts.left.tabs).toEqual(['help'])
     expect(reopened.hosts.left.activeTab).toBe('help')
+  })
+
+  it('resolves panel-open placement from the remembered dock host when available', () => {
+    let state = createManagedWindowsState(defaults)
+    state = dockManagedWindow(state, 'dsl', 'bottom')
+    state = closeManagedWindow(state, 'dsl')
+
+    expect(resolveManagedDockPlacementForPanelOpen(state.windows.dsl, 'right')).toBe('bottom')
+    expect(resolveManagedDockPlacementForPanelOpen(state.windows.help, 'right')).toBe('right')
   })
 
   it('setting placement while closed updates placement and clears stale host membership', () => {

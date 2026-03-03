@@ -2,6 +2,33 @@
 
 Chronological engineering log. Entries are kept concise and focused on behavior and validation.
 
+## 2026-03-03 - DSL sync preserves manual visual edge anchors
+
+### Scope
+
+- Fixed live `SJV Script` sync so valid text edits no longer reset matching edges back to default node ports while you are editing the diagram visually.
+
+### Changes
+
+- `apps/web/src/dsl-lite/preserveVisualState.ts`, `apps/web/src/dsl-lite/preserveVisualState.test.ts`
+  - added a pure helper that preserves in-memory visual-only node/edge state for matching entities during DSL sync,
+  - preserves current node bounds/colors plus edge port anchors, route, and visual style when the semantic edge identity still matches,
+  - avoids reusing a manual route when the DSL changed an edge endpoint node.
+- `apps/web/src/App.tsx`, `apps/web/src/App.source.test.ts`
+  - the live `Sync with editor` effect now applies `preserveWorkspaceVisualStateForDslSync(...)` before `replaceWorkspace(...)` whenever the parsed script has no `metadata ui-layout`,
+  - this keeps manual edge-anchor choices stable while still applying semantic text changes from the editor,
+  - added a source regression to keep the sync path wired to the new helper.
+- `docs/AI_STATE.md`
+  - recorded the live-sync visual-state preservation behavior.
+
+### Validation
+
+- `git diff --check`
+- `npm --workspace @sjv/web run test:run -- src/dsl-lite/preserveVisualState.test.ts src/App.source.test.ts`
+- `npm --workspace @sjv/web run lint`
+- `npm --workspace @sjv/web run test:run`
+- `npm --workspace @sjv/web run build`
+
 ## 2026-03-03 - Supabase cloud script picker filtered-count summary
 
 ### Scope

@@ -19,6 +19,7 @@
 - Latest cloud script picker follow-up (2026-03-03, later pass) replaces the temporary browser prompt with a clickable saved-script list inside the top-right Supabase cloud panel, including active-save-target highlighting.
 - Latest cloud script picker search follow-up (2026-03-03, final pass) adds in-panel search/filter for saved cloud scripts by title or workspace ID.
 - Latest cloud script picker count follow-up (2026-03-03, final follow-up) adds a live filtered-vs-total results count above the saved-script list.
+- Latest DSL sync visual-state hotfix (2026-03-03, late follow-up) preserves current in-memory node/edge visual state (including edge port anchors) while `Sync with editor` reapplies valid SJV edits without `metadata ui-layout`.
 - Latest export hotfix (2026-03-01, night pass) aligns animated export theme backgrounds to the SVG `viewBox`/source frame and pre-fills raster composition frames so wide MP4 exports no longer reveal black transparent regions.
 - Latest canvas affordance hotfix (2026-03-01, late-night pass) adds a pulsing blue hover cue on exact node ports and lets `Select` mode start a connection directly from that hover without leaving selection mode.
 - Latest edge targeting hotfix (2026-03-01, final pass) widens the invisible pointer hit area for dashed edges so selection no longer requires near-pixel-perfect clicks, while automatic curve routing remains unchanged.
@@ -184,6 +185,7 @@
 - Monaco-based `SJV Script` editor with custom highlighting theme.
 - SJV Script panel now includes `Sync with editor` mode:
   - when enabled, valid SJV Script edits are applied to the view in real time while typing,
+  - when the script has no `metadata ui-layout`, sync now preserves the current in-memory visual-only node/edge state (including manual edge anchors) instead of snapping matching edges back to default ports,
   - import flow preserves current app theme (prevents forced light-theme fallback on SJV Script load/import).
 - SJV Script editor layout now enforces top-pinned controls and full-height Monaco area in:
   - side dock,

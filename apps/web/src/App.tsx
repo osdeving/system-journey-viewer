@@ -78,6 +78,7 @@ import {
   registerJourneyScriptLanguage,
   resolveJourneyScriptTheme,
 } from './dsl-lite/monacoJourneyScript'
+import { preserveWorkspaceVisualStateForDslSync } from './dsl-lite/preserveVisualState'
 import {
   createAnimatedJourneyGifBlob,
   createAnimatedJourneySvgBlob,
@@ -711,6 +712,8 @@ function App() {
   const playerHighlightNodes = useEditorStore((state) => state.playerHighlightNodes)
   const playerTrailEnabled = useEditorStore((state) => state.playerTrailEnabled)
   const playerConfettiNonce = useEditorStore((state) => state.playerConfettiNonce)
+  const dslSyncWorkspaceRef = useRef(workspace)
+  dslSyncWorkspaceRef.current = workspace
   const hydrate = useEditorStore((state) => state.hydrate)
   const persist = useEditorStore((state) => state.persist)
   const resetWorkspace = useEditorStore((state) => state.resetWorkspace)
@@ -3140,8 +3143,12 @@ function App() {
     }
     try {
       const imported = resolveWorkspaceFromDslText(dslText)
+      const nextWorkspace =
+        imported.hasUiLayoutMetadata
+          ? imported.workspace
+          : preserveWorkspaceVisualStateForDslSync(imported.workspace, dslSyncWorkspaceRef.current)
       dslSyncApplyingWorkspaceFromTextRef.current = true
-      replaceWorkspace(imported.workspace, imported.entryViewId)
+      replaceWorkspace(nextWorkspace, imported.entryViewId)
       dslSyncLastAppliedTextRef.current = dslText
       setDslError(null)
     } catch (error) {

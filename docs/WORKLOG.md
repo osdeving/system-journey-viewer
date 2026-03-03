@@ -2,6 +2,29 @@
 
 Chronological engineering log. Entries are kept concise and focused on behavior and validation.
 
+## 2026-03-03 - Manual SJV Import preserves current visual anchors
+
+### Scope
+
+- Extended the visual-state preservation hotfix from live `Sync with editor` to the manual `Import` action in the `SJV Script` panel.
+
+### Changes
+
+- `apps/web/src/App.tsx`, `apps/web/src/App.source.test.ts`
+  - the `Import SJV Script` button now applies `preserveWorkspaceVisualStateForDslSync(...)` before `replaceWorkspace(...)` whenever the parsed script has no `metadata ui-layout`,
+  - manual imports still replace the current workspace semantically, but matching nodes/edges now keep their current visual-only state (including manual edge anchors and routes) instead of snapping back to default ports,
+  - added a source regression so the manual import path stays wired to the preservation helper.
+- `docs/AI_STATE.md`
+  - recorded that the manual `Import` path now matches the live-sync visual-state preservation rule.
+
+### Validation
+
+- `git diff --check`
+- `npm --workspace @sjv/web run test:run -- src/App.source.test.ts`
+- `npm --workspace @sjv/web run lint`
+- `npm --workspace @sjv/web run test:run`
+- `npm --workspace @sjv/web run build`
+
 ## 2026-03-03 - Managed window reopen host memory and bottom workbench opt-in
 
 ### Scope

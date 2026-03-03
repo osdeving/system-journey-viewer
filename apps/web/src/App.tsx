@@ -4091,7 +4091,11 @@ function App() {
           onClick={() => {
             try {
               const imported = resolveWorkspaceFromDslText(dslText)
-              replaceWorkspace(imported.workspace, imported.entryViewId)
+              const nextWorkspace =
+                imported.hasUiLayoutMetadata
+                  ? imported.workspace
+                  : preserveWorkspaceVisualStateForDslSync(imported.workspace, workspace)
+              replaceWorkspace(nextWorkspace, imported.entryViewId)
               setDslError(null)
             } catch (error) {
               setDslError(error instanceof Error ? error.message : 'Failed to import SJV Script.')

@@ -102,6 +102,7 @@ describe('App source regressions', () => {
     expect(appSource).toContain("import { preserveWorkspaceVisualStateForDslSync } from './dsl-lite/preserveVisualState'")
     expect(appSource).toContain('const dslSyncWorkspaceRef = useRef(workspace)')
     expect(appSource).toContain('preserveWorkspaceVisualStateForDslSync(imported.workspace, dslSyncWorkspaceRef.current)')
+    expect(appSource).toContain('preserveWorkspaceVisualStateForDslSync(imported.workspace, workspace)')
   })
 
   it('uses reusable collapsible panel groups across dock content', () => {

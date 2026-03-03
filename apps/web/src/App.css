@@ -491,6 +491,12 @@
   color: #0f172a;
 }
 
+.topbar-cloud-script-summary {
+  margin: 0;
+  font-size: 11px;
+  color: #475569;
+}
+
 .topbar-cloud-section-title {
   margin: 0;
   font-size: 11px;
@@ -4423,7 +4429,8 @@
 .theme-dark .topbar-cloud-hint,
 .theme-dark .topbar-cloud-field,
 .theme-dark .topbar-cloud-section-title,
-.theme-dark .topbar-cloud-script-search-label {
+.theme-dark .topbar-cloud-script-search-label,
+.theme-dark .topbar-cloud-script-summary {
   color: #cbd5e1;
 }
 

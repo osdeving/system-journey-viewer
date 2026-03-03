@@ -5471,6 +5471,11 @@ function App() {
                     </label>
                   ) : null}
                   {supabaseCloudScripts.length ? (
+                    <p className="topbar-cloud-script-summary">
+                      {`Showing ${filteredSupabaseCloudScripts.length} of ${supabaseCloudScripts.length} saved scripts.`}
+                    </p>
+                  ) : null}
+                  {supabaseCloudScripts.length ? (
                     filteredSupabaseCloudScripts.length ? (
                     <div className="topbar-cloud-script-list" aria-label="Saved Supabase SJV Scripts">
                       {filteredSupabaseCloudScripts.map((script) => {

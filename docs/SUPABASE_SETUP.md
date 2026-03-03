@@ -170,7 +170,7 @@ The current integration is intentionally small:
   - the same manual auth/save/load controls remain available as a fallback
   - save/load the current workspace snapshot
   - save the generated SJV Script into a cloud row (and keep reusing that same row for later saves)
-  - load from the clickable script list shown in the top-right cloud panel, with title/workspace-id filtering, replacing the current workspace just like `Open File`
+  - load from the clickable script list shown in the top-right cloud panel, with title/workspace-id filtering plus a filtered/total results counter, replacing the current workspace just like `Open File`
   - upload local PNG/GIF/MP4 files into the private `gallery` bucket
   - list and download your recent gallery assets
 - `Help > Export Gallery`

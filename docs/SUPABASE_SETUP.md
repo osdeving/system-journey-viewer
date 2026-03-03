@@ -180,6 +180,7 @@ The current integration is intentionally small:
   - lets you `Load` / delete scripts and `Download` / delete uploaded media
   - `MP4` / `GIF` media cards now also expose `Share link`, which generates a temporary 7-day root URL (`/?sharedAsset=...`) scoped to just that one signed asset
   - legacy `/share?asset=...` links are still accepted, and `apps/web/vercel.json` keeps them working when Vercel is configured with `apps/web` as the project root
+  - for Vercel builds: if the project root is the repo root, the output must resolve to `apps/web/dist`; if the project root is `apps/web`, the output must resolve to `dist` (both are now encoded in the checked-in `vercel.json` files)
   - keeps the visible card copy compact by showing only the item title under each thumbnail
 - `File` menu
   - `Save to Supabase Cloud`

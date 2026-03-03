@@ -2,6 +2,29 @@
 
 Chronological engineering log. Entries are kept concise and focused on behavior and validation.
 
+## 2026-03-03 - Vercel output directory now matches the monorepo layout
+
+### Scope
+
+- Fixed the Vercel deployment config so the platform stops looking for the wrong `dist` folder after the build completes.
+
+### Changes
+
+- `vercel.json`, `apps/web/vercel.json`, `apps/web/src/vercelConfig.test.ts`
+  - set the repo-root deployment output to `apps/web/dist`, which matches the actual web workspace bundle location in this monorepo,
+  - set the app-local deployment output to `dist`, covering the alternate case where Vercel is configured with `apps/web` as the project root,
+  - expanded the regression test so both config files stay aligned with the monorepo layout.
+- `docs/SUPABASE_SETUP.md`, `docs/AI_STATE.md`
+  - documented the deployment-path rule so future Vercel changes keep the correct output directory per root-directory choice.
+
+### Validation
+
+- `git diff --check`
+- `npm --workspace @sjv/web run test:run -- src/vercelConfig.test.ts`
+- `npm --workspace @sjv/web run lint`
+- `npm --workspace @sjv/web run test:run`
+- `npm --workspace @sjv/web run build`
+
 ## 2026-03-03 - Shared export links avoid Vercel deep-link 404s
 
 ### Scope

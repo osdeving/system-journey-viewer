@@ -6,6 +6,7 @@ import { describe, expect, it } from 'vitest'
 import {
   buildSharedSupabaseAssetViewerUrl,
   isSupabaseGalleryAssetShareable,
+  isSharedSupabaseAssetViewerLocation,
   resolveSharedSupabaseAssetViewFromLocation,
 } from './sharedAssetLink'
 
@@ -40,6 +41,8 @@ describe('shared Supabase asset links', () => {
     })
     const parsed = new URL(sharedUrl)
 
+    expect(parsed.pathname).toBe('/')
+    expect(parsed.searchParams.has('sharedAsset')).toBe(true)
     expect(resolveSharedSupabaseAssetViewFromLocation(parsed)).toEqual({
       title: 'Orders Journey MP4',
       fileName: 'orders.mp4',
@@ -48,7 +51,35 @@ describe('shared Supabase asset links', () => {
     })
   })
 
+  it('keeps legacy /share?asset links readable and flags both legacy and new viewer locations', () => {
+    const legacyLocation = {
+      pathname: '/share',
+      search:
+        '?asset=%7B%22title%22%3A%22Orders%20Journey%20MP4%22%2C%22fileName%22%3A%22orders.mp4%22%2C%22contentType%22%3A%22video%2Fmp4%22%2C%22signedUrl%22%3A%22https%3A%2F%2Fexample.test%2Forders.mp4%22%7D',
+    }
+
+    expect(isSharedSupabaseAssetViewerLocation(legacyLocation)).toBe(true)
+    expect(
+      isSharedSupabaseAssetViewerLocation({
+        pathname: '/',
+        search: legacyLocation.search,
+      }),
+    ).toBe(true)
+    expect(resolveSharedSupabaseAssetViewFromLocation(legacyLocation)).toEqual({
+      title: 'Orders Journey MP4',
+      fileName: 'orders.mp4',
+      contentType: 'video/mp4',
+      signedUrl: 'https://example.test/orders.mp4',
+    })
+  })
+
   it('rejects invalid payloads or non-share routes', () => {
+    expect(
+      isSharedSupabaseAssetViewerLocation({
+        pathname: '/',
+        search: '',
+      }),
+    ).toBe(false)
     expect(
       resolveSharedSupabaseAssetViewFromLocation({
         pathname: '/',

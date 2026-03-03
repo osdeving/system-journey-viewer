@@ -2,6 +2,33 @@
 
 Chronological engineering log. Entries are kept concise and focused on behavior and validation.
 
+## 2026-03-03 - Shared export links avoid Vercel deep-link 404s
+
+### Scope
+
+- Fixed production share links that could 404 on Vercel when the deployed project root is `apps/web` and the SPA rewrite config only exists at the repository root.
+
+### Changes
+
+- `apps/web/vercel.json`, `apps/web/src/vercelConfig.test.ts`
+  - added an app-local Vercel rewrite config so direct deep links (including legacy `/share?...`) still resolve to `index.html` when `apps/web` is the configured Vercel root directory,
+  - added a focused regression test to keep that app-local rewrite file present.
+- `apps/web/src/integrations/supabase/sharedAssetLink.ts`, `apps/web/src/integrations/supabase/sharedAssetLink.test.ts`
+  - changed newly generated share links to use the root path plus a dedicated `sharedAsset` query parameter instead of hardcoding `/share`,
+  - kept backward compatibility for existing legacy `/share?asset=...` links and also tolerate the same legacy payload at `/` as a manual fallback.
+- `apps/web/src/App.tsx`, `apps/web/src/App.source.test.ts`
+  - the app now decides whether to render the shared-export viewer based on a dedicated helper that recognizes both the new root-query link and the legacy `/share` route.
+- `docs/SUPABASE_SETUP.md`, `docs/AI_STATE.md`
+  - documented that new share links no longer depend on a deep-link path and that app-local Vercel rewrites protect old links.
+
+### Validation
+
+- `git diff --check`
+- `npm --workspace @sjv/web run test:run -- src/integrations/supabase/sharedAssetLink.test.ts src/App.source.test.ts src/vercelConfig.test.ts`
+- `npm --workspace @sjv/web run lint`
+- `npm --workspace @sjv/web run test:run`
+- `npm --workspace @sjv/web run build`
+
 ## 2026-03-03 - Marquee multi-select, alignment guides, and isolated shared export links
 
 ### Scope

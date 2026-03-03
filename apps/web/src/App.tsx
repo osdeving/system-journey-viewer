@@ -158,6 +158,7 @@ import {
   floatManagedWindow,
   MANAGED_WINDOW_IDS,
   reorderManagedHostTab,
+  resolveManagedDockPlacementForPanelOpen,
   setManagedHostActiveTab,
   setManagedWindowFloatingRect,
   restoreManagedWindowsState,
@@ -642,6 +643,7 @@ function App() {
   const journeyDragRef = useRef<string | null>(null)
   const journeyStepDragRef = useRef<StepDragState | null>(null)
   const workspaceFileHandleRef = useRef<WorkspaceFileHandle | null>(null)
+  const drawerCollapsedBeforePresentationRef = useRef(true)
   const dslSyncLastAppliedTextRef = useRef<string | null>(null)
   const dslSyncApplyingWorkspaceFromTextRef = useRef(false)
   const dslSyncUpdatingTextFromWorkspaceRef = useRef(false)
@@ -1296,6 +1298,7 @@ function App() {
     setPresentationMode((current) => {
       const next = !current
       if (next) {
+        drawerCollapsedBeforePresentationRef.current = drawerCollapsed
         setManagedWindows((state) => closeManagedWindow(state, 'palette'))
         setLeftSidebarCollapsed(true)
         setDockCollapsed(true)
@@ -1306,7 +1309,7 @@ function App() {
         setManagedWindows((state) => dockManagedWindowState(state, 'palette', 'left'))
         setLeftSidebarCollapsed(false)
         setDockCollapsed(false)
-        setDrawerCollapsed(false)
+        setDrawerCollapsed(drawerCollapsedBeforePresentationRef.current)
       }
       return next
     })
@@ -1437,9 +1440,13 @@ function App() {
     setFocusMode(false)
     setPresentationMode(false)
     recordGuidedTutorialEvent(`open-window:${windowId}`)
-    setManagedWindows((current) =>
-      dockManagedWindowState(current, windowId, MANAGED_WINDOW_DEFAULT_HOST_BY_ID[windowId]),
-    )
+    setManagedWindows((current) => {
+      const preferredPlacement = resolveManagedDockPlacementForPanelOpen(
+        current.windows[windowId],
+        MANAGED_WINDOW_DEFAULT_HOST_BY_ID[windowId],
+      )
+      return dockManagedWindowState(current, windowId, preferredPlacement)
+    })
     setActiveDockTab(windowId)
   }
 
@@ -3448,7 +3455,7 @@ function App() {
         if (presentationMode) {
           setLeftSidebarCollapsed(false)
           setDockCollapsed(false)
-          setDrawerCollapsed(false)
+          setDrawerCollapsed(drawerCollapsedBeforePresentationRef.current)
         }
         setPresentationMode(false)
       }

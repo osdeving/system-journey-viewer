@@ -12,6 +12,20 @@ export interface Point {
   y: number
 }
 
+export type AlignmentGuide =
+  | {
+      orientation: 'vertical'
+      x: number
+      y1: number
+      y2: number
+    }
+  | {
+      orientation: 'horizontal'
+      y: number
+      x1: number
+      x2: number
+    }
+
 export const nodeCenter = (node: NodeModel): Point => ({
   x: node.bounds.x + node.bounds.w / 2,
   y: node.bounds.y + node.bounds.h / 2,
@@ -64,6 +78,8 @@ const getCandidatesY = (bounds: NodeBounds): number[] => [
   bounds.y + bounds.h,
 ]
 
+const ALIGNMENT_GUIDE_MARGIN = 18
+
 export const snapBounds = (
   input: NodeBounds,
   nodeId: string,
@@ -73,12 +89,14 @@ export const snapBounds = (
     snapGrid?: boolean
     snapShapes?: boolean
     threshold?: number
+    excludeNodeIds?: string[]
   },
 ): NodeBounds => {
   const gridSize = options?.gridSize ?? DEFAULT_GRID_SIZE
   const threshold = options?.threshold ?? DEFAULT_SNAP_THRESHOLD
   const snapGridEnabled = options?.snapGrid ?? true
   const snapShapeEnabled = options?.snapShapes ?? true
+  const excludedNodeIds = new Set([nodeId, ...(options?.excludeNodeIds ?? [])])
 
   const snapped: NodeBounds = { ...input }
   if (snapGridEnabled) {
@@ -96,7 +114,7 @@ export const snapBounds = (
   const ownY = getCandidatesY(snapped)
 
   for (const candidate of Object.values(nodes)) {
-    if (candidate.id === nodeId) {
+    if (excludedNodeIds.has(candidate.id)) {
       continue
     }
     const candidateX = getCandidates(candidate.bounds)
@@ -129,4 +147,114 @@ export const snapBounds = (
   }
 
   return snapped
+}
+
+export const snapBoundsWithGuides = (
+  input: NodeBounds,
+  nodeId: string,
+  nodes: Record<string, NodeModel>,
+  options?: {
+    gridSize?: number
+    snapGrid?: boolean
+    snapShapes?: boolean
+    threshold?: number
+    excludeNodeIds?: string[]
+  },
+): { bounds: NodeBounds; guides: AlignmentGuide[] } => {
+  const threshold = options?.threshold ?? DEFAULT_SNAP_THRESHOLD
+  const snapShapeEnabled = options?.snapShapes ?? true
+  const excludedNodeIds = new Set([nodeId, ...(options?.excludeNodeIds ?? [])])
+  const bounds = snapBounds(input, nodeId, nodes, options)
+
+  if (!snapShapeEnabled) {
+    return { bounds, guides: [] }
+  }
+
+  const ownX = getCandidates(bounds)
+  const ownY = getCandidatesY(bounds)
+  let bestVertical:
+    | {
+        distance: number
+        x: number
+        bounds: NodeBounds
+      }
+    | null = null
+  let bestHorizontal:
+    | {
+        distance: number
+        y: number
+        bounds: NodeBounds
+      }
+    | null = null
+
+  for (const candidate of Object.values(nodes)) {
+    if (excludedNodeIds.has(candidate.id)) {
+      continue
+    }
+
+    const candidateX = getCandidates(candidate.bounds)
+    const candidateY = getCandidatesY(candidate.bounds)
+
+    for (const own of ownX) {
+      for (const other of candidateX) {
+        const distance = Math.abs(other - own)
+        if (distance > threshold) {
+          continue
+        }
+        if (!bestVertical || distance < bestVertical.distance) {
+          bestVertical = {
+            distance,
+            x: other,
+            bounds: candidate.bounds,
+          }
+        }
+      }
+    }
+
+    for (const own of ownY) {
+      for (const other of candidateY) {
+        const distance = Math.abs(other - own)
+        if (distance > threshold) {
+          continue
+        }
+        if (!bestHorizontal || distance < bestHorizontal.distance) {
+          bestHorizontal = {
+            distance,
+            y: other,
+            bounds: candidate.bounds,
+          }
+        }
+      }
+    }
+  }
+
+  const guides: AlignmentGuide[] = []
+
+  if (bestVertical) {
+    guides.push({
+      orientation: 'vertical',
+      x: bestVertical.x,
+      y1: Math.min(bounds.y, bestVertical.bounds.y) - ALIGNMENT_GUIDE_MARGIN,
+      y2:
+        Math.max(
+          bounds.y + bounds.h,
+          bestVertical.bounds.y + bestVertical.bounds.h,
+        ) + ALIGNMENT_GUIDE_MARGIN,
+    })
+  }
+
+  if (bestHorizontal) {
+    guides.push({
+      orientation: 'horizontal',
+      y: bestHorizontal.y,
+      x1: Math.min(bounds.x, bestHorizontal.bounds.x) - ALIGNMENT_GUIDE_MARGIN,
+      x2:
+        Math.max(
+          bounds.x + bounds.w,
+          bestHorizontal.bounds.x + bestHorizontal.bounds.w,
+        ) + ALIGNMENT_GUIDE_MARGIN,
+    })
+  }
+
+  return { bounds, guides }
 }

@@ -46,4 +46,15 @@ describe('DiagramCanvas source regressions', () => {
     expect(diagramCanvasSource).toContain('onTouchMove={onTouchMove}')
     expect(diagramCanvasSource).toContain('isDraggingToJourney={draggedEdgeId === edge.id}')
   })
+
+  it('supports Alt-drag marquee multi-select and live alignment guides while dragging nodes', () => {
+    expect(diagramCanvasSource).toContain('const startMarqueeSelection = (')
+    expect(diagramCanvasSource).toContain('resolveMarqueeSelectionRect(')
+    expect(diagramCanvasSource).toContain('resolveNodeIdsIntersectingMarquee(')
+    expect(diagramCanvasSource).toContain('const [marqueeSelectionRect, setMarqueeSelectionRect] = useState<NodeBounds | null>(null)')
+    expect(diagramCanvasSource).toContain('const [alignmentGuides, setAlignmentGuides] = useState<AlignmentGuide[]>([])')
+    expect(diagramCanvasSource).toContain('snapBoundsWithGuides(')
+    expect(diagramCanvasSource).toContain('className="canvas-alignment-guide"')
+    expect(diagramCanvasSource).toContain('className="canvas-selection-marquee"')
+  })
 })

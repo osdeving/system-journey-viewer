@@ -2,6 +2,44 @@
 
 Chronological engineering log. Entries are kept concise and focused on behavior and validation.
 
+## 2026-03-03 - Marquee multi-select, alignment guides, and isolated shared export links
+
+### Scope
+
+- Upgraded canvas selection so users can marquee-select multiple nodes with `Alt+drag`, while live drag now shows alignment guides and snaps groups without aligning against their own selection.
+- Added isolated share links for private Supabase `MP4` / `GIF` gallery exports, opening a clean single-item viewer with a path back to the full app.
+
+### Changes
+
+- `apps/web/src/diagram/canvas/marqueeSelection.ts`, `apps/web/src/diagram/canvas/marqueeSelection.test.ts`
+  - added a pure marquee helper that normalizes drag rectangles and resolves intersecting node IDs,
+  - added regression coverage for drag direction, hit-testing, and zero-area drags.
+- `apps/web/src/engine/geometry.ts`, `apps/web/src/engine/geometry.test.ts`
+  - added `snapBoundsWithGuides(...)` so node drag can keep the existing snap behavior while exposing renderable vertical/horizontal alignment guides,
+  - added `excludeNodeIds` support so multi-select moves do not snap against nodes already inside the dragged group.
+- `apps/web/src/store/useEditorStore.ts`, `apps/web/src/store/useEditorStore.test.ts`, `apps/web/src/components/canvas/DiagramCanvas.tsx`
+  - added bulk `selectNodes(...)` support in the store,
+  - wired `Alt+drag` marquee selection into the canvas (including additive `Alt+Shift/Cmd+drag`),
+  - render live marquee bounds plus alignment guide lines during move operations,
+  - multi-node drag now reuses the same snap/guides helper through the primary dragged node.
+- `apps/web/src/integrations/supabase/sharedAssetLink.ts`, `apps/web/src/integrations/supabase/sharedAssetLink.test.ts`
+  - added a pure helper for isolated `/share` URLs that carry only one signed asset preview,
+  - limited shareability to `video/*` and `GIF` assets so the flow stays scoped to exported journeys.
+- `apps/web/src/App.tsx`, `apps/web/src/App.css`, `apps/web/src/App.source.test.ts`, `apps/web/src/App.styles.test.ts`
+  - `Help > Export Gallery` now exposes `Share link` on shareable gallery items,
+  - sharing generates a 7-day signed Supabase URL, wraps it in a dedicated `/share` viewer route, and copies it to the clipboard (or opens the viewer in a new tab if clipboard write is unavailable),
+  - the `/share` route renders a clean one-item viewer with `Open media file` and `Open Full App`, without exposing the sender’s broader cloud library.
+- `docs/SUPABASE_SETUP.md`, `docs/AI_STATE.md`
+  - updated docs/state to reflect marquee selection, alignment guides, and isolated shared export viewer links.
+
+### Validation
+
+- `git diff --check`
+- `npm --workspace @sjv/web run test:run -- src/diagram/canvas/marqueeSelection.test.ts src/engine/geometry.test.ts src/store/useEditorStore.test.ts src/integrations/supabase/sharedAssetLink.test.ts src/App.source.test.ts src/App.styles.test.ts`
+- `npm --workspace @sjv/web run lint`
+- `npm --workspace @sjv/web run test:run`
+- `npm --workspace @sjv/web run build`
+
 ## 2026-03-03 - Supabase cloud library groups scripts/media and supports deletion
 
 ### Scope

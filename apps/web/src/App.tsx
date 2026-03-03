@@ -99,10 +99,7 @@ import {
   type RecentWorkspaceEntry,
 } from './file/recentWorkspaces'
 import helpGuideMarkdown from './help/help.md?raw'
-import {
-  buildSupabaseCloudScriptSelectionPrompt,
-  resolveSupabaseCloudScriptSelection,
-} from './integrations/supabase/cloudScriptSelection'
+import { formatSupabaseCloudScriptUpdatedAt } from './integrations/supabase/cloudScriptSelection'
 import {
   SUPABASE_GALLERY_BUCKET,
   SUPABASE_PUBLIC_ENV_HINT,
@@ -801,6 +798,8 @@ function App() {
       : `Supabase cloud is not configured. ${SUPABASE_PUBLIC_ENV_HINT}`,
   )
   const [supabaseCloudPanelOpen, setSupabaseCloudPanelOpen] = useState(false)
+  const [supabaseCloudScripts, setSupabaseCloudScripts] = useState<SupabaseCloudScriptSummary[]>([])
+  const [supabaseCloudScriptPickerOpen, setSupabaseCloudScriptPickerOpen] = useState(false)
   const [supabaseGalleryAssets, setSupabaseGalleryAssets] = useState<SupabaseGalleryAsset[]>([])
   const [supabaseGalleryPreviewUrls, setSupabaseGalleryPreviewUrls] = useState<Record<string, string>>({})
   const [activeSupabaseScriptWorkspaceId, setActiveSupabaseScriptWorkspaceId] = useState<string | null>(null)
@@ -1811,6 +1810,8 @@ function App() {
         supabaseAuthDraft.password,
       )
       setSupabaseCloudUser(user)
+      setSupabaseCloudScripts([])
+      setSupabaseCloudScriptPickerOpen(false)
       setSupabaseCloudStatus(`Signed in as ${user.email ?? user.id}.`)
       setSupabaseCloudPanelOpen(false)
       setTransientStatus('Supabase sign-in successful.')
@@ -1834,6 +1835,8 @@ function App() {
     try {
       await supabaseWorkspaceCloudStore.signOut()
       setSupabaseCloudUser(null)
+      setSupabaseCloudScripts([])
+      setSupabaseCloudScriptPickerOpen(false)
       setActiveSupabaseScriptWorkspaceId(null)
       setSupabaseCloudStatus('Signed out. Sign in to enable Supabase cloud save/load.')
       setSupabaseCloudPanelOpen(false)
@@ -1885,6 +1888,7 @@ function App() {
       setViewport(snapshot.viewport)
       setDslText(fullWorkspaceToLiteDsl(snapshot.workspace))
       setDslError(null)
+      setSupabaseCloudScriptPickerOpen(false)
       setActiveSupabaseScriptWorkspaceId(null)
       setSupabaseCloudStatus(`Loaded cloud snapshot for workspace "${snapshot.workspace.workspace.name}".`)
       setTransientStatus('Workspace loaded from Supabase cloud.')
@@ -1907,11 +1911,24 @@ function App() {
     try {
       const generatedScript = fullWorkspaceToLiteDsl(workspace)
       const cloudScriptWorkspaceId = activeSupabaseScriptWorkspaceId ?? workspace.workspace.id
+      const cloudScriptTitle = `${workspace.workspace.name} Script`
+      const updatedAt = new Date().toISOString()
       await supabaseWorkspaceCloudStore.saveScript(
         cloudScriptWorkspaceId,
-        `${workspace.workspace.name} Script`,
+        cloudScriptTitle,
         generatedScript,
       )
+      setSupabaseCloudScripts((current) => {
+        const next = [
+          {
+            workspaceId: cloudScriptWorkspaceId,
+            title: cloudScriptTitle,
+            updatedAt,
+          },
+          ...current.filter((script) => script.workspaceId !== cloudScriptWorkspaceId),
+        ]
+        return next.slice(0, 24)
+      })
       setActiveSupabaseScriptWorkspaceId(cloudScriptWorkspaceId)
       setSupabaseCloudStatus(`Cloud script saved for workspace "${workspace.workspace.name}".`)
       setTransientStatus('SJV Script saved to Supabase cloud.')
@@ -1927,61 +1944,74 @@ function App() {
   const loadScriptFromSupabaseCloud = useCallback(async () => {
     if (!supabaseWorkspaceCloudStore) {
       setSupabaseCloudStatus(`Supabase cloud is not configured. ${SUPABASE_PUBLIC_ENV_HINT}`)
+      setSupabaseCloudPanelOpen(true)
       return
     }
 
+    setSupabaseCloudPanelOpen(true)
     setSupabaseCloudBusy(true)
     try {
       const availableScripts = await supabaseWorkspaceCloudStore.listScripts()
-      if (!availableScripts.length) {
-        setSupabaseCloudStatus('No Supabase SJV Scripts have been saved for this account yet.')
-        return
-      }
-
-      let selectedScript: SupabaseCloudScriptSummary | null = null
-      try {
-        selectedScript = resolveSupabaseCloudScriptSelection(
-          availableScripts,
-          window.prompt(buildSupabaseCloudScriptSelectionPrompt(availableScripts), '1'),
-        )
-      } catch (error) {
-        setSupabaseCloudStatus(
-          error instanceof Error ? `Cloud script selection failed: ${error.message}` : 'Cloud script selection failed.',
-        )
-        return
-      }
-      if (!selectedScript) {
-        setSupabaseCloudStatus('Cloud script load canceled.')
-        return
-      }
-
-      const script = await supabaseWorkspaceCloudStore.loadLatestScript(selectedScript.workspaceId)
-      if (!script) {
-        setSupabaseCloudStatus(`The selected cloud script "${selectedScript.title}" is no longer available.`)
-        return
-      }
-
-      setDslText(script.content)
-      try {
-        const imported = resolveWorkspaceFromDslText(script.content)
-        replaceWorkspace(imported.workspace, imported.entryViewId)
-        setViewport(DEFAULT_FILE_VIEWPORT)
-        setDslError(null)
-        setActiveSupabaseScriptWorkspaceId(selectedScript.workspaceId)
-        setSupabaseCloudStatus(`Loaded cloud script "${script.title}".`)
-        setTransientStatus('SJV Script loaded from Supabase cloud.')
-      } catch (error) {
-        setDslError(error instanceof Error ? error.message : 'Failed to import SJV Script.')
-        setSupabaseCloudStatus(`Loaded cloud script "${script.title}" into the editor, but import failed.`)
-      }
+      setSupabaseCloudScripts(availableScripts)
+      setSupabaseCloudScriptPickerOpen(true)
+      setSupabaseCloudStatus(
+        availableScripts.length
+          ? `Choose a saved SJV Script to load. ${availableScripts.length} script${
+              availableScripts.length === 1 ? '' : 's'
+            } available.`
+          : 'No Supabase SJV Scripts have been saved for this account yet.',
+      )
     } catch (error) {
+      setSupabaseCloudScriptPickerOpen(false)
       setSupabaseCloudStatus(
         error instanceof Error ? `Cloud script load failed: ${error.message}` : 'Cloud script load failed.',
       )
     } finally {
       setSupabaseCloudBusy(false)
     }
-  }, [replaceWorkspace, resolveWorkspaceFromDslText, setTransientStatus, setViewport])
+  }, [])
+
+  const loadSelectedSupabaseCloudScript = useCallback(
+    async (selectedScript: SupabaseCloudScriptSummary) => {
+      if (!supabaseWorkspaceCloudStore) {
+        setSupabaseCloudStatus(`Supabase cloud is not configured. ${SUPABASE_PUBLIC_ENV_HINT}`)
+        setSupabaseCloudPanelOpen(true)
+        return
+      }
+
+      setSupabaseCloudBusy(true)
+      try {
+        const script = await supabaseWorkspaceCloudStore.loadLatestScript(selectedScript.workspaceId)
+        if (!script) {
+          setSupabaseCloudStatus(`The selected cloud script "${selectedScript.title}" is no longer available.`)
+          return
+        }
+
+        setDslText(script.content)
+        try {
+          const imported = resolveWorkspaceFromDslText(script.content)
+          replaceWorkspace(imported.workspace, imported.entryViewId)
+          setViewport(DEFAULT_FILE_VIEWPORT)
+          setDslError(null)
+          setSupabaseCloudScriptPickerOpen(false)
+          setActiveSupabaseScriptWorkspaceId(selectedScript.workspaceId)
+          setSupabaseCloudStatus(`Loaded cloud script "${script.title}".`)
+          setSupabaseCloudPanelOpen(false)
+          setTransientStatus('SJV Script loaded from Supabase cloud.')
+        } catch (error) {
+          setDslError(error instanceof Error ? error.message : 'Failed to import SJV Script.')
+          setSupabaseCloudStatus(`Loaded cloud script "${script.title}" into the editor, but import failed.`)
+        }
+      } catch (error) {
+        setSupabaseCloudStatus(
+          error instanceof Error ? `Cloud script load failed: ${error.message}` : 'Cloud script load failed.',
+        )
+      } finally {
+        setSupabaseCloudBusy(false)
+      }
+    },
+    [replaceWorkspace, resolveWorkspaceFromDslText, setTransientStatus, setViewport],
+  )
 
   const openSupabaseGalleryPicker = useCallback(() => {
     supabaseGalleryFileInputRef.current?.click()
@@ -2121,6 +2151,7 @@ function App() {
     replaceWorkspace(nextWorkspace, BLANK_WORKSPACE_VIEW_ID)
     setViewport(DEFAULT_FILE_VIEWPORT)
     workspaceFileHandleRef.current = null
+    setSupabaseCloudScriptPickerOpen(false)
     setActiveSupabaseScriptWorkspaceId(null)
     setExportError(null)
     setTransientStatus('New workspace created.')
@@ -2133,6 +2164,7 @@ function App() {
         replaceWorkspace(snapshot.workspace, snapshot.currentViewId)
         setViewport(snapshot.viewport)
         workspaceFileHandleRef.current = options?.fileHandle ?? null
+        setSupabaseCloudScriptPickerOpen(false)
         setActiveSupabaseScriptWorkspaceId(null)
         setExportError(null)
         setTransientStatus(`Workspace file loaded: ${options?.fileName ?? 'workspace file'}`)
@@ -2143,6 +2175,7 @@ function App() {
           replaceWorkspace(imported.workspace, imported.entryViewId)
           setViewport(DEFAULT_FILE_VIEWPORT)
           workspaceFileHandleRef.current = options?.fileHandle ?? null
+          setSupabaseCloudScriptPickerOpen(false)
           setActiveSupabaseScriptWorkspaceId(null)
           setDslText(payload)
           setDslError(null)
@@ -3222,6 +3255,7 @@ function App() {
         !topbarCloudShellRef.current.contains(target)
       ) {
         setSupabaseCloudPanelOpen(false)
+        setSupabaseCloudScriptPickerOpen(false)
       }
       if (!desktopMenuBarRef.current) {
         return
@@ -3236,6 +3270,7 @@ function App() {
       if (event.key === 'Escape') {
         setOpenDesktopMenu(null)
         setSupabaseCloudPanelOpen(false)
+        setSupabaseCloudScriptPickerOpen(false)
         return
       }
       if (!openDesktopMenu) {
@@ -4315,6 +4350,9 @@ function App() {
         <p className="preferences-status">
           Active cloud script target: {activeSupabaseScriptWorkspaceId ?? 'none selected'}
         </p>
+        <p className="preferences-status">
+          Load Saved SJV Script opens the clickable script list in the top-right cloud panel.
+        </p>
         <label className="preferences-select">
           Supabase email
           <input
@@ -5315,7 +5353,15 @@ function App() {
         ]
           .filter(Boolean)
           .join(' ')}
-        onClick={() => setSupabaseCloudPanelOpen((current) => !current)}
+        onClick={() =>
+          setSupabaseCloudPanelOpen((current) => {
+            const next = !current
+            if (!next) {
+              setSupabaseCloudScriptPickerOpen(false)
+            }
+            return next
+          })
+        }
         aria-expanded={supabaseCloudPanelOpen}
         aria-haspopup="dialog"
         aria-label="Open Supabase cloud panel"
@@ -5369,6 +5415,65 @@ function App() {
                   Load
                 </button>
               </div>
+              <div className="topbar-cloud-actions">
+                <button
+                  type="button"
+                  disabled={supabaseCloudBusy}
+                  onClick={() => {
+                    void saveScriptToSupabaseCloud()
+                  }}
+                >
+                  Save script
+                </button>
+                <button
+                  type="button"
+                  disabled={supabaseCloudBusy}
+                  onClick={() => {
+                    void loadScriptFromSupabaseCloud()
+                  }}
+                >
+                  Load script
+                </button>
+              </div>
+              {supabaseCloudScriptPickerOpen ? (
+                <div className="topbar-cloud-script-picker">
+                  <p className="topbar-cloud-section-title">Saved cloud scripts</p>
+                  {supabaseCloudScripts.length ? (
+                    <div className="topbar-cloud-script-list" aria-label="Saved Supabase SJV Scripts">
+                      {supabaseCloudScripts.map((script) => {
+                        const isActiveTarget = activeSupabaseScriptWorkspaceId === script.workspaceId
+                        return (
+                          <button
+                            key={script.workspaceId}
+                            type="button"
+                            className={
+                              isActiveTarget
+                                ? 'topbar-cloud-script-row topbar-cloud-script-row-active'
+                                : 'topbar-cloud-script-row'
+                            }
+                            disabled={supabaseCloudBusy}
+                            onClick={() => {
+                              void loadSelectedSupabaseCloudScript(script)
+                            }}
+                          >
+                            <span className="topbar-cloud-script-row-copy">
+                              <strong>{script.title}</strong>
+                              <span className="topbar-cloud-script-row-meta">
+                                Updated {formatSupabaseCloudScriptUpdatedAt(script.updatedAt)}
+                              </span>
+                            </span>
+                            {isActiveTarget ? (
+                              <span className="topbar-cloud-script-row-badge">Active save target</span>
+                            ) : null}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  ) : (
+                    <p className="topbar-cloud-hint">No saved cloud scripts yet. Use Save script first.</p>
+                  )}
+                </div>
+              ) : null}
               <div className="topbar-cloud-actions topbar-cloud-actions-secondary">
                 <button
                   type="button"
@@ -5448,7 +5553,10 @@ function App() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => setSupabaseCloudPanelOpen(false)}
+                  onClick={() => {
+                    setSupabaseCloudPanelOpen(false)
+                    setSupabaseCloudScriptPickerOpen(false)
+                  }}
                 >
                   Close
                 </button>

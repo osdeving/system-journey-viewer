@@ -2,6 +2,34 @@
 
 Chronological engineering log. Entries are kept concise and focused on behavior and validation.
 
+## 2026-03-03 - Supabase cloud script picker UI in topbar badge
+
+### Scope
+
+- Replaced the temporary browser prompt used for cloud SJV Script loading with a clickable list inside the existing top-right Supabase cloud panel.
+
+### Changes
+
+- `apps/web/src/App.tsx`, `apps/web/src/App.source.test.ts`, `apps/web/src/App.styles.test.ts`
+  - added a saved-script picker section inside the top-right cloud badge panel with `Save script` / `Load script` actions and clickable saved-script rows,
+  - made `Load Script from Supabase Cloud` open that picker instead of using a browser prompt,
+  - loading a row still replaces the current workspace exactly like a local SJV open,
+  - saving a script now updates the in-memory picker list immediately so a newly saved cloud row appears without a manual refresh,
+  - added regression coverage for the new panel copy and styles.
+- `apps/web/src/integrations/supabase/cloudScriptSelection.ts`, `apps/web/src/integrations/supabase/cloudScriptSelection.test.ts`
+  - repurposed the helper to format stable UTC timestamps for the in-app script picker rows,
+  - updated focused tests to cover the new formatting-only helper behavior.
+- `docs/SUPABASE_SETUP.md`, `docs/AI_STATE.md`
+  - updated the docs/state to describe the clickable cloud-panel picker instead of the earlier prompt-based selection.
+
+### Validation
+
+- `git diff --check`
+- `npm --workspace @sjv/web run test:run -- src/integrations/supabase/cloudScriptSelection.test.ts src/App.source.test.ts src/App.styles.test.ts`
+- `npm --workspace @sjv/web run lint`
+- `npm --workspace @sjv/web run test:run`
+- `npm --workspace @sjv/web run build`
+
 ## 2026-03-03 - Supabase SJV Script load selection and sticky save target
 
 ### Scope

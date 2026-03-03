@@ -15,11 +15,14 @@ export type SupabaseCloudUser = {
   email: string | null
 }
 
-export type SupabaseCloudScript = {
+export type SupabaseCloudScriptSummary = {
   workspaceId: string
   title: string
-  content: string
   updatedAt: string
+}
+
+export type SupabaseCloudScript = SupabaseCloudScriptSummary & {
+  content: string
 }
 
 export type SupabaseGalleryAsset = {
@@ -94,6 +97,11 @@ type ScriptLoadResult = {
   error: CloudError | null
 }
 
+type ScriptListResult = {
+  scripts: SupabaseCloudScriptSummary[]
+  error: CloudError | null
+}
+
 type GalleryInsertResult = {
   asset: SupabaseGalleryAsset | null
   error: CloudError | null
@@ -123,6 +131,7 @@ type WorkspaceCloudStoreDeps = {
   upsertWorkspace: (record: WorkspaceRecord) => Promise<VoidResult>
   loadWorkspace: (query: WorkspaceQuery) => Promise<WorkspaceLoadResult>
   upsertScript: (record: ScriptRecord) => Promise<VoidResult>
+  listScripts: (userId: string) => Promise<ScriptListResult>
   loadLatestScript: (query: ScriptQuery) => Promise<ScriptLoadResult>
   uploadGalleryFile: (record: GalleryUploadRecord) => Promise<VoidResult>
   insertGalleryAsset: (record: GalleryAssetRecord) => Promise<GalleryInsertResult>
@@ -143,6 +152,26 @@ const toCloudUser = (user: { id: string; email?: string | null } | null | undefi
         email: user.email ?? null,
       }
     : null
+
+const toCloudScriptSummary = (value: {
+  workspace_id: string
+  title: string
+  updated_at: string
+}): SupabaseCloudScriptSummary => ({
+  workspaceId: value.workspace_id,
+  title: value.title,
+  updatedAt: value.updated_at,
+})
+
+const toCloudScript = (value: {
+  workspace_id: string
+  title: string
+  content: string
+  updated_at: string
+}): SupabaseCloudScript => ({
+  ...toCloudScriptSummary(value),
+  content: value.content,
+})
 
 const sanitizeFileName = (value: string): string =>
   value
@@ -261,6 +290,13 @@ export const createSupabaseWorkspaceCloudStore = (deps: WorkspaceCloudStoreDeps)
       content: normalizedContent,
     })
     unwrapError(result.error)
+  },
+
+  async listScripts(): Promise<SupabaseCloudScriptSummary[]> {
+    const user = await requireSignedInUser(deps)
+    const result = await deps.listScripts(user.id)
+    unwrapError(result.error)
+    return result.scripts
   },
 
   async loadLatestScript(workspaceId: string): Promise<SupabaseCloudScript | null> {
@@ -480,6 +516,19 @@ export const supabaseWorkspaceCloudStore = browserClient
           )
         return { error: normalizeError(error) }
       },
+      listScripts: async (userId) => {
+        const { data, error } = await browserClient
+          .from('scripts')
+          .select('workspace_id,title,updated_at')
+          .eq('user_id', userId)
+          .order('updated_at', { ascending: false })
+          .limit(24)
+
+        return {
+          scripts: (data ?? []).map((value) => toCloudScriptSummary(value as never)),
+          error: normalizeError(error),
+        }
+      },
       loadLatestScript: async ({ userId, workspaceId }) => {
         const { data, error } = await browserClient
           .from('scripts')
@@ -491,14 +540,7 @@ export const supabaseWorkspaceCloudStore = browserClient
           .maybeSingle()
 
         return {
-          script: data
-            ? {
-                workspaceId: data.workspace_id as string,
-                title: data.title as string,
-                content: data.content as string,
-                updatedAt: data.updated_at as string,
-              }
-            : null,
+          script: data ? toCloudScript(data as never) : null,
           error: normalizeError(error),
         }
       },

@@ -169,7 +169,8 @@ The current integration is intentionally small:
 - `Preferences > Supabase Cloud`
   - the same manual auth/save/load controls remain available as a fallback
   - save/load the current workspace snapshot
-  - save/load the generated SJV Script for the current workspace id
+  - save the generated SJV Script into a cloud row (and keep reusing that same row for later saves)
+  - load from a numbered list of saved SJV Scripts for the signed-in user, replacing the current workspace just like `Open File`
   - upload local PNG/GIF/MP4 files into the private `gallery` bucket
   - list and download your recent gallery assets
 - `Help > Export Gallery`

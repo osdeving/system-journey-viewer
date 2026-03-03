@@ -40,6 +40,16 @@ const createDeps = () => {
     error: null,
   })
   const upsertScript = vi.fn().mockResolvedValue({ error: null })
+  const listScripts = vi.fn().mockResolvedValue({
+    scripts: [
+      {
+        workspaceId: sampleSnapshot.workspace.workspace.id,
+        title: 'Orders Platform Showcase',
+        updatedAt: '2026-03-01T00:00:00.000Z',
+      },
+    ],
+    error: null,
+  })
   const loadLatestScript = vi.fn().mockResolvedValue({
     script: {
       workspaceId: sampleSnapshot.workspace.workspace.id,
@@ -95,6 +105,7 @@ const createDeps = () => {
       upsertWorkspace,
       loadWorkspace,
       upsertScript,
+      listScripts,
       loadLatestScript,
       uploadGalleryFile,
       insertGalleryAsset,
@@ -111,6 +122,7 @@ const createDeps = () => {
       upsertWorkspace,
       loadWorkspace,
       upsertScript,
+      listScripts,
       loadLatestScript,
       uploadGalleryFile,
       insertGalleryAsset,
@@ -167,6 +179,22 @@ describe('createSupabaseWorkspaceCloudStore', () => {
       workspaceId: sampleSnapshot.workspace.workspace.id,
     })
     expect(loaded?.content).toBe('workspace "Orders"')
+  })
+
+  it('lists available cloud scripts for the signed-in user', async () => {
+    const { deps, mocks } = createDeps()
+    const store = createSupabaseWorkspaceCloudStore(deps)
+
+    const scripts = await store.listScripts()
+
+    expect(mocks.listScripts).toHaveBeenCalledWith('user-1')
+    expect(scripts).toEqual([
+      {
+        workspaceId: sampleSnapshot.workspace.workspace.id,
+        title: 'Orders Platform Showcase',
+        updatedAt: '2026-03-01T00:00:00.000Z',
+      },
+    ])
   })
 
   it('uploads, lists, and downloads gallery files inside the signed-in user scope', async () => {

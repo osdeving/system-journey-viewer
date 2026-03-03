@@ -110,6 +110,7 @@ import {
 } from './integrations/supabase/cloudScriptSelection'
 import {
   buildSharedSupabaseAssetViewerUrl,
+  isSharedSupabaseAssetViewerLocation,
   isSupabaseGalleryAssetShareable,
   resolveSharedSupabaseAssetViewFromLocation,
 } from './integrations/supabase/sharedAssetLink'
@@ -944,18 +945,19 @@ function App() {
   )
   const breadcrumb = [...viewHistory, currentViewId]
   const supabaseCloudReady = supabaseCloudConfigured && !!supabaseCloudUser
-  const sharedSupabaseAssetPathname = useMemo(
-    () => (typeof window === 'undefined' ? '/' : window.location.pathname),
+  const isSharedSupabaseAssetRoute = useMemo(
+    () =>
+      typeof window === 'undefined'
+        ? false
+        : isSharedSupabaseAssetViewerLocation(window.location),
     [],
   )
-  const isSharedSupabaseAssetRoute =
-    sharedSupabaseAssetPathname === '/share' || sharedSupabaseAssetPathname === '/share/'
   const sharedSupabaseAssetView = useMemo(() => {
-    if (!isSharedSupabaseAssetRoute || typeof window === 'undefined') {
+    if (typeof window === 'undefined') {
       return null
     }
     return resolveSharedSupabaseAssetViewFromLocation(window.location)
-  }, [isSharedSupabaseAssetRoute])
+  }, [])
 
   useEffect(() => {
     if (typeof window === 'undefined') {

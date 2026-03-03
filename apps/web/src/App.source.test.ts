@@ -36,6 +36,7 @@ describe('App source regressions', () => {
   })
 
   it('supports a dedicated shared export route that exposes only one media item', () => {
+    expect(appSource).toContain("isSharedSupabaseAssetViewerLocation")
     expect(appSource).toContain("resolveSharedSupabaseAssetViewFromLocation")
     expect(appSource).toContain("buildSharedSupabaseAssetViewerUrl")
     expect(appSource).toContain("const isSharedSupabaseAssetRoute =")

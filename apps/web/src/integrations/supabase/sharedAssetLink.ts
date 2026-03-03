@@ -14,7 +14,8 @@ export type SharedSupabaseAssetView = {
 type SharedSupabaseAssetPayload = SharedSupabaseAssetView
 
 const SHARED_ASSET_ROUTE_PATH = '/share'
-const SHARED_ASSET_QUERY_KEY = 'asset'
+const SHARED_ASSET_LEGACY_QUERY_KEY = 'asset'
+const SHARED_ASSET_QUERY_KEY = 'sharedAsset'
 
 const isRecordLike = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null
@@ -47,7 +48,7 @@ export const buildSharedSupabaseAssetViewerUrl = (
   origin: string,
   asset: SharedSupabaseAssetPayload,
 ): string => {
-  const url = new URL(SHARED_ASSET_ROUTE_PATH, origin)
+  const url = new URL('/', origin)
   url.searchParams.set(
     SHARED_ASSET_QUERY_KEY,
     JSON.stringify({
@@ -60,17 +61,36 @@ export const buildSharedSupabaseAssetViewerUrl = (
   return url.toString()
 }
 
+export const isSharedSupabaseAssetViewerLocation = (
+  location: Pick<Location, 'pathname' | 'search'>,
+): boolean => {
+  const searchParams = new URLSearchParams(location.search)
+  const isLegacySharePath =
+    location.pathname === SHARED_ASSET_ROUTE_PATH ||
+    location.pathname === `${SHARED_ASSET_ROUTE_PATH}/`
+
+  if (searchParams.has(SHARED_ASSET_QUERY_KEY)) {
+    return true
+  }
+
+  if (searchParams.has(SHARED_ASSET_LEGACY_QUERY_KEY)) {
+    return isLegacySharePath || location.pathname === '/' || location.pathname === ''
+  }
+
+  return isLegacySharePath
+}
+
 export const resolveSharedSupabaseAssetViewFromLocation = (
   location: Pick<Location, 'pathname' | 'search'>,
 ): SharedSupabaseAssetView | null => {
-  if (
-    location.pathname !== SHARED_ASSET_ROUTE_PATH &&
-    location.pathname !== `${SHARED_ASSET_ROUTE_PATH}/`
-  ) {
+  if (!isSharedSupabaseAssetViewerLocation(location)) {
     return null
   }
 
-  const rawPayload = new URLSearchParams(location.search).get(SHARED_ASSET_QUERY_KEY)
+  const searchParams = new URLSearchParams(location.search)
+  const rawPayload =
+    searchParams.get(SHARED_ASSET_QUERY_KEY) ??
+    searchParams.get(SHARED_ASSET_LEGACY_QUERY_KEY)
   if (!rawPayload) {
     return null
   }

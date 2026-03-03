@@ -42,6 +42,20 @@ describe('useEditorStore', () => {
     expect(updated.selectedNodeId).toBe('n_kafka')
   })
 
+  it('supports replacing or extending selection with bulk node ids', () => {
+    const state = useEditorStore.getState()
+
+    state.selectNodes(['n_api', 'n_kafka'])
+    let updated = useEditorStore.getState()
+    expect(updated.selectedNodeIds).toEqual(['n_api', 'n_kafka'])
+    expect(updated.selectedNodeId).toBe('n_kafka')
+
+    state.selectNodes(['n_frontend'], { additive: true })
+    updated = useEditorStore.getState()
+    expect(updated.selectedNodeIds).toEqual(['n_api', 'n_kafka', 'n_frontend'])
+    expect(updated.selectedNodeId).toBe('n_frontend')
+  })
+
   it('creates an attached note bound to a target node', () => {
     const state = useEditorStore.getState()
 

@@ -109,6 +109,11 @@ import {
   formatSupabaseCloudScriptUpdatedAt,
 } from './integrations/supabase/cloudScriptSelection'
 import {
+  buildSharedSupabaseAssetViewerUrl,
+  isSupabaseGalleryAssetShareable,
+  resolveSharedSupabaseAssetViewFromLocation,
+} from './integrations/supabase/sharedAssetLink'
+import {
   SUPABASE_GALLERY_BUCKET,
   SUPABASE_PUBLIC_ENV_HINT,
   supabaseCloudConfigured,
@@ -190,6 +195,7 @@ const MIN_MANAGED_HOST_SIDE_WIDTH = 240
 const MIN_JOURNEY_HEIGHT = 160
 const MIN_MANAGED_HOST_BOTTOM_HEIGHT = 160
 const DEFAULT_TOPBAR_HEIGHT = 108
+const SUPABASE_SHARED_ASSET_LINK_EXPIRY_SECONDS = 60 * 60 * 24 * 7
 const MIN_CANVAS_WIDTH = 320
 const MIN_CANVAS_HEIGHT = 220
 const MIN_DOCK_HEIGHT = 260
@@ -938,6 +944,18 @@ function App() {
   )
   const breadcrumb = [...viewHistory, currentViewId]
   const supabaseCloudReady = supabaseCloudConfigured && !!supabaseCloudUser
+  const sharedSupabaseAssetPathname = useMemo(
+    () => (typeof window === 'undefined' ? '/' : window.location.pathname),
+    [],
+  )
+  const isSharedSupabaseAssetRoute =
+    sharedSupabaseAssetPathname === '/share' || sharedSupabaseAssetPathname === '/share/'
+  const sharedSupabaseAssetView = useMemo(() => {
+    if (!isSharedSupabaseAssetRoute || typeof window === 'undefined') {
+      return null
+    }
+    return resolveSharedSupabaseAssetViewFromLocation(window.location)
+  }, [isSharedSupabaseAssetRoute])
 
   useEffect(() => {
     if (typeof window === 'undefined') {
@@ -2139,6 +2157,65 @@ function App() {
       } catch (error) {
         setSupabaseCloudStatus(
           error instanceof Error ? `Gallery download failed: ${error.message}` : 'Gallery download failed.',
+        )
+      } finally {
+        setSupabaseCloudBusy(false)
+      }
+    },
+    [setTransientStatus],
+  )
+
+  const shareSupabaseGalleryAsset = useCallback(
+    async (asset: SupabaseGalleryAsset) => {
+      if (!supabaseWorkspaceCloudStore) {
+        setSupabaseCloudStatus(`Supabase cloud is not configured. ${SUPABASE_PUBLIC_ENV_HINT}`)
+        return
+      }
+      if (!isSupabaseGalleryAssetShareable(asset)) {
+        setSupabaseCloudStatus('Only MP4 and GIF gallery exports can be shared right now.')
+        return
+      }
+      if (typeof window === 'undefined') {
+        return
+      }
+
+      setSupabaseCloudBusy(true)
+      try {
+        const signedUrl = await supabaseWorkspaceCloudStore.createGalleryAssetPreviewUrl(
+          asset.storagePath,
+          SUPABASE_SHARED_ASSET_LINK_EXPIRY_SECONDS,
+        )
+        const sharedViewerUrl = buildSharedSupabaseAssetViewerUrl(window.location.origin, {
+          title: asset.title,
+          fileName: asset.fileName,
+          contentType: asset.contentType,
+          signedUrl,
+        })
+
+        let copiedToClipboard = false
+        if (window.navigator.clipboard?.writeText) {
+          try {
+            await window.navigator.clipboard.writeText(sharedViewerUrl)
+            copiedToClipboard = true
+          } catch {
+            copiedToClipboard = false
+          }
+        }
+
+        if (copiedToClipboard) {
+          setSupabaseCloudStatus(`Share link copied for "${asset.title}". This private link expires in 7 days.`)
+          setTransientStatus('Shared export link copied to clipboard.')
+          return
+        }
+
+        window.open(sharedViewerUrl, '_blank', 'noopener,noreferrer')
+        setSupabaseCloudStatus(
+          `Share viewer opened for "${asset.title}". Copy the URL from the new tab to send it.`,
+        )
+        setTransientStatus('Shared export viewer opened in a new tab.')
+      } catch (error) {
+        setSupabaseCloudStatus(
+          error instanceof Error ? `Share link failed: ${error.message}` : 'Share link failed.',
         )
       } finally {
         setSupabaseCloudBusy(false)
@@ -4383,15 +4460,28 @@ function App() {
                                 Load
                               </button>
                             ) : (
-                              <button
-                                type="button"
-                                disabled={supabaseCloudBusy}
-                                onClick={() => {
-                                  void downloadSupabaseGalleryAsset(item.asset)
-                                }}
-                              >
-                                Download
-                              </button>
+                              <>
+                                <button
+                                  type="button"
+                                  disabled={supabaseCloudBusy}
+                                  onClick={() => {
+                                    void downloadSupabaseGalleryAsset(item.asset)
+                                  }}
+                                >
+                                  Download
+                                </button>
+                                {isSupabaseGalleryAssetShareable(item.asset) ? (
+                                  <button
+                                    type="button"
+                                    disabled={supabaseCloudBusy}
+                                    onClick={() => {
+                                      void shareSupabaseGalleryAsset(item.asset)
+                                    }}
+                                  >
+                                    Share link
+                                  </button>
+                                ) : null}
+                              </>
                             )}
                             <button
                               type="button"
@@ -5831,6 +5921,72 @@ function App() {
       ) : null}
     </div>
   )
+
+  if (isSharedSupabaseAssetRoute) {
+    return (
+      <div className="shared-asset-view">
+        <main className="shared-asset-shell">
+          <p className="shared-asset-eyebrow">Shared SJV Export</p>
+          {sharedSupabaseAssetView ? (
+            <>
+              <div className="shared-asset-heading">
+                <h1>{sharedSupabaseAssetView.title}</h1>
+                <span className="shared-asset-type-pill">
+                  {sharedSupabaseAssetView.contentType.startsWith('video/') ? 'MP4 / Video' : 'GIF / Image'}
+                </span>
+              </div>
+              <div className="shared-asset-media-frame">
+                {sharedSupabaseAssetView.contentType.startsWith('video/') ? (
+                  <video
+                    src={sharedSupabaseAssetView.signedUrl}
+                    controls
+                    playsInline
+                    preload="metadata"
+                  />
+                ) : (
+                  <img
+                    src={sharedSupabaseAssetView.signedUrl}
+                    alt={sharedSupabaseAssetView.title}
+                    loading="eager"
+                  />
+                )}
+              </div>
+              <p className="shared-asset-caption">
+                This clean viewer exposes only this exported file. It does not reveal the sender&apos;s full cloud library.
+              </p>
+              <div className="shared-asset-actions">
+                <a
+                  className="shared-asset-action"
+                  href={sharedSupabaseAssetView.signedUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  Open media file
+                </a>
+                <a className="shared-asset-action shared-asset-action-primary" href="/">
+                  Open Full App
+                </a>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="shared-asset-heading">
+                <h1>Shared export unavailable</h1>
+              </div>
+              <p className="shared-asset-caption">
+                This link is invalid or has already expired. Ask the sender to generate a fresh shared export link.
+              </p>
+              <div className="shared-asset-actions">
+                <a className="shared-asset-action shared-asset-action-primary" href="/">
+                  Open Full App
+                </a>
+              </div>
+            </>
+          )}
+        </main>
+      </div>
+    )
+  }
 
   if (appShellMode === 'mobile') {
     return (

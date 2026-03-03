@@ -13,13 +13,15 @@ import type {
 } from 'react'
 import {
   DEFAULT_GRID_SIZE,
+  type AlignmentGuide,
   nearestPortId,
   nodeCenter,
   portWorldPosition,
   snapBounds,
+  snapBoundsWithGuides,
 } from '../../engine/geometry'
 import { resolveEdgeCurve, type ResolvedEdgeCurve } from '../../engine/edgeCurve'
-import type { EdgeModel, NodeModel } from '../../model/types'
+import type { EdgeModel, NodeBounds, NodeModel } from '../../model/types'
 import { resolveJourneyFocusScope } from '../../journeys/focus'
 import {
   type JourneyPlaybackTickStep,
@@ -67,6 +69,10 @@ import {
   resolvePinchGestureMetrics,
   resolveViewportAfterPinch,
 } from '../../diagram/canvas/pinchZoom'
+import {
+  resolveMarqueeSelectionRect,
+  resolveNodeIdsIntersectingMarquee,
+} from '../../diagram/canvas/marqueeSelection'
 
 type PanState = {
   pointerId: number
@@ -102,6 +108,12 @@ type PinchGestureState = {
   startDistance: number
   startCenter: { x: number; y: number }
   startViewport: { x: number; y: number; zoom: number }
+}
+
+type MarqueeSelectionState = {
+  pointerId: number
+  additive: boolean
+  startWorld: { x: number; y: number }
 }
 
 type ResizeHandle = 'n' | 's' | 'e' | 'w' | 'ne' | 'nw' | 'se' | 'sw'
@@ -583,6 +595,7 @@ export const DiagramCanvas = ({
   const edgeLabelDragRef = useRef<EdgeLabelDragState | null>(null)
   const edgeAnchorCycleRef = useRef(new Map<string, number>())
   const pinchGestureRef = useRef<PinchGestureState | null>(null)
+  const marqueeSelectionRef = useRef<MarqueeSelectionState | null>(null)
   const canvasRef = useRef<HTMLDivElement | null>(null)
   const trailCanvasRef = useRef<HTMLCanvasElement | null>(null)
   const trailCanvasMetricsRef = useRef({ width: 0, height: 0, pixelRatio: 1 })
@@ -609,6 +622,8 @@ export const DiagramCanvas = ({
   const [hoveredPortKey, setHoveredPortKey] = useState<string | null>(null)
   const [playerStepArrivedForUi, setPlayerStepArrivedForUi] = useState(false)
   const [inlineTextEdit, setInlineTextEdit] = useState<InlineTextEditState | null>(null)
+  const [marqueeSelectionRect, setMarqueeSelectionRect] = useState<NodeBounds | null>(null)
+  const [alignmentGuides, setAlignmentGuides] = useState<AlignmentGuide[]>([])
 
   const workspace = useEditorStore((state) => state.workspace)
   const viewId = useEditorStore((state) => state.currentViewId)
@@ -628,6 +643,7 @@ export const DiagramCanvas = ({
   const stepPlayer = useEditorStore((state) => state.stepPlayer)
   const setViewport = useEditorStore((state) => state.setViewport)
   const selectNode = useEditorStore((state) => state.selectNode)
+  const selectNodes = useEditorStore((state) => state.selectNodes)
   const selectEdge = useEditorStore((state) => state.selectEdge)
   const openDrilldown = useEditorStore((state) => state.openDrilldown)
   const createDrilldownForNode = useEditorStore((state) => state.createDrilldownForNode)
@@ -1401,14 +1417,48 @@ export const DiagramCanvas = ({
     }
   }
 
+  const startMarqueeSelection = (
+    pointerId: number,
+    clientX: number,
+    clientY: number,
+    svgElement: SVGSVGElement | null,
+    additive: boolean,
+  ): boolean => {
+    const startWorld = clientToWorld(clientX, clientY)
+    if (!startWorld) {
+      return false
+    }
+
+    panStateRef.current = null
+    nodeDragStateRef.current = null
+    marqueeSelectionRef.current = {
+      pointerId,
+      additive,
+      startWorld,
+    }
+    setMarqueeSelectionRect({
+      x: startWorld.x,
+      y: startWorld.y,
+      w: 0,
+      h: 0,
+    })
+    setAlignmentGuides([])
+    setDragCursor('crosshair')
+    svgElement?.setPointerCapture(pointerId)
+    return true
+  }
+
   const cancelActiveCanvasInteraction = (): void => {
     panStateRef.current = null
     nodeDragStateRef.current = null
+    marqueeSelectionRef.current = null
     connectionDragRef.current = null
     edgeReconnectRef.current = null
     edgeLabelDragRef.current = null
     edgeLabelZoomRef.current = null
     setConnectionPreview(null)
+    setMarqueeSelectionRect(null)
+    setAlignmentGuides([])
     setHoveredConnectionTarget(null)
     setHoveredAnchorKey(null)
     setHoveredPortKey(null)
@@ -1655,7 +1705,23 @@ export const DiagramCanvas = ({
     if (isConnectorMode) {
       return
     }
+    if (
+      !presentationMode &&
+      activeTool === 'select' &&
+      event.altKey &&
+      startMarqueeSelection(
+        event.pointerId,
+        event.clientX,
+        event.clientY,
+        event.currentTarget,
+        event.shiftKey || event.metaKey,
+      )
+    ) {
+      setHoverCursor(null)
+      return
+    }
     setHoveredPortKey(null)
+    setAlignmentGuides([])
     panStateRef.current = {
       pointerId: event.pointerId,
       startX: event.clientX,
@@ -1736,6 +1802,17 @@ export const DiagramCanvas = ({
       return
     }
 
+    const marqueeSelection = marqueeSelectionRef.current
+    if (marqueeSelection && marqueeSelection.pointerId === event.pointerId) {
+      const currentWorld = clientToWorld(event.clientX, event.clientY)
+      if (currentWorld) {
+        setMarqueeSelectionRect(
+          resolveMarqueeSelectionRect(marqueeSelection.startWorld, currentWorld),
+        )
+      }
+      return
+    }
+
     const current = panStateRef.current
     if (!current || current.pointerId !== event.pointerId) {
       return
@@ -1746,6 +1823,32 @@ export const DiagramCanvas = ({
   }
 
   const onBackgroundPointerUp = (event: ReactPointerEvent<SVGSVGElement>): void => {
+    const marqueeSelection = marqueeSelectionRef.current
+    if (marqueeSelection?.pointerId === event.pointerId) {
+      const currentWorld =
+        clientToWorld(event.clientX, event.clientY) ??
+        marqueeSelection.startWorld
+      const nextMarqueeRect = resolveMarqueeSelectionRect(
+        marqueeSelection.startWorld,
+        currentWorld,
+      )
+      const nextSelectedNodeIds = resolveNodeIdsIntersectingMarquee(
+        visibleNodes,
+        nextMarqueeRect,
+      )
+      if (nextSelectedNodeIds.length || !marqueeSelection.additive) {
+        selectNodes(nextSelectedNodeIds, { additive: marqueeSelection.additive })
+      }
+      marqueeSelectionRef.current = null
+      setMarqueeSelectionRect(null)
+      setDragCursor(null)
+      setHoverCursor(null)
+      if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+        event.currentTarget.releasePointerCapture(event.pointerId)
+      }
+      return
+    }
+
     const labelDrag = edgeLabelDragRef.current
     if (labelDrag?.pointerId === event.pointerId) {
       edgeLabelDragRef.current = null
@@ -1854,6 +1957,22 @@ export const DiagramCanvas = ({
       return
     }
 
+    if (
+      mode === 'move' &&
+      activeTool === 'select' &&
+      event.altKey &&
+      startMarqueeSelection(
+        event.pointerId,
+        event.clientX,
+        event.clientY,
+        event.currentTarget.ownerSVGElement,
+        event.shiftKey || event.metaKey,
+      )
+    ) {
+      setHoverCursor(null)
+      return
+    }
+
     if (mode === 'move' && (event.shiftKey || event.metaKey)) {
       selectNode(node.id, { additive: true })
       return
@@ -1913,14 +2032,19 @@ export const DiagramCanvas = ({
           x: originBounds.x + dx,
           y: originBounds.y + dy,
         }
-        const bounds = snapEnabled
-          ? snapBounds(candidateBounds, drag.primaryNodeId, workspace.nodes, {
+        const result = snapEnabled
+          ? snapBoundsWithGuides(candidateBounds, drag.primaryNodeId, workspace.nodes, {
               gridSize: DEFAULT_GRID_SIZE,
               snapGrid: true,
               snapShapes: true,
+              excludeNodeIds: drag.nodeIds,
             })
-          : candidateBounds
-        setNodeBounds(drag.primaryNodeId, bounds)
+          : {
+              bounds: candidateBounds,
+              guides: [],
+            }
+        setNodeBounds(drag.primaryNodeId, result.bounds)
+        setAlignmentGuides(result.guides)
         return
       }
 
@@ -1928,14 +2052,32 @@ export const DiagramCanvas = ({
       if (!primaryOrigin) {
         return
       }
-      const snappedDx = snapEnabled
-        ? Math.round((primaryOrigin.x + dx) / DEFAULT_GRID_SIZE) * DEFAULT_GRID_SIZE -
-          primaryOrigin.x
-        : dx
-      const snappedDy = snapEnabled
-        ? Math.round((primaryOrigin.y + dy) / DEFAULT_GRID_SIZE) * DEFAULT_GRID_SIZE -
-          primaryOrigin.y
-        : dy
+      const snappedPrimary = snapEnabled
+        ? snapBoundsWithGuides(
+            {
+              ...primaryOrigin,
+              x: primaryOrigin.x + dx,
+              y: primaryOrigin.y + dy,
+            },
+            drag.primaryNodeId,
+            workspace.nodes,
+            {
+              gridSize: DEFAULT_GRID_SIZE,
+              snapGrid: true,
+              snapShapes: true,
+              excludeNodeIds: drag.nodeIds,
+            },
+          )
+        : {
+            bounds: {
+              ...primaryOrigin,
+              x: primaryOrigin.x + dx,
+              y: primaryOrigin.y + dy,
+            },
+            guides: [],
+          }
+      const snappedDx = snappedPrimary.bounds.x - primaryOrigin.x
+      const snappedDy = snappedPrimary.bounds.y - primaryOrigin.y
       setNodesBounds(
         drag.nodeIds.map((nodeId) => {
           const origin = drag.originBoundsByNodeId[nodeId]
@@ -1949,6 +2091,7 @@ export const DiagramCanvas = ({
           }
         }),
       )
+      setAlignmentGuides(snappedPrimary.guides)
       return
     }
 
@@ -1991,6 +2134,7 @@ export const DiagramCanvas = ({
         })
       : candidateBounds
     setNodeBounds(drag.primaryNodeId, bounds)
+    setAlignmentGuides([])
   }
 
   const onNodePointerUp = (event: ReactPointerEvent<SVGGElement>): void => {
@@ -2012,6 +2156,7 @@ export const DiagramCanvas = ({
       }
     }
     nodeDragStateRef.current = null
+    setAlignmentGuides([])
     setDragCursor(null)
     if (event.currentTarget.hasPointerCapture(event.pointerId)) {
       event.currentTarget.releasePointerCapture(event.pointerId)
@@ -2976,6 +3121,37 @@ export const DiagramCanvas = ({
               </g>
             )
           })}
+          {alignmentGuides.map((guide, index) =>
+            guide.orientation === 'vertical' ? (
+              <line
+                key={`alignment-guide-v-${index}`}
+                className="canvas-alignment-guide"
+                x1={guide.x}
+                y1={guide.y1}
+                x2={guide.x}
+                y2={guide.y2}
+              />
+            ) : (
+              <line
+                key={`alignment-guide-h-${index}`}
+                className="canvas-alignment-guide"
+                x1={guide.x1}
+                y1={guide.y}
+                x2={guide.x2}
+                y2={guide.y}
+              />
+            ),
+          )}
+          {marqueeSelectionRect ? (
+            <rect
+              className="canvas-selection-marquee"
+              x={marqueeSelectionRect.x}
+              y={marqueeSelectionRect.y}
+              width={marqueeSelectionRect.w}
+              height={marqueeSelectionRect.h}
+              rx={10}
+            />
+          ) : null}
         </g>
       </svg>
       <canvas ref={trailCanvasRef} className="trail-canvas" />

@@ -76,6 +76,7 @@ interface EditorState {
   resetWorkspace: () => void
   replaceWorkspace: (workspace: WorkspaceModel, viewId?: string) => void
   selectNode: (nodeId: string | null, options?: SelectOptions) => void
+  selectNodes: (nodeIds: string[], options?: SelectOptions) => void
   selectEdge: (edgeId: string | null) => void
   openDrilldown: (nodeId: string) => void
   createDrilldownForNode: (nodeId: string) => string | null
@@ -705,6 +706,38 @@ export const useEditorStore = create<EditorState>()(
           state.selectedNodeIds.push(nodeId)
           state.selectedNodeId = nodeId
         }
+        state.selectedEdgeId = null
+      })
+    },
+    selectNodes: (nodeIds, options) => {
+      set((state) => {
+        const currentView = state.workspace.views[state.currentViewId]
+        const currentViewNodeIds = new Set(currentView?.nodeIds ?? [])
+        const nextNodeIds = Array.from(
+          new Set(
+            nodeIds.filter(
+              (nodeId) =>
+                typeof nodeId === 'string' &&
+                currentViewNodeIds.has(nodeId) &&
+                Boolean(state.workspace.nodes[nodeId]),
+            ),
+          ),
+        )
+        const additive = options?.additive ?? false
+
+        if (!additive) {
+          state.selectedNodeIds = nextNodeIds
+          state.selectedNodeId = nextNodeIds[nextNodeIds.length - 1] ?? null
+          state.selectedEdgeId = null
+          return
+        }
+
+        const mergedNodeIds = Array.from(new Set([...state.selectedNodeIds, ...nextNodeIds]))
+        state.selectedNodeIds = mergedNodeIds
+        state.selectedNodeId =
+          nextNodeIds[nextNodeIds.length - 1] ??
+          mergedNodeIds[mergedNodeIds.length - 1] ??
+          null
         state.selectedEdgeId = null
       })
     },

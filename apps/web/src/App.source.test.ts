@@ -35,6 +35,18 @@ describe('App source regressions', () => {
     expect(windowUiConfigSource).toContain("dsl: 'right'")
   })
 
+  it('supports a dedicated shared export route that exposes only one media item', () => {
+    expect(appSource).toContain("resolveSharedSupabaseAssetViewFromLocation")
+    expect(appSource).toContain("buildSharedSupabaseAssetViewerUrl")
+    expect(appSource).toContain("const isSharedSupabaseAssetRoute =")
+    expect(appSource).toContain("if (isSharedSupabaseAssetRoute) {")
+    expect(appSource).toContain("Shared SJV Export")
+    expect(appSource).toContain("This clean viewer exposes only this exported file. It does not reveal the sender&apos;s full cloud library.")
+    expect(appSource).toContain("Open media file")
+    expect(appSource).toContain("Open Full App")
+    expect(appSource).toContain("Shared export unavailable")
+  })
+
   it('reopens managed panels in their remembered dock host and keeps the bottom workbench opt-in', () => {
     expect(appSource).toContain('resolveManagedDockPlacementForPanelOpen')
     expect(appSource).toContain('const drawerCollapsedBeforePresentationRef = useRef(true)')
@@ -69,6 +81,7 @@ describe('App source regressions', () => {
   it('includes manual Supabase auth plus workspace, script, and gallery actions', () => {
     expect(appSource).toContain("supabaseCloudConfigured")
     expect(appSource).toContain("buildSupabaseCloudLibrarySections")
+    expect(appSource).toContain("isSupabaseGalleryAssetShareable")
     expect(appSource).toContain('Open Supabase cloud panel')
     expect(appSource).toContain('Use the top-right cloud badge for quick sign-in, gallery access, and automatic upload after standard PNG/GIF/MP4 exports.')
     expect(appSource).toContain('Standard PNG/GIF/MP4 exports now auto-upload here after the local file is generated.')
@@ -87,6 +100,10 @@ describe('App source regressions', () => {
     expect(appSource).toContain('Load Saved SJV Script opens the clickable script list in the top-right cloud panel.')
     expect(appSource).toContain('Open gallery')
     expect(appSource).toContain('Upload local')
+    expect(appSource).toContain('Only MP4 and GIF gallery exports can be shared right now.')
+    expect(appSource).toContain('Share link')
+    expect(appSource).toContain('Shared export link copied to clipboard.')
+    expect(appSource).toContain('Shared export viewer opened in a new tab.')
     expect(appSource).not.toContain('Export PNG to Gallery')
     expect(appSource).not.toContain('Export GIF to Gallery')
     expect(appSource).not.toContain('Export MP4 to Gallery')

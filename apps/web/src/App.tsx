@@ -100,10 +100,15 @@ import {
 } from './file/recentWorkspaces'
 import helpGuideMarkdown from './help/help.md?raw'
 import {
+  buildSupabaseCloudScriptSelectionPrompt,
+  resolveSupabaseCloudScriptSelection,
+} from './integrations/supabase/cloudScriptSelection'
+import {
   SUPABASE_GALLERY_BUCKET,
   SUPABASE_PUBLIC_ENV_HINT,
   supabaseCloudConfigured,
   supabaseWorkspaceCloudStore,
+  type SupabaseCloudScriptSummary,
   type SupabaseGalleryAsset,
   type SupabaseCloudUser,
 } from './integrations/supabase/workspaceCloudStore'
@@ -798,6 +803,7 @@ function App() {
   const [supabaseCloudPanelOpen, setSupabaseCloudPanelOpen] = useState(false)
   const [supabaseGalleryAssets, setSupabaseGalleryAssets] = useState<SupabaseGalleryAsset[]>([])
   const [supabaseGalleryPreviewUrls, setSupabaseGalleryPreviewUrls] = useState<Record<string, string>>({})
+  const [activeSupabaseScriptWorkspaceId, setActiveSupabaseScriptWorkspaceId] = useState<string | null>(null)
   const [openDesktopMenu, setOpenDesktopMenu] = useState<DesktopMenuId | null>(null)
   const [guidedTutorialStepIndex, setGuidedTutorialStepIndex] = useState<number | null>(null)
   const [guidedTutorialEventCounts, setGuidedTutorialEventCounts] = useState<Record<string, number>>({})
@@ -1828,6 +1834,7 @@ function App() {
     try {
       await supabaseWorkspaceCloudStore.signOut()
       setSupabaseCloudUser(null)
+      setActiveSupabaseScriptWorkspaceId(null)
       setSupabaseCloudStatus('Signed out. Sign in to enable Supabase cloud save/load.')
       setSupabaseCloudPanelOpen(false)
       setTransientStatus('Supabase sign-out complete.')
@@ -1878,6 +1885,7 @@ function App() {
       setViewport(snapshot.viewport)
       setDslText(fullWorkspaceToLiteDsl(snapshot.workspace))
       setDslError(null)
+      setActiveSupabaseScriptWorkspaceId(null)
       setSupabaseCloudStatus(`Loaded cloud snapshot for workspace "${snapshot.workspace.workspace.name}".`)
       setTransientStatus('Workspace loaded from Supabase cloud.')
     } catch (error) {
@@ -1898,11 +1906,13 @@ function App() {
     setSupabaseCloudBusy(true)
     try {
       const generatedScript = fullWorkspaceToLiteDsl(workspace)
+      const cloudScriptWorkspaceId = activeSupabaseScriptWorkspaceId ?? workspace.workspace.id
       await supabaseWorkspaceCloudStore.saveScript(
-        workspace.workspace.id,
+        cloudScriptWorkspaceId,
         `${workspace.workspace.name} Script`,
         generatedScript,
       )
+      setActiveSupabaseScriptWorkspaceId(cloudScriptWorkspaceId)
       setSupabaseCloudStatus(`Cloud script saved for workspace "${workspace.workspace.name}".`)
       setTransientStatus('SJV Script saved to Supabase cloud.')
     } catch (error) {
@@ -1912,7 +1922,7 @@ function App() {
     } finally {
       setSupabaseCloudBusy(false)
     }
-  }, [setTransientStatus, workspace])
+  }, [activeSupabaseScriptWorkspaceId, setTransientStatus, workspace])
 
   const loadScriptFromSupabaseCloud = useCallback(async () => {
     if (!supabaseWorkspaceCloudStore) {
@@ -1922,9 +1932,32 @@ function App() {
 
     setSupabaseCloudBusy(true)
     try {
-      const script = await supabaseWorkspaceCloudStore.loadLatestScript(workspace.workspace.id)
+      const availableScripts = await supabaseWorkspaceCloudStore.listScripts()
+      if (!availableScripts.length) {
+        setSupabaseCloudStatus('No Supabase SJV Scripts have been saved for this account yet.')
+        return
+      }
+
+      let selectedScript: SupabaseCloudScriptSummary | null = null
+      try {
+        selectedScript = resolveSupabaseCloudScriptSelection(
+          availableScripts,
+          window.prompt(buildSupabaseCloudScriptSelectionPrompt(availableScripts), '1'),
+        )
+      } catch (error) {
+        setSupabaseCloudStatus(
+          error instanceof Error ? `Cloud script selection failed: ${error.message}` : 'Cloud script selection failed.',
+        )
+        return
+      }
+      if (!selectedScript) {
+        setSupabaseCloudStatus('Cloud script load canceled.')
+        return
+      }
+
+      const script = await supabaseWorkspaceCloudStore.loadLatestScript(selectedScript.workspaceId)
       if (!script) {
-        setSupabaseCloudStatus(`No cloud script found for workspace id "${workspace.workspace.id}".`)
+        setSupabaseCloudStatus(`The selected cloud script "${selectedScript.title}" is no longer available.`)
         return
       }
 
@@ -1934,6 +1967,7 @@ function App() {
         replaceWorkspace(imported.workspace, imported.entryViewId)
         setViewport(DEFAULT_FILE_VIEWPORT)
         setDslError(null)
+        setActiveSupabaseScriptWorkspaceId(selectedScript.workspaceId)
         setSupabaseCloudStatus(`Loaded cloud script "${script.title}".`)
         setTransientStatus('SJV Script loaded from Supabase cloud.')
       } catch (error) {
@@ -1947,7 +1981,7 @@ function App() {
     } finally {
       setSupabaseCloudBusy(false)
     }
-  }, [replaceWorkspace, resolveWorkspaceFromDslText, setTransientStatus, setViewport, workspace.workspace.id])
+  }, [replaceWorkspace, resolveWorkspaceFromDslText, setTransientStatus, setViewport])
 
   const openSupabaseGalleryPicker = useCallback(() => {
     supabaseGalleryFileInputRef.current?.click()
@@ -2087,9 +2121,10 @@ function App() {
     replaceWorkspace(nextWorkspace, BLANK_WORKSPACE_VIEW_ID)
     setViewport(DEFAULT_FILE_VIEWPORT)
     workspaceFileHandleRef.current = null
+    setActiveSupabaseScriptWorkspaceId(null)
     setExportError(null)
     setTransientStatus('New workspace created.')
-  }, [replaceWorkspace, setViewport, setTransientStatus])
+  }, [replaceWorkspace, setTransientStatus, setViewport])
 
   const loadWorkspacePayload = useCallback(
     (payload: string, options?: { fileName?: string; fileHandle?: WorkspaceFileHandle | null }) => {
@@ -2098,6 +2133,7 @@ function App() {
         replaceWorkspace(snapshot.workspace, snapshot.currentViewId)
         setViewport(snapshot.viewport)
         workspaceFileHandleRef.current = options?.fileHandle ?? null
+        setActiveSupabaseScriptWorkspaceId(null)
         setExportError(null)
         setTransientStatus(`Workspace file loaded: ${options?.fileName ?? 'workspace file'}`)
         return
@@ -2107,6 +2143,7 @@ function App() {
           replaceWorkspace(imported.workspace, imported.entryViewId)
           setViewport(DEFAULT_FILE_VIEWPORT)
           workspaceFileHandleRef.current = options?.fileHandle ?? null
+          setActiveSupabaseScriptWorkspaceId(null)
           setDslText(payload)
           setDslError(null)
           setExportError(null)
@@ -2120,7 +2157,7 @@ function App() {
         }
       }
     },
-    [replaceWorkspace, resolveWorkspaceFromDslText, setViewport, setTransientStatus],
+    [replaceWorkspace, resolveWorkspaceFromDslText, setTransientStatus, setViewport],
   )
 
   const openWorkspaceFilePicker = useCallback(async () => {
@@ -4275,6 +4312,9 @@ function App() {
         <p className="preferences-status">Use the top-right cloud badge for quick sign-in, gallery access, and automatic upload after standard PNG/GIF/MP4 exports.</p>
         <p className="preferences-status">{supabaseCloudStatus}</p>
         <p className="preferences-status">Current workspace id: {workspace.workspace.id}</p>
+        <p className="preferences-status">
+          Active cloud script target: {activeSupabaseScriptWorkspaceId ?? 'none selected'}
+        </p>
         <label className="preferences-select">
           Supabase email
           <input
@@ -4368,7 +4408,7 @@ function App() {
               void loadScriptFromSupabaseCloud()
             }}
           >
-            Load Latest SJV Script
+            Load Saved SJV Script
           </button>
         </div>
         <p className="preferences-status">

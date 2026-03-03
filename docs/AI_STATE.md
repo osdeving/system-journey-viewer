@@ -15,6 +15,7 @@
 - Latest cloud storage follow-up (2026-03-01, later pass) extends the optional Supabase integration with generated SJV Script persistence plus private `gallery` bucket upload/list/download backed by `gallery_assets` metadata.
 - Latest cloud UI/export increment (2026-03-01, final pass) promotes Supabase into the main desktop chrome with a top-right cloud badge, direct `PNG/GIF/MP4` export into the private gallery bucket, and a live `Help > Export Gallery` backed by signed preview URLs instead of static sample assets.
 - Latest cloud export automation increment (2026-03-01, final follow-up) moves cloud media sync into the standard local export flow so signed-in `PNG/GIF/MP4` exports auto-upload after download, removing redundant cloud-only export actions.
+- Latest cloud script load hotfix (2026-03-03) makes `Load Script from Supabase Cloud` list saved user scripts instead of only checking the current workspace ID, and keeps the selected cloud script row as the active save target until a new/local file replaces it.
 - Latest export hotfix (2026-03-01, night pass) aligns animated export theme backgrounds to the SVG `viewBox`/source frame and pre-fills raster composition frames so wide MP4 exports no longer reveal black transparent regions.
 - Latest canvas affordance hotfix (2026-03-01, late-night pass) adds a pulsing blue hover cue on exact node ports and lets `Select` mode start a connection directly from that hover without leaving selection mode.
 - Latest edge targeting hotfix (2026-03-01, final pass) widens the invisible pointer hit area for dashed edges so selection no longer requires near-pixel-perfect clicks, while automatic curve routing remains unchanged.
@@ -88,7 +89,8 @@
 - Optional Supabase cloud workspace persistence:
   - manual sign-in/sign-out from `Preferences` and the top-right cloud badge,
   - manual save/load of the current `EditorSnapshot` keyed by `(user, workspace id)`,
-  - manual save/load of the generated SJV Script keyed by `(user, workspace id)`,
+  - manual save of the generated SJV Script keyed by `(user, workspace id)` on first cloud save, then reusing the selected cloud script row for subsequent saves,
+  - manual cloud script load now lists saved scripts for the signed-in user before replacing the current workspace from the selected SJV payload,
   - manual upload/list/download of private user gallery assets (`PNG/GIF/MP4`) in the `gallery` bucket,
   - standard local `PNG/GIF/MP4` exports auto-upload into the private gallery when a Supabase user is signed in,
   - signed preview URLs let the private gallery render inside `Help > Export Gallery`,
@@ -190,6 +192,9 @@
   - tooltips are user-configurable from settings/preferences.
 - Cloud chrome enhancement:
   - a top-right Supabase badge now exposes login state, quick save/load, upload, refresh, gallery access, and auto-upload status without opening `Preferences`.
+- Supabase SJV Script load/save flow:
+  - `Load Script from Supabase Cloud` now prompts with a numbered list of saved scripts for the signed-in user,
+  - after loading one of those scripts, later `Save Script to Supabase Cloud` actions keep updating that same cloud row until a new or local file is loaded.
 - Menubar/toolbar regression fix:
   - desktop menu dropdowns are no longer clipped by topbar/menu container overflow,
   - topbar height now expands to fit wrapped content using scroll-height-aware measurement.

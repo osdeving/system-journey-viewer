@@ -69,7 +69,7 @@ describe('App source regressions', () => {
     expect(appSource).toContain('Save Workspace to Cloud')
     expect(appSource).toContain('Load Workspace from Cloud')
     expect(appSource).toContain('Save Generated SJV Script')
-    expect(appSource).toContain('Load Latest SJV Script')
+    expect(appSource).toContain('Load Saved SJV Script')
     expect(appSource).toContain('Upload File to Gallery')
     expect(appSource).toContain('Refresh Gallery List')
     expect(appSource).toContain('Save to Supabase Cloud')

@@ -2,6 +2,37 @@
 
 Chronological engineering log. Entries are kept concise and focused on behavior and validation.
 
+## 2026-03-03 - Supabase SJV Script load selection and sticky save target
+
+### Scope
+
+- Fixed the cloud SJV Script flow so saved scripts can be selected from a user-visible list instead of only loading by the current workspace ID.
+- Kept the selected cloud script row as the active save target so follow-up cloud saves keep updating the same Supabase record until a new/local file replaces it.
+
+### Changes
+
+- `apps/web/src/integrations/supabase/workspaceCloudStore.ts`, `apps/web/src/integrations/supabase/workspaceCloudStore.test.ts`
+  - added `listScripts()` for the signed-in user and regression coverage for the new Supabase scripts listing contract,
+  - kept the existing `scripts` table shape while exposing script summaries (`workspaceId`, `title`, `updatedAt`) for the UI.
+- `apps/web/src/integrations/supabase/cloudScriptSelection.ts`, `apps/web/src/integrations/supabase/cloudScriptSelection.test.ts`
+  - added a pure helper for numbered prompt rendering and selection parsing when loading saved cloud scripts,
+  - added focused tests for prompt text and invalid/valid selection handling.
+- `apps/web/src/App.tsx`, `apps/web/src/App.source.test.ts`
+  - `Load Script from Supabase Cloud` now lists saved scripts for the signed-in user, loads the selected SJV payload, and replaces the current workspace like a local `Open File`,
+  - the selected cloud script row is remembered as the active cloud save target,
+  - opening a local file, loading a workspace snapshot, creating a new file, or signing out clears that active cloud script target,
+  - updated the Preferences copy to reflect loading saved scripts instead of only the latest current-workspace script.
+- `docs/SUPABASE_SETUP.md`, `docs/AI_STATE.md`
+  - synced the user-facing Supabase docs and session state to describe the new script selection and sticky cloud-save behavior.
+
+### Validation
+
+- `git diff --check`
+- `npm --workspace @sjv/web run test:run -- src/integrations/supabase/workspaceCloudStore.test.ts src/integrations/supabase/cloudScriptSelection.test.ts src/App.source.test.ts`
+- `npm --workspace @sjv/web run lint`
+- `npm --workspace @sjv/web run test:run`
+- `npm --workspace @sjv/web run build`
+
 ## 2026-02-21 - Sticky note UX, multiline SJV text support, and semantic showcase export IDs
 
 ### Scope

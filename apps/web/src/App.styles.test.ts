@@ -123,6 +123,8 @@ describe('App boundary styles', () => {
     expect(appCss).toContain('.topbar-cloud-panel')
     expect(appCss).toContain('.topbar-cloud-field')
     expect(appCss).toContain('.topbar-cloud-script-picker')
+    expect(appCss).toContain('.topbar-cloud-script-search')
+    expect(appCss).toContain('.topbar-cloud-script-search-label')
     expect(appCss).toContain('.topbar-cloud-script-list')
     expect(appCss).toContain('.topbar-cloud-script-row')
     expect(appCss).toContain('.topbar-cloud-script-row-active')

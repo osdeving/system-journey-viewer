@@ -2,6 +2,33 @@
 
 Chronological engineering log. Entries are kept concise and focused on behavior and validation.
 
+## 2026-03-03 - Supabase cloud script picker search filter
+
+### Scope
+
+- Added search/filter to the top-right Supabase cloud script picker so saved scripts are easier to find once the list grows.
+
+### Changes
+
+- `apps/web/src/integrations/supabase/cloudScriptSelection.ts`, `apps/web/src/integrations/supabase/cloudScriptSelection.test.ts`
+  - added a pure helper to filter saved cloud scripts by title or workspace ID using case-insensitive matching,
+  - added focused regression coverage for blank and matching filter queries.
+- `apps/web/src/App.tsx`, `apps/web/src/App.css`, `apps/web/src/App.source.test.ts`, `apps/web/src/App.styles.test.ts`
+  - added a `Filter scripts` search field inside the top-right cloud picker,
+  - the picker now narrows the visible script rows as you type and shows an explicit empty-state message when nothing matches,
+  - closing the picker (or loading/replacing the workspace) clears the current filter text,
+  - added source/style regression coverage for the new search UI.
+- `docs/SUPABASE_SETUP.md`, `docs/AI_STATE.md`
+  - updated docs/session state to mention title/workspace-id filtering in the cloud script picker.
+
+### Validation
+
+- `git diff --check`
+- `npm --workspace @sjv/web run test:run -- src/integrations/supabase/cloudScriptSelection.test.ts src/App.source.test.ts src/App.styles.test.ts`
+- `npm --workspace @sjv/web run lint`
+- `npm --workspace @sjv/web run test:run`
+- `npm --workspace @sjv/web run build`
+
 ## 2026-03-03 - Supabase cloud script picker UI in topbar badge
 
 ### Scope

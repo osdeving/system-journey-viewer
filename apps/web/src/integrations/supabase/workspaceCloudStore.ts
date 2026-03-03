@@ -63,6 +63,11 @@ type ScriptQuery = {
   workspaceId: string
 }
 
+type GalleryAssetDeleteQuery = {
+  userId: string
+  assetId: string
+}
+
 type GalleryAssetRecord = {
   userId: string
   title: string
@@ -133,10 +138,13 @@ type WorkspaceCloudStoreDeps = {
   upsertScript: (record: ScriptRecord) => Promise<VoidResult>
   listScripts: (userId: string) => Promise<ScriptListResult>
   loadLatestScript: (query: ScriptQuery) => Promise<ScriptLoadResult>
+  deleteScript: (query: ScriptQuery) => Promise<VoidResult>
   uploadGalleryFile: (record: GalleryUploadRecord) => Promise<VoidResult>
   insertGalleryAsset: (record: GalleryAssetRecord) => Promise<GalleryInsertResult>
   listGalleryAssets: (userId: string) => Promise<GalleryListResult>
+  deleteGalleryAssetRecord: (query: GalleryAssetDeleteQuery) => Promise<VoidResult>
   downloadGalleryFile: (storagePath: string) => Promise<GalleryDownloadResult>
+  deleteGalleryFile: (storagePath: string) => Promise<VoidResult>
   createGallerySignedUrl: (storagePath: string, expiresIn: number) => Promise<GallerySignedUrlResult>
 }
 
@@ -309,6 +317,20 @@ export const createSupabaseWorkspaceCloudStore = (deps: WorkspaceCloudStoreDeps)
     return result.script
   },
 
+  async deleteScript(workspaceId: string): Promise<void> {
+    const user = await requireSignedInUser(deps)
+    const normalizedWorkspaceId = workspaceId.trim()
+    if (!normalizedWorkspaceId) {
+      throw new Error('A workspace id is required to delete a cloud script.')
+    }
+
+    const result = await deps.deleteScript({
+      userId: user.id,
+      workspaceId: normalizedWorkspaceId,
+    })
+    unwrapError(result.error)
+  },
+
   async uploadGalleryAsset(file: File, title?: string): Promise<SupabaseGalleryAsset> {
     const user = await requireSignedInUser(deps)
     const normalizedFileName = sanitizeFileName(file.name)
@@ -393,6 +415,25 @@ export const createSupabaseWorkspaceCloudStore = (deps: WorkspaceCloudStoreDeps)
     const result = await deps.listGalleryAssets(user.id)
     unwrapError(result.error)
     return result.assets
+  },
+
+  async deleteGalleryAsset(asset: SupabaseGalleryAsset): Promise<void> {
+    const user = await requireSignedInUser(deps)
+    if (!asset.id.trim()) {
+      throw new Error('A gallery asset id is required.')
+    }
+    if (!asset.storagePath.startsWith(`${user.id}/`)) {
+      throw new Error('Requested gallery asset is outside the signed-in user scope.')
+    }
+
+    const fileDeleteResult = await deps.deleteGalleryFile(asset.storagePath)
+    unwrapError(fileDeleteResult.error)
+
+    const metadataDeleteResult = await deps.deleteGalleryAssetRecord({
+      userId: user.id,
+      assetId: asset.id,
+    })
+    unwrapError(metadataDeleteResult.error)
   },
 
   async downloadGalleryAsset(storagePath: string): Promise<Blob> {
@@ -544,6 +585,15 @@ export const supabaseWorkspaceCloudStore = browserClient
           error: normalizeError(error),
         }
       },
+      deleteScript: async ({ userId, workspaceId }) => {
+        const { error } = await browserClient
+          .from('scripts')
+          .delete()
+          .eq('user_id', userId)
+          .eq('workspace_id', workspaceId)
+
+        return { error: normalizeError(error) }
+      },
       uploadGalleryFile: async ({ path, file, contentType }) => {
         const { error } = await browserClient.storage.from(SUPABASE_GALLERY_BUCKET).upload(path, file, {
           upsert: false,
@@ -583,6 +633,15 @@ export const supabaseWorkspaceCloudStore = browserClient
           error: normalizeError(error),
         }
       },
+      deleteGalleryAssetRecord: async ({ userId, assetId }) => {
+        const { error } = await browserClient
+          .from('gallery_assets')
+          .delete()
+          .eq('user_id', userId)
+          .eq('id', assetId)
+
+        return { error: normalizeError(error) }
+      },
       downloadGalleryFile: async (storagePath) => {
         const { data, error } = await browserClient.storage
           .from(SUPABASE_GALLERY_BUCKET)
@@ -592,6 +651,13 @@ export const supabaseWorkspaceCloudStore = browserClient
           blob: data ?? null,
           error: normalizeError(error),
         }
+      },
+      deleteGalleryFile: async (storagePath) => {
+        const { error } = await browserClient.storage
+          .from(SUPABASE_GALLERY_BUCKET)
+          .remove([storagePath])
+
+        return { error: normalizeError(error) }
       },
       createGallerySignedUrl: async (storagePath, expiresIn) => {
         const { data, error } = await browserClient.storage

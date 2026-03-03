@@ -59,6 +59,7 @@ const createDeps = () => {
     },
     error: null,
   })
+  const deleteScript = vi.fn().mockResolvedValue({ error: null })
   const uploadGalleryFile = vi.fn().mockResolvedValue({ error: null })
   const insertGalleryAsset = vi.fn().mockImplementation(async (record) => ({
     asset: {
@@ -86,10 +87,12 @@ const createDeps = () => {
     ],
     error: null,
   })
+  const deleteGalleryAssetRecord = vi.fn().mockResolvedValue({ error: null })
   const downloadGalleryFile = vi.fn().mockResolvedValue({
     blob: new Blob(['demo']),
     error: null,
   })
+  const deleteGalleryFile = vi.fn().mockResolvedValue({ error: null })
   const createGallerySignedUrl = vi.fn().mockResolvedValue({
     url: 'https://example.test/signed/demo-export.mp4',
     error: null,
@@ -107,10 +110,13 @@ const createDeps = () => {
       upsertScript,
       listScripts,
       loadLatestScript,
+      deleteScript,
       uploadGalleryFile,
       insertGalleryAsset,
       listGalleryAssets,
+      deleteGalleryAssetRecord,
       downloadGalleryFile,
+      deleteGalleryFile,
       createGallerySignedUrl,
     },
     mocks: {
@@ -124,10 +130,13 @@ const createDeps = () => {
       upsertScript,
       listScripts,
       loadLatestScript,
+      deleteScript,
       uploadGalleryFile,
       insertGalleryAsset,
       listGalleryAssets,
+      deleteGalleryAssetRecord,
       downloadGalleryFile,
+      deleteGalleryFile,
       createGallerySignedUrl,
     },
   }
@@ -224,6 +233,32 @@ describe('createSupabaseWorkspaceCloudStore', () => {
     expect(created.fileName).toBe('demo-export.mp4')
     expect(listed).toHaveLength(1)
     expect(blob.size).toBeGreaterThan(0)
+  })
+
+  it('deletes cloud scripts and gallery assets inside the signed-in user scope', async () => {
+    const { deps, mocks } = createDeps()
+    const store = createSupabaseWorkspaceCloudStore(deps)
+
+    await store.deleteScript(sampleSnapshot.workspace.workspace.id)
+    await store.deleteGalleryAsset({
+      id: 'asset-row-1',
+      title: 'demo export.mp4',
+      fileName: 'demo-export.mp4',
+      storagePath: 'user-1/asset-1/demo-export.mp4',
+      contentType: 'video/mp4',
+      sizeBytes: 4096,
+      createdAt: '2026-03-01T00:00:00.000Z',
+    })
+
+    expect(mocks.deleteScript).toHaveBeenCalledWith({
+      userId: 'user-1',
+      workspaceId: sampleSnapshot.workspace.workspace.id,
+    })
+    expect(mocks.deleteGalleryFile).toHaveBeenCalledWith('user-1/asset-1/demo-export.mp4')
+    expect(mocks.deleteGalleryAssetRecord).toHaveBeenCalledWith({
+      userId: 'user-1',
+      assetId: 'asset-row-1',
+    })
   })
 
   it('uploads generated blobs and creates signed preview urls for private gallery assets', async () => {

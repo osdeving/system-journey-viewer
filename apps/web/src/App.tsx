@@ -101,6 +101,10 @@ import {
 } from './file/recentWorkspaces'
 import helpGuideMarkdown from './help/help.md?raw'
 import {
+  buildSupabaseCloudLibrarySections,
+  type SupabaseCloudLibraryItem,
+} from './integrations/supabase/cloudLibrary'
+import {
   filterSupabaseCloudScripts,
   formatSupabaseCloudScriptUpdatedAt,
 } from './integrations/supabase/cloudScriptSelection'
@@ -842,6 +846,44 @@ function App() {
   const filteredSupabaseCloudScripts = useMemo(
     () => filterSupabaseCloudScripts(supabaseCloudScripts, supabaseCloudScriptSearch),
     [supabaseCloudScriptSearch, supabaseCloudScripts],
+  )
+  const supabaseCloudLibrarySections = useMemo(
+    () => buildSupabaseCloudLibrarySections(supabaseCloudScripts, supabaseGalleryAssets),
+    [supabaseCloudScripts, supabaseGalleryAssets],
+  )
+  const supabaseCloudLibraryItemCount = supabaseCloudScripts.length + supabaseGalleryAssets.length
+  const renderSupabaseCloudLibraryPreview = useCallback(
+    (item: SupabaseCloudLibraryItem): ReactNode => {
+      if (item.kind === 'script') {
+        return (
+          <div className="help-gallery-script-preview" aria-hidden="true">
+            <span className="help-gallery-script-preview-badge">
+              <Code2 size={15} />
+              SJV Script
+            </span>
+            <span className="help-gallery-script-preview-line help-gallery-script-preview-line-wide" />
+            <span className="help-gallery-script-preview-line" />
+            <span className="help-gallery-script-preview-line help-gallery-script-preview-line-short" />
+          </div>
+        )
+      }
+
+      const previewUrl = supabaseGalleryPreviewUrls[item.asset.storagePath] ?? null
+      if (item.asset.contentType.startsWith('video/')) {
+        return previewUrl ? (
+          <video src={previewUrl} controls muted loop preload="metadata" />
+        ) : (
+          <div className="help-gallery-preview-empty">Preparing secure video preview...</div>
+        )
+      }
+
+      return previewUrl ? (
+        <img src={previewUrl} alt={item.asset.title} loading="lazy" />
+      ) : (
+        <div className="help-gallery-preview-empty">Preparing secure image preview...</div>
+      )
+    },
+    [supabaseGalleryPreviewUrls],
   )
   const defaultNodeColorPresets = theme === 'dark' ? DARK_NODE_COLOR_PRESETS : LIGHT_NODE_COLOR_PRESETS
   const nodeColorPresets = useMemo(() => {
@@ -1697,18 +1739,50 @@ function App() {
   const refreshSupabaseGalleryAssets = useCallback(async () => {
     if (!supabaseWorkspaceCloudStore) {
       setSupabaseCloudStatus(`Supabase cloud is not configured. ${SUPABASE_PUBLIC_ENV_HINT}`)
-      return
+      throw new Error(`Supabase cloud is not configured. ${SUPABASE_PUBLIC_ENV_HINT}`)
     }
 
     try {
       const assets = await supabaseWorkspaceCloudStore.listGalleryAssets()
       setSupabaseGalleryAssets(assets)
+      return assets
     } catch (error) {
       setSupabaseCloudStatus(
         error instanceof Error ? `Gallery refresh failed: ${error.message}` : 'Gallery refresh failed.',
       )
+      throw error instanceof Error ? error : new Error('Gallery refresh failed.')
     }
   }, [])
+
+  const refreshSupabaseCloudScripts = useCallback(async () => {
+    if (!supabaseWorkspaceCloudStore) {
+      setSupabaseCloudStatus(`Supabase cloud is not configured. ${SUPABASE_PUBLIC_ENV_HINT}`)
+      throw new Error(`Supabase cloud is not configured. ${SUPABASE_PUBLIC_ENV_HINT}`)
+    }
+
+    try {
+      const scripts = await supabaseWorkspaceCloudStore.listScripts()
+      setSupabaseCloudScripts(scripts)
+      return scripts
+    } catch (error) {
+      setSupabaseCloudStatus(
+        error instanceof Error ? `Cloud script refresh failed: ${error.message}` : 'Cloud script refresh failed.',
+      )
+      throw error instanceof Error ? error : new Error('Cloud script refresh failed.')
+    }
+  }, [])
+
+  const refreshSupabaseCloudLibrary = useCallback(async () => {
+    setSupabaseCloudBusy(true)
+    try {
+      await Promise.all([refreshSupabaseGalleryAssets(), refreshSupabaseCloudScripts()])
+      setSupabaseCloudStatus('Supabase cloud library refreshed.')
+    } catch {
+      // Individual refresh handlers already surface a specific error message.
+    } finally {
+      setSupabaseCloudBusy(false)
+    }
+  }, [refreshSupabaseGalleryAssets, refreshSupabaseCloudScripts])
 
   useEffect(() => {
     if (!supabaseWorkspaceCloudStore) {
@@ -1727,12 +1801,14 @@ function App() {
 
   useEffect(() => {
     if (!supabaseCloudUser) {
+      setSupabaseCloudScripts([])
       setSupabaseGalleryAssets([])
       setSupabaseGalleryPreviewUrls({})
       return
     }
-    void refreshSupabaseGalleryAssets()
-  }, [refreshSupabaseGalleryAssets, supabaseCloudUser])
+    void refreshSupabaseGalleryAssets().catch(() => undefined)
+    void refreshSupabaseCloudScripts().catch(() => undefined)
+  }, [refreshSupabaseCloudScripts, refreshSupabaseGalleryAssets, supabaseCloudUser])
 
   useEffect(() => {
     if (!supabaseWorkspaceCloudStore || !supabaseCloudUser || !supabaseGalleryAssets.length) {
@@ -1972,9 +2048,8 @@ function App() {
     setSupabaseCloudPanelOpen(true)
     setSupabaseCloudBusy(true)
     try {
-      const availableScripts = await supabaseWorkspaceCloudStore.listScripts()
+      const availableScripts = await refreshSupabaseCloudScripts()
       setSupabaseCloudScriptSearch('')
-      setSupabaseCloudScripts(availableScripts)
       setSupabaseCloudScriptPickerOpen(true)
       setSupabaseCloudStatus(
         availableScripts.length
@@ -1992,7 +2067,7 @@ function App() {
     } finally {
       setSupabaseCloudBusy(false)
     }
-  }, [])
+  }, [refreshSupabaseCloudScripts])
 
   const loadSelectedSupabaseCloudScript = useCallback(
     async (selectedScript: SupabaseCloudScriptSummary) => {
@@ -2064,6 +2139,72 @@ function App() {
       } catch (error) {
         setSupabaseCloudStatus(
           error instanceof Error ? `Gallery download failed: ${error.message}` : 'Gallery download failed.',
+        )
+      } finally {
+        setSupabaseCloudBusy(false)
+      }
+    },
+    [setTransientStatus],
+  )
+
+  const deleteSupabaseCloudScript = useCallback(
+    async (script: SupabaseCloudScriptSummary) => {
+      if (!supabaseWorkspaceCloudStore) {
+        setSupabaseCloudStatus(`Supabase cloud is not configured. ${SUPABASE_PUBLIC_ENV_HINT}`)
+        setSupabaseCloudPanelOpen(true)
+        return
+      }
+      if (typeof window !== 'undefined' && !window.confirm(`Delete the cloud script "${script.title}"?`)) {
+        return
+      }
+
+      setSupabaseCloudBusy(true)
+      try {
+        await supabaseWorkspaceCloudStore.deleteScript(script.workspaceId)
+        setSupabaseCloudScripts((current) => current.filter((candidate) => candidate.workspaceId !== script.workspaceId))
+        if (activeSupabaseScriptWorkspaceId === script.workspaceId) {
+          setActiveSupabaseScriptWorkspaceId(null)
+        }
+        setSupabaseCloudStatus(`Deleted cloud script "${script.title}".`)
+        setTransientStatus('SJV Script deleted from Supabase cloud.')
+      } catch (error) {
+        setSupabaseCloudStatus(
+          error instanceof Error ? `Cloud script delete failed: ${error.message}` : 'Cloud script delete failed.',
+        )
+      } finally {
+        setSupabaseCloudBusy(false)
+      }
+    },
+    [activeSupabaseScriptWorkspaceId, setTransientStatus],
+  )
+
+  const deleteSupabaseGalleryAsset = useCallback(
+    async (asset: SupabaseGalleryAsset) => {
+      if (!supabaseWorkspaceCloudStore) {
+        setSupabaseCloudStatus(`Supabase cloud is not configured. ${SUPABASE_PUBLIC_ENV_HINT}`)
+        return
+      }
+      if (typeof window !== 'undefined' && !window.confirm(`Delete the gallery asset "${asset.title}"?`)) {
+        return
+      }
+
+      setSupabaseCloudBusy(true)
+      try {
+        await supabaseWorkspaceCloudStore.deleteGalleryAsset(asset)
+        setSupabaseGalleryAssets((current) => current.filter((candidate) => candidate.id !== asset.id))
+        setSupabaseGalleryPreviewUrls((current) => {
+          if (!current[asset.storagePath]) {
+            return current
+          }
+          const next = { ...current }
+          delete next[asset.storagePath]
+          return next
+        })
+        setSupabaseCloudStatus(`Deleted gallery asset "${asset.fileName}".`)
+        setTransientStatus('Gallery asset deleted from Supabase.')
+      } catch (error) {
+        setSupabaseCloudStatus(
+          error instanceof Error ? `Gallery delete failed: ${error.message}` : 'Gallery delete failed.',
         )
       } finally {
         setSupabaseCloudBusy(false)
@@ -4192,8 +4333,8 @@ function App() {
           <p>
             {supabaseCloudConfigured
               ? supabaseCloudReady
-                ? 'Your private Supabase gallery is live below. Standard PNG/GIF/MP4 exports now auto-upload here after the local file is generated.'
-                : 'Sign in from the top-right cloud badge to unlock your private Supabase gallery previews and automatic upload after each PNG/GIF/MP4 export.'
+                ? 'Your private Supabase cloud library is live below. Saved scripts are grouped beside your uploaded assets. Standard PNG/GIF/MP4 exports now auto-upload here after the local file is generated.'
+                : 'Sign in from the top-right cloud badge to unlock your private Supabase cloud library, secure previews, and automatic upload after each PNG/GIF/MP4 export.'
               : `Supabase cloud is not configured. ${SUPABASE_PUBLIC_ENV_HINT}`}
           </p>
           <div className="help-gallery-actions">
@@ -4208,55 +4349,76 @@ function App() {
               type="button"
               disabled={!supabaseCloudReady || supabaseCloudBusy}
               onClick={() => {
-                void refreshSupabaseGalleryAssets()
+                void refreshSupabaseCloudLibrary()
               }}
             >
-              Refresh Gallery
+              Refresh Library
             </button>
           </div>
           {supabaseCloudReady ? (
-            supabaseGalleryAssets.length ? (
-              <div className="help-gallery-grid">
-                {supabaseGalleryAssets.map((asset) => {
-                  const previewUrl = supabaseGalleryPreviewUrls[asset.storagePath] ?? null
-                  return (
-                    <article key={asset.id} className="help-gallery-card">
-                      {asset.contentType.startsWith('video/') ? (
-                        previewUrl ? (
-                          <video src={previewUrl} controls muted loop preload="metadata" />
-                        ) : (
-                          <div className="help-gallery-preview-empty">Preparing secure video preview...</div>
-                        )
-                      ) : previewUrl ? (
-                        <img src={previewUrl} alt={asset.title} loading="lazy" />
-                      ) : (
-                        <div className="help-gallery-preview-empty">Preparing secure image preview...</div>
-                      )}
-                      <div className="help-gallery-card-copy">
-                        <h3>{asset.title}</h3>
-                        <p>{asset.fileName}</p>
-                        <p>
-                          {asset.contentType} · {formatBytesLabel(asset.sizeBytes)}
-                        </p>
-                      </div>
-                      <div className="help-gallery-card-actions">
-                        <button
-                          type="button"
-                          disabled={supabaseCloudBusy}
-                          onClick={() => {
-                            void downloadSupabaseGalleryAsset(asset)
-                          }}
-                        >
-                          Download
-                        </button>
-                      </div>
-                    </article>
-                  )
-                })}
+            supabaseCloudLibrarySections.length ? (
+              <div className="help-gallery-sections">
+                {supabaseCloudLibrarySections.map((section) => (
+                  <section key={section.id} className="help-gallery-section">
+                    <div className="help-gallery-section-header">
+                      <h3>{section.title}</h3>
+                      <span className="help-gallery-section-badge">{section.items.length}</span>
+                    </div>
+                    <div className="help-gallery-grid">
+                      {section.items.map((item) => (
+                        <article key={`${item.kind}:${item.id}`} className="help-gallery-card">
+                          {renderSupabaseCloudLibraryPreview(item)}
+                          <div className="help-gallery-card-copy">
+                            <h4 title={item.title}>{item.title}</h4>
+                          </div>
+                          <div className="help-gallery-card-actions">
+                            {item.kind === 'script' ? (
+                              <button
+                                type="button"
+                                disabled={supabaseCloudBusy}
+                                onClick={() => {
+                                  void loadSelectedSupabaseCloudScript(item.script)
+                                }}
+                              >
+                                Load
+                              </button>
+                            ) : (
+                              <button
+                                type="button"
+                                disabled={supabaseCloudBusy}
+                                onClick={() => {
+                                  void downloadSupabaseGalleryAsset(item.asset)
+                                }}
+                              >
+                                Download
+                              </button>
+                            )}
+                            <button
+                              type="button"
+                              className="help-gallery-icon-button"
+                              aria-label={`Delete ${item.title}`}
+                              title={item.kind === 'script' ? 'Delete script from Supabase Cloud' : 'Delete media from Supabase Cloud'}
+                              disabled={supabaseCloudBusy}
+                              onClick={() => {
+                                if (item.kind === 'script') {
+                                  void deleteSupabaseCloudScript(item.script)
+                                  return
+                                }
+                                void deleteSupabaseGalleryAsset(item.asset)
+                              }}
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          </div>
+                        </article>
+                      ))}
+                    </div>
+                  </section>
+                ))}
               </div>
             ) : (
               <p className="help-gallery-empty">
-                No Supabase gallery assets yet. Run a normal PNG/GIF/MP4 export while signed in, or upload local media here.
+                No Supabase cloud library items yet. Run a normal PNG/GIF/MP4 export while signed in, save an SJV Script, or upload local media here.
               </p>
             )
           ) : null}
@@ -4513,7 +4675,7 @@ function App() {
             className="preferences-inline-action"
             disabled={!supabaseCloudConfigured || !supabaseCloudUser || supabaseCloudBusy}
             onClick={() => {
-              void refreshSupabaseGalleryAssets()
+              void refreshSupabaseGalleryAssets().catch(() => undefined)
             }}
           >
             Refresh Gallery List
@@ -5420,7 +5582,7 @@ function App() {
             {!supabaseCloudConfigured
               ? 'Not configured'
               : supabaseCloudReady
-                ? `${supabaseGalleryAssets.length} asset${supabaseGalleryAssets.length === 1 ? '' : 's'}`
+                ? `${supabaseCloudLibraryItemCount} item${supabaseCloudLibraryItemCount === 1 ? '' : 's'}`
                 : 'Sign in required'}
           </span>
         </span>
@@ -5443,45 +5605,57 @@ function App() {
               <p className="topbar-cloud-hint">
                 Standard PNG/GIF/MP4 exports now auto-upload here after the local file is generated.
               </p>
-              <div className="topbar-cloud-actions">
-                <button
-                  type="button"
-                  disabled={supabaseCloudBusy}
-                  onClick={() => {
-                    void saveWorkspaceToSupabaseCloud()
-                  }}
-                >
-                  Save
-                </button>
-                <button
-                  type="button"
-                  disabled={supabaseCloudBusy}
-                  onClick={() => {
-                    void loadWorkspaceFromSupabaseCloud()
-                  }}
-                >
-                  Load
-                </button>
-              </div>
-              <div className="topbar-cloud-actions">
-                <button
-                  type="button"
-                  disabled={supabaseCloudBusy}
-                  onClick={() => {
-                    void saveScriptToSupabaseCloud()
-                  }}
-                >
-                  Save script
-                </button>
-                <button
-                  type="button"
-                  disabled={supabaseCloudBusy}
-                  onClick={() => {
-                    void loadScriptFromSupabaseCloud()
-                  }}
-                >
-                  Load script
-                </button>
+              <div className="topbar-cloud-command-grid">
+                <section className="topbar-cloud-command-card">
+                  <span className="topbar-cloud-command-label">Workspace Snapshot</span>
+                  <div className="topbar-cloud-command-buttons">
+                    <button
+                      type="button"
+                      aria-label="Save workspace snapshot to Supabase Cloud"
+                      disabled={supabaseCloudBusy}
+                      onClick={() => {
+                        void saveWorkspaceToSupabaseCloud()
+                      }}
+                    >
+                      Save
+                    </button>
+                    <button
+                      type="button"
+                      aria-label="Load workspace snapshot from Supabase Cloud"
+                      disabled={supabaseCloudBusy}
+                      onClick={() => {
+                        void loadWorkspaceFromSupabaseCloud()
+                      }}
+                    >
+                      Load
+                    </button>
+                  </div>
+                </section>
+                <section className="topbar-cloud-command-card">
+                  <span className="topbar-cloud-command-label">SJV Script</span>
+                  <div className="topbar-cloud-command-buttons">
+                    <button
+                      type="button"
+                      aria-label="Save script to Supabase Cloud"
+                      disabled={supabaseCloudBusy}
+                      onClick={() => {
+                        void saveScriptToSupabaseCloud()
+                      }}
+                    >
+                      Save
+                    </button>
+                    <button
+                      type="button"
+                      aria-label="Load script from Supabase Cloud"
+                      disabled={supabaseCloudBusy}
+                      onClick={() => {
+                        void loadScriptFromSupabaseCloud()
+                      }}
+                    >
+                      Load
+                    </button>
+                  </div>
+                </section>
               </div>
               {supabaseCloudScriptPickerOpen ? (
                 <div className="topbar-cloud-script-picker">
@@ -5505,36 +5679,56 @@ function App() {
                   ) : null}
                   {supabaseCloudScripts.length ? (
                     filteredSupabaseCloudScripts.length ? (
-                    <div className="topbar-cloud-script-list" aria-label="Saved Supabase SJV Scripts">
-                      {filteredSupabaseCloudScripts.map((script) => {
-                        const isActiveTarget = activeSupabaseScriptWorkspaceId === script.workspaceId
-                        return (
-                          <button
-                            key={script.workspaceId}
-                            type="button"
-                            className={
-                              isActiveTarget
-                                ? 'topbar-cloud-script-row topbar-cloud-script-row-active'
-                                : 'topbar-cloud-script-row'
-                            }
-                            disabled={supabaseCloudBusy}
-                            onClick={() => {
-                              void loadSelectedSupabaseCloudScript(script)
-                            }}
-                          >
-                            <span className="topbar-cloud-script-row-copy">
-                              <strong>{script.title}</strong>
-                              <span className="topbar-cloud-script-row-meta">
-                                Updated {formatSupabaseCloudScriptUpdatedAt(script.updatedAt)}
-                              </span>
-                            </span>
-                            {isActiveTarget ? (
-                              <span className="topbar-cloud-script-row-badge">Active save target</span>
-                            ) : null}
-                          </button>
-                        )
-                      })}
-                    </div>
+                      <div className="topbar-cloud-script-list" aria-label="Saved Supabase SJV Scripts">
+                        {filteredSupabaseCloudScripts.map((script) => {
+                          const isActiveTarget = activeSupabaseScriptWorkspaceId === script.workspaceId
+                          return (
+                            <div
+                              key={script.workspaceId}
+                              className={
+                                isActiveTarget
+                                  ? 'topbar-cloud-script-row-shell topbar-cloud-script-row-active'
+                                  : 'topbar-cloud-script-row-shell'
+                              }
+                            >
+                              <button
+                                type="button"
+                                className="topbar-cloud-script-row"
+                                disabled={supabaseCloudBusy}
+                                onClick={() => {
+                                  void loadSelectedSupabaseCloudScript(script)
+                                }}
+                              >
+                                <span className="topbar-cloud-script-row-copy">
+                                  <span className="topbar-cloud-script-row-chip">
+                                    <Code2 size={12} />
+                                    Script
+                                  </span>
+                                  <strong>{script.title}</strong>
+                                  <span className="topbar-cloud-script-row-meta">
+                                    Updated {formatSupabaseCloudScriptUpdatedAt(script.updatedAt)}
+                                  </span>
+                                </span>
+                                {isActiveTarget ? (
+                                  <span className="topbar-cloud-script-row-badge">Active save target</span>
+                                ) : null}
+                              </button>
+                              <button
+                                type="button"
+                                className="topbar-cloud-script-row-delete"
+                                aria-label={`Delete ${script.title}`}
+                                title="Delete script from Supabase Cloud"
+                                disabled={supabaseCloudBusy}
+                                onClick={() => {
+                                  void deleteSupabaseCloudScript(script)
+                                }}
+                              >
+                                <Trash2 size={13} />
+                              </button>
+                            </div>
+                          )
+                        })}
+                      </div>
                     ) : (
                       <p className="topbar-cloud-hint">No saved scripts match this filter.</p>
                     )
@@ -5555,7 +5749,7 @@ function App() {
                   type="button"
                   disabled={supabaseCloudBusy}
                   onClick={() => {
-                    void refreshSupabaseGalleryAssets()
+                    void refreshSupabaseCloudLibrary()
                   }}
                 >
                   Refresh

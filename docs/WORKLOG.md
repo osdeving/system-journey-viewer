@@ -2,6 +2,38 @@
 
 Chronological engineering log. Entries are kept concise and focused on behavior and validation.
 
+## 2026-03-03 - Supabase cloud library groups scripts/media and supports deletion
+
+### Scope
+
+- Polished the Supabase cloud UI so the gallery reads as a typed cloud library, scripts appear beside media, and both scripts and media can be deleted from the UI.
+- Tightened the top-right cloud panel action layout so the workspace/script save-load controls read more clearly.
+
+### Changes
+
+- `apps/web/src/integrations/supabase/workspaceCloudStore.ts`, `apps/web/src/integrations/supabase/workspaceCloudStore.test.ts`
+  - added `deleteScript(...)` and `deleteGalleryAsset(...)` support in the injected store plus browser Supabase implementation,
+  - wired table-row deletion via filtered `.delete()` and bucket cleanup via `storage.remove([...])`,
+  - added regression coverage for deleting both cloud scripts and gallery assets.
+- `apps/web/src/integrations/supabase/cloudLibrary.ts`, `apps/web/src/integrations/supabase/cloudLibrary.test.ts`
+  - added a pure helper that groups cloud content into `Scripts`, `Videos`, `Images`, and fallback `Media` sections for the UI,
+  - added focused tests for grouping order and unsupported content types.
+- `apps/web/src/App.tsx`, `apps/web/src/App.css`, `apps/web/src/App.source.test.ts`, `apps/web/src/App.styles.test.ts`
+  - `Help > Export Gallery` now renders a compact cloud-library view with type sections, script thumbnails, title-only card copy, and inline `Load` / `Download` plus delete actions,
+  - the top-right cloud badge now counts total library items (scripts + media) instead of only media assets,
+  - the cloud panel now presents separate `Workspace Snapshot` and `SJV Script` action cards instead of two loosely aligned button rows,
+  - the in-panel saved-script picker now includes an inline delete action per script row.
+- `docs/SUPABASE_SETUP.md`, `docs/AI_STATE.md`
+  - updated docs/state to describe the unified cloud library, grouped script/media sections, and delete affordances.
+
+### Validation
+
+- `git diff --check`
+- `npm --workspace @sjv/web run test:run -- src/integrations/supabase/workspaceCloudStore.test.ts src/integrations/supabase/cloudLibrary.test.ts src/App.source.test.ts src/App.styles.test.ts`
+- `npm --workspace @sjv/web run lint`
+- `npm --workspace @sjv/web run test:run`
+- `npm --workspace @sjv/web run build`
+
 ## 2026-03-03 - Topbar sizing no longer clips full-height splitters after popovers
 
 ### Scope

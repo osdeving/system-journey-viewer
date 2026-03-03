@@ -163,9 +163,10 @@ The current integration is intentionally small:
 
 - top-right cloud badge
   - sign in / sign out without opening `Preferences`
-  - quick save/load for the current workspace
+  - quick save/load cards for the current workspace snapshot and the generated `SJV Script`
+  - in-panel saved-script picker with search, active-target highlighting, and script deletion
   - shows auto-upload status for standard local `PNG` / `GIF` / `MP4` exports
-  - local upload, refresh, and a shortcut into `Help > Export Gallery`
+  - local upload, full cloud-library refresh, and a shortcut into `Help > Export Gallery`
 - `Preferences > Supabase Cloud`
   - the same manual auth/save/load controls remain available as a fallback
   - save/load the current workspace snapshot
@@ -174,8 +175,10 @@ The current integration is intentionally small:
   - upload local PNG/GIF/MP4 files into the private `gallery` bucket
   - list and download your recent gallery assets
 - `Help > Export Gallery`
-  - shows your live private gallery when signed in (using signed preview URLs for the private bucket)
-  - focuses on viewing uploaded assets plus local upload / refresh actions
+  - shows your live private cloud library when signed in (using signed preview URLs for the private bucket)
+  - groups saved `SJV Script`s, videos, and images into separate sections
+  - lets you `Load` / delete scripts and `Download` / delete uploaded media
+  - keeps the visible card copy compact by showing only the item title under each thumbnail
 - `File` menu
   - `Save to Supabase Cloud`
   - `Load from Supabase Cloud`

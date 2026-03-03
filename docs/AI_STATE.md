@@ -21,6 +21,7 @@
 - Latest cloud script picker count follow-up (2026-03-03, final follow-up) adds a live filtered-vs-total results count above the saved-script list.
 - Latest DSL sync visual-state hotfix (2026-03-03, late follow-up) preserves current in-memory node/edge visual state (including edge port anchors) while `Sync with editor` reapplies valid SJV edits without `metadata ui-layout`.
 - Latest manual SJV import follow-up (2026-03-03, late follow-up) applies that same visual-state preservation rule to the `Import SJV Script` button when the imported text omits `metadata ui-layout`.
+- Latest cloud library polish pass (2026-03-03, final follow-up) turns `Help > Export Gallery` into a grouped cloud library that mixes saved scripts with uploaded media, adds delete actions for both, and cleans up the top-right cloud action layout.
 - Latest topbar sizing follow-up (2026-03-03, late-night follow-up) measures topbar height from in-flow header content only, so closed menus/popovers no longer leave side splitters starting too low.
 - Latest managed-window placement hotfix (2026-03-03, late-night pass) reopens closed docked panels in their remembered host (`left|right|bottom`) instead of forcing the default host, and no longer auto-opens the bottom workbench when leaving Presentation mode.
 - Latest export hotfix (2026-03-01, night pass) aligns animated export theme backgrounds to the SVG `viewBox`/source frame and pre-fills raster composition frames so wide MP4 exports no longer reveal black transparent regions.
@@ -98,7 +99,9 @@
   - manual save/load of the current `EditorSnapshot` keyed by `(user, workspace id)`,
   - manual save of the generated SJV Script keyed by `(user, workspace id)` on first cloud save, then reusing the selected cloud script row for subsequent saves,
   - manual cloud script load now lists saved scripts for the signed-in user inside the top-right cloud panel before replacing the current workspace from the selected SJV payload,
+  - cloud scripts and gallery media are now also surfaced together in `Help > Export Gallery` as one grouped cloud library,
   - manual upload/list/download of private user gallery assets (`PNG/GIF/MP4`) in the `gallery` bucket,
+  - cloud scripts and gallery media can now be deleted from the UI,
   - standard local `PNG/GIF/MP4` exports auto-upload into the private gallery when a Supabase user is signed in,
   - signed preview URLs let the private gallery render inside `Help > Export Gallery`,
   - local browser persistence remains the default fallback and continues to autosave independently.
@@ -206,6 +209,8 @@
   - `Load Script from Supabase Cloud` now opens a clickable list of saved scripts inside the top-right cloud panel,
   - the saved-script list now supports search/filter by title or workspace ID,
   - the picker also shows a live `filtered of total` result count while you type,
+  - the picker now includes inline script deletion,
+  - the top-right cloud panel now groups save/load controls into labeled `Workspace Snapshot` and `SJV Script` action cards,
   - after loading one of those scripts, later `Save Script to Supabase Cloud` actions keep updating that same cloud row until a new or local file is loaded.
 - Menubar/toolbar regression fix:
   - desktop menu dropdowns are no longer clipped by topbar/menu container overflow,

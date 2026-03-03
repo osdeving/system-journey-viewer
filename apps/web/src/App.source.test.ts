@@ -42,6 +42,13 @@ describe('App source regressions', () => {
     expect((appSource.match(/setDrawerCollapsed\(false\)/g) ?? [])).toHaveLength(2)
   })
 
+  it('measures topbar height from in-flow content instead of overflow popovers', () => {
+    expect(appSource).toContain('const inFlowTopbarContentHeight = Array.from(topbarElement.children).reduce')
+    expect(appSource).toContain("if (childPosition === 'absolute' || childPosition === 'fixed')")
+    expect(appSource).toContain('contentHeight: inFlowTopbarContentHeight')
+    expect(appSource).not.toContain('scrollHeight: topbarElement.scrollHeight')
+  })
+
   it('persists UI density and applies a root density class', () => {
     expect(appSource).toContain("type UiDensity = 'comfortable' | 'compact'")
     expect(appSource).toContain("density: 'compact'")

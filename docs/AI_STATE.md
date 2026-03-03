@@ -21,6 +21,7 @@
 - Latest cloud script picker count follow-up (2026-03-03, final follow-up) adds a live filtered-vs-total results count above the saved-script list.
 - Latest DSL sync visual-state hotfix (2026-03-03, late follow-up) preserves current in-memory node/edge visual state (including edge port anchors) while `Sync with editor` reapplies valid SJV edits without `metadata ui-layout`.
 - Latest manual SJV import follow-up (2026-03-03, late follow-up) applies that same visual-state preservation rule to the `Import SJV Script` button when the imported text omits `metadata ui-layout`.
+- Latest topbar sizing follow-up (2026-03-03, late-night follow-up) measures topbar height from in-flow header content only, so closed menus/popovers no longer leave side splitters starting too low.
 - Latest managed-window placement hotfix (2026-03-03, late-night pass) reopens closed docked panels in their remembered host (`left|right|bottom`) instead of forcing the default host, and no longer auto-opens the bottom workbench when leaving Presentation mode.
 - Latest export hotfix (2026-03-01, night pass) aligns animated export theme backgrounds to the SVG `viewBox`/source frame and pre-fills raster composition frames so wide MP4 exports no longer reveal black transparent regions.
 - Latest canvas affordance hotfix (2026-03-01, late-night pass) adds a pulsing blue hover cue on exact node ports and lets `Select` mode start a connection directly from that hover without leaving selection mode.
@@ -196,6 +197,7 @@
   - bottom drawer dock mode.
 - Desktop shell enhancements:
   - dynamic topbar height measurement prevents overflow/wrap regressions from shrinking canvas/drawer space,
+  - topbar height measurement now ignores absolutely positioned popovers when computing persisted shell offsets, so full-height side splitters stay aligned after menus/panels close,
   - toolbar is now grouped and rendered in a dedicated row with section-level visibility preferences,
   - tooltips are user-configurable from settings/preferences.
 - Cloud chrome enhancement:

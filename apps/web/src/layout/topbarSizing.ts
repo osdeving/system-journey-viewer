@@ -5,7 +5,7 @@
 type TopbarHeightInput = {
   minHeight: number
   renderedHeight: number
-  scrollHeight: number
+  contentHeight: number
 }
 
 const toSafeCeil = (value: number): number => {
@@ -18,6 +18,6 @@ const toSafeCeil = (value: number): number => {
 export const resolveTopbarHeight = ({
   minHeight,
   renderedHeight,
-  scrollHeight,
+  contentHeight,
 }: TopbarHeightInput): number =>
-  Math.max(toSafeCeil(minHeight), toSafeCeil(renderedHeight), toSafeCeil(scrollHeight))
+  Math.max(toSafeCeil(minHeight), toSafeCeil(renderedHeight), toSafeCeil(contentHeight))

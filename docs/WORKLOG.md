@@ -2,6 +2,34 @@
 
 Chronological engineering log. Entries are kept concise and focused on behavior and validation.
 
+## 2026-06-26 - Compact toolbar and shell tone regression fix
+
+### Scope
+
+- Fixed compact menu behavior reported from local `npm run dev`: hiding the menu now always keeps the toolbar in the app-logo row, and shell text/control tones are subdued consistently across menu, toolbar, Preferences, and light-canvas mode.
+
+### Changes
+
+- `apps/web/src/App.tsx`
+  - clicking the app logo now toggles the main menu in both directions,
+  - hiding the main menu forces the compact inline toolbar layout even when the older `toolbarInlineWithBrand` preference is off,
+  - the cloud badge remains hidden only in the compact hidden-menu topbar so toolbar space is preserved.
+- `apps/web/src/App.css`
+  - aligned themed shell controls around `--sjv-shell-muted` so menu, toolbar, search, View selector, Preferences cards/inputs, palette cards, and status items avoid bright white text,
+  - included `view-hierarchy` and presentation controls in the dark chrome token rules so they no longer render as white/light islands over the professional shell,
+  - kept the canvas light while chrome controls stay dark/subdued in both `theme-dark` and `theme-light`.
+- `apps/web/src/App.source.test.ts`, `apps/web/src/App.styles.test.ts`
+  - added regressions for forced inline toolbar when the menu is hidden, bidirectional app-logo menu toggling, and muted themed-control color contracts.
+
+### Validation
+
+- `npm --workspace @sjv/web run test:run -- src/App.source.test.ts src/App.styles.test.ts`
+- `npm --workspace @sjv/web run lint`
+- `npm --workspace @sjv/web run test:run`
+- `npm --workspace @sjv/web run build`
+- `git diff --check`
+- Playwright/Firefox check against `http://127.0.0.1:5177/`: verified hidden menu with `toolbarInlineWithBrand: false` still renders `app-toolbar-inline`, toolbar starts 10px after the app logo on the same row, no old restore button/cloud badge is rendered, app-logo click hides and restores the main menu, and menu/toolbar/View/Search/Preferences samples use muted text over dark controls in both dark and light workspace theme modes.
+
 ## 2026-06-26 - Compact menu logo restore and dock tear-off polish
 
 ### Scope

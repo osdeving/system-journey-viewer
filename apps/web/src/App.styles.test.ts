@@ -119,6 +119,12 @@ describe('App boundary styles', () => {
     expect(appCss).toMatch(
       /\.topbar-actions\s*\{[^}]*flex-wrap:\s*nowrap;[^}]*overflow-x:\s*auto;[^}]*overflow-y:\s*hidden;[^}]*\}/s,
     )
+    expect(appCss).toMatch(
+      /\.app-toolbar-inline\.app-menu-hidden\s+\.topbar\s*\{[^}]*grid-template-columns:\s*auto minmax\(0,\s*1fr\) auto;[^}]*grid-template-rows:\s*auto;[^}]*\}/s,
+    )
+    expect(appCss).toMatch(
+      /\.app-toolbar-inline\.app-menu-hidden\s+\.topbar-actions\s*\{[^}]*grid-column:\s*2;[^}]*grid-row:\s*1;[^}]*align-self:\s*center;[^}]*\}/s,
+    )
     expect(appCss).toContain('.toolbar-icon-button')
     expect(appCss).toMatch(
       /\.app-layout-presentation\s+\.topbar\s*\{[^}]*grid-template-columns:\s*auto minmax\(0,\s*1fr\);[^}]*\}/s,
@@ -216,6 +222,20 @@ describe('App boundary styles', () => {
     expect(appCss).toContain('.panel-group-toggle')
     expect(appCss).toContain('.journey-filter-button')
     expect(appCss).toContain('.app-layout-performance')
+  })
+
+  it('keeps themed shell controls subdued instead of bright white', () => {
+    expect(appCss).toMatch(
+      /:is\(\.app-chrome-theme-midnight,[^)]*\.app-chrome-theme-custom\)\s*\{[^}]*color:\s*var\(--sjv-shell-muted\);/s,
+    )
+    expect(appCss).toMatch(
+      /:is\(\.app-chrome-theme-midnight,[^)]*\.app-chrome-theme-custom\)\s*:is\([^)]*\.view-hierarchy-control,[^)]*\.view-hierarchy-select,[^)]*\.topbar-actions button[^)]*\)\s*\{[^}]*color:\s*var\(--sjv-shell-muted\);/s,
+    )
+    expect(appCss).toMatch(
+      /:is\(\.toolbar-button-label,\s*\.desktop-menu-trigger,\s*\.view-hierarchy-control,\s*\.view-hierarchy-select,\s*\.presentation-select,\s*\.command-palette-trigger span,\s*\.topbar-cloud-badge-copy strong\)\s*\{[^}]*color:\s*var\(--sjv-shell-muted\);/s,
+    )
+    expect(appCss).toContain('.preferences-theme-card')
+    expect(appCss).toContain('.preferences-gallery-item')
   })
 
   it('keeps the workbench chrome compact and neutral for long editing sessions', () => {

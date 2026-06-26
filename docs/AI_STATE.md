@@ -27,6 +27,7 @@
 - Latest Vercel build-output hotfix (2026-03-03, same-night follow-up) explicitly aligns `outputDirectory` with the monorepo layout: `apps/web/dist` at repo root and `dist` inside `apps/web`.
 - Latest topbar sizing follow-up (2026-03-03, late-night follow-up) measures topbar height from in-flow header content only, so closed menus/popovers no longer leave side splitters starting too low.
 - Latest managed-window placement hotfix (2026-03-03, late-night pass) reopens closed docked panels in their remembered host (`left|right|bottom`) instead of forcing the default host, and no longer auto-opens the bottom workbench when leaving Presentation mode.
+- Latest product polish increment (2026-06-26) adds a searchable command palette (`Ctrl/Cmd+K` or `/`) for commands/views/journeys/nodes/edges, a canvas minimap with click-to-recenter navigation, a canvas status strip, and a persisted performance mode that disables extra motion/depth/confetti work.
 - Latest export hotfix (2026-03-01, night pass) aligns animated export theme backgrounds to the SVG `viewBox`/source frame and pre-fills raster composition frames so wide MP4 exports no longer reveal black transparent regions.
 - Latest canvas affordance hotfix (2026-03-01, late-night pass) adds a pulsing blue hover cue on exact node ports and lets `Select` mode start a connection directly from that hover without leaving selection mode.
 - Latest edge targeting hotfix (2026-03-01, final pass) widens the invisible pointer hit area for dashed edges so selection no longer requires near-pixel-perfect clicks, while automatic curve routing remains unchanged.
@@ -43,6 +44,14 @@
 ## Implemented Product Flows
 
 - Canvas editing with pan/zoom, grid/snap, nodes/edges, ports, and docking.
+- Command palette:
+  - opens via `Ctrl/Cmd+K`, `/`, desktop topbar Search, or mobile Search,
+  - indexes commands, views, journeys, nodes, and edges,
+  - node/edge results select the target and center the canvas on it.
+- Canvas minimap/status:
+  - bottom-right minimap renders a lightweight SVG overview of current-view nodes and viewport,
+  - minimap clicks recenter the canvas without changing the diagram model,
+  - bottom-left status strip shows current view, zoom, node count, edge count, and performance mode.
 - Touch-first mobile shell flow:
   - dedicated `/m` route renders a simplified mobile chrome over the same workspace/store,
   - narrow touch-first devices auto-open into that shell,
@@ -211,6 +220,8 @@
   - dynamic topbar height measurement prevents overflow/wrap regressions from shrinking canvas/drawer space,
   - topbar height measurement now ignores absolutely positioned popovers when computing persisted shell offsets, so full-height side splitters stay aligned after menus/panels close,
   - toolbar is now grouped and rendered in a dedicated row with section-level visibility preferences,
+  - topbar includes a Search command-palette trigger beside the cloud badge,
+  - preferences persist minimap visibility and performance mode on the existing backward-compatible `sjv-ui-preferences-v1` key,
   - tooltips are user-configurable from settings/preferences.
 - Cloud chrome enhancement:
   - a top-right Supabase badge now exposes login state, quick save/load, upload, refresh, gallery access, and auto-upload status without opening `Preferences`.

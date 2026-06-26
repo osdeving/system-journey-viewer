@@ -2,6 +2,38 @@
 
 Chronological engineering log. Entries are kept concise and focused on behavior and validation.
 
+## 2026-06-26 - Componentization refactor for canvas and dock panels
+
+### Scope
+
+- Split reusable UI and pure rendering helpers out of oversized app/canvas files without changing editor behavior.
+- Created component boundaries that can be reused by another project with explicit props instead of direct store coupling.
+
+### Changes
+
+- `apps/web/src/components/canvas/DiagramNode.tsx`
+  - extracted SVG node rendering, node-local affordances, ports, drilldown badges, text, and shape composition out of `DiagramCanvas.tsx`.
+- `apps/web/src/diagram/nodes/nodeLabelLayout.ts`
+  - extracted pure node label truncation/layout helpers from canvas rendering code.
+- `apps/web/src/components/palette/PalettePanel.tsx`, `apps/web/src/presets/presetDragData.ts`
+  - extracted the node preset palette from `App.tsx` and centralized the drag MIME contract.
+- `apps/web/src/components/journeys/JourneyTimelinePanel.tsx`
+  - extracted the active journey timeline list, current tick display, step drag/drop wiring, and remove actions from `App.tsx`.
+- `apps/web/src/components/inspector/InspectorPanel.tsx`
+  - extracted node/edge inspector forms from `App.tsx` behind explicit data and action props.
+- `apps/web/src/App.source.test.ts`, `apps/web/src/components/canvas/DiagramCanvas.source.test.ts`
+  - updated source regression tests so they assert the new component boundaries instead of requiring all JSX to remain inline.
+- `docs/FILE_ATLAS.md`, `docs/AI_STATE.md`
+  - documented the new reusable component folders and refactor baseline.
+
+### Validation
+
+- `npm --workspace @sjv/web run test:run -- src/components/inspector/InspectorPanel.test.tsx src/components/journeys/JourneyTimelinePanel.test.tsx src/components/palette/PalettePanel.test.tsx src/components/canvas/DiagramNode.test.tsx src/components/canvas/DiagramCanvas.source.test.ts src/diagram/nodes/nodeLabelLayout.test.ts src/diagram/nodes/nodeShapePaths.test.ts`
+- `npm --workspace @sjv/web run lint`
+- `npm --workspace @sjv/web run test:run`
+- `npm --workspace @sjv/web run build`
+- `git diff --check`
+
 ## 2026-06-26 - Cylinder faces stay fixed while nodes stretch
 
 ### Scope

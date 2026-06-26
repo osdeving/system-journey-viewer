@@ -2,7 +2,7 @@
  * Purpose: Orchestrate the desktop-style SJV web app shell, window layout, and editor interactions.
  */
 
-import { Fragment, Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type {
   ChangeEvent,
   PointerEvent as ReactPointerEvent,
@@ -69,6 +69,9 @@ import { GuidedTutorialOverlay } from './components/tutorial/GuidedTutorialOverl
 import { DockHost } from './components/windowing/DockHost'
 import { DiagramCanvas } from './components/canvas/DiagramCanvas'
 import { FloatingWindow } from './components/windowing/FloatingWindow'
+import { PalettePanel, type PalettePanelCategory } from './components/palette/PalettePanel'
+import { JourneyTimelinePanel } from './components/journeys/JourneyTimelinePanel'
+import { InspectorPanel } from './components/inspector/InspectorPanel'
 import {
   buildNodeConfettiBursts,
   resolveNodeConfettiAnchor,
@@ -251,6 +254,13 @@ const LIGHT_TEXT_COLOR_PRESETS = ['#0f172a', '#1e293b', '#334155', '#475569', '#
 const DARK_TEXT_COLOR_PRESETS = ['#ffffff', '#f8fafc', '#e2e8f0', '#cbd5e1', '#94a3b8', '#0f172a']
 
 const MonacoEditor = lazy(() => import('@monaco-editor/react'))
+const NODE_PALETTE_CATEGORIES = Object.entries(nodePresetsByCategory).map(
+  ([category, presets]) => ({
+    id: category,
+    title: category,
+    presets,
+  }),
+) satisfies PalettePanelCategory[]
 
 const formatBytesLabel = (bytes: number): string => {
   if (!Number.isFinite(bytes) || bytes < 0) {
@@ -4385,128 +4395,20 @@ function App() {
   )
 
   const journeyTimelineContent = (
-    <>
-      <div className="journey-timeline-toolbar">
-        <strong>Active journey timeline</strong>
-        <span className="player-step-info">
-          Step {playerStepIndex + 1}/{playerJourneyPlaybackLength}
-        </span>
-      </div>
-      {activeJourney ? (
-        <ol className="journey-steps">
-          {activeJourneyTimelineRows.map((row) => {
-            const isCurrentTick = activeJourney.id === playerJourneyId && row.tickIndex === playerStepIndex
-            return (
-              <Fragment key={`${activeJourney.id}:${row.key}`}>
-                {row.showTickBadge ? (
-                  <li
-                    className={[
-                      'journey-tick-group-header',
-                      row.tickStepCount > 1 ? 'journey-tick-group-header-parallel' : '',
-                      isCurrentTick ? 'journey-tick-group-header-current' : '',
-                    ]
-                      .filter(Boolean)
-                      .join(' ')}
-                  >
-                    <span className="journey-tick-group-title">Tick {row.tickIndex + 1}</span>
-                    {row.tickStepCount > 1 ? (
-                      <span className="journey-thread-pill journey-thread-pill-parallel">
-                        Parallel x{row.tickStepCount}
-                      </span>
-                    ) : null}
-                    {isCurrentTick ? (
-                      <span className="journey-thread-pill journey-tick-current-pill">Current</span>
-                    ) : null}
-                  </li>
-                ) : null}
-                <li
-                  className={[
-                    'journey-step-item',
-                    'journey-item',
-                    row.laneKind === 'thread' ? 'journey-step-item-thread' : 'journey-step-item-main',
-                    isCurrentTick ? 'journey-step-item-current-tick' : '',
-                  ]
-                    .filter(Boolean)
-                    .join(' ')}
-                  draggable={row.laneKind === 'main'}
-                  onDragStart={row.laneKind === 'main' ? () => onJourneyStepDragStart(activeJourney.id, row.edgeId) : undefined}
-                  onDragOver={
-                    row.laneKind === 'main'
-                      ? (event) => {
-                          event.preventDefault()
-                          event.dataTransfer.dropEffect = 'move'
-                        }
-                      : undefined
-                  }
-                  onDrop={row.laneKind === 'main' ? () => onJourneyStepDrop(activeJourney.id, row.edgeId) : undefined}
-                  onDragEnd={
-                    row.laneKind === 'main'
-                      ? () => {
-                          journeyStepDragRef.current = null
-                        }
-                      : undefined
-                  }
-                >
-                  <span
-                    className={[
-                      'journey-tick-badge',
-                      row.showTickBadge ? '' : 'journey-tick-badge-placeholder',
-                      row.tickStepCount > 1 ? 'journey-tick-badge-parallel' : '',
-                    ]
-                      .filter(Boolean)
-                      .join(' ')}
-                    title={
-                      row.showTickBadge
-                        ? `Tick ${row.tickIndex + 1}${row.tickStepCount > 1 ? ` (${row.tickStepCount} parallel edges)` : ''}`
-                        : undefined
-                    }
-                    aria-hidden={!row.showTickBadge}
-                  >
-                    {row.showTickBadge ? row.tickIndex + 1 : ''}
-                  </span>
-                  <span className="journey-drag-handle" aria-hidden="true">
-                    {row.laneKind === 'main' ? <GripVertical size={13} /> : <Workflow size={12} />}
-                  </span>
-                  <span className="journey-color-dot" style={{ background: row.accentColor }} />
-                  <span className="journey-step-label">
-                    {row.laneKind === 'thread' ? (
-                      <span
-                        className="journey-thread-pill"
-                        style={{ borderColor: row.accentColor, color: row.accentColor }}
-                      >
-                        Thread {row.threadId}
-                      </span>
-                    ) : null}
-                    {row.laneKind === 'thread' && row.tickStepCount > 1 ? (
-                      <span className="journey-thread-pill journey-thread-pill-tick">
-                        Tick {row.tickIndex + 1}
-                      </span>
-                    ) : null}
-                    <span>
-                      {row.laneKind === 'main'
-                        ? `${row.laneStepNumber}. `
-                        : `${row.threadId}.${row.laneStepNumber} `}
-                      {workspace.edges[row.edgeId]?.label ?? row.edgeId}
-                    </span>
-                  </span>
-                  <span className="journey-step-actions">
-                    {row.laneKind === 'main' ? (
-                      <button type="button" onClick={() => removeEdgeFromJourney(activeJourney.id, row.edgeId)}>
-                        Remove
-                      </button>
-                    ) : (
-                      <span className="journey-step-thread-note">Script-managed</span>
-                    )}
-                  </span>
-                </li>
-              </Fragment>
-            )
-          })}
-        </ol>
-      ) : (
-        <p>Select a journey on the sidebar to view the timeline.</p>
-      )}
-    </>
+    <JourneyTimelinePanel
+      activeJourney={activeJourney}
+      rows={activeJourneyTimelineRows}
+      edgesById={workspace.edges}
+      playerJourneyId={playerJourneyId}
+      playerStepIndex={playerStepIndex}
+      playerJourneyPlaybackLength={playerJourneyPlaybackLength}
+      onStepDragStart={onJourneyStepDragStart}
+      onStepDrop={onJourneyStepDrop}
+      onStepDragEnd={() => {
+        journeyStepDragRef.current = null
+      }}
+      onRemoveStep={removeEdgeFromJourney}
+    />
   )
 
   const dslPanelContent = (
@@ -5065,30 +4967,10 @@ function App() {
   )
 
   const palettePanelContent = (
-    <div className="dock-content-section">
-      <h2>Palette</h2>
-      <p>Drag to canvas:</p>
-      {Object.entries(nodePresetsByCategory).map(([category, presets], index) => (
-        <PanelGroup key={category} title={category} defaultExpanded={index === 0} className="toolbox-group">
-          <ul className="toolbox-list">
-            {presets.map((preset) => (
-              <li
-                key={preset.id}
-                draggable
-                onDragStart={(event) => {
-                  event.dataTransfer.setData('application/x-node-preset-id', preset.id)
-                }}
-              >
-                <span className="toolbox-item-icon" aria-hidden="true">
-                  {iconForKey(preset.iconKey)}
-                </span>
-                <span className="toolbox-item-label">{preset.label}</span>
-              </li>
-            ))}
-          </ul>
-        </PanelGroup>
-      ))}
-    </div>
+    <PalettePanel
+      categories={NODE_PALETTE_CATEGORIES}
+      renderPresetIcon={(preset) => iconForKey(preset.iconKey)}
+    />
   )
 
   const dockLabelByTab: Record<DockTab, string> = {
@@ -5141,206 +5023,36 @@ function App() {
   }
 
   const inspectorDockContent = (
-    <div className="dock-content-section">
-      <h2>Inspector</h2>
-      {!selectedNode && !selectedEdge ? <p>Select a node or edge on the canvas.</p> : null}
-      {selectedNodes.length > 1 ? (
-        <p>{selectedNodes.length} selected components (current focus: {selectedNode?.name ?? 'n/a'}).</p>
-      ) : null}
-      {selectedNode ? (
-        <PanelGroup title="Node details">
-          <div className="inspector-form">
-            <label htmlFor="node-id">ID</label>
-            <input id="node-id" value={selectedNode.id} disabled />
-            <label htmlFor="node-kind">Type</label>
-            <input id="node-kind" value={selectedNode.kind} disabled />
-            <label htmlFor="node-name">Name</label>
-            {selectedNode.kind === 'note' ? (
-              <textarea
-                id="node-name"
-                data-tutorial-id="inspector-node-name"
-                rows={4}
-                value={selectedNode.name}
-                onChange={(event) => setNodeNameWithTutorialTracking(selectedNode.id, event.target.value)}
-              />
-            ) : (
-              <input
-                id="node-name"
-                data-tutorial-id="inspector-node-name"
-                value={selectedNode.name}
-                onChange={(event) => setNodeNameWithTutorialTracking(selectedNode.id, event.target.value)}
-              />
-            )}
-            <label htmlFor="node-preset">Preset</label>
-            <input
-              id="node-preset"
-              value={resolveNodePreset(selectedNode.presetId ?? '')?.label ?? 'Custom'}
-              disabled
-            />
-            <label htmlFor="node-tech">Technology</label>
-            <input
-              id="node-tech"
-              value={selectedNode.tech?.label ?? ''}
-              onChange={(event) => setNodeTech(selectedNode.id, event.target.value)}
-            />
-            {selectedNode.kind !== 'boundary' ? (
-              <>
-                <label htmlFor="node-color">Node color</label>
-                <input
-                  id="node-color"
-                  type="color"
-                  value={
-                    isHexColor(selectedNode.style?.fillColor)
-                      ? selectedNode.style?.fillColor ?? '#2563eb'
-                      : '#2563eb'
-                  }
-                  onChange={(event) => setNodeColor(selectedNode.id, event.target.value)}
-                />
-                <label>Suggested palette ({theme === 'dark' ? 'Tailwind dark' : 'Tailwind light'})</label>
-                <div className="node-color-presets">
-                  {nodeColorPresets.map((color) => (
-                    <button
-                      key={color}
-                      type="button"
-                      className={
-                        selectedNode.style?.fillColor === color
-                          ? 'node-color-chip node-color-chip-active'
-                          : 'node-color-chip'
-                      }
-                      style={{ background: color }}
-                      title={withTooltip(color)}
-                      onClick={() => setNodeColor(selectedNode.id, color)}
-                    />
-                  ))}
-                </div>
-              </>
-            ) : null}
-            <label htmlFor="node-text-color">Text color</label>
-            <input
-              id="node-text-color"
-              type="color"
-              value={
-                isHexColor(selectedNode.style?.textColor)
-                  ? selectedNode.style?.textColor ?? (theme === 'dark' ? '#f8fafc' : '#0f172a')
-                  : theme === 'dark'
-                    ? '#f8fafc'
-                    : '#0f172a'
-              }
-              onChange={(event) => setNodeTextColor(selectedNode.id, event.target.value)}
-            />
-            <label>Text palette</label>
-            <div className="node-color-presets">
-              {nodeTextColorPresets.map((color) => (
-                <button
-                  key={color}
-                  type="button"
-                  className={
-                    selectedNode.style?.textColor === color
-                      ? 'node-color-chip node-color-chip-active'
-                      : 'node-color-chip'
-                  }
-                  style={{ background: color }}
-                  title={withTooltip(color)}
-                  onClick={() => setNodeTextColor(selectedNode.id, color)}
-                />
-              ))}
-            </div>
-            <div className="inspector-actions">
-              <button type="button" onClick={() => duplicateCurrentSelection()}>
-                Duplicate
-              </button>
-              <button type="button" onClick={() => deleteCurrentSelection()}>
-                Delete
-              </button>
-            </div>
-          </div>
-        </PanelGroup>
-      ) : null}
-      {selectedEdge ? (
-        <PanelGroup title="Edge details">
-          <div className="inspector-form">
-            <label htmlFor="edge-id">ID</label>
-            <input id="edge-id" value={selectedEdge.id} disabled />
-            <label htmlFor="edge-label">Label</label>
-            <input
-              id="edge-label"
-              data-tutorial-id="inspector-edge-label"
-              value={selectedEdge.label}
-              onChange={(event) => setEdgeLabelWithTutorialTracking(selectedEdge.id, event.target.value)}
-            />
-            <label htmlFor="edge-protocol">Protocol</label>
-            <select
-              id="edge-protocol"
-              data-tutorial-id="inspector-edge-protocol"
-              value={selectedEdge.protocolPresetId}
-              onChange={(event) => setEdgeProtocolWithTutorialTracking(selectedEdge.id, event.target.value)}
-            >
-              {protocolPresets.map((protocol) => (
-                <option key={protocol.id} value={protocol.id}>
-                  {protocol.label}
-                </option>
-              ))}
-            </select>
-            <label htmlFor="edge-label-position">Label Position</label>
-            <input
-              id="edge-label-position"
-              type="range"
-              min={0.08}
-              max={0.92}
-              step={0.01}
-              value={selectedEdge.style.labelPosition ?? 0.5}
-              onChange={(event) => setEdgeLabelPosition(selectedEdge.id, Number(event.target.value))}
-            />
-            <span className="edge-label-position-value">
-              {Math.round((selectedEdge.style.labelPosition ?? 0.5) * 100)}%
-            </span>
-            <label htmlFor="edge-label-side">Label Side</label>
-            <select
-              id="edge-label-side"
-              value={selectedEdge.style.labelSide ?? 'left'}
-              onChange={(event) =>
-                setEdgeLabelSide(selectedEdge.id, event.target.value as 'left' | 'right')
-              }
-            >
-              <option value="left">Left / Top</option>
-              <option value="right">Right / Bottom</option>
-            </select>
-            <label htmlFor="edge-label-angle">Label Rotation</label>
-            <input
-              id="edge-label-angle"
-              type="range"
-              min={-180}
-              max={180}
-              step={1}
-              value={selectedEdge.style.labelAngle ?? 0}
-              onChange={(event) => setEdgeLabelAngle(selectedEdge.id, Number(event.target.value))}
-            />
-            <span className="edge-label-position-value">
-              {Math.round(selectedEdge.style.labelAngle ?? 0)}°
-            </span>
-            <div className="inspector-actions">
-              <button type="button" onClick={() => duplicateCurrentSelection()}>
-                Duplicate
-              </button>
-              <button type="button" onClick={() => deleteCurrentSelection()}>
-                Delete
-              </button>
-            </div>
-            <button
-              type="button"
-              onClick={() => {
-                if (activeJourneyId) {
-                  addEdgeToJourney(activeJourneyId, selectedEdge.id)
-                }
-              }}
-              disabled={!activeJourneyId}
-            >
-              Add to Active Journey
-            </button>
-          </div>
-        </PanelGroup>
-      ) : null}
-    </div>
+    <InspectorPanel
+      selectedNode={selectedNode ?? null}
+      selectedEdge={selectedEdge ?? null}
+      selectedNodeCount={selectedNodes.length}
+      selectedNodePresetLabel={
+        selectedNode ? resolveNodePreset(selectedNode.presetId ?? '')?.label ?? 'Custom' : 'Custom'
+      }
+      theme={theme}
+      nodeColorPresets={nodeColorPresets}
+      nodeTextColorPresets={nodeTextColorPresets}
+      protocolOptions={protocolPresets}
+      activeJourneyId={activeJourneyId}
+      getTooltip={withTooltip}
+      onNodeNameChange={setNodeNameWithTutorialTracking}
+      onNodeTechChange={setNodeTech}
+      onNodeColorChange={setNodeColor}
+      onNodeTextColorChange={setNodeTextColor}
+      onEdgeLabelChange={setEdgeLabelWithTutorialTracking}
+      onEdgeProtocolChange={setEdgeProtocolWithTutorialTracking}
+      onEdgeLabelPositionChange={setEdgeLabelPosition}
+      onEdgeLabelSideChange={setEdgeLabelSide}
+      onEdgeLabelAngleChange={setEdgeLabelAngle}
+      onDuplicateSelection={duplicateCurrentSelection}
+      onDeleteSelection={deleteCurrentSelection}
+      onAddEdgeToActiveJourney={(edgeId) => {
+        if (activeJourneyId) {
+          addEdgeToJourney(activeJourneyId, edgeId)
+        }
+      }}
+    />
   )
 
   const journeysDockContent = (

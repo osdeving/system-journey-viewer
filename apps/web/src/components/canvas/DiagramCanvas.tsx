@@ -31,22 +31,19 @@ import {
 } from '../../journeys/playbackPlan'
 import { deriveThreadTimelineColor } from '../../journeys/timelineRows'
 import { protocolPresets } from '../../presets/catalog'
-import { iconForKey } from '../../presets/iconPipeline'
+import { NODE_PRESET_DRAG_MIME_TYPE } from '../../presets/presetDragData'
 import { useEditorStore } from '../../store/useEditorStore'
 import {
   resolveEdgeJourneyBadge,
   type EdgeJourneyBadge,
   type EdgeJourneyMarker,
 } from '../../diagram/edges/edgeJourneyBadge'
-import { CanvasText } from './CanvasText'
-import { resolveHexConnectorRole } from '../../diagram/nodes/hexConnectorRole'
-import { resolveNodePortClassName } from '../../diagram/nodes/nodePortClassName'
 import { JourneyEdge } from './JourneyEdge'
+import { DiagramNode } from './DiagramNode'
 import {
-  resolveDbCylinderShape,
-  resolveHexagonShape,
-  resolveQueueCylinderShape,
-} from '../../diagram/nodes/nodeShapePaths'
+  estimateCanvasTextWidth,
+  type NodeLabelLayout,
+} from '../../diagram/nodes/nodeLabelLayout'
 import {
   curveToSvgPath,
   cubicPointAt,
@@ -192,16 +189,6 @@ type InlineTextEditState = {
   textColor?: string
 }
 
-type NodeLabelLayout = {
-  titleX: number
-  titleY: number
-  subtitleX: number
-  subtitleY: number
-  textAnchor: 'start' | 'middle'
-  maxTitleWidth: number
-  maxSubtitleWidth: number
-}
-
 const ZOOM_SENSITIVITY = 0.0012
 const TRAIL_INITIAL_ALPHA = 0.72
 const TRAIL_FADE_FACTOR = 0.0003
@@ -224,95 +211,6 @@ const FINAL_STEP_ARRIVAL_HOLD_MS = 220
 const MIN_EDGE_LABEL_FONT_SIZE = 9
 const MAX_EDGE_LABEL_FONT_SIZE = 28
 const DEFAULT_EDGE_LABEL_FONT_SIZE = 11
-
-const estimateTextWidth = (text: string, fontSize: number): number =>
-  Math.max(fontSize, text.trim().length * fontSize * 0.56)
-
-const truncateCanvasText = (
-  value: string,
-  maxWidth: number,
-  fontSize: number,
-): string => {
-  const normalized = value.trim()
-  if (!normalized) {
-    return ''
-  }
-  if (estimateTextWidth(normalized, fontSize) <= maxWidth) {
-    return normalized
-  }
-  let nextValue = normalized
-  while (
-    nextValue.length > 4 &&
-    estimateTextWidth(`${nextValue}\u2026`, fontSize) > maxWidth
-  ) {
-    nextValue = nextValue.slice(0, -1)
-  }
-  return `${nextValue}\u2026`
-}
-
-const truncateCanvasMultilineText = (
-  value: string,
-  maxWidth: number,
-  fontSize: number,
-  maxLines: number,
-): string => {
-  const lines = value.replace(/\r/g, '').split('\n')
-  if (!lines.length) {
-    return ''
-  }
-  const limited = lines.slice(0, Math.max(1, maxLines)).map((line) => truncateCanvasText(line, maxWidth, fontSize))
-  if (lines.length > limited.length) {
-    const lastIndex = limited.length - 1
-    let lastLine = limited[lastIndex]
-    while (lastLine.length > 1 && estimateTextWidth(`${lastLine}\u2026`, fontSize) > maxWidth) {
-      lastLine = lastLine.slice(0, -1)
-    }
-    limited[lastIndex] = `${lastLine}\u2026`
-  }
-  return limited.join('\n')
-}
-
-type StickyNoteShape = {
-  shellPath: string
-  foldPath: string
-}
-
-const resolveStickyNoteShape = (
-  width: number,
-  height: number,
-): StickyNoteShape => {
-  const foldSize = Math.max(14, Math.min(24, Math.round(Math.min(width, height) * 0.2)))
-  return {
-    shellPath: `M 0 0 H ${width - foldSize} L ${width} ${foldSize} V ${height} H 0 Z`,
-    foldPath: `M ${width - foldSize} 0 L ${width - foldSize} ${foldSize} L ${width} ${foldSize} Z`,
-  }
-}
-
-const resolveNodeLabelLayout = (
-  node: NodeModel,
-  shouldRenderHexagon: boolean,
-): NodeLabelLayout => {
-  if (shouldRenderHexagon) {
-    return {
-      titleX: node.bounds.w / 2,
-      titleY: 32,
-      subtitleX: node.bounds.w / 2,
-      subtitleY: 53,
-      textAnchor: 'middle',
-      maxTitleWidth: Math.max(72, node.bounds.w * 0.58),
-      maxSubtitleWidth: Math.max(64, node.bounds.w * 0.62),
-    }
-  }
-  return {
-    titleX: 16,
-    titleY: 34,
-    subtitleX: 16,
-    subtitleY: 56,
-    textAnchor: 'start',
-    maxTitleWidth: Math.max(84, node.bounds.w - 30),
-    maxSubtitleWidth: Math.max(70, node.bounds.w - 30),
-  }
-}
 
 interface DiagramCanvasProps {
   presentationMode?: boolean
@@ -1646,7 +1544,10 @@ export const DiagramCanvas = ({
       worldX: labelPlacement.point.x,
       worldY: labelPlacement.point.y,
       textAnchor: 'middle',
-      width: Math.max(160, Math.min(420, estimateTextWidth(edge.label, edge.style.labelFontSize ?? 11) + 120)),
+      width: Math.max(
+        160,
+        Math.min(420, estimateCanvasTextWidth(edge.label, edge.style.labelFontSize ?? 11) + 120),
+      ),
       fontSize: edge.style.labelFontSize ?? DEFAULT_EDGE_LABEL_FONT_SIZE,
     })
   }
@@ -2480,7 +2381,7 @@ export const DiagramCanvas = ({
     if (presentationMode) {
       return
     }
-    const presetId = event.dataTransfer.getData('application/x-node-preset-id')
+    const presetId = event.dataTransfer.getData(NODE_PRESET_DRAG_MIME_TYPE)
     if (!presetId) {
       return
     }
@@ -2716,409 +2617,44 @@ export const DiagramCanvas = ({
             : null}
 
           {visibleNodes.map((node) => {
-            const isSelected = selectedNodeIdSet.has(node.id)
-            const isPendingConnection = node.id === pendingConnectionFrom
-            const isConnectionTarget =
-              hoveredConnectionTarget?.nodeId === node.id && Boolean(pendingConnectionFrom)
-            const isPlayerHighlighted = highlightedNodeIds.has(node.id)
             const isJourneyFocused = focusedNodeIdSet?.has(node.id) ?? true
             const isDimmedByJourney =
               effectiveJourneyFilterId !== null &&
               effectiveOffscopeRenderMode === 'dim' &&
               !isJourneyFocused
-            const nodeClassName = [
-              'node',
-              node.kind === 'boundary' ? 'node-boundary' : '',
-              node.kind === 'note' ? 'node-note' : '',
-              isPendingConnection ? 'node-pending' : '',
-              isConnectionTarget ? 'node-connection-target' : '',
-              isSelected ? 'node-selected' : '',
-              node.drilldownRef ? 'node-drilldown' : '',
-              isPlayerHighlighted ? 'node-player-highlight' : '',
-              isDimmedByJourney ? 'node-journey-dimmed' : '',
-            ]
-              .filter(Boolean)
-              .join(' ')
-            const nodeFillColor =
-              node.kind === 'boundary' ? undefined : node.style?.fillColor
-            const nodeTextColor = node.style?.textColor
-            const dbShape = resolveDbCylinderShape(node.bounds.w, node.bounds.h)
-            const queueShape = resolveQueueCylinderShape(node.bounds.w, node.bounds.h)
-            const shouldRenderHexagon =
-              node.kind === 'gateway' ||
-              node.kind === 'security' ||
-              node.kind === 'load-balancer'
-            const hexagonShape = shouldRenderHexagon
-              ? resolveHexagonShape(node.bounds.w, node.bounds.h)
-              : null
-            const hexagonBorderShape = shouldRenderHexagon
-              ? resolveHexagonShape(node.bounds.w, node.bounds.h, 2.5)
-              : null
-            const stickyNoteShape =
-              node.kind === 'note'
-                ? resolveStickyNoteShape(node.bounds.w, node.bounds.h)
-                : null
-            const connectorRole =
-              currentView.kind === 'hex'
-                ? resolveHexConnectorRole(node.kind)
-                : null
-            const connectorIconX = node.bounds.w - 34
-            const connectorIconY = 12
-            const drilldownBadgeX = node.bounds.w - (connectorRole ? 56 : 26)
-            const drilldownBadgeY = 8
-            const nodeDepthEffectsActive =
-              nodeDepthEffectsEnabled && node.kind !== 'note' && node.kind !== 'boundary'
-            const labelLayout =
-              node.kind === 'note'
-                ? {
-                    titleX: 15,
-                    titleY: 38,
-                    subtitleX: 15,
-                    subtitleY: 38,
-                    textAnchor: 'start' as const,
-                    maxTitleWidth: Math.max(84, node.bounds.w - 30),
-                    maxSubtitleWidth: Math.max(84, node.bounds.w - 30),
-                  }
-                : resolveNodeLabelLayout(node, shouldRenderHexagon)
-            const nodeTitleText =
-              node.kind === 'note'
-                ? truncateCanvasMultilineText(
-                    node.name,
-                    labelLayout.maxTitleWidth,
-                    13,
-                    Math.max(2, Math.floor((node.bounds.h - 46) / 17)),
-                  )
-                : truncateCanvasText(node.name, labelLayout.maxTitleWidth, 14)
-            const nodeSubtitleText =
-              node.kind === 'note'
-                ? ''
-                : truncateCanvasText(node.tech?.label ?? node.kind, labelLayout.maxSubtitleWidth, 12)
             return (
-              <g
+              <DiagramNode
                 key={node.id}
-                className="node-group"
-                transform={`translate(${node.bounds.x}, ${node.bounds.y})`}
-                onPointerDown={(event) => onNodePointerDown(event, node, 'move')}
-                onPointerMove={onNodePointerMove}
-                onPointerUp={onNodePointerUp}
-                onPointerLeave={() => {
+                node={node}
+                viewKind={currentView.kind}
+                presentationMode={presentationMode}
+                activeTool={activeTool}
+                isConnectorMode={isConnectorMode}
+                pendingConnectionFrom={pendingConnectionFrom}
+                hoveredConnectionTarget={hoveredConnectionTarget}
+                hoveredPortKey={hoveredPortKey}
+                isSelected={selectedNodeIdSet.has(node.id)}
+                isPlayerHighlighted={highlightedNodeIds.has(node.id)}
+                isDimmedByJourney={isDimmedByJourney}
+                nodeDepthEffectsEnabled={nodeDepthEffectsEnabled}
+                onNodePointerDown={onNodePointerDown}
+                onNodePointerMove={onNodePointerMove}
+                onNodePointerUp={onNodePointerUp}
+                onNodePointerLeave={() => {
                   if (!nodeDragStateRef.current) {
                     setHoverCursor(null)
                   }
                 }}
-                onDoubleClick={(event) => {
-                  const modifiersPressed = (event.ctrlKey || event.metaKey) && event.altKey
-                  if (!presentationMode && modifiersPressed && node.kind !== 'note') {
-                    createDrilldownForNode(node.id)
-                    return
-                  }
-                  if (node.drilldownRef) {
-                    openDrilldown(node.id)
-                  }
-                }}
-              >
-                {node.kind === 'note' && stickyNoteShape ? (
-                  <g>
-                    <path
-                      d={stickyNoteShape.shellPath}
-                      className={nodeClassName}
-                      style={nodeFillColor ? { fill: nodeFillColor } : undefined}
-                    />
-                    <path d={stickyNoteShape.foldPath} className="node-note-fold" />
-                    <g className="node-note-pin" aria-hidden="true">
-                      <circle
-                        cx={node.bounds.w / 2}
-                        cy={13}
-                        r={6}
-                        className="node-note-pin-head"
-                      />
-                      <path
-                        d={`M ${node.bounds.w / 2} 19 L ${node.bounds.w / 2 + 1.5} 30`}
-                        className="node-note-pin-needle"
-                      />
-                      <circle
-                        cx={node.bounds.w / 2 + 1.5}
-                        cy={30}
-                        r={1.5}
-                        className="node-note-pin-tip"
-                      />
-                    </g>
-                  </g>
-                ) : node.kind === 'db' ? (
-                  <g>
-                    <path
-                      d={dbShape.shellPath}
-                      className={nodeClassName}
-                      style={nodeFillColor ? { fill: nodeFillColor } : undefined}
-                    />
-                    {nodeDepthEffectsActive ? (
-                      <>
-                        <path d={dbShape.shellPath} className="node-depth-fill node-depth-layer" />
-                        <path d={dbShape.shellPath} className="node-depth-sheen node-depth-layer" />
-                      </>
-                    ) : null}
-                    <path
-                      d={dbShape.topFrontArcPath}
-                      className="node-shape-detail"
-                    />
-                    {nodeDepthEffectsActive ? (
-                      <path d={dbShape.topFrontArcPath} className="node-depth-rim node-depth-layer" />
-                    ) : null}
-                  </g>
-                ) : node.kind === 'queue' ? (
-                  <g>
-                    <path
-                      d={queueShape.shellPath}
-                      className={nodeClassName}
-                      style={nodeFillColor ? { fill: nodeFillColor } : undefined}
-                    />
-                    {nodeDepthEffectsActive ? (
-                      <>
-                        <path d={queueShape.shellPath} className="node-depth-fill node-depth-layer" />
-                        <path d={queueShape.shellPath} className="node-depth-sheen node-depth-layer" />
-                      </>
-                    ) : null}
-                    <path d={queueShape.frontCapPath} className="node-shape-detail" />
-                    {nodeDepthEffectsActive ? (
-                      <path d={queueShape.frontCapPath} className="node-depth-rim node-depth-layer" />
-                    ) : null}
-                  </g>
-                ) : hexagonShape ? (
-                  <g>
-                    <path
-                      d={hexagonShape.shellPath}
-                      className={nodeClassName}
-                      style={nodeFillColor ? { fill: nodeFillColor } : undefined}
-                    />
-                    {nodeDepthEffectsActive ? (
-                      <>
-                        <path d={hexagonShape.shellPath} className="node-depth-fill node-depth-layer" />
-                        <path d={hexagonShape.shellPath} className="node-depth-sheen node-depth-layer" />
-                        <path d={hexagonShape.shellPath} className="node-depth-outline node-depth-layer" />
-                      </>
-                    ) : null}
-                  </g>
-                ) : (
-                  <g>
-                    <rect
-                      x={0}
-                      y={0}
-                      width={node.bounds.w}
-                      height={node.bounds.h}
-                      rx={12}
-                      className={nodeClassName}
-                      style={nodeFillColor ? { fill: nodeFillColor } : undefined}
-                    />
-                    {nodeDepthEffectsActive ? (
-                      <>
-                        <rect
-                          x={0}
-                          y={0}
-                          width={node.bounds.w}
-                          height={node.bounds.h}
-                          rx={12}
-                          className="node-depth-fill node-depth-layer"
-                        />
-                        <rect
-                          x={0}
-                          y={0}
-                          width={node.bounds.w}
-                          height={node.bounds.h}
-                          rx={12}
-                          className="node-depth-sheen node-depth-layer"
-                        />
-                        <path
-                          d={`M 10 10 H ${Math.max(10, node.bounds.w - 10)}`}
-                          className="node-depth-rim node-depth-layer"
-                        />
-                      </>
-                    ) : null}
-                  </g>
-                )}
-                {node.kind === 'boundary' && node.drilldownRef ? (
-                  <rect
-                    className="node-drilldown-hitarea"
-                    x={0}
-                    y={0}
-                    width={node.bounds.w}
-                    height={node.bounds.h}
-                    rx={12}
-                  />
-                ) : null}
-                {!presentationMode && activeTool === 'select' && !isConnectorMode ? (
-                  hexagonBorderShape ? (
-                    <path
-                      className="node-border-hitarea"
-                      d={hexagonBorderShape.shellPath}
-                      onPointerDown={(event) => onNodeBorderPointerDown(event, node)}
-                      onPointerMove={(event) => onNodeBorderPointerMove(event, node)}
-                      onPointerLeave={onNodeBorderPointerLeave}
-                    />
-                  ) : (
-                    <rect
-                      className="node-border-hitarea"
-                      x={0}
-                      y={0}
-                      width={node.bounds.w}
-                      height={node.bounds.h}
-                      rx={12}
-                      onPointerDown={(event) => onNodeBorderPointerDown(event, node)}
-                      onPointerMove={(event) => onNodeBorderPointerMove(event, node)}
-                      onPointerLeave={onNodeBorderPointerLeave}
-                    />
-                  )
-                ) : null}
-                {node.drilldownRef && node.kind !== 'note' ? (
-                  <g className="node-drilldown-badge" aria-hidden="true">
-                    <rect
-                      x={drilldownBadgeX}
-                      y={drilldownBadgeY}
-                      width={16}
-                      height={16}
-                      rx={3}
-                      className="node-drilldown-badge-shell"
-                    />
-                    <path
-                      d={`M ${drilldownBadgeX + 5} ${drilldownBadgeY + 11} L ${drilldownBadgeX + 11} ${
-                        drilldownBadgeY + 5
-                      } M ${drilldownBadgeX + 8} ${drilldownBadgeY + 5} H ${
-                        drilldownBadgeX + 11
-                      } V ${drilldownBadgeY + 8}`}
-                      className="node-drilldown-badge-glyph"
-                    />
-                  </g>
-                ) : null}
-                {connectorRole === 'female' ? (
-                  <g className="node-connector-icon node-connector-female">
-                    <rect
-                      x={connectorIconX + 2}
-                      y={connectorIconY + 3}
-                      width={16}
-                      height={10}
-                      rx={3}
-                      className="node-connector-shell"
-                    />
-                    <circle
-                      cx={connectorIconX + 8}
-                      cy={connectorIconY + 8}
-                      r={1.2}
-                      className="node-connector-dot"
-                    />
-                    <circle
-                      cx={connectorIconX + 12}
-                      cy={connectorIconY + 8}
-                      r={1.2}
-                      className="node-connector-dot"
-                    />
-                    <path
-                      d={`M ${connectorIconX + 10} ${connectorIconY + 13} V ${
-                        connectorIconY + 16
-                      }`}
-                      className="node-connector-line"
-                    />
-                  </g>
-                ) : null}
-                {connectorRole === 'male' ? (
-                  <g className="node-connector-icon node-connector-male">
-                    <rect
-                      x={connectorIconX + 4}
-                      y={connectorIconY + 5}
-                      width={12}
-                      height={8}
-                      rx={2}
-                      className="node-connector-shell"
-                    />
-                    <path
-                      d={`M ${connectorIconX + 7} ${connectorIconY + 5} V ${
-                        connectorIconY + 2
-                      } M ${connectorIconX + 13} ${connectorIconY + 5} V ${
-                        connectorIconY + 2
-                      } M ${connectorIconX + 10} ${connectorIconY + 13} V ${
-                        connectorIconY + 16
-                      }`}
-                      className="node-connector-line"
-                    />
-                  </g>
-                ) : null}
-                <CanvasText
-                  x={labelLayout.titleX}
-                  y={labelLayout.titleY}
-                  className={[
-                    'node-title',
-                    node.kind === 'note' ? 'node-note-title' : '',
-                    shouldRenderHexagon ? 'node-title-hex' : '',
-                    !presentationMode ? 'canvas-text-editable' : '',
-                  ]
-                    .filter(Boolean)
-                    .join(' ')}
-                  textAnchor={labelLayout.textAnchor}
-                  style={nodeTextColor ? { fill: nodeTextColor } : undefined}
-                  onDoubleClick={(event) => {
-                    startNodeInlineEdit(event, node, 'node-name', labelLayout)
-                  }}
-                >
-                  {node.kind === 'note' ? nodeTitleText : `${iconForKey(node.tech?.iconKey)} ${nodeTitleText}`}
-                </CanvasText>
-                {nodeSubtitleText ? (
-                  <CanvasText
-                    x={labelLayout.subtitleX}
-                    y={labelLayout.subtitleY}
-                    className={[
-                      'node-subtitle',
-                      shouldRenderHexagon ? 'node-subtitle-hex' : '',
-                      !presentationMode ? 'canvas-text-editable' : '',
-                    ]
-                      .filter(Boolean)
-                      .join(' ')}
-                    textAnchor={labelLayout.textAnchor}
-                    style={nodeTextColor ? { fill: nodeTextColor } : undefined}
-                    onDoubleClick={(event) => {
-                      startNodeInlineEdit(event, node, 'node-tech', labelLayout)
-                    }}
-                  >
-                    {nodeSubtitleText}
-                  </CanvasText>
-                ) : null}
-                {!presentationMode
-                  ? node.ports.map((port) => {
-                      const isHoveredPort = hoveredPortKey === `${node.id}:${port.id}`
-                      const isConnectionTargetPort =
-                        hoveredConnectionTarget?.nodeId === node.id &&
-                        hoveredConnectionTarget.portId === port.id
-                      const cx = node.bounds.w * port.x
-                      const cy = node.bounds.h * port.y
-                      return (
-                        <g key={port.id}>
-                          {isHoveredPort || isConnectionTargetPort ? (
-                            <circle
-                              className={
-                                isConnectionTargetPort
-                                  ? 'node-port-affordance node-port-affordance-active'
-                                  : 'node-port-affordance'
-                              }
-                              cx={cx}
-                              cy={cy}
-                              r={9}
-                              aria-hidden="true"
-                            />
-                          ) : null}
-                          <circle
-                            className={resolveNodePortClassName({
-                              isHovered: isHoveredPort,
-                              isConnectionTarget: isConnectionTargetPort,
-                            })}
-                            cx={cx}
-                            cy={cy}
-                            r={4}
-                            onPointerEnter={() => onPortPointerEnter(node.id, port.id)}
-                            onPointerLeave={() => onPortPointerLeave(node.id, port.id)}
-                            onPointerDown={(event) => onPortPointerDown(event, node, port.id)}
-                          />
-                        </g>
-                      )
-                    })
-                  : null}
-              </g>
+                onCreateDrilldown={createDrilldownForNode}
+                onOpenDrilldown={openDrilldown}
+                onNodeBorderPointerDown={onNodeBorderPointerDown}
+                onNodeBorderPointerMove={onNodeBorderPointerMove}
+                onNodeBorderPointerLeave={onNodeBorderPointerLeave}
+                onStartInlineEdit={startNodeInlineEdit}
+                onPortPointerEnter={onPortPointerEnter}
+                onPortPointerLeave={onPortPointerLeave}
+                onPortPointerDown={onPortPointerDown}
+              />
             )
           })}
           {alignmentGuides.map((guide, index) =>

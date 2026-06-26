@@ -8,6 +8,8 @@ import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
 const appSource = readFileSync(resolve(process.cwd(), 'src/App.tsx'), 'utf8')
+const inspectorPanelSource = readFileSync(resolve(process.cwd(), 'src/components/inspector/InspectorPanel.tsx'), 'utf8')
+const palettePanelSource = readFileSync(resolve(process.cwd(), 'src/components/palette/PalettePanel.tsx'), 'utf8')
 const windowUiConfigSource = readFileSync(resolve(process.cwd(), 'src/windowing/windowUiConfig.ts'), 'utf8')
 
 describe('App source regressions', () => {
@@ -166,11 +168,14 @@ describe('App source regressions', () => {
 
   it('uses reusable collapsible panel groups across dock content', () => {
     expect(appSource).toContain("import { PanelGroup } from './components/chrome/PanelGroup'")
+    expect(appSource).toContain("import { InspectorPanel } from './components/inspector/InspectorPanel'")
+    expect(appSource).toContain("import { PalettePanel, type PalettePanelCategory } from './components/palette/PalettePanel'")
     expect(appSource).toContain('<PanelGroup title="Creation" defaultExpanded={false} className="journey-side-group">')
     expect(appSource).toContain('<PanelGroup title="Journeys" defaultExpanded className="journey-side-group">')
     expect(appSource).toContain('<PanelGroup title={CLOUD_PROVIDER_LABEL} defaultExpanded={false}>')
-    expect(appSource).toContain('<PanelGroup title="Node details">')
-    expect(appSource).toContain('<PanelGroup key={category} title={category} defaultExpanded={index === 0} className="toolbox-group">')
+    expect(inspectorPanelSource).toContain('<PanelGroup title="Node details">')
+    expect(palettePanelSource).toContain('defaultExpanded={index === 0}')
+    expect(palettePanelSource).toContain('className="toolbox-group"')
   })
 
   it('keeps SJV Script panel free of Codex action buttons', () => {
@@ -255,9 +260,9 @@ describe('App source regressions', () => {
     expect(appSource).toContain('data-tutorial-id="window-menu-open-inspector-panel"')
     expect(appSource).toContain('data-tutorial-id="window-menu-open-timeline-panel"')
     expect(appSource).toContain('data-tutorial-id="window-menu-open-dsl-panel"')
-    expect(appSource).toContain('data-tutorial-id="inspector-node-name"')
-    expect(appSource).toContain('data-tutorial-id="inspector-edge-label"')
-    expect(appSource).toContain('data-tutorial-id="inspector-edge-protocol"')
+    expect(inspectorPanelSource).toContain('data-tutorial-id="inspector-node-name"')
+    expect(inspectorPanelSource).toContain('data-tutorial-id="inspector-edge-label"')
+    expect(inspectorPanelSource).toContain('data-tutorial-id="inspector-edge-protocol"')
     expect(appSource).toContain('data-tutorial-id="dsl-sync-toggle"')
     expect(appSource).toContain('data-tutorial-id="topbar-toolbar"')
     expect(appSource).toContain('data-tutorial-id="canvas-panel"')

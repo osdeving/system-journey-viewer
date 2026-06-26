@@ -18,6 +18,12 @@ React UI components only (PascalCase files).
 
 - `src/components/canvas/`
   - Canvas-rendered React components and SVG UI composition pieces.
+- `src/components/inspector/`
+  - Reusable inspector form components for node and edge selection editing.
+- `src/components/journeys/`
+  - Reusable journey-side and timeline UI components.
+- `src/components/palette/`
+  - Reusable node-preset palette components for drag-to-canvas workflows.
 - `src/components/windowing/`
   - Reusable window/dock UI shells (`FloatingWindow`, `DockHost`, etc.).
 - Future groups should follow the same pattern:
@@ -58,6 +64,7 @@ Managed window state, host layout helpers, and window UI configuration metadata.
 - `src/dsl-lite/`: SJV Script parsing/import/export/sync/editor integration
 - `src/store/`: editor state and persistence integration
 - `src/model/`: core workspace model types and fixtures/defaults
+- `src/presets/`: node/technology/protocol preset catalogs and preset interaction contracts
 - `src/export/`: static/animated export pipeline
 - `src/file/`: file import/export and recent files support
 - `src/integrations/`: external service adapters (for example Supabase browser auth/cloud persistence)

@@ -655,6 +655,14 @@
   min-width: 0;
 }
 
+.topbar-cloud-shell-floating {
+  position: fixed;
+  top: calc(var(--sjv-topbar-height, 108px) + 10px);
+  right: 18px;
+  z-index: 390;
+  pointer-events: none;
+}
+
 .topbar-cloud-badge {
   border: 1px solid rgba(125, 211, 252, 0.64);
   border-radius: 6px;
@@ -727,6 +735,24 @@
   border: 1px solid #cbd5e1;
   background: rgba(255, 255, 255, 0.98);
   box-shadow: 0 14px 30px rgba(15, 23, 42, 0.16);
+}
+
+.topbar-cloud-shell-floating .topbar-cloud-panel {
+  position: static;
+  pointer-events: auto;
+}
+
+.topbar-cloud-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.topbar-cloud-panel-header strong {
+  min-width: 0;
+  color: #334155;
+  font-size: var(--sjv-ui-font-sm);
 }
 
 .topbar-cloud-status,
@@ -2097,6 +2123,39 @@ button.topbar-cloud-script-row-delete {
   border: 1px solid #cbd5e1;
   border-radius: 5px;
   background: #ffffff;
+}
+
+.preferences-canvas-background-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(118px, 1fr));
+  gap: calc(var(--sjv-density-toolbar-gap) - 2px);
+}
+
+.preferences-canvas-background-card {
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid #d5deeb;
+  border-radius: 6px;
+  padding: 7px 8px;
+  background: rgba(248, 250, 252, 0.9);
+  color: #334155;
+  font-size: var(--sjv-density-control-font);
+  cursor: pointer;
+}
+
+.preferences-canvas-background-card-active {
+  border-color: #38bdf8;
+  background: rgba(224, 242, 254, 0.78);
+}
+
+.preferences-canvas-background-swatch {
+  width: 22px;
+  height: 18px;
+  border: 1px solid rgba(15, 23, 42, 0.18);
+  border-radius: 4px;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.38);
 }
 
 .preferences-status {
@@ -3575,6 +3634,119 @@ button.topbar-cloud-script-row-delete {
   background: #344656;
 }
 
+.canvas-context-menu {
+  position: fixed;
+  z-index: 120;
+  width: 220px;
+  max-width: calc(100vw - 18px);
+  display: grid;
+  gap: 5px;
+  padding: 7px;
+  border: 1px solid var(--sjv-shell-border, rgba(51, 65, 85, 0.55));
+  border-radius: 8px;
+  background: var(--sjv-shell-panel-bg, #17212b);
+  color: var(--sjv-shell-muted, #aebdca);
+  box-shadow: 0 18px 38px rgba(2, 6, 23, 0.42);
+}
+
+.canvas-context-menu-section {
+  display: grid;
+  gap: 2px;
+  padding-bottom: 5px;
+  border-bottom: 1px solid color-mix(in srgb, var(--sjv-shell-border, #334155) 72%, transparent);
+}
+
+.canvas-context-menu-section:last-child {
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+
+.canvas-context-menu-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 4px 7px 5px;
+  color: var(--sjv-shell-muted, #aebdca);
+  font-size: var(--sjv-ui-font-xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.canvas-context-menu button {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr);
+  align-items: center;
+  gap: 7px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  padding: 6px 7px;
+  background: transparent;
+  color: var(--sjv-shell-muted, #aebdca);
+  font: inherit;
+  font-size: var(--sjv-ui-font-sm);
+  text-align: left;
+  cursor: pointer;
+}
+
+.canvas-context-menu button:hover {
+  border-color: var(--sjv-shell-accent-border, rgba(56, 189, 248, 0.42));
+  background: var(--sjv-shell-accent-soft, rgba(56, 189, 248, 0.14));
+  color: color-mix(in srgb, var(--sjv-shell-muted, #aebdca) 58%, var(--sjv-shell-control-text, #fff));
+}
+
+.theme-notice-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 150;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(2, 6, 23, 0.38);
+}
+
+.theme-notice-dialog {
+  width: min(420px, 100%);
+  display: grid;
+  gap: 14px;
+  border: 1px solid var(--sjv-shell-border, #334155);
+  border-radius: 8px;
+  padding: 18px;
+  background: var(--sjv-shell-panel-bg, #17212b);
+  color: var(--sjv-shell-muted, #aebdca);
+  box-shadow: 0 24px 54px rgba(2, 6, 23, 0.45);
+}
+
+.theme-notice-copy {
+  display: grid;
+  gap: 6px;
+}
+
+.theme-notice-copy strong {
+  color: color-mix(in srgb, var(--sjv-shell-muted, #aebdca) 58%, var(--sjv-shell-control-text, #fff));
+  font-size: var(--sjv-ui-font-md);
+}
+
+.theme-notice-copy p {
+  margin: 0;
+  color: var(--sjv-shell-muted, #aebdca);
+  font-size: var(--sjv-ui-font-sm);
+  line-height: 1.45;
+}
+
+.theme-notice-dialog button {
+  justify-self: end;
+  border: 1px solid var(--sjv-shell-accent-border, rgba(56, 189, 248, 0.42));
+  border-radius: 6px;
+  padding: 7px 12px;
+  background: var(--sjv-shell-accent-soft, rgba(56, 189, 248, 0.16));
+  color: color-mix(in srgb, var(--sjv-shell-muted, #aebdca) 58%, var(--sjv-shell-control-text, #fff));
+  font: inherit;
+  font-size: var(--sjv-ui-font-sm);
+  cursor: pointer;
+}
+
 .app-status-bar {
   grid-area: statusbar;
   z-index: 7;
@@ -3892,6 +4064,18 @@ button.topbar-cloud-script-row-delete {
   filter: saturate(0.5);
 }
 
+.node-basic-shape {
+  stroke: rgba(51, 65, 85, 0.82);
+  stroke-width: 1.8;
+  filter: drop-shadow(0 8px 14px rgba(15, 23, 42, 0.14));
+}
+
+.node-basic-shape-circle,
+.node-basic-shape-triangle,
+.node-basic-shape-diamond {
+  stroke-linejoin: round;
+}
+
 .node-title {
   fill: #0f172a;
   font-size: 14px;
@@ -4119,13 +4303,13 @@ button.topbar-cloud-script-row-delete {
 }
 
 .edge-label {
-  fill: #334155;
+  fill: #111827;
   font-size: 11px;
   text-anchor: middle;
   dominant-baseline: central;
   paint-order: stroke;
-  stroke: rgba(248, 250, 252, 0.9);
-  stroke-width: 3;
+  stroke: rgba(255, 255, 255, 0.84);
+  stroke-width: 2.4;
   stroke-linejoin: round;
   pointer-events: auto;
 }
@@ -6201,6 +6385,7 @@ button.help-gallery-icon-button {
 }
 
 .theme-dark .topbar-cloud-command-label,
+.theme-dark .topbar-cloud-panel-header strong,
 .theme-dark .topbar-cloud-script-row-copy strong {
   color: #e2e8f0;
 }
@@ -6423,6 +6608,10 @@ button.help-gallery-icon-button {
   stroke: var(--sjv-node-stroke);
 }
 
+.theme-dark .node-basic-shape {
+  stroke: rgba(148, 163, 184, 0.72);
+}
+
 .theme-dark .node-note {
   fill: rgba(161, 98, 7, 0.55);
   stroke: rgba(251, 191, 36, 0.9);
@@ -6503,12 +6692,12 @@ button.help-gallery-icon-button {
 }
 
 .theme-dark .edge-label {
-  fill: #e2e8f0;
-  stroke: rgba(2, 6, 23, 0.88);
+  fill: #111827;
+  stroke: rgba(255, 255, 255, 0.82);
 }
 
 .theme-dark .journey-edge-group:hover .edge-label {
-  fill: #f8fafc;
+  fill: #020617;
 }
 
 .theme-dark .canvas-inline-editor-input {
@@ -6839,10 +7028,23 @@ button.help-gallery-icon-button {
 }
 
 :is(.app-chrome-theme-midnight, .app-chrome-theme-graphite, .app-chrome-theme-teal, .app-chrome-theme-custom)
+  .preferences-canvas-background-card {
+  border-color: var(--sjv-shell-border);
+  background: var(--sjv-shell-panel-bg-alt);
+  color: var(--sjv-shell-muted);
+}
+
+:is(.app-chrome-theme-midnight, .app-chrome-theme-graphite, .app-chrome-theme-teal, .app-chrome-theme-custom)
   .preferences-theme-card-active {
   border-color: var(--sjv-shell-accent-border);
   background: var(--sjv-shell-accent-soft);
   box-shadow: none;
+}
+
+:is(.app-chrome-theme-midnight, .app-chrome-theme-graphite, .app-chrome-theme-teal, .app-chrome-theme-custom)
+  .preferences-canvas-background-card-active {
+  border-color: var(--sjv-shell-accent-border);
+  background: var(--sjv-shell-accent-soft);
 }
 
 :is(.app-chrome-theme-midnight, .app-chrome-theme-graphite, .app-chrome-theme-teal, .app-chrome-theme-custom)
@@ -6856,13 +7058,18 @@ button.help-gallery-icon-button {
 }
 
 :is(.app-chrome-theme-midnight, .app-chrome-theme-graphite, .app-chrome-theme-teal, .app-chrome-theme-custom)
+  .preferences-canvas-background-swatch {
+  border-color: color-mix(in srgb, var(--sjv-shell-border) 78%, transparent);
+}
+
+:is(.app-chrome-theme-midnight, .app-chrome-theme-graphite, .app-chrome-theme-teal, .app-chrome-theme-custom)
   .preferences-fieldset {
   border-color: var(--sjv-shell-border);
 }
 
 :is(.app-chrome-theme-midnight, .app-chrome-theme-graphite, .app-chrome-theme-teal, .app-chrome-theme-custom)
   :is(.canvas-panel, .theme-dark .canvas-panel) {
-  background: #eef1f5;
+  background: var(--sjv-canvas-bg);
 }
 
 :is(.app-chrome-theme-midnight, .app-chrome-theme-graphite, .app-chrome-theme-teal, .app-chrome-theme-custom).theme-dark

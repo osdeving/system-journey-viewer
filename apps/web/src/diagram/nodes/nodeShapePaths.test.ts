@@ -5,8 +5,10 @@
 import { describe, expect, it } from 'vitest'
 import {
   resolveDbCylinderShape,
+  resolveDiamondShape,
   resolveHexagonShape,
   resolveQueueCylinderShape,
+  resolveTriangleShape,
 } from './nodeShapePaths'
 
 describe('node shape paths', () => {
@@ -51,5 +53,10 @@ describe('node shape paths', () => {
     const shape = resolveHexagonShape(200, 100, 6)
 
     expect(shape.shellPath).toBe('M 53 6 L 147 6 L 194 50 L 147 94 L 53 94 L 6 50 Z')
+  })
+
+  it('builds closed paths for experimental basic shapes', () => {
+    expect(resolveTriangleShape(120, 90).shellPath).toBe('M 60 0 L 120 90 L 0 90 Z')
+    expect(resolveDiamondShape(100, 80).shellPath).toBe('M 50 0 L 100 40 L 50 80 L 0 40 Z')
   })
 })

@@ -27,6 +27,8 @@ describe('uiPreferences', () => {
     expect(preferences.toolbarVisibility.editing).toBe(true)
     expect(preferences.fontScale).toBe(DEFAULT_UI_PREFERENCES.fontScale)
     expect(preferences.chromeThemeId).toBe('midnight')
+    expect(preferences.canvasBackgroundPresetId).toBe('soft-grid')
+    expect(preferences.customCanvasBackground).toBe('#eef1f5')
     expect(preferences.iconSet).toBe('lucide')
     expect(preferences.menuBarVisible).toBe(true)
     expect(preferences.toolbarInlineWithBrand).toBe(false)
@@ -37,6 +39,8 @@ describe('uiPreferences', () => {
       fontScale: 'huge',
       chromeThemeId: 'unknown',
       iconSet: 'random',
+      canvasBackgroundPresetId: 'unknown',
+      customCanvasBackground: 'paper',
       menuBarVisible: 'yes',
       toolbarInlineWithBrand: 'please',
       customChromeColors: {
@@ -47,6 +51,8 @@ describe('uiPreferences', () => {
 
     expect(preferences.fontScale).toBe('normal')
     expect(preferences.chromeThemeId).toBe('midnight')
+    expect(preferences.canvasBackgroundPresetId).toBe('soft-grid')
+    expect(preferences.customCanvasBackground).toBe('#eef1f5')
     expect(preferences.iconSet).toBe('lucide')
     expect(preferences.menuBarVisible).toBe(true)
     expect(preferences.toolbarInlineWithBrand).toBe(false)
@@ -58,6 +64,8 @@ describe('uiPreferences', () => {
     const preferences = parseUiPreferencesCandidate({
       fontScale: 'large',
       chromeThemeId: 'custom',
+      canvasBackgroundPresetId: 'custom',
+      customCanvasBackground: '#ddeeff',
       customChromeColors: {
         shellBackground: '#111111',
         panelBackground: '#222222',
@@ -76,6 +84,7 @@ describe('uiPreferences', () => {
       '--sjv-shell-control-bg': '#333333',
       '--sjv-shell-control-text': '#eeeeee',
       '--sjv-shell-accent': '#44aaee',
+      '--sjv-canvas-bg': '#ddeeff',
     })
   })
 })

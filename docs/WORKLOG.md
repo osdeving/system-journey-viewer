@@ -2,6 +2,41 @@
 
 Chronological engineering log. Entries are kept concise and focused on behavior and validation.
 
+## 2026-06-26 - Canvas theming, context menu, and experimental freeform shapes
+
+### Scope
+
+- Polished the desktop shell around theme defaults, canvas color customization, Supabase access, edge label readability, contextual right-click actions, and experimental non-SJV drawing shapes.
+
+### Changes
+
+- `apps/web/src/App.tsx`, `apps/web/src/App.css`, `apps/web/src/App.source.test.ts`, `apps/web/src/App.styles.test.ts`
+  - removed the Supabase Cloud badge from the topbar and the provider item from the status bar; cloud login/actions now remain available through Preferences, Settings, and Command Palette,
+  - added a floating cloud panel opened from `Settings > Open Supabase Cloud Panel` or Command Palette,
+  - added a light-theme construction warning dialog that appears whenever the user switches into light theme,
+  - added canvas background presets plus custom color controls in Preferences,
+  - added a custom canvas context menu for canvas/node/edge targets and disabled the browser context menu in the app shell,
+  - added experimental basic shape buttons to the canvas toolbar.
+- `apps/web/src/model/experimentalShapes.ts`, `apps/web/src/model/types.ts`, `apps/web/src/store/useEditorStore.ts`
+  - introduced experimental `shape-rectangle`, `shape-circle`, `shape-triangle`, and `shape-diamond` nodes with ports/connectors and selection support,
+  - prevented edges connected to experimental shapes from being added to journeys.
+- `apps/web/src/components/canvas/DiagramNode.tsx`, `apps/web/src/components/canvas/JourneyEdge.tsx`, `apps/web/src/diagram/nodes/nodeShapePaths.ts`
+  - rendered experimental shape geometry on the SVG canvas,
+  - added stable `data-node-id` / `data-edge-id` hooks for contextual actions,
+  - changed edge label text to black with a lighter stroke.
+- `apps/web/src/dsl-lite/convert.ts`, `apps/web/src/model/schema.ts`
+  - defaulted imported/missing workspace themes to dark,
+  - excluded experimental shape nodes and their edges from exported SJV Script and UI metadata.
+- Tests updated for UI preferences, schema defaults, shape paths, store behavior, SJV export filtering, and source/style regressions.
+
+### Validation
+
+- `npm --workspace @sjv/web run lint`
+- `npm --workspace @sjv/web run test:run`
+- `npm --workspace @sjv/web run build`
+- `git diff --check`
+- Playwright visual smoke via cached Chromium against `http://127.0.0.1:5173/`: verified dark default, black edge-label fill, no Supabase topbar/status item, no Search/Supabase in Presentation mode, and configurable canvas background.
+
 ## 2026-06-26 - Presentation toolbar cleanup
 
 ### Scope

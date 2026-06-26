@@ -25,6 +25,12 @@ export type NodeKind =
   | 'gateway'
   | 'security'
   | 'note'
+  | 'shape-rectangle'
+  | 'shape-circle'
+  | 'shape-triangle'
+  | 'shape-diamond'
+
+export type BasicShapeKind = Extract<NodeKind, `shape-${string}`>
 
 export interface NodeBounds {
   x: number

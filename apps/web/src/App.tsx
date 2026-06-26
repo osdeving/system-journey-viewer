@@ -6,6 +6,7 @@ import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } fro
 import type {
   ChangeEvent,
   CSSProperties,
+  MouseEvent as ReactMouseEvent,
   PointerEvent as ReactPointerEvent,
   ReactNode,
 } from 'react'
@@ -14,9 +15,11 @@ import type { Monaco } from '@monaco-editor/react'
 import ReactMarkdown from 'react-markdown'
 import {
   BookOpen,
+  Circle,
   CircleHelp,
   Code2,
   Copy,
+  Diamond,
   Dock,
   Download,
   FilePlus2,
@@ -49,8 +52,10 @@ import {
   SkipForward,
   SlidersHorizontal,
   Sparkles,
+  Square,
   Sun,
   Target,
+  Triangle,
   Trash2,
   Undo2,
   Workflow,
@@ -161,14 +166,17 @@ import {
 } from './layout/mobileShellRoute'
 import { resolveTopbarHeight } from './layout/topbarSizing'
 import { BLANK_WORKSPACE_VIEW_ID, createBlankWorkspace } from './model/blankWorkspace'
-import type { EditorSnapshot, JourneyModel, ViewportState, WorkspaceModel } from './model/types'
+import type { BasicShapeKind, EditorSnapshot, JourneyModel, ViewportState, WorkspaceModel } from './model/types'
 import { nodePresetsByCategory, protocolPresets, resolveNodePreset } from './presets/catalog'
 import {
+  CANVAS_BACKGROUND_PRESETS,
   CHROME_THEME_PRESETS,
+  DEFAULT_CUSTOM_CANVAS_BACKGROUND,
   DEFAULT_CUSTOM_CHROME_COLORS,
   resolveInitialUiPreferences,
   resolveUiPreferenceCssVariables,
   UI_PREFERENCES_STORAGE_KEY,
+  type CanvasBackgroundPresetId,
   type ChromeThemeId,
   type UiChromeCustomColors,
   type UiDensity,
@@ -191,6 +199,10 @@ import {
   resolvePreferredEntryViewId,
 } from './viewHierarchy'
 import type { ShowcaseLocale, ShowcaseMode } from './model/showcaseWorkspace'
+import {
+  BASIC_SHAPE_DEFINITIONS,
+  resolveBasicShapeDefinition,
+} from './model/experimentalShapes'
 import {
   clampGuidedTutorialStepIndex,
   GUIDED_UI_TUTORIAL_STEPS,
@@ -284,6 +296,17 @@ const CUSTOM_CHROME_COLOR_FIELDS: Array<{ key: keyof UiChromeCustomColors; label
   { key: 'borderColor', label: 'Border' },
 ]
 
+type CanvasContextMenuTarget = 'canvas' | 'node' | 'edge'
+type CanvasContextMenuState = {
+  x: number
+  y: number
+  worldX: number
+  worldY: number
+  target: CanvasContextMenuTarget
+  nodeId?: string
+  edgeId?: string
+}
+
 const MonacoEditor = lazy(() => import('@monaco-editor/react'))
 const NODE_PALETTE_CATEGORIES = Object.entries(nodePresetsByCategory).map(
   ([category, presets]) => ({
@@ -331,6 +354,20 @@ type SupabaseAuthDraft = {
 }
 type CommandPaletteActionItem = CommandPaletteItem & {
   run: () => void
+}
+
+const renderBasicShapeToolbarIcon = (kind: BasicShapeKind, size = 16): ReactNode => {
+  switch (kind) {
+    case 'shape-circle':
+      return <Circle size={size} />
+    case 'shape-triangle':
+      return <Triangle size={size} />
+    case 'shape-diamond':
+      return <Diamond size={size} />
+    case 'shape-rectangle':
+    default:
+      return <Square size={size} />
+  }
 }
 
 const resolveInitialAppShellMode = (): AppShellMode => {
@@ -732,6 +769,7 @@ function App() {
   const selectNode = useEditorStore((state) => state.selectNode)
   const selectEdge = useEditorStore((state) => state.selectEdge)
   const goToView = useEditorStore((state) => state.goToView)
+  const addBasicShape = useEditorStore((state) => state.addBasicShape)
   const removeNode = useEditorStore((state) => state.removeNode)
   const removeEdge = useEditorStore((state) => state.removeEdge)
   const duplicateSelection = useEditorStore((state) => state.duplicateSelection)
@@ -821,6 +859,8 @@ function App() {
   const [openDesktopMenu, setOpenDesktopMenu] = useState<DesktopMenuId | null>(null)
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false)
   const [commandPaletteQuery, setCommandPaletteQuery] = useState('')
+  const [canvasContextMenu, setCanvasContextMenu] = useState<CanvasContextMenuState | null>(null)
+  const [lightThemeNoticeOpen, setLightThemeNoticeOpen] = useState(false)
   const [guidedTutorialStepIndex, setGuidedTutorialStepIndex] = useState<number | null>(null)
   const [guidedTutorialEventCounts, setGuidedTutorialEventCounts] = useState<Record<string, number>>({})
   const [canUndo, setCanUndo] = useState(false)
@@ -856,7 +896,6 @@ function App() {
     () => buildSupabaseCloudLibrarySections(supabaseCloudScripts, supabaseGalleryAssets),
     [supabaseCloudScripts, supabaseGalleryAssets],
   )
-  const supabaseCloudLibraryItemCount = supabaseCloudScripts.length + supabaseGalleryAssets.length
   const renderDefaultShowcaseLibraryPreview = useCallback((item: DefaultShowcaseLibraryItem): ReactNode => {
     if (item.kind === 'script') {
       return (
@@ -1157,8 +1196,9 @@ function App() {
     () => ({
       ...layoutStyle,
       ...uiAppearanceStyle,
+      '--sjv-topbar-height': `${topbarHeight}px`,
     }),
-    [layoutStyle, uiAppearanceStyle],
+    [layoutStyle, topbarHeight, uiAppearanceStyle],
   )
 
   const playerAnimationPreset = useMemo(
@@ -1664,6 +1704,22 @@ function App() {
       chromeThemeId,
     }))
   }, [])
+  const setCanvasBackgroundPresetPreference = useCallback(
+    (canvasBackgroundPresetId: CanvasBackgroundPresetId) => {
+      setUiPreferences((current) => ({
+        ...current,
+        canvasBackgroundPresetId,
+      }))
+    },
+    [],
+  )
+  const updateCustomCanvasBackground = useCallback((value: string) => {
+    setUiPreferences((current) => ({
+      ...current,
+      canvasBackgroundPresetId: 'custom',
+      customCanvasBackground: value,
+    }))
+  }, [])
   const updateCustomChromeColor = useCallback(
     (colorKey: keyof UiChromeCustomColors, value: string) => {
       setUiPreferences((current) => ({
@@ -1676,6 +1732,15 @@ function App() {
       }))
     },
     [],
+  )
+  const applyWorkspaceTheme = useCallback(
+    (nextTheme: WorkspaceModel['settings']['theme']) => {
+      setTheme(nextTheme)
+      if (nextTheme === 'light') {
+        setLightThemeNoticeOpen(true)
+      }
+    },
+    [setTheme],
   )
 
   const openPreferencesWindow = () => {
@@ -1793,6 +1858,28 @@ function App() {
     setExportStatus(message)
     window.setTimeout(() => setExportStatus(null), timeoutMs)
   }, [])
+
+  const addExperimentalShapeToCanvas = useCallback(
+    (shapeKind: BasicShapeKind, worldPoint?: { x: number; y: number }) => {
+      const definition = resolveBasicShapeDefinition(shapeKind)
+      const canvasPanel = canvasPanelRef.current
+      const rect = canvasPanel?.getBoundingClientRect()
+      const centerWorldPoint =
+        worldPoint ??
+        {
+          x: ((rect?.width ?? canvasPanelSize.width) / 2 - viewport.x) / viewport.zoom,
+          y: ((rect?.height ?? canvasPanelSize.height) / 2 - viewport.y) / viewport.zoom,
+        }
+      addBasicShape(
+        shapeKind,
+        centerWorldPoint.x - definition.defaultWidth / 2,
+        centerWorldPoint.y - definition.defaultHeight / 2,
+      )
+      setActiveTool('select')
+      setTransientStatus(`${definition.label} shape added. Experimental shapes stay out of SJV Script and journeys.`)
+    },
+    [addBasicShape, canvasPanelSize.height, canvasPanelSize.width, setActiveTool, setTransientStatus, viewport],
+  )
 
   const focusNodeFromPalette = useCallback(
     (viewId: string, nodeId: string) => {
@@ -3051,6 +3138,101 @@ function App() {
     }
     return false
   }, [duplicateSelection, setTransientStatus])
+
+  const closeCanvasContextMenu = useCallback(() => {
+    setCanvasContextMenu(null)
+  }, [])
+
+  const handleAppContextMenu = useCallback(
+    (event: ReactMouseEvent<HTMLDivElement>) => {
+      event.preventDefault()
+      if (presentationMode) {
+        return
+      }
+      const targetElement = event.target instanceof Element ? event.target : null
+      if (!targetElement?.closest('.canvas-panel')) {
+        closeCanvasContextMenu()
+        return
+      }
+      const nodeElement = targetElement?.closest<SVGGElement>('[data-node-id]')
+      const edgeElement = targetElement?.closest<SVGGElement>('[data-edge-id]')
+      const canvasPanel = canvasPanelRef.current
+      const canvasRect = canvasPanel?.getBoundingClientRect()
+      const worldX = canvasRect ? (event.clientX - canvasRect.left - viewport.x) / viewport.zoom : 0
+      const worldY = canvasRect ? (event.clientY - canvasRect.top - viewport.y) / viewport.zoom : 0
+
+      if (nodeElement?.dataset.nodeId && workspace.nodes[nodeElement.dataset.nodeId]) {
+        const nodeId = nodeElement.dataset.nodeId
+        selectNode(nodeId)
+        setCanvasContextMenu({
+          x: event.clientX,
+          y: event.clientY,
+          worldX,
+          worldY,
+          target: 'node',
+          nodeId,
+        })
+        return
+      }
+
+      if (edgeElement?.dataset.edgeId && workspace.edges[edgeElement.dataset.edgeId]) {
+        const edgeId = edgeElement.dataset.edgeId
+        selectEdge(edgeId)
+        setCanvasContextMenu({
+          x: event.clientX,
+          y: event.clientY,
+          worldX,
+          worldY,
+          target: 'edge',
+          edgeId,
+        })
+        return
+      }
+
+      setCanvasContextMenu({
+        x: event.clientX,
+        y: event.clientY,
+        worldX,
+        worldY,
+        target: 'canvas',
+      })
+    },
+    [closeCanvasContextMenu, presentationMode, selectEdge, selectNode, viewport, workspace.edges, workspace.nodes],
+  )
+
+  const runCanvasContextAction = useCallback(
+    (action: () => void) => {
+      action()
+      closeCanvasContextMenu()
+    },
+    [closeCanvasContextMenu],
+  )
+
+  useEffect(() => {
+    if (!canvasContextMenu) {
+      return
+    }
+    const onWindowPointerDown = (event: PointerEvent) => {
+      const targetElement = event.target instanceof Element ? event.target : null
+      if (targetElement?.closest('.canvas-context-menu')) {
+        return
+      }
+      closeCanvasContextMenu()
+    }
+    const onWindowKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        closeCanvasContextMenu()
+      }
+    }
+    window.addEventListener('pointerdown', onWindowPointerDown)
+    window.addEventListener('keydown', onWindowKeyDown)
+    window.addEventListener('scroll', closeCanvasContextMenu, true)
+    return () => {
+      window.removeEventListener('pointerdown', onWindowPointerDown)
+      window.removeEventListener('keydown', onWindowKeyDown)
+      window.removeEventListener('scroll', closeCanvasContextMenu, true)
+    }
+  }, [canvasContextMenu, closeCanvasContextMenu])
 
   const runAutoArrange = useCallback(() => {
     if (
@@ -4703,7 +4885,7 @@ function App() {
             {supabaseCloudConfigured
               ? supabaseCloudReady
                 ? `Your private ${CLOUD_PROVIDER_LABEL} library is live below. Saved scripts are grouped beside your uploaded assets. Standard PNG/GIF/MP4 exports now auto-upload here after the local file is generated.`
-                : `Sign in from the top-right cloud badge to unlock your private ${CLOUD_PROVIDER_LABEL} library, previews, automatic upload, and sample seeding.`
+                : `Sign in from Preferences or the ${CLOUD_PROVIDER_LABEL} panel to unlock your private library, previews, automatic upload, and sample seeding.`
               : CLOUD_NOT_CONFIGURED_STATUS}
           </p>
           <div className="help-gallery-sections">
@@ -5065,6 +5247,69 @@ function App() {
             Reset custom colors
           </button>
         </fieldset>
+        <fieldset className="preferences-fieldset preferences-color-fieldset">
+          <legend>Canvas color</legend>
+          <div className="preferences-canvas-background-grid" role="list" aria-label="Canvas background presets">
+            {CANVAS_BACKGROUND_PRESETS.map((preset) => (
+              <button
+                key={preset.id}
+                type="button"
+                role="listitem"
+                className={
+                  uiPreferences.canvasBackgroundPresetId === preset.id
+                    ? 'preferences-canvas-background-card preferences-canvas-background-card-active'
+                    : 'preferences-canvas-background-card'
+                }
+                onClick={() => setCanvasBackgroundPresetPreference(preset.id)}
+              >
+                <span
+                  className="preferences-canvas-background-swatch"
+                  style={{ background: preset.color }}
+                  aria-hidden="true"
+                />
+                <span>{preset.label}</span>
+              </button>
+            ))}
+            <button
+              type="button"
+              role="listitem"
+              className={
+                uiPreferences.canvasBackgroundPresetId === 'custom'
+                  ? 'preferences-canvas-background-card preferences-canvas-background-card-active'
+                  : 'preferences-canvas-background-card'
+              }
+              onClick={() => setCanvasBackgroundPresetPreference('custom')}
+            >
+              <span
+                className="preferences-canvas-background-swatch"
+                style={{ background: uiPreferences.customCanvasBackground }}
+                aria-hidden="true"
+              />
+              <span>Custom</span>
+            </button>
+          </div>
+          <label className="preferences-color-control">
+            <span>Custom canvas</span>
+            <input
+              type="color"
+              value={uiPreferences.customCanvasBackground}
+              onChange={(event) => updateCustomCanvasBackground(event.target.value)}
+            />
+          </label>
+          <button
+            type="button"
+            className="preferences-inline-action"
+            onClick={() =>
+              setUiPreferences((current) => ({
+                ...current,
+                canvasBackgroundPresetId: 'soft-grid',
+                customCanvasBackground: DEFAULT_CUSTOM_CANVAS_BACKGROUND,
+              }))
+            }
+          >
+            Reset canvas color
+          </button>
+        </fieldset>
       </PanelGroup>
       <PanelGroup title="Toolbar sections">
         <label className="preferences-toggle">
@@ -5127,7 +5372,7 @@ function App() {
         </label>
       </PanelGroup>
       <PanelGroup title={CLOUD_PROVIDER_LABEL} defaultExpanded={false}>
-        <p className="preferences-status">Use the top-right cloud badge for quick sign-in, gallery access, and automatic upload after standard PNG/GIF/MP4 exports.</p>
+        <p className="preferences-status">Use this panel for sign-in, gallery access, and automatic upload after standard PNG/GIF/MP4 exports.</p>
         <p className="preferences-status">Provider URL: {workspaceCloudDatabaseUrl}</p>
         <p className="preferences-status">{supabaseCloudStatus}</p>
         <p className="preferences-status">Current workspace id: {workspace.workspace.id}</p>
@@ -5135,7 +5380,7 @@ function App() {
           Active cloud script target: {activeSupabaseScriptWorkspaceId ?? 'none selected'}
         </p>
         <p className="preferences-status">
-          Load Saved SJV Script opens the clickable script list in the top-right cloud panel.
+          Load Saved SJV Script opens the clickable script list in the cloud panel.
         </p>
         <label className="preferences-select">
           Account email
@@ -5983,17 +6228,6 @@ function App() {
       id: 'player',
       label: `Player: ${playerModeLabel}`,
     },
-    {
-      id: 'provider',
-      label: supabaseCloudReady
-        ? `${CLOUD_PROVIDER_LABEL}: ${supabaseCloudLibraryItemCount} items`
-        : CLOUD_PROVIDER_LABEL,
-      title: supabaseCloudReady
-        ? supabaseCloudStatus
-        : supabaseCloudConfigured
-          ? CLOUD_SIGN_IN_PROMPT
-          : CLOUD_NOT_CONFIGURED_STATUS,
-    },
   ]
   const statusBarActions: StatusBarAction[] = [
     {
@@ -6091,52 +6325,23 @@ function App() {
     help: 'Help',
     preferences: 'Prefs',
   }
-  const cloudBadgeControl = (
-    <div ref={topbarCloudShellRef} className="topbar-cloud-shell">
-      <button
-        type="button"
-        className={[
-          'topbar-cloud-badge',
-          supabaseCloudPanelOpen ? 'topbar-cloud-badge-open' : '',
-          supabaseCloudReady ? 'topbar-cloud-badge-ready' : '',
-        ]
-          .filter(Boolean)
-          .join(' ')}
-        onClick={() =>
-          setSupabaseCloudPanelOpen((current) => {
-            const next = !current
-            if (!next) {
-              setSupabaseCloudScriptPickerOpen(false)
-              setSupabaseCloudScriptSearch('')
-            }
-            return next
-          })
-        }
-        aria-expanded={supabaseCloudPanelOpen}
-        aria-haspopup="dialog"
-        aria-label={`Open ${CLOUD_PROVIDER_LABEL} panel`}
-      >
-        <span className="topbar-cloud-badge-copy">
-          <strong>{supabaseCloudUser?.email ?? (supabaseCloudConfigured ? CLOUD_PROVIDER_LABEL : 'Cloud Offline')}</strong>
-          <span>
-            {!supabaseCloudConfigured
-              ? 'Not configured'
-              : supabaseCloudReady
-                ? `${supabaseCloudLibraryItemCount} item${supabaseCloudLibraryItemCount === 1 ? '' : 's'}`
-                : 'Sign in required'}
-          </span>
-        </span>
-        <span
-          className={
-            supabaseCloudReady
-              ? 'topbar-cloud-badge-dot topbar-cloud-badge-dot-ready'
-              : 'topbar-cloud-badge-dot'
-          }
-          aria-hidden="true"
-        />
-      </button>
+  const cloudPanelControl = (
+    <div ref={topbarCloudShellRef} className="topbar-cloud-shell topbar-cloud-shell-floating">
       {supabaseCloudPanelOpen ? (
         <div className="topbar-cloud-panel" role="dialog" aria-label={`${CLOUD_PROVIDER_LABEL} panel`}>
+          <div className="topbar-cloud-panel-header">
+            <strong>{CLOUD_PROVIDER_LABEL}</strong>
+            <button
+              type="button"
+              onClick={() => {
+                setSupabaseCloudPanelOpen(false)
+                setSupabaseCloudScriptPickerOpen(false)
+                setSupabaseCloudScriptSearch('')
+              }}
+            >
+              Close
+            </button>
+          </div>
           <p className="topbar-cloud-status">{supabaseCloudStatus}</p>
           {!supabaseCloudConfigured ? (
             <p className="topbar-cloud-hint">{SUPABASE_PUBLIC_ENV_HINT}</p>
@@ -6450,7 +6655,7 @@ function App() {
         title: theme === 'dark' ? 'Use Light Theme' : 'Use Dark Theme',
         section: 'Commands',
         keywords: ['appearance', 'color'],
-        run: () => setTheme(theme === 'dark' ? 'light' : 'dark'),
+        run: () => applyWorkspaceTheme(theme === 'dark' ? 'light' : 'dark'),
       },
       {
         id: 'command:toggle-minimap',
@@ -6572,6 +6777,13 @@ function App() {
         run: () => openPreferencesWindow(),
       },
       {
+        id: 'command:open-cloud-panel',
+        title: `Open ${CLOUD_PROVIDER_LABEL} Panel`,
+        section: 'Windows',
+        keywords: ['cloud', 'supabase', 'login', 'sync'],
+        run: () => setSupabaseCloudPanelOpen(true),
+      },
+      {
         id: 'command:save-file',
         title: 'Save File',
         section: 'Files',
@@ -6690,6 +6902,115 @@ function App() {
     item.run()
   }
 
+  const canvasContextMenuContent = canvasContextMenu ? (
+    <div
+      className="canvas-context-menu"
+      role="menu"
+      aria-label="Canvas context menu"
+      style={{ left: canvasContextMenu.x, top: canvasContextMenu.y }}
+    >
+      <div className="canvas-context-menu-section">
+        <span className="canvas-context-menu-label">
+          {canvasContextMenu.target === 'node'
+            ? workspace.nodes[canvasContextMenu.nodeId ?? '']?.name ?? 'Node'
+            : canvasContextMenu.target === 'edge'
+              ? workspace.edges[canvasContextMenu.edgeId ?? '']?.label || 'Edge'
+              : 'Canvas'}
+        </span>
+      </div>
+      {canvasContextMenu.target === 'canvas' ? (
+        <div className="canvas-context-menu-section">
+          {BASIC_SHAPE_DEFINITIONS.map((shape) => (
+            <button
+              key={shape.kind}
+              type="button"
+              role="menuitem"
+              onClick={() =>
+                runCanvasContextAction(() =>
+                  addExperimentalShapeToCanvas(shape.kind, {
+                    x: canvasContextMenu.worldX,
+                    y: canvasContextMenu.worldY,
+                  }),
+                )
+              }
+            >
+              {renderBasicShapeToolbarIcon(shape.kind, 14)}
+              <span>Add {shape.label}</span>
+            </button>
+          ))}
+        </div>
+      ) : null}
+      {canvasContextMenu.target !== 'canvas' ? (
+        <div className="canvas-context-menu-section">
+          <button
+            type="button"
+            role="menuitem"
+            onClick={() => runCanvasContextAction(() => duplicateCurrentSelection())}
+          >
+            <Copy size={14} />
+            <span>Duplicate</span>
+          </button>
+          <button
+            type="button"
+            role="menuitem"
+            onClick={() => runCanvasContextAction(() => deleteCurrentSelection())}
+          >
+            <Trash2 size={14} />
+            <span>Delete</span>
+          </button>
+        </div>
+      ) : null}
+      {canvasContextMenu.target === 'edge' && activeJourneyId ? (
+        <div className="canvas-context-menu-section">
+          <button
+            type="button"
+            role="menuitem"
+            onClick={() =>
+              runCanvasContextAction(() => {
+                if (canvasContextMenu.edgeId) {
+                  addEdgeToJourney(activeJourneyId, canvasContextMenu.edgeId)
+                }
+              })
+            }
+          >
+            <Workflow size={14} />
+            <span>Add to active journey</span>
+          </button>
+        </div>
+      ) : null}
+      <div className="canvas-context-menu-section">
+        <button type="button" role="menuitem" onClick={() => runCanvasContextAction(() => fitCurrentViewToCanvas())}>
+          <Target size={14} />
+          <span>Fit view</span>
+        </button>
+        <button type="button" role="menuitem" onClick={() => runCanvasContextAction(() => runAutoArrange())}>
+          <Sparkles size={14} />
+          <span>Auto arrange</span>
+        </button>
+      </div>
+    </div>
+  ) : null
+  const lightThemeNoticeDialog = lightThemeNoticeOpen ? (
+    <div className="theme-notice-backdrop" role="presentation">
+      <section
+        className="theme-notice-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="light-theme-notice-title"
+      >
+        <div className="theme-notice-copy">
+          <strong id="light-theme-notice-title">Light theme is under construction</strong>
+          <p>
+            You can keep using it, but some shell surfaces and contrast details may still look unfinished.
+          </p>
+        </div>
+        <button type="button" onClick={() => setLightThemeNoticeOpen(false)}>
+          Continue
+        </button>
+      </section>
+    </div>
+  ) : null
+
   if (isSharedSupabaseAssetRoute) {
     return (
       <div className="shared-asset-view">
@@ -6763,6 +7084,7 @@ function App() {
           theme === 'dark' ? 'theme-dark' : 'theme-light'
         } ${uiPreferences.performanceModeEnabled ? 'app-layout-performance' : ''}`}
         style={uiAppearanceStyle}
+        onContextMenu={handleAppContextMenu}
       >
         <input
           ref={snapshotFileInputRef}
@@ -6797,6 +7119,9 @@ function App() {
           onRun={runCommandPaletteAction}
           onClose={closeCommandPalette}
         />
+        {!presentationMode ? cloudPanelControl : null}
+        {canvasContextMenuContent}
+        {lightThemeNoticeDialog}
         <div ref={layoutRef} className="mobile-shell-frame">
           <header ref={topbarRef} className="mobile-topbar">
             <div className="mobile-topbar-row">
@@ -6804,7 +7129,6 @@ function App() {
                 <strong>{workspace.workspace.name}</strong>
                 <span>{breadcrumb.map((viewId) => workspace.views[viewId]?.name ?? viewId).join(' / ')}</span>
               </div>
-              {cloudBadgeControl}
             </div>
             <div className="mobile-topbar-meta">
               <span className="mobile-meta-pill">{`View ${currentViewModeLabel}`}</span>
@@ -6982,6 +7306,7 @@ function App() {
         uiPreferences.performanceModeEnabled ? 'app-layout-performance' : ''
       }`}
       style={appLayoutStyle}
+      onContextMenu={handleAppContextMenu}
     >
       <input
         ref={snapshotFileInputRef}
@@ -7016,6 +7341,9 @@ function App() {
         onRun={runCommandPaletteAction}
         onClose={closeCommandPalette}
       />
+      {!presentationMode ? cloudPanelControl : null}
+      {canvasContextMenuContent}
+      {lightThemeNoticeDialog}
       <header ref={topbarRef} className="topbar">
         <div className="topbar-meta">
           <div className="topbar-brand-row">
@@ -7402,7 +7730,7 @@ function App() {
                   <button
                     type="button"
                     role="menuitem"
-                    onClick={() => runDesktopMenuAction(() => setTheme(theme === 'dark' ? 'light' : 'dark'))}
+                    onClick={() => runDesktopMenuAction(() => applyWorkspaceTheme(theme === 'dark' ? 'light' : 'dark'))}
                   >
                     {renderDesktopMenuItem(
                       theme === 'dark' ? <Sun size={13} /> : <Moon size={13} />,
@@ -8043,6 +8371,13 @@ function App() {
                   <button
                     type="button"
                     role="menuitem"
+                    onClick={() => runDesktopMenuAction(() => setSupabaseCloudPanelOpen(true))}
+                  >
+                    {renderDesktopMenuItem(<FolderOpen size={13} />, `Open ${CLOUD_PROVIDER_LABEL} Panel`)}
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
                     onClick={() =>
                       runDesktopMenuAction(() =>
                         setUiPreferences((current) => ({
@@ -8299,7 +8634,6 @@ function App() {
                 <span>Search</span>
                 <kbd>Ctrl K</kbd>
               </button>
-              {compactInlineTopbar ? null : cloudBadgeControl}
             </div>
           ) : null}
           {!presentationMode ? (
@@ -8804,6 +9138,19 @@ function App() {
             >
               {renderAppIcon('link', 16)}
             </button>
+            <span className="canvas-tool-divider" aria-hidden="true" />
+            {BASIC_SHAPE_DEFINITIONS.map((shape) => (
+              <button
+                key={shape.kind}
+                type="button"
+                className="canvas-tool-button"
+                onClick={() => addExperimentalShapeToCanvas(shape.kind)}
+                title={withTooltip(`Add ${shape.label.toLowerCase()} shape (experimental)`)}
+                aria-label={`Add ${shape.label} shape`}
+              >
+                {renderBasicShapeToolbarIcon(shape.kind, 16)}
+              </button>
+            ))}
             <span className="canvas-tool-divider" aria-hidden="true" />
             <button
               type="button"

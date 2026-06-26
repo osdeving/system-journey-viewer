@@ -18,6 +18,10 @@ import {
   type ShowcaseLocale,
   type ShowcaseMode,
 } from '../model/showcaseWorkspace'
+import {
+  isExperimentalShapeNode,
+  resolveBasicShapeDefinition,
+} from '../model/experimentalShapes'
 import { normalizeWorkspaceNodePorts, resolveNodePorts } from '../model/nodePorts'
 import { resolveNodePreset, resolveTechPreset } from '../presets/catalog'
 import { resolveViewHistoryForView } from '../viewHierarchy'
@@ -28,6 +32,7 @@ import type {
   JourneyFilterLayoutMode,
   JourneyFilterOffscopeRenderMode,
   JourneyStep,
+  BasicShapeKind,
   NodeBounds,
   NodeModel,
   ViewportState,
@@ -86,6 +91,7 @@ interface EditorState {
   setViewport: (viewport: ViewportState) => void
   zoomByFactor: (factor: number) => void
   addNode: (presetId: string, x: number, y: number) => string
+  addBasicShape: (shapeKind: BasicShapeKind, x: number, y: number) => string
   removeNode: (nodeId: string) => void
   removeEdge: (edgeId: string) => void
   setNodeBounds: (nodeId: string, bounds: NodeBounds) => void
@@ -331,6 +337,36 @@ const createNode = (id: string, presetId: string, x: number, y: number): NodeMod
       : undefined,
     bounds,
     ports: resolveNodePorts(bounds, (preset?.kind ?? 'container') as NodeModel['kind']),
+    children: [],
+  }
+}
+
+const createBasicShapeNode = (
+  id: string,
+  shapeKind: BasicShapeKind,
+  x: number,
+  y: number,
+): NodeModel => {
+  const definition = resolveBasicShapeDefinition(shapeKind)
+  const bounds = {
+    x,
+    y,
+    w: definition.defaultWidth,
+    h: definition.defaultHeight,
+  }
+  return {
+    id,
+    presetId: definition.kind,
+    kind: definition.kind,
+    name: definition.label,
+    description: 'Experimental canvas shape. Excluded from SJV Script and journey playback.',
+    tags: ['experimental-shape'],
+    style: {
+      fillColor: definition.fillColor,
+      textColor: definition.textColor,
+    },
+    bounds,
+    ports: resolveNodePorts(bounds, definition.kind),
     children: [],
   }
 }
@@ -918,6 +954,21 @@ export const useEditorStore = create<EditorState>()(
           return
         }
         state.workspace.nodes[nodeId] = createNode(nodeId, presetId, x, y)
+        view.nodeIds.push(nodeId)
+        state.selectedNodeId = nodeId
+        state.selectedNodeIds = [nodeId]
+        state.selectedEdgeId = null
+      })
+      return nodeId
+    },
+    addBasicShape: (shapeKind, x, y) => {
+      const nodeId = nextNumericId(get().workspace.nodes, 'n')
+      set((state) => {
+        const view = state.workspace.views[state.currentViewId]
+        if (!view) {
+          return
+        }
+        state.workspace.nodes[nodeId] = createBasicShapeNode(nodeId, shapeKind, x, y)
         view.nodeIds.push(nodeId)
         state.selectedNodeId = nodeId
         state.selectedNodeIds = [nodeId]
@@ -1589,7 +1640,10 @@ export const useEditorStore = create<EditorState>()(
     addEdgeToJourney: (journeyId, edgeId) => {
       set((state) => {
         const journey = state.workspace.journeys[journeyId]
-        if (!journey) {
+        const edge = state.workspace.edges[edgeId]
+        const fromNode = edge ? state.workspace.nodes[edge.from.nodeId] : undefined
+        const toNode = edge ? state.workspace.nodes[edge.to.nodeId] : undefined
+        if (!journey || !edge || isExperimentalShapeNode(fromNode) || isExperimentalShapeNode(toNode)) {
           return
         }
         const exists = journey.steps.some((step) => step.edgeId === edgeId)

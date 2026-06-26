@@ -4,6 +4,7 @@
 
 import { resolveNodePreset, resolveTechPreset } from '../presets/catalog'
 import { resolveNodePorts } from '../model/nodePorts'
+import { isSJVScriptEdge, isSJVScriptNode } from '../model/experimentalShapes'
 import {
   encodeScriptText,
   fallbackAliasFromNodeId,
@@ -169,7 +170,7 @@ const buildAliasMapByView = (
 
     for (const nodeId of view.nodeIds) {
       const node = workspace.nodes[nodeId]
-      if (!node) {
+      if (!node || !isSJVScriptNode(node)) {
         continue
       }
       const baseAlias = resolveAliasToken(
@@ -198,7 +199,7 @@ const buildEdgeTokenMapByView = (
     const nodeAliasById = aliasByView[view.id] ?? new Map<string, string>()
     for (const edgeId of view.edgeIds) {
       const edge = workspace.edges[edgeId]
-      if (!edge) {
+      if (!edge || !isSJVScriptEdge(edge, workspace.nodes)) {
         continue
       }
       const fromAlias =
@@ -230,7 +231,7 @@ const resolveParentRef = (
   for (const parentView of Object.values(workspace.views)) {
     for (const nodeId of parentView.nodeIds) {
       const node = workspace.nodes[nodeId]
-      if (!node || node.drilldownRef !== targetViewId) {
+      if (!node || !isSJVScriptNode(node) || node.drilldownRef !== targetViewId) {
         continue
       }
       const viaAlias =
@@ -257,7 +258,7 @@ const buildViewBlock = (
 
   const nodeLines = view.nodeIds
     .map((nodeId) => workspace.nodes[nodeId])
-    .filter((node) => !!node)
+    .filter((node) => !!node && isSJVScriptNode(node))
     .map((node) => {
       const alias = nodeAliasById.get(node.id) ?? resolveAliasToken(node.id, 'node')
       const noteTargetAlias =
@@ -280,7 +281,7 @@ const buildViewBlock = (
 
   const edgeLines = view.edgeIds
     .map((edgeId) => workspace.edges[edgeId])
-    .filter((edge) => !!edge)
+    .filter((edge) => !!edge && isSJVScriptEdge(edge, workspace.nodes))
     .map((edge) => {
       const edgeToken = edgeTokensById.get(edge.id) ?? resolveAliasToken(edge.id, 'edge')
       const fromAlias = nodeAliasById.get(edge.from.nodeId) ?? edge.from.nodeId
@@ -365,7 +366,7 @@ const buildUiLayoutMetadataBlock = (
       const edgeTokensById = edgeTokensByView[view.id] ?? new Map<string, string>()
       const nodeLines = view.nodeIds
         .map((nodeId) => workspace.nodes[nodeId])
-        .filter((node): node is WorkspaceModel['nodes'][string] => !!node)
+        .filter((node): node is WorkspaceModel['nodes'][string] => !!node && isSJVScriptNode(node))
         .map((node) => {
           const alias = nodeAliasById.get(node.id)
           if (!alias) {
@@ -381,7 +382,7 @@ const buildUiLayoutMetadataBlock = (
 
       const edgeLines = view.edgeIds
         .map((edgeId) => workspace.edges[edgeId])
-        .filter((edge): edge is WorkspaceModel['edges'][string] => !!edge)
+        .filter((edge): edge is WorkspaceModel['edges'][string] => !!edge && isSJVScriptEdge(edge, workspace.nodes))
         .map((edge) => {
           const edgeToken = edgeTokensById.get(edge.id)
           if (!edgeToken) {
@@ -742,7 +743,7 @@ export const liteToFullWorkspace = (ast: LiteWorkspaceAst): WorkspaceModel => {
     settings: {
       grid: false,
       snap: false,
-      theme: 'light',
+      theme: 'dark',
       journeyFocus: {
         offscopeRenderMode: 'hide',
         layoutMode: 'preserve',

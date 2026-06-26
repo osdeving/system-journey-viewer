@@ -21,6 +21,7 @@ type OverflowStripProps = {
   contentProps?: Omit<HTMLAttributes<HTMLDivElement>, 'className' | 'children'>
   navAriaLabel?: string
   hideNavWhenNotOverflowing?: boolean
+  collapseNavWhenHidden?: boolean
   scrollStepPx?: number
 }
 
@@ -42,6 +43,7 @@ export function OverflowStrip({
   contentProps,
   navAriaLabel = 'overflow strip',
   hideNavWhenNotOverflowing = true,
+  collapseNavWhenHidden = false,
   scrollStepPx,
 }: OverflowStripProps) {
   const viewportRef = useRef<HTMLDivElement | null>(null)
@@ -135,12 +137,29 @@ export function OverflowStrip({
   const isOverflowing = overflowState.canScrollLeft || overflowState.canScrollRight
   const leftNavHidden = hideNavWhenNotOverflowing && !isOverflowing
   const rightNavHidden = hideNavWhenNotOverflowing && !isOverflowing
+  const navCollapsed = collapseNavWhenHidden && leftNavHidden && rightNavHidden
+  const resolveNavClassName = (hidden: boolean) =>
+    [
+      'overflow-strip-nav',
+      hidden ? 'overflow-strip-nav-hidden' : '',
+      hidden && collapseNavWhenHidden ? 'overflow-strip-nav-collapsed' : '',
+    ]
+      .filter(Boolean)
+      .join(' ')
 
   return (
-    <div className={className ? `overflow-strip ${className}` : 'overflow-strip'}>
+    <div
+      className={[
+        'overflow-strip',
+        navCollapsed ? 'overflow-strip-navs-collapsed' : '',
+        className ?? '',
+      ]
+        .filter(Boolean)
+        .join(' ')}
+    >
       <button
         type="button"
-        className={leftNavHidden ? 'overflow-strip-nav overflow-strip-nav-hidden' : 'overflow-strip-nav'}
+        className={resolveNavClassName(leftNavHidden)}
         onClick={() => scrollViewport(-1)}
         disabled={!overflowState.canScrollLeft}
         aria-label={`Scroll ${navAriaLabel} left`}
@@ -161,7 +180,7 @@ export function OverflowStrip({
       </div>
       <button
         type="button"
-        className={rightNavHidden ? 'overflow-strip-nav overflow-strip-nav-hidden' : 'overflow-strip-nav'}
+        className={resolveNavClassName(rightNavHidden)}
         onClick={() => scrollViewport(1)}
         disabled={!overflowState.canScrollRight}
         aria-label={`Scroll ${navAriaLabel} right`}
@@ -171,4 +190,3 @@ export function OverflowStrip({
     </div>
   )
 }
-

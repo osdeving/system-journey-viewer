@@ -98,6 +98,9 @@ describe('App source regressions', () => {
     expect(appSource).toContain("uiPreferences.toolbarInlineWithBrand ? 'app-toolbar-inline' : 'app-toolbar-stacked'")
     expect(appSource).toContain("id: 'command:toggle-main-menu'")
     expect(appSource).toContain("id: 'command:toggle-inline-toolbar'")
+    expect(appSource).toContain('className="app-logo-badge app-logo-button"')
+    expect(appSource).toContain('compactInlineTopbar ? null : cloudBadgeControl')
+    expect(appSource).not.toContain('topbar-menu-restore-button')
     expect(appSource).toContain('style={appLayoutStyle}')
   })
 
@@ -263,6 +266,8 @@ describe('App source regressions', () => {
     expect(appSource).toContain('<DockHost')
     expect(appSource).toContain('renderManagedDockHostInDockPanel')
     expect(appSource).toContain('setManagedHostActiveTab')
+    expect(appSource).toContain('onHeaderTearOff=')
+    expect(appSource).toContain('floatManagedDockHostWindow(hostId, activeTabId)')
   })
 
   it('renders floating managed windows through a shared loop and content mapper', () => {

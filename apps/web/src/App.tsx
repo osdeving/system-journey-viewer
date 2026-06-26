@@ -5780,6 +5780,7 @@ function App() {
               reorderManagedDockHostTabs(hostId, sourceWindowId, targetWindowId)}
             renderTabPanel={renderManagedWindowDockContent}
             headerActions={buildManagedDockHostHeaderActions(hostId, activeTabId)}
+            onHeaderTearOff={activeTabId ? () => floatManagedDockHostWindow(hostId, activeTabId) : undefined}
             emptyState={<p className="dock-host-empty">No docked windows in this host.</p>}
           />
         </div>
@@ -5812,6 +5813,11 @@ function App() {
         reorderManagedDockHostTabs(currentManagedDockHostId, sourceWindowId, targetWindowId)}
       renderTabPanel={renderManagedWindowDockContent}
       headerActions={buildManagedDockHostHeaderActions(currentManagedDockHostId, managedDockActiveTab)}
+      onHeaderTearOff={
+        managedDockActiveTab
+          ? () => floatManagedDockHostWindow(currentManagedDockHostId, managedDockActiveTab)
+          : undefined
+      }
       emptyState={<p className="dock-host-empty">No docked windows in this host.</p>}
     />
   ) : resolvedLegacyDockTab ? (
@@ -6365,6 +6371,29 @@ function App() {
       ) : null}
     </div>
   )
+  const appLogoGlyph = (
+    <svg viewBox="0 0 64 64">
+      <defs>
+        <linearGradient id="sjvLogoGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#38bdf8" />
+          <stop offset="100%" stopColor="#22c55e" />
+        </linearGradient>
+      </defs>
+      <rect x="6" y="6" width="52" height="52" rx="14" fill="url(#sjvLogoGradient)" opacity="0.18" />
+      <path
+        d="M17 20 H29 M35 20 H47 M17 44 H29 M35 44 H47 M23 20 V44 M41 20 V44"
+        stroke="url(#sjvLogoGradient)"
+        strokeWidth="3.2"
+        strokeLinecap="round"
+      />
+      <circle cx="23" cy="20" r="4.2" fill="#38bdf8" />
+      <circle cx="41" cy="20" r="4.2" fill="#22c55e" />
+      <circle cx="23" cy="44" r="4.2" fill="#22c55e" />
+      <circle cx="41" cy="44" r="4.2" fill="#38bdf8" />
+    </svg>
+  )
+  const compactInlineTopbar =
+    !presentationMode && !uiPreferences.menuBarVisible && uiPreferences.toolbarInlineWithBrand
 
   const commandPaletteItems: CommandPaletteActionItem[] = commandPaletteOpen ? (() => {
     const items: CommandPaletteActionItem[] = [
@@ -6990,31 +7019,10 @@ function App() {
       <header ref={topbarRef} className="topbar">
         <div className="topbar-meta">
           <div className="topbar-brand-row">
-            <div className="app-logo-badge" aria-hidden="true">
-              <svg viewBox="0 0 64 64">
-                <defs>
-                  <linearGradient id="sjvLogoGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                    <stop offset="0%" stopColor="#38bdf8" />
-                    <stop offset="100%" stopColor="#22c55e" />
-                  </linearGradient>
-                </defs>
-                <rect x="6" y="6" width="52" height="52" rx="14" fill="url(#sjvLogoGradient)" opacity="0.18" />
-                <path
-                  d="M17 20 H29 M35 20 H47 M17 44 H29 M35 44 H47 M23 20 V44 M41 20 V44"
-                  stroke="url(#sjvLogoGradient)"
-                  strokeWidth="3.2"
-                  strokeLinecap="round"
-                />
-                <circle cx="23" cy="20" r="4.2" fill="#38bdf8" />
-                <circle cx="41" cy="20" r="4.2" fill="#22c55e" />
-                <circle cx="23" cy="44" r="4.2" fill="#22c55e" />
-                <circle cx="41" cy="44" r="4.2" fill="#38bdf8" />
-              </svg>
-            </div>
             {!presentationMode && !uiPreferences.menuBarVisible ? (
               <button
                 type="button"
-                className="topbar-menu-restore-button"
+                className="app-logo-badge app-logo-button"
                 onClick={() =>
                   setUiPreferences((current) => ({
                     ...current,
@@ -7024,10 +7032,13 @@ function App() {
                 title={withTooltip('Show main menu')}
                 aria-label="Show main menu"
               >
-                {renderAppIcon('list-ordered', 14)}
-                <span>Menu</span>
+                {appLogoGlyph}
               </button>
-            ) : null}
+            ) : (
+              <div className="app-logo-badge" aria-hidden="true">
+                {appLogoGlyph}
+              </div>
+            )}
             <div className="app-brand-copy">
               <h1>{workspace.workspace.name}</h1>
               <p>{breadcrumb.map((viewId) => workspace.views[viewId]?.name ?? viewId).join(' / ')}</p>
@@ -8287,7 +8298,7 @@ function App() {
               <span>Search</span>
               <kbd>Ctrl K</kbd>
             </button>
-            {cloudBadgeControl}
+            {compactInlineTopbar ? null : cloudBadgeControl}
           </div>
           {!presentationMode ? (
             <div className="mode-indicators">

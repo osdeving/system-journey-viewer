@@ -2,6 +2,35 @@
 
 Chronological engineering log. Entries are kept concise and focused on behavior and validation.
 
+## 2026-06-26 - Compact menu logo restore and dock tear-off polish
+
+### Scope
+
+- Refined compact desktop shell behavior so the app icon restores the hidden main menu and docked windows behave more like classic draggable dock windows.
+
+### Changes
+
+- `apps/web/src/App.tsx`, `apps/web/src/App.css`
+  - removed the separate menu restore button; when the main menu is hidden, the app logo itself restores it,
+  - let the toolbar occupy the area immediately to the right of the app logo in inline compact mode,
+  - hides the topbar cloud badge in that compact inline mode to preserve horizontal toolbar space.
+- `apps/web/src/components/chrome/OverflowStrip.tsx`
+  - added an opt-in collapsed navigation state so hidden overflow arrows do not reserve layout space.
+- `apps/web/src/components/windowing/DockHost.tsx`
+  - made the dock header a draggable titlebar surface that tears off the active docked tab into a floating window,
+  - applied collapsed tab overflow arrows so tabs sit at the far left when no overflow exists.
+- `apps/web/src/components/windowing/DockHost.test.tsx`, `apps/web/src/App.source.test.ts`, `apps/web/src/App.styles.test.ts`
+  - added regressions for dock tear-off behavior, tab/action drag exclusions, collapsed hidden arrows, and the logo-based menu restore contract.
+
+### Validation
+
+- `npm --workspace @sjv/web run test:run -- src/components/windowing/DockHost.test.tsx src/App.source.test.ts src/App.styles.test.ts`
+- `npm --workspace @sjv/web run lint`
+- `npm --workspace @sjv/web run test:run`
+- `npm --workspace @sjv/web run build`
+- `git diff --check`
+- Playwright/Firefox check against `http://127.0.0.1:5176/`: verified hidden-menu inline toolbar starts 10px after the app logo, no hamburger/old restore button is rendered, the topbar cloud badge is hidden in compact inline mode, clicking the app logo restores the main menu, hidden dock tab arrows use `display: none`, tabs start at the left edge without reserved arrow space, and dragging the dock header empty area floats the active Palette window.
+
 ## 2026-06-26 - Dock header and compact shell polish
 
 ### Scope

@@ -354,20 +354,22 @@
   display: block;
 }
 
-.topbar-menu-restore-button {
-  min-height: 30px;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  border: 1px solid #cbd5e1;
-  border-radius: 5px;
-  padding: 0 8px;
-  background: #ffffff;
-  color: #334155;
+.app-logo-button {
+  padding: 0;
+  appearance: none;
   cursor: pointer;
   font: inherit;
-  font-size: 12px;
-  font-weight: 600;
+  color: inherit;
+}
+
+.app-logo-button:hover {
+  border-color: #38bdf8;
+  background: #f8fafc;
+}
+
+.app-logo-button:focus-visible {
+  outline: 2px solid #38bdf8;
+  outline-offset: 2px;
 }
 
 .app-brand-copy {
@@ -1349,6 +1351,14 @@ button.topbar-cloud-script-row-delete {
 
 .overflow-strip-nav-hidden {
   visibility: hidden;
+}
+
+.overflow-strip-nav-collapsed {
+  display: none;
+}
+
+.overflow-strip-navs-collapsed {
+  grid-template-columns: minmax(0, 1fr);
 }
 
 .overflow-strip-viewport {
@@ -2833,7 +2843,21 @@ button.topbar-cloud-script-row-delete {
   padding: 4px;
   border: 1px solid rgba(148, 163, 184, 0.26);
   border-radius: 6px;
-  background: rgba(248, 250, 252, 0.72);
+  background: linear-gradient(180deg, rgba(248, 250, 252, 0.86), rgba(226, 232, 240, 0.68));
+  box-shadow: inset 0 -1px 0 rgba(148, 163, 184, 0.18);
+}
+
+.dock-host-header-draggable {
+  cursor: grab;
+  user-select: none;
+}
+
+.dock-host-header-draggable:active {
+  cursor: grabbing;
+}
+
+.dock-host-header-draggable :is(button, input, select, textarea, a) {
+  cursor: pointer;
 }
 
 .dock-host-actions-row {
@@ -6576,7 +6600,7 @@ button.help-gallery-icon-button {
     .desktop-menu-trigger,
     .desktop-menu-list button,
     .command-palette-trigger,
-    .topbar-menu-restore-button,
+    .app-logo-button,
     .topbar-actions button,
     .topbar-cloud-badge,
     .topbar-cloud-panel button,
@@ -6619,7 +6643,7 @@ button.help-gallery-icon-button {
 }
 
 :is(.app-chrome-theme-midnight, .app-chrome-theme-graphite, .app-chrome-theme-teal, .app-chrome-theme-custom)
-  :is(.desktop-menu-trigger:hover, .desktop-menu-list button:hover, .command-palette-trigger:hover, .topbar-menu-restore-button:hover, .topbar-actions button:hover, .topbar-cloud-badge:hover, .dock-host-scroll-controls button:not(:disabled):hover, .dock-tab:hover, .dock-placement:hover, .canvas-tool-button:hover) {
+  :is(.desktop-menu-trigger:hover, .desktop-menu-list button:hover, .command-palette-trigger:hover, .app-logo-button:hover, .topbar-actions button:hover, .topbar-cloud-badge:hover, .dock-host-scroll-controls button:not(:disabled):hover, .dock-tab:hover, .dock-placement:hover, .canvas-tool-button:hover) {
   border-color: var(--sjv-shell-accent-border);
   background: var(--sjv-shell-control-hover);
   color: var(--sjv-shell-control-text);
@@ -6666,7 +6690,7 @@ button.help-gallery-icon-button {
 }
 
 :is(.app-chrome-theme-midnight, .app-chrome-theme-graphite, .app-chrome-theme-teal, .app-chrome-theme-custom)
-  :is(.desktop-menu-trigger, .toolbar-command-button, .toolbar-icon-button, .icon-toggle-button, .focus-toggle-button, .command-palette-trigger, .topbar-menu-restore-button, .topbar-cloud-badge) {
+  :is(.desktop-menu-trigger, .toolbar-command-button, .toolbar-icon-button, .icon-toggle-button, .focus-toggle-button, .command-palette-trigger, .app-logo-button, .topbar-cloud-badge) {
   border-radius: 5px;
   font-weight: 600;
 }
@@ -6677,7 +6701,7 @@ button.help-gallery-icon-button {
 }
 
 :is(.app-chrome-theme-midnight, .app-chrome-theme-graphite, .app-chrome-theme-teal, .app-chrome-theme-custom)
-  :is(.topbar-actions button svg, .command-palette-trigger svg, .topbar-menu-restore-button svg) {
+  :is(.topbar-actions button svg, .command-palette-trigger svg) {
   color: var(--sjv-shell-muted);
 }
 

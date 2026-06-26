@@ -3,7 +3,14 @@
  */
 
 import { ChevronDown, ChevronUp } from 'lucide-react'
-import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type PointerEvent as ReactPointerEvent,
+  type ReactNode,
+} from 'react'
 import { OverflowStrip } from '../chrome/OverflowStrip'
 
 export type DockHostTab<TTabId extends string = string> = {
@@ -19,10 +26,17 @@ type DockHostProps<TTabId extends string = string> = {
   onTabReorder?: (sourceTabId: TTabId, targetTabId: TTabId) => void
   renderTabPanel: (tabId: TTabId) => ReactNode
   headerActions?: ReactNode
+  onHeaderTearOff?: () => void
   className?: string
   bodyClassName?: string
   emptyState?: ReactNode
 }
+
+const DOCK_HOST_TEAR_OFF_DISTANCE_PX = 8
+
+const isInteractiveHeaderTarget = (target: EventTarget | null): boolean =>
+  target instanceof Element &&
+  Boolean(target.closest('button, a, input, select, textarea, [role="tab"], [data-dock-host-action]'))
 
 export function DockHost<TTabId extends string = string>({
   tabs,
@@ -31,11 +45,18 @@ export function DockHost<TTabId extends string = string>({
   onTabReorder,
   renderTabPanel,
   headerActions,
+  onHeaderTearOff,
   className,
   bodyClassName,
   emptyState,
 }: DockHostProps<TTabId>) {
   const dragTabIdRef = useRef<TTabId | null>(null)
+  const headerTearOffRef = useRef<{
+    pointerId: number
+    startX: number
+    startY: number
+    triggered: boolean
+  } | null>(null)
   const bodyRef = useRef<HTMLDivElement | null>(null)
   const [verticalOverflow, setVerticalOverflow] = useState({
     canScrollDown: false,
@@ -113,15 +134,57 @@ export function DockHost<TTabId extends string = string>({
     })
   }
 
+  const onHeaderPointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (!onHeaderTearOff || event.button !== 0 || isInteractiveHeaderTarget(event.target)) {
+      return
+    }
+    headerTearOffRef.current = {
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      triggered: false,
+    }
+    event.currentTarget.setPointerCapture?.(event.pointerId)
+  }
+
+  const onHeaderPointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
+    const interaction = headerTearOffRef.current
+    if (!interaction || !onHeaderTearOff || interaction.pointerId !== event.pointerId || interaction.triggered) {
+      return
+    }
+    const distance = Math.hypot(event.clientX - interaction.startX, event.clientY - interaction.startY)
+    if (distance < DOCK_HOST_TEAR_OFF_DISTANCE_PX) {
+      return
+    }
+    interaction.triggered = true
+    headerTearOffRef.current = null
+    event.currentTarget.releasePointerCapture?.(event.pointerId)
+    onHeaderTearOff()
+  }
+
+  const stopHeaderTearOff = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (headerTearOffRef.current?.pointerId === event.pointerId) {
+      headerTearOffRef.current = null
+    }
+  }
+
   return (
     <section className={className ? `dock-host ${className}` : 'dock-host'}>
-      <div className="dock-host-header">
+      <div
+        className={onHeaderTearOff ? 'dock-host-header dock-host-header-draggable' : 'dock-host-header'}
+        onPointerDown={onHeaderPointerDown}
+        onPointerMove={onHeaderPointerMove}
+        onPointerUp={stopHeaderTearOff}
+        onPointerCancel={stopHeaderTearOff}
+        title={onHeaderTearOff ? 'Drag the titlebar to float this window' : undefined}
+      >
         <OverflowStrip
           className="dock-host-tabs-row"
           viewportClassName="dock-host-tabs-viewport"
           contentClassName="dock-host-tabs"
           contentProps={{ role: 'tablist', 'aria-label': 'Docked windows' }}
           navAriaLabel="dock tabs"
+          collapseNavWhenHidden
         >
           {tabs.map((tab) => (
             <button

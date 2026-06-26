@@ -1,0 +1,108 @@
+workspace "Remote Care Platform" {
+  view v_remote_care container {
+    system patient "Patient Mobile App" tech react
+    gateway edge "API Gateway" tech nginx
+    security identity "Identity Service" tech oauth2
+    container booking "Booking Service" tech spring-boot drilldown v_booking_components
+    container video "Video Consultation" tech spring-boot
+    container triage "Triage AI Worker" tech spring-boot
+    queue events "Care Event Stream" tech kafka
+    db care_db "Care Records DB" tech postgres
+    component analytics "Care Analytics" tech observability
+    note note_journey on booking "Demo journey:\nbooking confirms synchronously, then prepares clinical context asynchronously."
+    note note_privacy on identity "Security boundary:\nOAuth2 scopes gate patient records and video-room access."
+
+    e_open_booking: patient -> edge : http "open appointment slots"
+    e_authenticate: edge -> identity : oauth2-token "validate patient session"
+    e_create_booking: edge -> booking : http "create consultation booking"
+    e_store_booking: booking -> care_db : sql "persist booking"
+    e_publish_booking: booking -> events : kafka-event "consultation.booked"
+    e_prepare_context: events -> triage : kafka-event "prepare clinical context"
+    e_triage_record: triage -> care_db : sql "attach triage summary"
+    e_room_ready: booking -> video : grpc "reserve video room"
+    e_send_metrics: triage -> analytics : http "publish care metrics"
+    e_join_room: patient -> video : http "join consultation room"
+
+    journey j_remote_booking "Remote Consultation Booking" color #0ea5e9 {
+      e_open_booking
+      e_authenticate
+      e_create_booking
+      e_store_booking
+      thread t_clinical_prep {
+        e_publish_booking
+        e_prepare_context
+        e_triage_record
+        e_send_metrics
+      }
+      e_room_ready
+      e_join_room
+    }
+
+    journey j_triage_refresh "Async Triage Refresh" color #14b8a6 {
+      e_publish_booking
+      e_prepare_context
+      e_triage_record
+      e_send_metrics
+    }
+  }
+
+  view v_booking_components component parent v_remote_care via booking {
+    component controller "BookingController" tech component
+    component app_service "ScheduleConsultation" tech application-service
+    component policy "EligibilityPolicy" tech domain
+    component repo "BookingRepository" tech postgres
+    component event_port "ConsultationBookedPort" tech port-out
+    note note_component on app_service "Component drilldown:\nkeeps policy, persistence, and event publication visible."
+
+    e_controller_app: controller -> app_service : internal-call "schedule consultation"
+    e_app_policy: app_service -> policy : internal-call "check eligibility"
+    e_app_repo: app_service -> repo : sql "save booking"
+    e_app_event: app_service -> event_port : kafka-event "emit consultation.booked"
+
+    journey j_booking_components "Booking Component Orchestration" color #6366f1 {
+      e_controller_app
+      e_app_policy
+      e_app_repo
+      e_app_event
+    }
+  }
+
+  metadata ui-layout {
+    view v_remote_care {
+      node patient at 70 160 size 230 120 fill #1e293b text #f8fafc
+      node edge at 360 150 size 220 110 fill #b45309 text #fff7ed
+      node identity at 360 320 size 220 105 fill #7f1d1d text #fee2e2
+      node booking at 650 135 size 240 125 fill #2563eb text #ffffff
+      node video at 650 330 size 240 115 fill #7c3aed text #f5f3ff
+      node events at 955 115 size 360 92 fill #334155 text #f8fafc
+      node triage at 980 280 size 250 120 fill #0f766e text #f0fdfa
+      node care_db at 1335 145 size 210 104 fill #1e293b text #e2e8f0
+      node analytics at 1335 330 size 210 104 fill #4338ca text #e0e7ff
+      node note_journey at 622 20 size 330 105 fill #fef3c7 text #78350f
+      node note_privacy at 300 450 size 310 102 fill #fee2e2 text #7f1d1d
+      edge e_open_booking label 0.44 side left
+      edge e_authenticate label 0.48 side right
+      edge e_create_booking label 0.52 side left
+      edge e_store_booking label 0.68 side right
+      edge e_publish_booking label 0.45 side left
+      edge e_prepare_context label 0.48 side right
+      edge e_triage_record label 0.62 side left
+      edge e_room_ready label 0.54 side left
+      edge e_send_metrics label 0.55 side right
+      edge e_join_room label 0.55 side left
+    }
+
+    view v_booking_components {
+      node controller at 90 170 size 230 110 fill #1d4ed8 text #ffffff
+      node app_service at 395 155 size 260 125 fill #4f46e5 text #eef2ff
+      node policy at 745 80 size 240 115 fill #0f766e text #f0fdfa
+      node repo at 745 250 size 240 105 fill #1e293b text #e2e8f0
+      node event_port at 1070 165 size 250 110 fill #334155 text #f8fafc
+      node note_component at 365 345 size 330 105 fill #fef3c7 text #78350f
+      edge e_controller_app label 0.5 side left
+      edge e_app_policy label 0.48 side left
+      edge e_app_repo label 0.48 side right
+      edge e_app_event label 0.54 side left
+    }
+  }
+}

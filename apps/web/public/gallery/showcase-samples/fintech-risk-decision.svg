@@ -1,0 +1,70 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1280 720" role="img" aria-label="Fintech fraud risk decision animated journey">
+  <defs>
+    <linearGradient id="fraudBg" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0%" stop-color="#fef2f2"/>
+      <stop offset="100%" stop-color="#eef2ff"/>
+    </linearGradient>
+    <filter id="fraudShadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="8" stdDeviation="10" flood-color="#450a0a" flood-opacity="0.14"/>
+    </filter>
+    <path id="fraudDecisionPath" d="M150 220 C258 160 360 164 462 220 S626 280 734 220 S900 154 1006 220 S1118 366 1012 472 S752 502 602 446 S418 398 312 470"/>
+    <path id="fraudFeedbackPath" d="M1008 222 C1072 300 1092 396 1008 474 S810 558 652 512"/>
+  </defs>
+  <rect width="1280" height="720" fill="url(#fraudBg)"/>
+  <text x="64" y="80" fill="#450a0a" font-family="Inter, Arial, sans-serif" font-size="34" font-weight="700">Fintech Fraud Decisioning</text>
+  <text x="64" y="116" fill="#7f1d1d" font-family="Inter, Arial, sans-serif" font-size="18">Instant Payment Risk Decision</text>
+  <g fill="none" stroke="#dc2626" stroke-width="5" stroke-linecap="round" stroke-dasharray="12 10" opacity="0.82">
+    <use href="#fraudDecisionPath"/>
+  </g>
+  <g fill="none" stroke="#8b5cf6" stroke-width="4" stroke-linecap="round" stroke-dasharray="8 10" opacity="0.82">
+    <use href="#fraudFeedbackPath"/>
+  </g>
+  <g font-family="Inter, Arial, sans-serif" font-size="18" font-weight="700" text-anchor="middle" filter="url(#fraudShadow)">
+    <g transform="translate(150 220)">
+      <rect x="-98" y="-42" width="196" height="84" rx="8" fill="#1e293b"/>
+      <text y="6" fill="#f8fafc">Mobile Wallet</text>
+    </g>
+    <g transform="translate(462 220)">
+      <path d="M-104 -44 L104 -44 L130 0 L104 44 L-104 44 L-130 0 Z" fill="#b45309"/>
+      <text y="6" fill="#fff7ed">Payment Edge</text>
+    </g>
+    <g transform="translate(734 220)">
+      <rect x="-108" y="-46" width="216" height="92" rx="8" fill="#2563eb"/>
+      <text y="6" fill="#ffffff">Payment API</text>
+    </g>
+    <g transform="translate(1006 220)">
+      <rect x="-132" y="-50" width="264" height="100" rx="8" fill="#dc2626"/>
+      <text y="6" fill="#fee2e2">Risk Engine</text>
+    </g>
+    <g transform="translate(1012 472)">
+      <path d="M-140 -42 H108 A30 42 0 0 1 108 42 H-140 A30 42 0 0 0 -140 -42" fill="#334155"/>
+      <path d="M108 -42 A30 42 0 0 1 108 42" fill="none" stroke="#cbd5e1" stroke-width="3"/>
+      <text y="6" fill="#f8fafc">Risk Stream</text>
+    </g>
+    <g transform="translate(602 446)">
+      <path d="M-106 -42 H106 A30 42 0 0 1 106 42 H-106 A30 42 0 0 0 -106 -42" fill="#0f766e"/>
+      <path d="M106 -42 A30 42 0 0 1 106 42" fill="none" stroke="#99f6e4" stroke-width="3"/>
+      <text y="6" fill="#f0fdfa">Feature Store</text>
+    </g>
+    <g transform="translate(312 470)">
+      <path d="M-92 -42 H92 A30 42 0 0 1 92 42 H-92 A30 42 0 0 0 -92 -42" fill="#1e293b"/>
+      <path d="M92 -42 A30 42 0 0 1 92 42" fill="none" stroke="#cbd5e1" stroke-width="3"/>
+      <text y="6" fill="#e2e8f0">Ledger DB</text>
+    </g>
+    <g transform="translate(652 512)">
+      <rect x="-122" y="-42" width="244" height="84" rx="8" fill="#7c3aed"/>
+      <text y="6" fill="#f5f3ff">Review Case Manager</text>
+    </g>
+  </g>
+  <circle r="13" fill="#dc2626" stroke="#ffffff" stroke-width="5">
+    <animateMotion dur="7.8s" repeatCount="indefinite" rotate="auto">
+      <mpath href="#fraudDecisionPath"/>
+    </animateMotion>
+  </circle>
+  <circle r="10" fill="#8b5cf6" stroke="#ffffff" stroke-width="4">
+    <animateMotion dur="5.2s" begin="2.2s" repeatCount="indefinite" rotate="auto">
+      <mpath href="#fraudFeedbackPath"/>
+    </animateMotion>
+  </circle>
+  <text x="64" y="658" fill="#7f1d1d" font-family="Inter, Arial, sans-serif" font-size="18">Low-latency risk decision path with async manual-review feedback into the feature store</text>
+</svg>

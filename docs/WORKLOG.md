@@ -2,6 +2,49 @@
 
 Chronological engineering log. Entries are kept concise and focused on behavior and validation.
 
+## 2026-06-26 - Status bar, text primitives, palette browser, and shell polish
+
+### Scope
+
+- Added a richer IDE-style status bar, hide controls for the status bar and minimap, shared text primitives, long-press canvas text editing, a more polished node palette browser, and a denser enterprise-style shell polish pass.
+
+### Changes
+
+- `apps/web/src/components/chrome/StatusBar.tsx`, `apps/web/src/App.tsx`, `apps/web/src/App.css`
+  - extracted a reusable status bar with view/zoom/entity/selection/journey/tool/player/provider metrics,
+  - added quick actions for palette, tool mode, fit, grid, snap, minimap, performance mode, search, and hiding the bar,
+  - added `View` menu and command-palette restoration paths for status bar/minimap visibility,
+  - added a minimap close action so the minimap is no longer fixed on the canvas.
+- `apps/web/src/components/text/Text.tsx`, `apps/web/src/components/canvas/CanvasText.tsx`, `apps/web/src/components/canvas/DiagramCanvas.tsx`, `apps/web/src/components/canvas/DiagramNode.tsx`, `apps/web/src/components/canvas/JourneyEdge.tsx`
+  - added shared text primitives for app text, SVG labels, and inline editing controls,
+  - routed node labels, edge labels, and in-place canvas editing through the shared text primitives,
+  - replaced editable-label double-click behavior with press-and-hold long-press editing for node names, node tech labels, notes, and edge labels,
+  - preserved drag behavior by canceling the long-press when pointer movement starts.
+- `apps/web/src/diagram/canvas/inlineTextEditing.ts`
+  - added inline-edit sanitization before model updates so unsupported control characters do not leak into SJV Script export.
+- `apps/web/src/components/palette/PalettePanel.tsx`, `apps/web/src/App.css`
+  - replaced the accordion-style palette with a searchable component browser, category chips, and drag-ready cards.
+- `apps/web/src/App.tsx`, `apps/web/src/App.css`
+  - polished the desktop chrome around a flatter neutral canvas background, smaller product typography, tighter control radii, and compact primary toolbar commands with visible labels/shortcuts,
+  - added working `V`/`C` tool shortcuts for Select/Connect when focus is not inside text input,
+  - changed clean-install node depth effects to default off while preserving existing persisted user preferences.
+- `apps/web/src/components/canvas/DiagramCanvas.tsx`
+  - fixed inline text editing so the input is selected only when a new edit target opens, preventing each typed character from replacing the previous selection.
+- `apps/web/src/components/text/Text.test.tsx`, `apps/web/src/components/chrome/StatusBar.test.tsx`, `apps/web/src/components/palette/PalettePanel.test.tsx`, `apps/web/src/diagram/canvas/inlineTextEditing.test.ts`, `apps/web/src/App.source.test.ts`, `apps/web/src/App.styles.test.ts`
+  - added/updated focused coverage for the new text primitives, long-press behavior, SJV-safe sanitization, status bar, palette browser, minimap close control, compact shell CSS contracts, toolbar shortcuts, and inline-editor focus behavior.
+- `apps/web/src/help/help.md`, `docs/FILE_ATLAS.md`, `docs/AI_STATE.md`
+  - documented the status/minimap controls, palette browser, text primitive folder, and additive UI preference behavior.
+
+### Validation
+
+- `npm --workspace @sjv/web run test:run -- src/components/text/Text.test.tsx src/components/chrome/StatusBar.test.tsx src/components/palette/PalettePanel.test.tsx src/components/canvas/DiagramNode.test.tsx src/App.source.test.ts src/App.styles.test.ts src/layout/layoutGrid.test.ts`
+- `npm --workspace @sjv/web run test:run -- src/components/text/Text.test.tsx src/diagram/canvas/inlineTextEditing.test.ts src/components/canvas/DiagramCanvas.source.test.ts src/components/canvas/JourneyEdge.source.test.ts src/components/canvas/DiagramNode.test.tsx src/App.source.test.ts src/App.styles.test.ts`
+- `npm --workspace @sjv/web run test:run -- src/App.source.test.ts src/App.styles.test.ts src/components/canvas/DiagramCanvas.source.test.ts src/components/text/Text.test.tsx src/diagram/canvas/inlineTextEditing.test.ts`
+- `npm --workspace @sjv/web run lint`
+- `npm --workspace @sjv/web run test:run`
+- `npm --workspace @sjv/web run build`
+- Playwright/Firefox visual checks against `http://127.0.0.1:5175/`: verified `View` menu visibility, wide/narrow toolbar overflow behavior, clean-install node depth default-off rendering, palette browser rendering, and node-label long-press editing with sequential typing preserved.
+
 ## 2026-06-26 - Componentization refactor for canvas and dock panels
 
 ### Scope

@@ -41,11 +41,24 @@ const renderPalette = (): void => {
               { id: 'database', label: 'Database', iconKey: 'database' },
             ],
           },
+          {
+            id: 'app',
+            title: 'Application',
+            presets: [
+              { id: 'service', label: 'Service', iconKey: 'service' },
+            ],
+          },
         ]}
         renderPresetIcon={(preset) => preset.iconKey}
       />,
     )
   })
+}
+
+const typeIntoInput = (input: HTMLInputElement, value: string): void => {
+  input.value = value
+  input.dispatchEvent(new Event('input', { bubbles: true }))
+  input.dispatchEvent(new Event('change', { bubbles: true }))
 }
 
 describe('PalettePanel', () => {
@@ -54,8 +67,31 @@ describe('PalettePanel', () => {
 
     expect(activeContainer?.textContent).toContain('Palette')
     expect(activeContainer?.textContent).toContain('Infra')
+    expect(activeContainer?.textContent).toContain('Application')
     expect(activeContainer?.textContent).toContain('Kafka')
     expect(activeContainer?.textContent).toContain('kafka')
+  })
+
+  it('filters presets by search text and active category', () => {
+    renderPalette()
+
+    const appCategory = [...(activeContainer?.querySelectorAll<HTMLButtonElement>('.palette-category-chip') ?? [])]
+      .find((button) => button.textContent?.includes('Application'))
+    act(() => {
+      appCategory?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    })
+
+    expect(activeContainer?.textContent).toContain('Service')
+    expect(activeContainer?.textContent).not.toContain('Kafka')
+
+    const search = activeContainer?.querySelector<HTMLInputElement>('.palette-search input')
+    act(() => {
+      if (search) {
+        typeIntoInput(search, 'missing')
+      }
+    })
+
+    expect(activeContainer?.textContent).toContain('No components match this palette filter.')
   })
 
   it('writes the preset id to browser drag data', () => {

@@ -5,7 +5,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type {
   KeyboardEvent as ReactKeyboardEvent,
-  MouseEvent as ReactMouseEvent,
   DragEvent,
   PointerEvent as ReactPointerEvent,
   TouchEvent as ReactTouchEvent,
@@ -40,6 +39,7 @@ import {
 } from '../../diagram/edges/edgeJourneyBadge'
 import { JourneyEdge } from './JourneyEdge'
 import { DiagramNode } from './DiagramNode'
+import { Text } from '../text/Text'
 import {
   estimateCanvasTextWidth,
   type NodeLabelLayout,
@@ -66,6 +66,7 @@ import {
   resolvePinchGestureMetrics,
   resolveViewportAfterPinch,
 } from '../../diagram/canvas/pinchZoom'
+import { sanitizeInlineTextEditValue } from '../../diagram/canvas/inlineTextEditing'
 import {
   resolveMarqueeSelectionRect,
   resolveNodeIdsIntersectingMarquee,
@@ -520,6 +521,10 @@ export const DiagramCanvas = ({
   const [hoveredPortKey, setHoveredPortKey] = useState<string | null>(null)
   const [playerStepArrivedForUi, setPlayerStepArrivedForUi] = useState(false)
   const [inlineTextEdit, setInlineTextEdit] = useState<InlineTextEditState | null>(null)
+  const inlineTextEditFocusKey = inlineTextEdit
+    ? `${inlineTextEdit.mode}:${inlineTextEdit.targetId}:${inlineTextEdit.multiline ? 'multi' : 'single'}`
+    : null
+  const inlineTextEditFocusIsMultiline = inlineTextEdit?.multiline ?? false
   const [marqueeSelectionRect, setMarqueeSelectionRect] = useState<NodeBounds | null>(null)
   const [alignmentGuides, setAlignmentGuides] = useState<AlignmentGuide[]>([])
 
@@ -966,11 +971,11 @@ export const DiagramCanvas = ({
   }, [viewId])
 
   useEffect(() => {
-    if (!inlineTextEdit) {
+    if (!inlineTextEditFocusKey) {
       return
     }
     const frameId = window.requestAnimationFrame(() => {
-      const editorElement = inlineTextEdit.multiline
+      const editorElement = inlineTextEditFocusIsMultiline
         ? inlineTextTextareaRef.current
         : inlineTextInputRef.current
       editorElement?.focus()
@@ -979,7 +984,7 @@ export const DiagramCanvas = ({
     return () => {
       window.cancelAnimationFrame(frameId)
     }
-  }, [inlineTextEdit])
+  }, [inlineTextEditFocusIsMultiline, inlineTextEditFocusKey])
 
   useEffect(() => {
     if (playerTrailEnabled) {
@@ -1469,9 +1474,9 @@ export const DiagramCanvas = ({
       return
     }
     if (commitChanges) {
-      const nextValue = inlineTextEdit.multiline
-        ? inlineTextEdit.value.replace(/\r/g, '')
-        : inlineTextEdit.value.trim()
+      const nextValue = sanitizeInlineTextEditValue(inlineTextEdit.value, {
+        multiline: inlineTextEdit.multiline,
+      })
       const hasVisibleValue = nextValue.trim().length > 0
       if (inlineTextEdit.mode === 'edge-label') {
         setEdgeLabel(inlineTextEdit.targetId, nextValue)
@@ -1491,7 +1496,7 @@ export const DiagramCanvas = ({
   }
 
   const startNodeInlineEdit = (
-    event: ReactMouseEvent<SVGTextElement>,
+    event: ReactPointerEvent<SVGTextElement>,
     node: NodeModel,
     mode: InlineTextEditMode,
     layout: NodeLabelLayout,
@@ -1519,7 +1524,7 @@ export const DiagramCanvas = ({
 
   const startEdgeLabelInlineEdit = (
     edgeId: string,
-    event: ReactMouseEvent<SVGTextElement>,
+    event: ReactPointerEvent<SVGTextElement>,
   ): void => {
     if (presentationMode) {
       return
@@ -2568,7 +2573,7 @@ export const DiagramCanvas = ({
               isInteractive={!presentationMode}
               onEdgePointerStart={onEdgePointerStart}
               onEdgeLabelPointerDown={onEdgeLabelPointerDown}
-              onEdgeLabelDoubleClick={startEdgeLabelInlineEdit}
+              onEdgeLabelLongPress={startEdgeLabelInlineEdit}
               onSelect={() => {
                 if (!presentationMode) {
                   if (inlineTextEdit) {
@@ -2693,57 +2698,35 @@ export const DiagramCanvas = ({
       <canvas ref={trailCanvasRef} className="trail-canvas" />
       {!presentationMode && inlineTextEdit && inlineTextEditStyle ? (
         <div className="canvas-inline-editor" style={inlineTextEditStyle}>
-          {inlineTextEdit.multiline ? (
-            <textarea
-              ref={inlineTextTextareaRef}
-              className="canvas-inline-editor-input canvas-inline-editor-textarea"
-              value={inlineTextEdit.value}
-              onChange={(event) => {
-                const nextValue = event.target.value
-                setInlineTextEdit((current) =>
-                  current
-                    ? {
-                        ...current,
-                        value: nextValue,
-                      }
-                    : current,
-                )
-              }}
-              onKeyDown={onInlineTextInputKeyDown}
-              onBlur={() => closeInlineTextEditor(true)}
-              onPointerDown={(event) => {
-                event.stopPropagation()
-              }}
-              onWheel={(event) => {
-                event.stopPropagation()
-              }}
-            />
-          ) : (
-            <input
-              ref={inlineTextInputRef}
-              className="canvas-inline-editor-input"
-              value={inlineTextEdit.value}
-              onChange={(event) => {
-                const nextValue = event.target.value
-                setInlineTextEdit((current) =>
-                  current
-                    ? {
-                        ...current,
-                        value: nextValue,
-                      }
-                    : current,
-                )
-              }}
-              onKeyDown={onInlineTextInputKeyDown}
-              onBlur={() => closeInlineTextEditor(true)}
-              onPointerDown={(event) => {
-                event.stopPropagation()
-              }}
-              onWheel={(event) => {
-                event.stopPropagation()
-              }}
-            />
-          )}
+          <Text.InlineEditor
+            multiline={inlineTextEdit.multiline}
+            inputRef={inlineTextInputRef}
+            textareaRef={inlineTextTextareaRef}
+            className={
+              inlineTextEdit.multiline
+                ? 'canvas-inline-editor-input canvas-inline-editor-textarea'
+                : 'canvas-inline-editor-input'
+            }
+            value={inlineTextEdit.value}
+            onChange={(nextValue) => {
+              setInlineTextEdit((current) =>
+                current
+                  ? {
+                      ...current,
+                      value: nextValue,
+                    }
+                  : current,
+              )
+            }}
+            onKeyDown={onInlineTextInputKeyDown}
+            onBlur={() => closeInlineTextEditor(true)}
+            onPointerDown={(event) => {
+              event.stopPropagation()
+            }}
+            onWheel={(event) => {
+              event.stopPropagation()
+            }}
+          />
         </div>
       ) : null}
     </div>

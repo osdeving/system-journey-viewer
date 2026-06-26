@@ -1,0 +1,126 @@
+workspace "Smart Fulfillment Network" {
+  view v_fulfillment container {
+    system storefront "Commerce Storefront" tech react
+    gateway api_edge "Commerce API Gateway" tech nginx
+    container order_api "Order API" tech spring-boot
+    container orchestrator "Fulfillment Orchestrator" tech spring-boot drilldown v_fulfillment_components
+    container wms "Warehouse Management" tech spring-boot
+    container robot "Robot Fleet Controller" tech spring-boot
+    queue warehouse_bus "Warehouse Event Bus" tech kafka
+    db inventory_db "Inventory DB" tech postgres
+    db fulfillment_db "Fulfillment DB" tech postgres
+    component carrier "Carrier API" tech component
+    component monitoring "Operations Monitoring" tech observability
+    note note_bus on warehouse_bus "Wide Kafka cylinder:\nkeeps the stream face stable while showing long broker capacity."
+    note note_parallel on orchestrator "Parallel work:\nreserve inventory, assign robots, and book carrier capacity together."
+
+    e_checkout: storefront -> api_edge : http "checkout"
+    e_create_order: api_edge -> order_api : http "create order"
+    e_submit_fulfillment: order_api -> orchestrator : kafka-event "order.ready_to_fulfill"
+    e_reserve_inventory: orchestrator -> inventory_db : sql "reserve stock"
+    e_plan_pick: orchestrator -> wms : grpc "plan pick wave"
+    e_assign_robot: wms -> robot : grpc "assign robot run"
+    e_robot_status: robot -> warehouse_bus : kafka-event "robot.pick.completed"
+    e_pack_complete: warehouse_bus -> orchestrator : kafka-event "package.ready"
+    e_book_carrier: orchestrator -> carrier : http "book shipment"
+    e_save_fulfillment: orchestrator -> fulfillment_db : sql "save fulfillment status"
+    e_emit_ops: orchestrator -> monitoring : http "publish ops metrics"
+    e_notify_storefront: order_api -> storefront : http "order status update"
+
+    journey j_same_day_dispatch "Same-day Dispatch" color #f97316 {
+      e_checkout
+      e_create_order
+      e_submit_fulfillment
+      thread t_warehouse_execution {
+        e_plan_pick
+        e_assign_robot
+        e_robot_status
+        e_pack_complete
+      }
+      thread t_inventory_and_carrier {
+        e_reserve_inventory
+        e_book_carrier
+      }
+      e_save_fulfillment
+      e_emit_ops
+      e_notify_storefront
+    }
+
+    journey j_robot_pick_feedback "Robot Pick Feedback Loop" color #22c55e {
+      e_plan_pick
+      e_assign_robot
+      e_robot_status
+      e_pack_complete
+      e_emit_ops
+    }
+  }
+
+  view v_fulfillment_components component parent v_fulfillment via orchestrator {
+    component consumer "ReadyToFulfillConsumer" tech kafka
+    component app_service "DispatchFulfillment" tech application-service
+    component inventory_port "InventoryReservationPort" tech port-out
+    component wave_port "PickWavePort" tech port-out
+    component carrier_port "CarrierBookingPort" tech port-out
+    component status_repo "FulfillmentStatusRepo" tech postgres
+    note note_orchestration on app_service "Component demo:\nports isolate inventory, warehouse, carrier, and persistence adapters."
+
+    e_consume_app: consumer -> app_service : internal-call "dispatch fulfillment"
+    e_app_inventory: app_service -> inventory_port : grpc "reserve inventory"
+    e_app_wave: app_service -> wave_port : grpc "create pick wave"
+    e_app_carrier: app_service -> carrier_port : http "book carrier"
+    e_app_status: app_service -> status_repo : sql "record status"
+
+    journey j_orchestrator_components "Fulfillment Component Orchestration" color #0ea5e9 {
+      e_consume_app
+      e_app_inventory
+      e_app_wave
+      e_app_carrier
+      e_app_status
+    }
+  }
+
+  metadata ui-layout {
+    view v_fulfillment {
+      node storefront at 70 190 size 240 120 fill #1e293b text #f8fafc
+      node api_edge at 360 178 size 225 108 fill #b45309 text #fff7ed
+      node order_api at 655 170 size 235 120 fill #2563eb text #ffffff
+      node orchestrator at 955 160 size 260 130 fill #ea580c text #fff7ed
+      node warehouse_bus at 1295 80 size 460 92 fill #334155 text #f8fafc
+      node wms at 1295 245 size 245 115 fill #0f766e text #f0fdfa
+      node robot at 1605 245 size 250 115 fill #4f46e5 text #eef2ff
+      node inventory_db at 955 405 size 215 104 fill #1e293b text #e2e8f0
+      node fulfillment_db at 1260 405 size 220 104 fill #1e293b text #e2e8f0
+      node carrier at 1580 405 size 235 104 fill #475569 text #f8fafc
+      node monitoring at 1855 90 size 230 110 fill #4338ca text #e0e7ff
+      node note_bus at 1320 5 size 360 105 fill #fef3c7 text #78350f
+      node note_parallel at 880 15 size 340 105 fill #ffedd5 text #7c2d12
+      edge e_checkout label 0.45 side left
+      edge e_create_order label 0.48 side left
+      edge e_submit_fulfillment label 0.52 side left
+      edge e_reserve_inventory label 0.5 side right
+      edge e_plan_pick label 0.48 side left
+      edge e_assign_robot label 0.52 side left
+      edge e_robot_status label 0.45 side left
+      edge e_pack_complete label 0.52 side right
+      edge e_book_carrier label 0.62 side right
+      edge e_save_fulfillment label 0.45 side left
+      edge e_emit_ops label 0.56 side left
+      edge e_notify_storefront label 0.52 side right
+    }
+
+    view v_fulfillment_components {
+      node consumer at 85 170 size 250 110 fill #334155 text #f8fafc
+      node app_service at 410 155 size 270 125 fill #ea580c text #fff7ed
+      node inventory_port at 760 55 size 250 105 fill #0f766e text #f0fdfa
+      node wave_port at 760 200 size 250 105 fill #2563eb text #ffffff
+      node carrier_port at 760 345 size 250 105 fill #475569 text #f8fafc
+      node status_repo at 1090 200 size 245 105 fill #1e293b text #e2e8f0
+      node note_orchestration at 365 335 size 340 105 fill #fef3c7 text #78350f
+      edge e_consume_app label 0.5 side left
+      edge e_app_inventory label 0.48 side left
+      edge e_app_wave label 0.48 side left
+      edge e_app_carrier label 0.48 side right
+      edge e_app_status label 0.56 side left
+    }
+  }
+}

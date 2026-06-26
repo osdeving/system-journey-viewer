@@ -60,4 +60,19 @@ describe('DiagramCanvas source regressions', () => {
     expect(diagramCanvasSource).toContain('className="canvas-alignment-guide"')
     expect(diagramCanvasSource).toContain('className="canvas-selection-marquee"')
   })
+
+  it('opens node and edge text editing through long-press label gestures', () => {
+    expect(diagramCanvasSource).toContain('onEdgeLabelLongPress={startEdgeLabelInlineEdit}')
+    expect(diagramCanvasSource).toContain('sanitizeInlineTextEditValue(inlineTextEdit.value')
+    expect(diagramNodeSource).toContain('onLongPress=')
+    expect(diagramNodeSource).toContain('onPressMoveStart={presentationMode ? undefined : (event) => onNodePointerDown(event, node, \'move\')}')
+    expect(diagramNodeSource).not.toContain('onDoubleClick={(event) => {\n          onStartInlineEdit')
+  })
+
+  it('selects inline editor text only when a new edit target opens', () => {
+    expect(diagramCanvasSource).toContain('const inlineTextEditFocusKey = inlineTextEdit')
+    expect(diagramCanvasSource).toContain('const inlineTextEditFocusIsMultiline = inlineTextEdit?.multiline ?? false')
+    expect(diagramCanvasSource).toContain('}, [inlineTextEditFocusIsMultiline, inlineTextEditFocusKey])')
+    expect(diagramCanvasSource).not.toContain('}, [inlineTextEdit])')
+  })
 })

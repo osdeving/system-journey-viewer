@@ -8,6 +8,8 @@ type LayoutGridRowsInput = {
   journeyHeight: number
   managedBottomHostVisible?: boolean
   managedBottomHostHeight?: number
+  statusBarVisible?: boolean
+  statusBarHeight?: number
 }
 
 export const resolveLayoutGridTemplateRows = ({
@@ -16,9 +18,12 @@ export const resolveLayoutGridTemplateRows = ({
   journeyHeight,
   managedBottomHostVisible = false,
   managedBottomHostHeight = 0,
+  statusBarVisible = false,
+  statusBarHeight = 0,
 }: LayoutGridRowsInput): string => {
+  const statusBarRow = `${statusBarVisible ? statusBarHeight : 0}px`
   if (immersiveMode) {
-    return 'auto 1fr'
+    return `auto 1fr ${statusBarRow}`
   }
-  return `auto 1fr ${managedBottomHostVisible ? managedBottomHostHeight : 0}px ${drawerVisible ? journeyHeight : 0}px`
+  return `auto 1fr ${managedBottomHostVisible ? managedBottomHostHeight : 0}px ${drawerVisible ? journeyHeight : 0}px ${statusBarRow}`
 }

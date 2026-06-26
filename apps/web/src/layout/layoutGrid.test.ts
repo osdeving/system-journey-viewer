@@ -14,8 +14,10 @@ describe('resolveLayoutGridTemplateRows', () => {
         journeyHeight: 220,
         managedBottomHostVisible: true,
         managedBottomHostHeight: 180,
+        statusBarVisible: true,
+        statusBarHeight: 24,
       }),
-    ).toBe('auto 1fr')
+    ).toBe('auto 1fr 24px')
   })
 
   it('uses drawer height row when workbench is visible', () => {
@@ -26,8 +28,10 @@ describe('resolveLayoutGridTemplateRows', () => {
         journeyHeight: 260,
         managedBottomHostVisible: false,
         managedBottomHostHeight: 220,
+        statusBarVisible: false,
+        statusBarHeight: 24,
       }),
-    ).toBe('auto 1fr 0px 260px')
+    ).toBe('auto 1fr 0px 260px 0px')
   })
 
   it('adds an intermediate row when a managed bottom host is visible', () => {
@@ -38,8 +42,10 @@ describe('resolveLayoutGridTemplateRows', () => {
         journeyHeight: 260,
         managedBottomHostVisible: true,
         managedBottomHostHeight: 220,
+        statusBarVisible: true,
+        statusBarHeight: 24,
       }),
-    ).toBe('auto 1fr 220px 260px')
+    ).toBe('auto 1fr 220px 260px 24px')
   })
 
   it('collapses drawer row when workbench is hidden', () => {
@@ -50,7 +56,9 @@ describe('resolveLayoutGridTemplateRows', () => {
         journeyHeight: 260,
         managedBottomHostVisible: false,
         managedBottomHostHeight: 220,
+        statusBarVisible: false,
+        statusBarHeight: 24,
       }),
-    ).toBe('auto 1fr 0px 0px')
+    ).toBe('auto 1fr 0px 0px 0px')
   })
 })

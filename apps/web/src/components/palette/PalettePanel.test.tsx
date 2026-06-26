@@ -72,6 +72,15 @@ describe('PalettePanel', () => {
     expect(activeContainer?.textContent).toContain('kafka')
   })
 
+  it('uses explicit palette text classes instead of browser heading defaults', () => {
+    renderPalette()
+
+    expect(activeContainer?.querySelector('h2')).toBeNull()
+    expect(activeContainer?.querySelector('h3')).toBeNull()
+    expect(activeContainer?.querySelector('.palette-browser-title')?.textContent).toBe('Palette')
+    expect(activeContainer?.querySelector('.palette-section-title')?.textContent).toBe('Infra')
+  })
+
   it('filters presets by search text and active category', () => {
     renderPalette()
 

@@ -64,8 +64,8 @@ export const PalettePanel = ({
     <div className="palette-browser">
       <div className="palette-browser-header">
         <div className="palette-browser-heading">
-          <Text as="h2" size="md" weight="bold">{title}</Text>
-          <Text as="p" tone="muted" size="xs">{description}</Text>
+          <Text as="span" size="sm" weight="medium" className="palette-browser-title">{title}</Text>
+          <Text as="span" tone="muted" size="xs" className="palette-browser-description">{description}</Text>
         </div>
         <Text.Label className="palette-browser-count">
           {visiblePresetCount}/{totalPresetCount}
@@ -114,7 +114,7 @@ export const PalettePanel = ({
         {visibleCategories.map((category) => (
           <section key={category.id} className="palette-section">
             <header className="palette-section-header">
-              <Text as="h3" size="xs" weight="bold">{category.title}</Text>
+              <Text as="span" size="xs" weight="medium" className="palette-section-title">{category.title}</Text>
               <Text.Meta>{category.presets.length} items</Text.Meta>
             </header>
             <ul className="toolbox-list palette-preset-grid">
@@ -132,7 +132,7 @@ export const PalettePanel = ({
                     {renderPresetIcon?.(preset)}
                   </span>
                   <span className="palette-preset-copy">
-                    <Text weight="semibold" truncate className="toolbox-item-label">{preset.label}</Text>
+                    <Text weight="medium" truncate className="toolbox-item-label">{preset.label}</Text>
                     <Text.Meta truncate>{preset.iconKey}</Text.Meta>
                   </span>
                 </li>

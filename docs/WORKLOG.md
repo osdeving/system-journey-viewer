@@ -2,6 +2,34 @@
 
 Chronological engineering log. Entries are kept concise and focused on behavior and validation.
 
+## 2026-06-26 - Toolbar grouping and palette typography polish
+
+### Scope
+
+- Refined the shell toolbar and left palette after visual review feedback on uneven grouping, heavy type, and browser-default heading usage.
+
+### Changes
+
+- `apps/web/src/App.css`
+  - removed the boxed visual treatment from the topbar dock shortcut strip,
+  - replaced group boxing with vertical separators between toolbar groups,
+  - prevented the dock shortcut strip from expanding to full width at medium/narrow desktop breakpoints,
+  - reduced palette card/search/category text weights for a finer enterprise-style read.
+- `apps/web/src/components/palette/PalettePanel.tsx`
+  - replaced palette `h2/h3` rendering with explicitly styled text primitives/classes,
+  - reduced preset label weight from semibold to medium.
+- `apps/web/src/App.styles.test.ts`, `apps/web/src/components/palette/PalettePanel.test.tsx`
+  - added regression coverage for toolbar separators, unboxed dock strip behavior, lighter palette typography, and absence of browser heading defaults inside the palette browser.
+
+### Validation
+
+- `npm --workspace @sjv/web run test:run -- src/App.styles.test.ts src/components/palette/PalettePanel.test.tsx`
+- `npm --workspace @sjv/web run lint`
+- `npm --workspace @sjv/web run test:run`
+- `npm --workspace @sjv/web run build`
+- `git diff --check`
+- Playwright/Firefox check against `http://127.0.0.1:5175/`: verified the topbar dock strip no longer renders as a larger box, stays 30px tall with only a vertical separator, and palette text uses explicit classes with font weight `500` and no `h1/h2/h3`.
+
 ## 2026-06-26 - Status bar, text primitives, palette browser, and shell polish
 
 ### Scope

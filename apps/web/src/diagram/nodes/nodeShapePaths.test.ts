@@ -4,12 +4,47 @@
 
 import { describe, expect, it } from 'vitest'
 import {
+  CYLINDER_NODE_MAX_WIDTH_TO_HEIGHT_RATIO,
+  resolveCylinderNodeBounds,
   resolveDbCylinderShape,
   resolveHexagonShape,
   resolveQueueCylinderShape,
 } from './nodeShapePaths'
 
 describe('node shape paths', () => {
+  it('constrains cylinder node bounds to avoid stretched db and queue presets', () => {
+    const bounds = resolveCylinderNodeBounds('queue', { x: 40, y: 20, w: 520, h: 80 })
+
+    expect(bounds).toEqual({
+      x: 40,
+      y: 20,
+      w: 80 * CYLINDER_NODE_MAX_WIDTH_TO_HEIGHT_RATIO,
+      h: 80,
+    })
+  })
+
+  it('preserves the requested horizontal anchor while constraining cylinder bounds', () => {
+    const eastAnchored = resolveCylinderNodeBounds(
+      'db',
+      { x: 40, y: 20, w: 520, h: 100 },
+      { horizontalAnchor: 'east' },
+    )
+    const centered = resolveCylinderNodeBounds(
+      'db',
+      { x: 40, y: 20, w: 520, h: 100 },
+      { horizontalAnchor: 'center' },
+    )
+
+    expect(eastAnchored.x + eastAnchored.w).toBe(560)
+    expect(centered.x + centered.w / 2).toBe(300)
+  })
+
+  it('leaves non-cylinder node bounds unchanged', () => {
+    const bounds = { x: 40, y: 20, w: 520, h: 80 }
+
+    expect(resolveCylinderNodeBounds('container', bounds)).toBe(bounds)
+  })
+
   it('builds db cylinder shell and rim arcs', () => {
     const shape = resolveDbCylinderShape(320, 120)
 

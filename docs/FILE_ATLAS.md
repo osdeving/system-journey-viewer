@@ -31,6 +31,8 @@ Rule:
 
 Canvas/diagram domain helpers (non-React modules), grouped by concern.
 
+- `src/diagram/canvas/`
+  - canvas interaction and overview helpers that are independent of React rendering.
 - `src/diagram/edges/`
   - edge geometry, label placement, badge selection, interaction helpers.
 - `src/diagram/nodes/`
@@ -52,6 +54,7 @@ Managed window state, host layout helpers, and window UI configuration metadata.
 
 ### Other existing folders (stay domain-oriented)
 
+- `src/commandPalette/`: command palette ranking/filtering helpers for shell-wide search/navigation
 - `src/dsl-lite/`: SJV Script parsing/import/export/sync/editor integration
 - `src/store/`: editor state and persistence integration
 - `src/model/`: core workspace model types and fixtures/defaults

@@ -6,12 +6,15 @@ Quick operational reference for what the UI currently supports.
 
 - Topbar:
   - primary controls (`Back`, tools, zoom, grid/snap/theme, focus/presentation)
+  - command palette trigger for searching commands, views, journeys, nodes, and edges
   - export controls (`SVG`, `PNG`, `PDF`, animated `GIF`, `MP4`, animated `SVG`)
   - desktop menus (`File`, `Edit`, `View`, `Journey`, `Insert`, `Help`)
 - Left sidebar (`Palette`):
   - node presets by category (drag and drop to canvas)
 - Center (`Canvas`):
   - visual editing, edge manipulation, playback rendering
+  - bottom-right minimap overview with click-to-recenter navigation
+  - bottom-left status strip with view, zoom, node count, edge count, and performance state
 - Dock panel:
   - tabs for `Inspector`, `Journeys`, `Timeline`, `SJV Script`, and `Help`
   - draggable tab ordering
@@ -61,6 +64,8 @@ Quick operational reference for what the UI currently supports.
   - drag/drop node creation
   - move, resize, multi-select, group drag
   - pan/zoom
+  - command palette quick navigation to commands, views, journeys, nodes, and edges
+  - minimap overview for large diagrams
   - optional grid and snap
 - Connections:
   - handle-to-handle connection (connector mode)
@@ -91,6 +96,7 @@ Quick operational reference for what the UI currently supports.
 - Persistence:
   - save/reload and debounced local autosave
   - recent workspace memory in localStorage (up to 3 entries)
+  - UI preferences persist minimap visibility and performance mode with backward-compatible defaults
 - Presentation mode:
   - clean render mode for demos (no edit handles/grid)
   - focused controls for player and animation export

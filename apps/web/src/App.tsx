@@ -44,6 +44,7 @@ import {
   Redo2,
   RotateCcw,
   Save,
+  Search,
   SkipBack,
   SkipForward,
   SlidersHorizontal,
@@ -58,6 +59,8 @@ import {
   ZoomOut,
 } from 'lucide-react'
 import './App.css'
+import type { CommandPaletteItem } from './commandPalette/commandPalette'
+import { CommandPalette } from './components/chrome/CommandPalette'
 import { PanelGroup } from './components/chrome/PanelGroup'
 import { SequenceDiagramView } from './components/sequence/SequenceDiagramView'
 import { OverflowStrip } from './components/chrome/OverflowStrip'
@@ -70,6 +73,11 @@ import {
   buildNodeConfettiBursts,
   resolveNodeConfettiAnchor,
 } from './diagram/player/playerConfetti'
+import {
+  resolveMinimapModel,
+  resolveMinimapWorldPoint,
+  type MinimapSize,
+} from './diagram/canvas/minimap'
 import { fullWorkspaceToLiteDsl } from './dsl-lite/convert'
 import { parseDslToWorkspaceDocumentWithTheme } from './dsl-lite/sync'
 import {
@@ -202,6 +210,7 @@ const MIN_CANVAS_HEIGHT = 220
 const MIN_DOCK_HEIGHT = 260
 const DEFAULT_FILE_VIEWPORT = { x: 100, y: 80, zoom: 1 }
 const DEFAULT_FLOATING_DOCK_RECT = { x: 28, y: 108, width: 480, height: 420 }
+const DEFAULT_MINIMAP_SIZE: MinimapSize = { width: 196, height: 124 }
 const UI_PREFERENCES_STORAGE_KEY = 'sjv-ui-preferences-v1'
 const MANAGED_WINDOWS_LAYOUT_STORAGE_KEY = 'sjv-managed-windows-layout-v1'
 const APP_VERSION_LABEL = 'MVP Beta'
@@ -273,11 +282,16 @@ type SupabaseAuthDraft = {
   email: string
   password: string
 }
+type CommandPaletteActionItem = CommandPaletteItem & {
+  run: () => void
+}
 
 type UiPreferences = {
   tooltipsEnabled: boolean
   splashEnabled: boolean
   nodeDepthEffectsEnabled: boolean
+  performanceModeEnabled: boolean
+  minimapEnabled: boolean
   showcaseLocale: ShowcaseLocale
   density: UiDensity
   toolbarVisibility: Record<ToolbarSectionId, boolean>
@@ -384,6 +398,8 @@ const DEFAULT_UI_PREFERENCES: UiPreferences = {
   tooltipsEnabled: true,
   splashEnabled: true,
   nodeDepthEffectsEnabled: true,
+  performanceModeEnabled: false,
+  minimapEnabled: true,
   showcaseLocale: 'en',
   density: 'compact',
   toolbarVisibility: {
@@ -410,6 +426,10 @@ const resolveInitialUiPreferences = (): UiPreferences => {
       splashEnabled: parsed.splashEnabled ?? DEFAULT_UI_PREFERENCES.splashEnabled,
       nodeDepthEffectsEnabled:
         parsed.nodeDepthEffectsEnabled ?? DEFAULT_UI_PREFERENCES.nodeDepthEffectsEnabled,
+      performanceModeEnabled:
+        parsed.performanceModeEnabled ?? DEFAULT_UI_PREFERENCES.performanceModeEnabled,
+      minimapEnabled:
+        parsed.minimapEnabled ?? DEFAULT_UI_PREFERENCES.minimapEnabled,
       showcaseLocale:
         parsed.showcaseLocale === 'pt' || parsed.showcaseLocale === 'en'
           ? parsed.showcaseLocale
@@ -734,6 +754,8 @@ function App() {
   const zoomByFactor = useEditorStore((state) => state.zoomByFactor)
   const setViewport = useEditorStore((state) => state.setViewport)
   const setActiveTool = useEditorStore((state) => state.setActiveTool)
+  const selectNode = useEditorStore((state) => state.selectNode)
+  const selectEdge = useEditorStore((state) => state.selectEdge)
   const goToView = useEditorStore((state) => state.goToView)
   const removeNode = useEditorStore((state) => state.removeNode)
   const removeEdge = useEditorStore((state) => state.removeEdge)
@@ -824,6 +846,8 @@ function App() {
   const [supabaseGalleryPreviewUrls, setSupabaseGalleryPreviewUrls] = useState<Record<string, string>>({})
   const [activeSupabaseScriptWorkspaceId, setActiveSupabaseScriptWorkspaceId] = useState<string | null>(null)
   const [openDesktopMenu, setOpenDesktopMenu] = useState<DesktopMenuId | null>(null)
+  const [commandPaletteOpen, setCommandPaletteOpen] = useState(false)
+  const [commandPaletteQuery, setCommandPaletteQuery] = useState('')
   const [guidedTutorialStepIndex, setGuidedTutorialStepIndex] = useState<number | null>(null)
   const [guidedTutorialEventCounts, setGuidedTutorialEventCounts] = useState<Record<string, number>>({})
   const [canUndo, setCanUndo] = useState(false)
@@ -834,6 +858,7 @@ function App() {
   const [managedWindows, setManagedWindows] = useState<ManagedWindowsState>(windowLayoutBootstrap.managedWindows)
   const [uiPreferences, setUiPreferences] = useState<UiPreferences>(initialUiPreferences)
   const [splashVisible, setSplashVisible] = useState(initialUiPreferences.splashEnabled)
+  const [canvasPanelSize, setCanvasPanelSize] = useState<MinimapSize>({ width: 0, height: 0 })
   const lastJourneyAutoLayoutKeyRef = useRef<string | null>(null)
   const guidedTutorialEventCountsRef = useRef<Record<string, number>>({})
   const guidedTutorialStepEventBaselineRef = useRef<Record<string, number>>({})
@@ -945,6 +970,8 @@ function App() {
   )
   const breadcrumb = [...viewHistory, currentViewId]
   const supabaseCloudReady = supabaseCloudConfigured && !!supabaseCloudUser
+  const nodeDepthEffectsActive =
+    uiPreferences.nodeDepthEffectsEnabled && !uiPreferences.performanceModeEnabled
   const isSharedSupabaseAssetRoute = useMemo(
     () =>
       typeof window === 'undefined'
@@ -985,6 +1012,28 @@ function App() {
         .filter((journey) => !!journey),
     [currentView.journeyIds, workspace.journeys],
   ) as Array<(typeof workspace.journeys)[string]>
+  const minimapNodes = useMemo(
+    () =>
+      currentView.nodeIds
+        .map((nodeId) => workspace.nodes[nodeId])
+        .filter((node): node is NonNullable<(typeof workspace.nodes)[string]> => !!node)
+        .map((node) => ({
+          id: node.id,
+          kind: node.kind,
+          bounds: node.bounds,
+        })),
+    [currentView.nodeIds, workspace],
+  )
+  const minimapModel = useMemo(
+    () =>
+      resolveMinimapModel({
+        nodes: minimapNodes,
+        viewport,
+        canvasSize: canvasPanelSize,
+        minimapSize: DEFAULT_MINIMAP_SIZE,
+      }),
+    [canvasPanelSize, minimapNodes, viewport],
+  )
   const journeyFocusSettings = workspace.settings.journeyFocus
   const journeyFocusScope = useMemo(
     () => resolveJourneyFocusScope(workspace, currentViewId, journeyFilterId),
@@ -1110,6 +1159,18 @@ function App() {
       uiPreferences.tooltipsEnabled ? label : undefined,
     [uiPreferences.tooltipsEnabled],
   )
+  const openCommandPalette = useCallback((initialQuery = '') => {
+    setOpenDesktopMenu(null)
+    setSupabaseCloudPanelOpen(false)
+    setSupabaseCloudScriptPickerOpen(false)
+    setSupabaseCloudScriptSearch('')
+    setCommandPaletteQuery(initialQuery)
+    setCommandPaletteOpen(true)
+  }, [])
+  const closeCommandPalette = useCallback(() => {
+    setCommandPaletteOpen(false)
+    setCommandPaletteQuery('')
+  }, [])
   const renderDesktopMenuItemLabel = useCallback(
     (icon: ReactNode, label: string) => (
       <span className="desktop-menu-item-main">
@@ -1273,6 +1334,44 @@ function App() {
       })
     })
   }, [fitCurrentViewToCanvas])
+
+  const centerViewportOnWorldPoint = useCallback(
+    (worldPoint: { x: number; y: number }, preferredZoom = viewport.zoom) => {
+      const canvasPanel = canvasPanelRef.current
+      const rect = canvasPanel?.getBoundingClientRect()
+      const width = rect?.width && rect.width > 0 ? rect.width : canvasPanelSize.width
+      const height = rect?.height && rect.height > 0 ? rect.height : canvasPanelSize.height
+      if (width <= 0 || height <= 0) {
+        return
+      }
+      const zoom = Math.max(0.35, Math.min(2.2, preferredZoom))
+      setViewport({
+        x: width / 2 - worldPoint.x * zoom,
+        y: height / 2 - worldPoint.y * zoom,
+        zoom,
+      })
+    },
+    [canvasPanelSize.height, canvasPanelSize.width, setViewport, viewport.zoom],
+  )
+
+  const onMinimapPointerDown = useCallback(
+    (event: ReactPointerEvent<SVGSVGElement>) => {
+      if (event.button !== 0 || !minimapModel) {
+        return
+      }
+      event.preventDefault()
+      const rect = event.currentTarget.getBoundingClientRect()
+      const worldPoint = resolveMinimapWorldPoint(
+        {
+          x: event.clientX - rect.left,
+          y: event.clientY - rect.top,
+        },
+        minimapModel,
+      )
+      centerViewportOnWorldPoint(worldPoint, viewport.zoom)
+    },
+    [centerViewportOnWorldPoint, minimapModel, viewport.zoom],
+  )
 
   const getMaxJourneyHeight = (): number => {
     const layoutHeight = layoutRef.current?.getBoundingClientRect().height ?? 0
@@ -1652,6 +1751,75 @@ function App() {
     setExportStatus(message)
     window.setTimeout(() => setExportStatus(null), timeoutMs)
   }, [])
+
+  const focusNodeFromPalette = useCallback(
+    (viewId: string, nodeId: string) => {
+      const node = workspace.nodes[nodeId]
+      if (!node || !workspace.views[viewId]?.nodeIds.includes(nodeId)) {
+        return
+      }
+      if (currentViewId !== viewId) {
+        goToView(viewId)
+      }
+      setActiveTool('select')
+      selectNode(nodeId)
+      centerViewportOnWorldPoint(
+        {
+          x: node.bounds.x + node.bounds.w / 2,
+          y: node.bounds.y + node.bounds.h / 2,
+        },
+        Math.max(0.72, Math.min(viewport.zoom, 1.4)),
+      )
+      setTransientStatus(`Selected node: ${node.name}`)
+    },
+    [
+      centerViewportOnWorldPoint,
+      currentViewId,
+      goToView,
+      selectNode,
+      setActiveTool,
+      setTransientStatus,
+      viewport.zoom,
+      workspace.nodes,
+      workspace.views,
+    ],
+  )
+
+  const focusEdgeFromPalette = useCallback(
+    (viewId: string, edgeId: string) => {
+      const edge = workspace.edges[edgeId]
+      const fromNode = edge ? workspace.nodes[edge.from.nodeId] : undefined
+      const toNode = edge ? workspace.nodes[edge.to.nodeId] : undefined
+      if (!edge || !fromNode || !toNode || !workspace.views[viewId]?.edgeIds.includes(edgeId)) {
+        return
+      }
+      if (currentViewId !== viewId) {
+        goToView(viewId)
+      }
+      setActiveTool('select')
+      selectEdge(edgeId)
+      centerViewportOnWorldPoint(
+        {
+          x: (fromNode.bounds.x + fromNode.bounds.w / 2 + toNode.bounds.x + toNode.bounds.w / 2) / 2,
+          y: (fromNode.bounds.y + fromNode.bounds.h / 2 + toNode.bounds.y + toNode.bounds.h / 2) / 2,
+        },
+        Math.max(0.72, Math.min(viewport.zoom, 1.35)),
+      )
+      setTransientStatus(`Selected edge: ${edge.label || edge.id}`)
+    },
+    [
+      centerViewportOnWorldPoint,
+      currentViewId,
+      goToView,
+      selectEdge,
+      setActiveTool,
+      setTransientStatus,
+      viewport.zoom,
+      workspace.edges,
+      workspace.nodes,
+      workspace.views,
+    ],
+  )
 
   const restoreWindowLayout = useCallback(() => {
     const fallback = createDefaultWindowLayoutBootstrap(topbarHeight)
@@ -3265,6 +3433,37 @@ function App() {
   }, [hasVisibleToolbarSection, presentationMode, uiPreferences.toolbarVisibility])
 
   useEffect(() => {
+    const canvasPanel = canvasPanelRef.current
+    if (!canvasPanel) {
+      return
+    }
+
+    const updateCanvasPanelSize = () => {
+      const rect = canvasPanel.getBoundingClientRect()
+      const nextSize = {
+        width: Math.max(0, Math.round(rect.width)),
+        height: Math.max(0, Math.round(rect.height)),
+      }
+      setCanvasPanelSize((current) =>
+        current.width === nextSize.width && current.height === nextSize.height ? current : nextSize,
+      )
+    }
+
+    updateCanvasPanelSize()
+    window.addEventListener('resize', updateCanvasPanelSize)
+    let observer: ResizeObserver | null = null
+    if (typeof ResizeObserver !== 'undefined') {
+      observer = new ResizeObserver(updateCanvasPanelSize)
+      observer.observe(canvasPanel)
+    }
+
+    return () => {
+      window.removeEventListener('resize', updateCanvasPanelSize)
+      observer?.disconnect()
+    }
+  }, [appShellMode])
+
+  useEffect(() => {
     if (typeof window === 'undefined') {
       return
     }
@@ -3468,7 +3667,7 @@ function App() {
   ])
 
   useEffect(() => {
-    if (!playerConfettiNonce) {
+    if (!playerConfettiNonce || uiPreferences.performanceModeEnabled) {
       return
     }
     const state = useEditorStore.getState()
@@ -3501,7 +3700,7 @@ function App() {
         gravity: 1.08,
       })
     }
-  }, [playerConfettiNonce])
+  }, [playerConfettiNonce, uiPreferences.performanceModeEnabled])
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme)
@@ -3531,6 +3730,8 @@ function App() {
     const onWindowKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         setOpenDesktopMenu(null)
+        setCommandPaletteOpen(false)
+        setCommandPaletteQuery('')
         setSupabaseCloudPanelOpen(false)
         setSupabaseCloudScriptPickerOpen(false)
         setSupabaseCloudScriptSearch('')
@@ -3560,6 +3761,28 @@ function App() {
       window.removeEventListener('keydown', onWindowKeyDown)
     }
   }, [openDesktopMenu])
+
+  useEffect(() => {
+    const onCommandPaletteShortcut = (event: KeyboardEvent) => {
+      if (isTextInputTarget(event.target)) {
+        return
+      }
+      const key = event.key.toLowerCase()
+      const hasCommand = event.ctrlKey || event.metaKey
+      if (hasCommand && !event.altKey && key === 'k') {
+        event.preventDefault()
+        openCommandPalette()
+        return
+      }
+      if (!hasCommand && !event.altKey && !event.shiftKey && event.key === '/') {
+        event.preventDefault()
+        openCommandPalette()
+      }
+    }
+
+    window.addEventListener('keydown', onCommandPaletteShortcut)
+    return () => window.removeEventListener('keydown', onCommandPaletteShortcut)
+  }, [openCommandPalette])
 
   useEffect(() => {
     const onFileShortcut = (event: KeyboardEvent) => {
@@ -4571,6 +4794,32 @@ function App() {
             }
           />
           Enable node depth effects (3D look)
+        </label>
+        <label className="preferences-toggle">
+          <input
+            type="checkbox"
+            checked={uiPreferences.minimapEnabled}
+            onChange={(event) =>
+              setUiPreferences((current) => ({
+                ...current,
+                minimapEnabled: event.target.checked,
+              }))
+            }
+          />
+          Show canvas minimap
+        </label>
+        <label className="preferences-toggle">
+          <input
+            type="checkbox"
+            checked={uiPreferences.performanceModeEnabled}
+            onChange={(event) =>
+              setUiPreferences((current) => ({
+                ...current,
+                performanceModeEnabled: event.target.checked,
+              }))
+            }
+          />
+          Performance mode
         </label>
         <button
           type="button"
@@ -5924,6 +6173,268 @@ function App() {
     </div>
   )
 
+  const commandPaletteItems: CommandPaletteActionItem[] = commandPaletteOpen ? (() => {
+    const items: CommandPaletteActionItem[] = [
+      {
+        id: 'command:fit-view',
+        title: 'Fit View to Canvas',
+        section: 'Commands',
+        subtitle: 'Center the current diagram in the viewport',
+        shortcut: 'Shift+1',
+        keywords: ['zoom', 'frame', 'overview'],
+        run: () => fitCurrentViewToCanvas(),
+      },
+      {
+        id: 'command:auto-arrange',
+        title: 'Auto Arrange Current View',
+        section: 'Commands',
+        subtitle: 'Run the built-in layout engine on this view',
+        shortcut: 'Ctrl+Shift+L',
+        keywords: ['layout', 'organize', 'dagre'],
+        run: () => runAutoArrange(),
+      },
+      {
+        id: 'command:select-tool',
+        title: 'Select Tool',
+        section: 'Commands',
+        shortcut: 'V',
+        keywords: ['pointer', 'move'],
+        run: () => setActiveTool('select'),
+      },
+      {
+        id: 'command:connector-tool',
+        title: 'Connector Tool',
+        section: 'Commands',
+        shortcut: 'C',
+        keywords: ['edge', 'link', 'wire'],
+        run: () => setActiveTool('connector'),
+      },
+      {
+        id: 'command:toggle-grid',
+        title: gridEnabled ? 'Hide Grid' : 'Show Grid',
+        section: 'Commands',
+        keywords: ['canvas', 'background'],
+        run: () => setGridEnabled(!gridEnabled),
+      },
+      {
+        id: 'command:toggle-snap',
+        title: snapEnabled ? 'Disable Snap' : 'Enable Snap',
+        section: 'Commands',
+        keywords: ['magnet', 'alignment'],
+        run: () => setSnapEnabled(!snapEnabled),
+      },
+      {
+        id: 'command:toggle-theme',
+        title: theme === 'dark' ? 'Use Light Theme' : 'Use Dark Theme',
+        section: 'Commands',
+        keywords: ['appearance', 'color'],
+        run: () => setTheme(theme === 'dark' ? 'light' : 'dark'),
+      },
+      {
+        id: 'command:toggle-minimap',
+        title: uiPreferences.minimapEnabled ? 'Hide Minimap' : 'Show Minimap',
+        section: 'Commands',
+        keywords: ['overview', 'map', 'navigation'],
+        run: () =>
+          setUiPreferences((current) => ({
+            ...current,
+            minimapEnabled: !current.minimapEnabled,
+          })),
+      },
+      {
+        id: 'command:toggle-performance-mode',
+        title: uiPreferences.performanceModeEnabled ? 'Disable Performance Mode' : 'Enable Performance Mode',
+        section: 'Commands',
+        keywords: ['motion', 'fast', 'lightweight'],
+        run: () =>
+          setUiPreferences((current) => ({
+            ...current,
+            performanceModeEnabled: !current.performanceModeEnabled,
+          })),
+      },
+      {
+        id: 'command:focus-mode',
+        title: focusMode ? 'Exit Focus Mode' : 'Enter Focus Mode',
+        section: 'Commands',
+        shortcut: 'F',
+        keywords: ['immersive', 'clean canvas'],
+        run: () => toggleFocusMode(),
+      },
+      {
+        id: 'command:presentation-mode',
+        title: presentationMode ? 'Exit Presentation Mode' : 'Enter Presentation Mode',
+        section: 'Commands',
+        keywords: ['present', 'export', 'sequence'],
+        run: () => togglePresentationMode(),
+      },
+      {
+        id: 'command:open-palette',
+        title: 'Open Palette Panel',
+        section: 'Windows',
+        keywords: ['shapes', 'nodes', 'presets'],
+        run: () => openManagedDockedWindowFromDockTab('palette'),
+      },
+      {
+        id: 'command:open-inspector',
+        title: 'Open Inspector Panel',
+        section: 'Windows',
+        keywords: ['properties', 'details'],
+        run: () => openManagedDockedWindowFromDockTab('inspector'),
+      },
+      {
+        id: 'command:open-journeys',
+        title: 'Open Journeys Panel',
+        section: 'Windows',
+        keywords: ['flows', 'paths'],
+        run: () => openManagedDockedWindowFromDockTab('journeys'),
+      },
+      {
+        id: 'command:open-timeline',
+        title: 'Open Timeline Panel',
+        section: 'Windows',
+        keywords: ['steps', 'player'],
+        run: () => openManagedDockedWindowFromDockTab('timeline'),
+      },
+      {
+        id: 'command:open-script',
+        title: 'Open SJV Script Panel',
+        section: 'Windows',
+        keywords: ['code', 'dsl', 'text'],
+        run: () => openManagedDockedWindowFromDockTab('dsl'),
+      },
+      {
+        id: 'command:open-help',
+        title: 'Open Help Guide',
+        section: 'Windows',
+        keywords: ['docs', 'guide'],
+        run: () => openHelpWindow('guide'),
+      },
+      {
+        id: 'command:open-preferences',
+        title: 'Open Preferences',
+        section: 'Windows',
+        keywords: ['settings', 'appearance'],
+        run: () => openPreferencesWindow(),
+      },
+      {
+        id: 'command:save-file',
+        title: 'Save File',
+        section: 'Files',
+        shortcut: 'Ctrl+S',
+        keywords: ['disk', 'workspace'],
+        run: () => {
+          persist()
+          void saveWorkspaceFile('reuse')
+        },
+      },
+      {
+        id: 'command:open-file',
+        title: 'Open File',
+        section: 'Files',
+        shortcut: 'Ctrl+O',
+        keywords: ['import', 'workspace'],
+        run: () => {
+          void openWorkspaceFilePicker()
+        },
+      },
+      {
+        id: 'command:cloud-save-script',
+        title: 'Save Generated SJV Script to Supabase',
+        section: 'Files',
+        disabled: !supabaseCloudReady || supabaseCloudBusy,
+        keywords: ['cloud', 'script'],
+        run: () => {
+          void saveScriptToSupabaseCloud()
+        },
+      },
+    ]
+
+    for (const option of viewHierarchyOptions) {
+      const view = workspace.views[option.viewId]
+      if (!view) {
+        continue
+      }
+      items.push({
+        id: `view:${view.id}`,
+        title: view.name,
+        section: 'Views',
+        subtitle: `Open ${view.kind} view`,
+        keywords: ['view', view.kind],
+        run: () => {
+          goToView(view.id)
+          setTransientStatus(`Opened view: ${view.name}`)
+        },
+      })
+    }
+
+    for (const journey of viewJourneys) {
+      items.push({
+        id: `journey:${journey.id}`,
+        title: journey.name,
+        section: 'Journeys',
+        subtitle: 'Select and prepare this journey for playback',
+        keywords: ['flow', 'timeline', 'player'],
+        run: () => {
+          setActiveJourney(journey.id)
+          activateJourneyPlayback(journey.id)
+          setTransientStatus(`Active journey: ${journey.name}`)
+        },
+      })
+      items.push({
+        id: `journey-filter:${journey.id}`,
+        title: `Filter Journey: ${journey.name}`,
+        section: 'Journeys',
+        subtitle: 'Focus the canvas on this journey',
+        keywords: ['focus', 'scope', 'filter'],
+        run: () => applyJourneyFilter(journey.id, { activateJourney: true }),
+      })
+    }
+
+    for (const view of Object.values(workspace.views)) {
+      for (const nodeId of view.nodeIds) {
+        const node = workspace.nodes[nodeId]
+        if (!node) {
+          continue
+        }
+        items.push({
+          id: `node:${view.id}:${node.id}`,
+          title: node.name,
+          section: 'Nodes',
+          subtitle: `Select ${node.kind} in ${view.name}`,
+          keywords: ['node', node.kind, node.tech?.label ?? '', node.description ?? ''],
+          run: () => focusNodeFromPalette(view.id, node.id),
+        })
+      }
+      for (const edgeId of view.edgeIds) {
+        const edge = workspace.edges[edgeId]
+        if (!edge) {
+          continue
+        }
+        const fromNode = workspace.nodes[edge.from.nodeId]
+        const toNode = workspace.nodes[edge.to.nodeId]
+        items.push({
+          id: `edge:${view.id}:${edge.id}`,
+          title: edge.label || edge.id,
+          section: 'Edges',
+          subtitle: `Select ${fromNode?.name ?? edge.from.nodeId} -> ${toNode?.name ?? edge.to.nodeId}`,
+          keywords: ['edge', 'connection', edge.protocolPresetId],
+          run: () => focusEdgeFromPalette(view.id, edge.id),
+        })
+      }
+    }
+
+    return items
+  })() : []
+  const commandPaletteActionById = new Map(commandPaletteItems.map((item) => [item.id, item]))
+  const runCommandPaletteAction = (itemId: string) => {
+    const item = commandPaletteActionById.get(itemId)
+    if (!item || item.disabled) {
+      return
+    }
+    closeCommandPalette()
+    item.run()
+  }
+
   if (isSharedSupabaseAssetRoute) {
     return (
       <div className="shared-asset-view">
@@ -5995,7 +6506,7 @@ function App() {
       <div
         className={`mobile-app app-layout-density-${uiPreferences.density} ${
           theme === 'dark' ? 'theme-dark' : 'theme-light'
-        }`}
+        } ${uiPreferences.performanceModeEnabled ? 'app-layout-performance' : ''}`}
       >
         <input
           ref={snapshotFileInputRef}
@@ -6020,6 +6531,15 @@ function App() {
           versionLabel={APP_VERSION_LABEL}
           copyrightLabel={`Copyright ${APP_COPYRIGHT_LABEL}`}
           onDismiss={() => setSplashVisible(false)}
+        />
+        <CommandPalette
+          key={commandPaletteOpen ? 'command-palette-open' : 'command-palette-closed'}
+          open={commandPaletteOpen}
+          items={commandPaletteItems}
+          query={commandPaletteQuery}
+          onQueryChange={setCommandPaletteQuery}
+          onRun={runCommandPaletteAction}
+          onClose={closeCommandPalette}
         />
         <div ref={layoutRef} className="mobile-shell-frame">
           <header ref={topbarRef} className="mobile-topbar">
@@ -6079,6 +6599,13 @@ function App() {
               <button
                 type="button"
                 className="mobile-toolbar-button mobile-toolbar-button-compact"
+                onClick={() => openCommandPalette()}
+              >
+                Search
+              </button>
+              <button
+                type="button"
+                className="mobile-toolbar-button mobile-toolbar-button-compact"
                 onClick={() => setMobilePanelCollapsed((current) => !current)}
               >
                 {mobilePanelCollapsed ? 'Panels' : 'Hide'}
@@ -6117,7 +6644,7 @@ function App() {
                 presentationMode={presentationMode}
                 forceGridHidden={presentationMode}
                 exportFocusJourneyId={exportFocusJourneyId}
-                nodeDepthEffectsEnabled={uiPreferences.nodeDepthEffectsEnabled}
+                nodeDepthEffectsEnabled={nodeDepthEffectsActive}
                 draggedEdgeId={draggedEdgeId}
                 onEdgePointerStart={handleCanvasEdgePointerStart}
               />
@@ -6189,7 +6716,9 @@ function App() {
       ref={layoutRef}
       className={`app-layout ${focusMode ? 'app-layout-focus' : ''} ${
         presentationMode ? 'app-layout-presentation' : ''
-      } app-layout-density-${uiPreferences.density} ${theme === 'dark' ? 'theme-dark' : 'theme-light'}`}
+      } app-layout-density-${uiPreferences.density} ${theme === 'dark' ? 'theme-dark' : 'theme-light'} ${
+        uiPreferences.performanceModeEnabled ? 'app-layout-performance' : ''
+      }`}
       style={layoutStyle}
     >
       <input
@@ -6215,6 +6744,15 @@ function App() {
         versionLabel={APP_VERSION_LABEL}
         copyrightLabel={`Copyright ${APP_COPYRIGHT_LABEL}`}
         onDismiss={() => setSplashVisible(false)}
+      />
+      <CommandPalette
+        key={commandPaletteOpen ? 'command-palette-open' : 'command-palette-closed'}
+        open={commandPaletteOpen}
+        items={commandPaletteItems}
+        query={commandPaletteQuery}
+        onQueryChange={setCommandPaletteQuery}
+        onRun={runCommandPaletteAction}
+        onClose={closeCommandPalette}
       />
       <header ref={topbarRef} className="topbar">
         <div className="topbar-meta">
@@ -7383,7 +7921,20 @@ function App() {
             </div>
             </nav>
           ) : null}
-          {cloudBadgeControl}
+          <div className="topbar-utility-strip">
+            <button
+              type="button"
+              className="command-palette-trigger"
+              onClick={() => openCommandPalette()}
+              title={withTooltip('Search commands, views, journeys, nodes, and edges')}
+              aria-label="Open command palette"
+            >
+              <Search size={15} />
+              <span>Search</span>
+              <kbd>Ctrl K</kbd>
+            </button>
+            {cloudBadgeControl}
+          </div>
           {!presentationMode ? (
             <div className="mode-indicators">
                 <span className={activeTool === 'connector' ? 'mode-pill mode-pill-active' : 'mode-pill'}>
@@ -7854,11 +8405,69 @@ function App() {
             presentationMode={presentationMode}
             forceGridHidden={presentationMode}
             exportFocusJourneyId={exportFocusJourneyId}
-            nodeDepthEffectsEnabled={uiPreferences.nodeDepthEffectsEnabled}
+            nodeDepthEffectsEnabled={nodeDepthEffectsActive}
             draggedEdgeId={draggedEdgeId}
             onEdgePointerStart={handleCanvasEdgePointerStart}
           />
         )}
+        {!presentationMode ? (
+          <div className="canvas-status-strip" aria-label="Canvas status">
+            <span>{currentView.name}</span>
+            <span>{Math.round(viewport.zoom * 100)}%</span>
+            <span>{currentView.nodeIds.length} nodes</span>
+            <span>{currentView.edgeIds.length} edges</span>
+            {uiPreferences.performanceModeEnabled ? <span>Performance</span> : null}
+          </div>
+        ) : null}
+        {!presentationMode && uiPreferences.minimapEnabled && minimapModel ? (
+          <aside className="canvas-minimap" aria-label="Canvas minimap">
+            <div className="canvas-minimap-header">
+              <span>Overview</span>
+              <button type="button" onClick={() => fitCurrentViewToCanvas()}>
+                Fit
+              </button>
+            </div>
+            <svg
+              className="canvas-minimap-svg"
+              viewBox={`0 0 ${DEFAULT_MINIMAP_SIZE.width} ${DEFAULT_MINIMAP_SIZE.height}`}
+              onPointerDown={onMinimapPointerDown}
+              role="img"
+              aria-label="Diagram overview minimap"
+            >
+              <rect
+                className="canvas-minimap-bg"
+                x={0}
+                y={0}
+                width={DEFAULT_MINIMAP_SIZE.width}
+                height={DEFAULT_MINIMAP_SIZE.height}
+                rx={10}
+              />
+              {minimapModel.nodes.map((node) => (
+                <rect
+                  key={node.id}
+                  className={
+                    node.kind === 'boundary'
+                      ? 'canvas-minimap-node canvas-minimap-node-boundary'
+                      : 'canvas-minimap-node'
+                  }
+                  x={node.x}
+                  y={node.y}
+                  width={node.width}
+                  height={node.height}
+                  rx={node.kind === 'note' ? 1.5 : 3}
+                />
+              ))}
+              <rect
+                className="canvas-minimap-viewport"
+                x={minimapModel.viewport.x}
+                y={minimapModel.viewport.y}
+                width={minimapModel.viewport.width}
+                height={minimapModel.viewport.height}
+                rx={4}
+              />
+            </svg>
+          </aside>
+        ) : null}
       </main>
       {managedRightHostVisible ? (
         <aside className="managed-host-sidebar managed-host-sidebar-right" data-tutorial-id="managed-host-right">

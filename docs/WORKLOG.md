@@ -2,6 +2,39 @@
 
 Chronological engineering log. Entries are kept concise and focused on behavior and validation.
 
+## 2026-06-26 - Desktop polish command palette, minimap, and performance mode
+
+### Scope
+
+- Added high-impact diagram-editor UX improvements inspired by mature canvas tools: searchable commands/navigation, an overview minimap, clearer canvas status, and a lightweight performance mode.
+
+### Changes
+
+- `apps/web/src/commandPalette/commandPalette.ts`, `apps/web/src/components/chrome/CommandPalette.tsx`
+  - added a searchable command palette opened by `Ctrl/Cmd+K`, `/`, desktop topbar Search, or mobile Search,
+  - indexes commands, views, journeys, nodes, and edges,
+  - node/edge results open the owning view, select the target, and center the viewport.
+- `apps/web/src/diagram/canvas/minimap.ts`
+  - added pure minimap geometry for current-view node bounds, viewport projection, and minimap-click world-coordinate mapping.
+- `apps/web/src/App.tsx`, `apps/web/src/App.css`
+  - added bottom-right canvas minimap with click-to-recenter and Fit action,
+  - added bottom-left canvas status strip with current view, zoom, node count, edge count, and performance state,
+  - added persisted `minimapEnabled` and `performanceModeEnabled` UI preferences with backward-compatible defaults,
+  - performance mode disables node depth effects, playback confetti, extra transitions/animations, and backdrop blur work,
+  - tightened global letter spacing to `0` and added dark-mode styles for the new chrome.
+- `apps/web/src/App.source.test.ts`, `apps/web/src/App.styles.test.ts`, `apps/web/src/commandPalette/commandPalette.test.ts`, `apps/web/src/components/chrome/CommandPalette.test.tsx`, `apps/web/src/diagram/canvas/minimap.test.ts`
+  - added focused coverage for command ranking, command palette rendering, minimap geometry, App wiring, and CSS contracts.
+- `apps/web/src/help/help.md`, `docs/UI_JOURNEYS_CAPABILITIES.md`, `docs/FILE_ATLAS.md`, `docs/AI_STATE.md`
+  - documented the new command palette, minimap/status strip, persisted UI preferences, and new helper folder taxonomy.
+
+### Validation
+
+- `npm --workspace @sjv/web run test:run -- src/commandPalette/commandPalette.test.ts src/components/chrome/CommandPalette.test.tsx src/diagram/canvas/minimap.test.ts src/App.source.test.ts src/App.styles.test.ts`
+- `npm --workspace @sjv/web run lint`
+- `npm --workspace @sjv/web run test:run`
+- `npm --workspace @sjv/web run build`
+- `git diff --check`
+
 ## 2026-03-03 - Vercel output directory now matches the monorepo layout
 
 ### Scope

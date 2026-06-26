@@ -21,10 +21,19 @@ Default playback/focus state:
 - Pan: drag empty canvas.
 - Zoom: mouse wheel.
 - Select: click node/edge.
+- Use the bottom-right minimap to understand large diagrams and jump the viewport by clicking the overview.
+- The bottom-left status strip shows current view, zoom, node count, edge count, and performance mode state.
 - Drag from an exact port hover in **Select** mode when the blue pulse cue appears to start a connection without leaving selection mode.
 - Multi-select: `Shift` or `Cmd/Ctrl` + click.
 - Delete selection: `Delete` / `Backspace`.
 - Duplicate selection: `Cmd/Ctrl + D`.
+
+## Command Palette
+
+- Open with `Ctrl/Cmd + K`, `/`, the topbar **Search** control, or the mobile **Search** button.
+- Search commands, views, journeys, nodes, and edges from one place.
+- Selecting a node or edge opens its view, selects it, and centers the canvas around it.
+- Common actions include tool switching, auto arrange, fit view, theme/grid/snap toggles, panel opening, file commands, minimap toggle, and performance mode toggle.
 
 ## Notes
 
@@ -134,6 +143,9 @@ Default playback/focus state:
 - Controls:
   - Tooltip enable/disable.
   - Startup splash enable/disable.
+  - Canvas minimap enable/disable.
+  - Performance mode enable/disable.
+  - Node depth effects enable/disable.
   - Showcase language (`EN` / `PT`).
   - Toolbar section visibility (`Navigation`, `Editing`, `Viewport`, `Panels`, `Modes`).
   - Supabase cloud status, plus the original advanced cloud controls as a fallback to the topbar badge.

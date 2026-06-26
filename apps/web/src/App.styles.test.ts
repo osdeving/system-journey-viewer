@@ -119,6 +119,10 @@ describe('App boundary styles', () => {
       /\.app-layout-presentation\s+\.topbar\s*\{[^}]*grid-template-columns:\s*auto minmax\(0,\s*1fr\);[^}]*\}/s,
     )
     expect(appCss).toContain('.topbar-cloud-shell')
+    expect(appCss).toContain('.topbar-utility-strip')
+    expect(appCss).toContain('.command-palette-trigger')
+    expect(appCss).toContain('.command-palette-backdrop')
+    expect(appCss).toContain('.command-palette-row-active')
     expect(appCss).toContain('.topbar-cloud-badge')
     expect(appCss).toContain('.topbar-cloud-panel')
     expect(appCss).toContain('.topbar-cloud-field')
@@ -163,6 +167,9 @@ describe('App boundary styles', () => {
     expect(appCss).toContain('.desktop-menu-list')
     expect(appCss).toContain('.desktop-menu-item-icon')
     expect(appCss).toContain('.canvas-back-arrow')
+    expect(appCss).toContain('.canvas-status-strip')
+    expect(appCss).toContain('.canvas-minimap')
+    expect(appCss).toContain('.canvas-minimap-viewport')
     expect(appCss).toContain('.canvas-alignment-guide')
     expect(appCss).toContain('.canvas-selection-marquee')
     expect(appCss).toContain('.node-border-hitarea')
@@ -183,6 +190,7 @@ describe('App boundary styles', () => {
     expect(appCss).toContain('.panel-group')
     expect(appCss).toContain('.panel-group-toggle')
     expect(appCss).toContain('.journey-filter-button')
+    expect(appCss).toContain('.app-layout-performance')
   })
 
   it('styles the guided tutorial overlay and help guide actions', () => {

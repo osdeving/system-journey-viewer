@@ -159,6 +159,8 @@ Default playback/focus state:
   - UI font size (`Small`, `Normal`, `Large`).
   - Chrome color theme presets and custom chrome color tokens.
   - Icon set selection for the app chrome.
+  - Main menu show/hide.
+  - Optional compact toolbar placement beside the app icon.
   - Toolbar section visibility (`Navigation`, `Editing`, `Panels`, `Modes`).
   - Active cloud provider status, provider URL, and advanced cloud controls as a fallback to the topbar badge.
 

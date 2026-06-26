@@ -2,6 +2,39 @@
 
 Chronological engineering log. Entries are kept concise and focused on behavior and validation.
 
+## 2026-06-26 - Dock header and compact shell polish
+
+### Scope
+
+- Polished the dark desktop shell after visual review: menu/toolbar/Supabase now match the sidebar tone, docked windows have a real compact header, palette scrolling uses arrow controls, and users can hide the main menu while placing the toolbar beside the app icon.
+
+### Changes
+
+- `apps/web/src/preferences/uiPreferences.ts`
+  - added backward-compatible persisted preferences for `menuBarVisible` and `toolbarInlineWithBrand` on the existing `sjv-ui-preferences-v1` key.
+- `apps/web/src/App.tsx`, `apps/web/src/App.css`
+  - added Preferences, Settings menu, and command-palette controls for hiding/restoring the main menu and toggling compact inline toolbar placement,
+  - added root layout classes for visible/hidden menu and stacked/inline toolbar modes,
+  - aligned menu, toolbar, Search, and Supabase badge colors/radii with the dark sidebar control language.
+- `apps/web/src/components/windowing/DockHost.tsx`
+  - replaced the floating-looking action row with a compact dock header containing tabs and actions,
+  - added vertical arrow scroll controls and hid native dock-host scrollbars.
+- `apps/web/src/components/palette/PalettePanel.tsx`
+  - routed category tabs through `OverflowStrip` so category overflow uses small left/right arrows instead of a visible horizontal scrollbar.
+- `apps/web/src/components/windowing/DockHost.test.tsx`, `apps/web/src/components/palette/PalettePanel.test.tsx`, `apps/web/src/preferences/uiPreferences.test.ts`, `apps/web/src/App.source.test.ts`, `apps/web/src/App.styles.test.ts`
+  - added regression coverage for the new persisted preferences, dock header/scroll controls, palette arrow overflow, and compact topbar CSS contracts.
+- `apps/web/src/help/help.md`, `docs/AI_STATE.md`, `docs/STATE_PERSISTENCE_MAP.md`
+  - documented the new compact shell preferences and persistence fields.
+
+### Validation
+
+- `npm --workspace @sjv/web run test:run -- src/preferences/uiPreferences.test.ts src/components/palette/PalettePanel.test.tsx src/components/windowing/DockHost.test.tsx src/App.source.test.ts src/App.styles.test.ts`
+- `npm --workspace @sjv/web run lint`
+- `npm --workspace @sjv/web run test:run`
+- `npm --workspace @sjv/web run build`
+- `git diff --check`
+- Playwright/Firefox check against `http://127.0.0.1:5175/`: verified softened topbar/menu/Supabase control colors, compact dock headers, small palette overflow arrows, hidden native dock-host scrollbar, dock vertical arrow controls, and compact mode with `app-menu-hidden app-toolbar-inline` reducing topbar height from 107px to 61px.
+
 ## 2026-06-26 - UI appearance themes and icon registry
 
 ### Scope

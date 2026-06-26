@@ -28,6 +28,8 @@ describe('uiPreferences', () => {
     expect(preferences.fontScale).toBe(DEFAULT_UI_PREFERENCES.fontScale)
     expect(preferences.chromeThemeId).toBe('midnight')
     expect(preferences.iconSet).toBe('lucide')
+    expect(preferences.menuBarVisible).toBe(true)
+    expect(preferences.toolbarInlineWithBrand).toBe(false)
   })
 
   it('rejects invalid custom colors and icon set values safely', () => {
@@ -35,6 +37,8 @@ describe('uiPreferences', () => {
       fontScale: 'huge',
       chromeThemeId: 'unknown',
       iconSet: 'random',
+      menuBarVisible: 'yes',
+      toolbarInlineWithBrand: 'please',
       customChromeColors: {
         shellBackground: 'black',
         panelBackground: '#222222',
@@ -44,6 +48,8 @@ describe('uiPreferences', () => {
     expect(preferences.fontScale).toBe('normal')
     expect(preferences.chromeThemeId).toBe('midnight')
     expect(preferences.iconSet).toBe('lucide')
+    expect(preferences.menuBarVisible).toBe(true)
+    expect(preferences.toolbarInlineWithBrand).toBe(false)
     expect(preferences.customChromeColors.shellBackground).toBe('#101923')
     expect(preferences.customChromeColors.panelBackground).toBe('#222222')
   })
@@ -68,6 +74,7 @@ describe('uiPreferences', () => {
       '--sjv-shell-bg': '#111111',
       '--sjv-shell-panel-bg': '#222222',
       '--sjv-shell-control-bg': '#333333',
+      '--sjv-shell-control-text': '#eeeeee',
       '--sjv-shell-accent': '#44aaee',
     })
   })

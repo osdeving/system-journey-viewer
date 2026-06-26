@@ -46,6 +46,8 @@ export type UiPreferences = {
   chromeThemeId: ChromeThemeId
   customChromeColors: UiChromeCustomColors
   iconSet: AppIconSetId
+  menuBarVisible: boolean
+  toolbarInlineWithBrand: boolean
   toolbarVisibility: Record<ToolbarSectionId, boolean>
 }
 
@@ -117,6 +119,8 @@ export const DEFAULT_UI_PREFERENCES: UiPreferences = {
   chromeThemeId: 'midnight',
   customChromeColors: DEFAULT_CUSTOM_CHROME_COLORS,
   iconSet: 'lucide',
+  menuBarVisible: true,
+  toolbarInlineWithBrand: false,
   toolbarVisibility: {
     navigation: true,
     editing: true,
@@ -221,6 +225,14 @@ export const parseUiPreferencesCandidate = (candidate: unknown): UiPreferences =
     chromeThemeId: parseChromeThemeId(candidate.chromeThemeId),
     customChromeColors: parseCustomChromeColors(candidate.customChromeColors),
     iconSet: isAppIconSetId(candidate.iconSet) ? candidate.iconSet : DEFAULT_UI_PREFERENCES.iconSet,
+    menuBarVisible:
+      typeof candidate.menuBarVisible === 'boolean'
+        ? candidate.menuBarVisible
+        : DEFAULT_UI_PREFERENCES.menuBarVisible,
+    toolbarInlineWithBrand:
+      typeof candidate.toolbarInlineWithBrand === 'boolean'
+        ? candidate.toolbarInlineWithBrand
+        : DEFAULT_UI_PREFERENCES.toolbarInlineWithBrand,
     toolbarVisibility: {
       navigation:
         typeof toolbarVisibility.navigation === 'boolean'
@@ -286,6 +298,7 @@ export const resolveUiPreferenceCssVariables = (preferences: UiPreferences): CSS
     '--sjv-shell-border': colors.borderColor,
     '--sjv-shell-text': colors.textColor,
     '--sjv-shell-muted': colors.mutedTextColor,
+    '--sjv-shell-control-text': colors.textColor,
     '--sjv-shell-accent': colors.accentColor,
     '--sjv-shell-accent-soft': `${colors.accentColor}29`,
     '--sjv-shell-accent-border': `${colors.accentColor}73`,

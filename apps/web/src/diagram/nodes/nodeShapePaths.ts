@@ -2,48 +2,8 @@
  * Purpose: Provide pure helpers for node shapes and connector semantics in the diagram layer.
  */
 
-import type { NodeBounds, NodeKind } from '../../model/types'
-
 const clamp = (value: number, min: number, max: number): number =>
   Math.min(max, Math.max(min, value))
-
-export const CYLINDER_NODE_MAX_WIDTH_TO_HEIGHT_RATIO = 2.4
-
-export type CylinderNodeBoundsAnchor = 'west' | 'center' | 'east'
-
-export const isCylinderNodeKind = (kind: NodeKind): boolean =>
-  kind === 'db' || kind === 'queue'
-
-export const resolveCylinderNodeBounds = (
-  kind: NodeKind,
-  bounds: NodeBounds,
-  options: { horizontalAnchor?: CylinderNodeBoundsAnchor } = {},
-): NodeBounds => {
-  if (!isCylinderNodeKind(kind)) {
-    return bounds
-  }
-
-  const maxWidth = Math.max(1, bounds.h * CYLINDER_NODE_MAX_WIDTH_TO_HEIGHT_RATIO)
-  if (bounds.w <= maxWidth) {
-    return bounds
-  }
-
-  const nextWidth = Number(maxWidth.toFixed(4))
-  const anchor = options.horizontalAnchor ?? 'west'
-  let nextX = bounds.x
-
-  if (anchor === 'center') {
-    nextX = bounds.x + (bounds.w - nextWidth) / 2
-  } else if (anchor === 'east') {
-    nextX = bounds.x + bounds.w - nextWidth
-  }
-
-  return {
-    ...bounds,
-    x: Number(nextX.toFixed(4)),
-    w: nextWidth,
-  }
-}
 
 export type DbCylinderShape = {
   capRy: number
@@ -91,7 +51,7 @@ export const resolveQueueCylinderShape = (
   const capRy = safeHeight / 2
   const capRxMax = Math.max(6, safeWidth / 2 - 1)
   const capRxMin = Math.min(10, capRxMax)
-  const capRx = clamp(safeWidth * 0.18, capRxMin, capRxMax)
+  const capRx = clamp(safeHeight * 0.36, capRxMin, capRxMax)
   const rightCenterX = safeWidth - capRx
 
   return {

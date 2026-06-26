@@ -4,47 +4,12 @@
 
 import { describe, expect, it } from 'vitest'
 import {
-  CYLINDER_NODE_MAX_WIDTH_TO_HEIGHT_RATIO,
-  resolveCylinderNodeBounds,
   resolveDbCylinderShape,
   resolveHexagonShape,
   resolveQueueCylinderShape,
 } from './nodeShapePaths'
 
 describe('node shape paths', () => {
-  it('constrains cylinder node bounds to avoid stretched db and queue presets', () => {
-    const bounds = resolveCylinderNodeBounds('queue', { x: 40, y: 20, w: 520, h: 80 })
-
-    expect(bounds).toEqual({
-      x: 40,
-      y: 20,
-      w: 80 * CYLINDER_NODE_MAX_WIDTH_TO_HEIGHT_RATIO,
-      h: 80,
-    })
-  })
-
-  it('preserves the requested horizontal anchor while constraining cylinder bounds', () => {
-    const eastAnchored = resolveCylinderNodeBounds(
-      'db',
-      { x: 40, y: 20, w: 520, h: 100 },
-      { horizontalAnchor: 'east' },
-    )
-    const centered = resolveCylinderNodeBounds(
-      'db',
-      { x: 40, y: 20, w: 520, h: 100 },
-      { horizontalAnchor: 'center' },
-    )
-
-    expect(eastAnchored.x + eastAnchored.w).toBe(560)
-    expect(centered.x + centered.w / 2).toBe(300)
-  })
-
-  it('leaves non-cylinder node bounds unchanged', () => {
-    const bounds = { x: 40, y: 20, w: 520, h: 80 }
-
-    expect(resolveCylinderNodeBounds('container', bounds)).toBe(bounds)
-  })
-
   it('builds db cylinder shell and rim arcs', () => {
     const shape = resolveDbCylinderShape(320, 120)
 
@@ -58,19 +23,22 @@ describe('node shape paths', () => {
   it('clamps queue cap width for narrow nodes', () => {
     const shape = resolveQueueCylinderShape(40, 60)
 
-    expect(shape.capRx).toBe(10)
+    expect(shape.capRx).toBe(19)
     expect(shape.capRy).toBe(30)
-    expect(shape.shellPath).toContain('M 10 0')
-    expect(shape.shellPath).toContain('H 30')
-    expect(shape.frontCapPath).toContain('A 10 30')
+    expect(shape.shellPath).toContain('M 19 0')
+    expect(shape.shellPath).toContain('H 21')
+    expect(shape.frontCapPath).toContain('A 19 30')
   })
 
-  it('keeps queue cap width bounded on wide nodes', () => {
+  it('keeps queue cap width fixed while the body stretches horizontally', () => {
+    const defaultWidth = resolveQueueCylinderShape(180, 90)
     const shape = resolveQueueCylinderShape(320, 90)
+    const stretched = resolveQueueCylinderShape(640, 90)
 
-    expect(shape.capRx).toBeCloseTo(57.6, 1)
-    expect(shape.capRx).toBeLessThan(160)
-    expect(shape.rearInnerArcPath).toContain('0 0 1')
+    expect(shape.capRx).toBeCloseTo(defaultWidth.capRx, 1)
+    expect(stretched.capRx).toBeCloseTo(defaultWidth.capRx, 1)
+    expect(shape.shellPath).toContain(`H ${320 - shape.capRx}`)
+    expect(stretched.frontCapPath).toContain(`M ${640 - stretched.capRx} 0`)
   })
 
   it('builds a closed hexagon path for infra nodes', () => {

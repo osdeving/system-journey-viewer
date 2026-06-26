@@ -43,9 +43,7 @@ import { resolveHexConnectorRole } from '../../diagram/nodes/hexConnectorRole'
 import { resolveNodePortClassName } from '../../diagram/nodes/nodePortClassName'
 import { JourneyEdge } from './JourneyEdge'
 import {
-  type CylinderNodeBoundsAnchor,
   resolveDbCylinderShape,
-  resolveCylinderNodeBounds,
   resolveHexagonShape,
   resolveQueueCylinderShape,
 } from '../../diagram/nodes/nodeShapePaths'
@@ -373,16 +371,6 @@ const resolveResizeHandleCursor = (handle: ResizeHandle): string => {
     return 'nesw-resize'
   }
   return 'nwse-resize'
-}
-
-const resolveResizeCylinderAnchor = (handle: ResizeHandle): CylinderNodeBoundsAnchor => {
-  if (handle.includes('w')) {
-    return 'east'
-  }
-  if (handle.includes('e')) {
-    return 'west'
-  }
-  return 'center'
 }
 
 const resolveResizeHandleFromLocalPoint = (
@@ -2111,10 +2099,6 @@ export const DiagramCanvas = ({
     if (!originBounds) {
       return
     }
-    const primaryNode = workspace.nodes[drag.primaryNodeId]
-    if (!primaryNode) {
-      return
-    }
     const handle = drag.resizeHandle ?? 'se'
     let nextX = originBounds.x
     let nextY = originBounds.y
@@ -2142,16 +2126,13 @@ export const DiagramCanvas = ({
       w: nextW,
       h: nextH,
     }
-    const snappedBounds = snapEnabled
+    const bounds = snapEnabled
       ? snapBounds(candidateBounds, drag.primaryNodeId, workspace.nodes, {
           gridSize: DEFAULT_GRID_SIZE,
           snapGrid: true,
           snapShapes: false,
         })
       : candidateBounds
-    const bounds = resolveCylinderNodeBounds(primaryNode.kind, snappedBounds, {
-      horizontalAnchor: resolveResizeCylinderAnchor(handle),
-    })
     setNodeBounds(drag.primaryNodeId, bounds)
     setAlignmentGuides([])
   }

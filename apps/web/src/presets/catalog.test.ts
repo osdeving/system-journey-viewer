@@ -3,7 +3,6 @@
  */
 
 import { describe, expect, it } from 'vitest'
-import { CYLINDER_NODE_MAX_WIDTH_TO_HEIGHT_RATIO } from '../diagram/nodes/nodeShapePaths'
 import {
   nodePresets,
   nodePresetsByCategory,
@@ -25,16 +24,5 @@ describe('preset catalog', () => {
 
     expect(nodePreset?.label).toBe('Container')
     expect(techPreset?.label).toBe('Spring Boot')
-  })
-
-  it('keeps db and kafka cylinder presets within the compact aspect limit', () => {
-    for (const presetId of ['db', 'queue']) {
-      const nodePreset = resolveNodePreset(presetId)
-
-      expect(nodePreset).toBeDefined()
-      expect((nodePreset?.defaultWidth ?? 0) / (nodePreset?.defaultHeight ?? 1)).toBeLessThanOrEqual(
-        CYLINDER_NODE_MAX_WIDTH_TO_HEIGHT_RATIO,
-      )
-    }
   })
 })

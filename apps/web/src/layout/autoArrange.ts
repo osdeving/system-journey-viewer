@@ -3,6 +3,7 @@
  */
 
 import dagre from '@dagrejs/dagre'
+import { resolveCylinderNodeBounds } from '../diagram/nodes/nodeShapePaths'
 import { nearestPortId, nodeCenter, portWorldPosition } from '../engine/geometry'
 import { resolveNodePorts } from '../model/nodePorts'
 import type { NodeBounds, NodeModel, WorkspaceModel } from '../model/types'
@@ -87,7 +88,12 @@ const resolveNodeSize = (node: NodeModel): { w: number; h: number } => {
   const minHeight = node.kind === 'boundary' ? BOUNDARY_NODE_MIN_HEIGHT : BASE_NODE_MIN_HEIGHT
   const width = Math.max(node.bounds.w, minWidth, titleWidth, subtitleWidth)
   const height = Math.max(node.bounds.h, minHeight)
-  return { w: width, h: height }
+  const constrainedBounds = resolveCylinderNodeBounds(
+    node.kind,
+    { x: 0, y: 0, w: width, h: height },
+    { horizontalAnchor: 'center' },
+  )
+  return { w: constrainedBounds.w, h: constrainedBounds.h }
 }
 
 const resolveEdgeCurve = (

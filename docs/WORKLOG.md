@@ -2,6 +2,33 @@
 
 Chronological engineering log. Entries are kept concise and focused on behavior and validation.
 
+## 2026-06-26 - Cylinder presets no longer stretch excessively
+
+### Scope
+
+- Fixed database and Kafka/queue cylinder nodes so resize, auto-arrange, and restored browser snapshots do not leave them visually over-stretched.
+
+### Changes
+
+- `apps/web/src/diagram/nodes/nodeShapePaths.ts`
+  - added a pure cylinder-bounds constraint for `db` and `queue` nodes with anchor-aware horizontal correction.
+- `apps/web/src/components/canvas/DiagramCanvas.tsx`
+  - applies the cylinder constraint during resize while preserving the dragged side's expected anchor.
+- `apps/web/src/store/useEditorStore.ts`
+  - applies the constraint when node bounds are set and when older persisted browser snapshots hydrate into the editor.
+- `apps/web/src/layout/autoArrange.ts`
+  - keeps auto-arrange text sizing from widening Kafka/DB cylinders beyond the compact ratio.
+- `apps/web/src/diagram/nodes/nodeShapePaths.test.ts`, `apps/web/src/presets/catalog.test.ts`, `apps/web/src/store/useEditorStore.test.ts`
+  - added regression coverage for the compact aspect limit, DB/Kafka preset defaults, resize behavior, auto-arrange behavior, and persisted snapshot hydration.
+
+### Validation
+
+- `npm --workspace @sjv/web run test:run -- src/diagram/nodes/nodeShapePaths.test.ts src/presets/catalog.test.ts src/store/useEditorStore.test.ts`
+- `npm --workspace @sjv/web run lint`
+- `npm --workspace @sjv/web run test:run`
+- `npm --workspace @sjv/web run build`
+- Playwright/Firefox visual check against `http://127.0.0.1:5173/`: forced a wide persisted Kafka/DB snapshot and confirmed rendered SVG bboxes were compact (`Kafka` around `200x88`, `orders-db` around `248x108` including stroke).
+
 ## 2026-06-26 - Provider-neutral cloud persistence with local database fallback
 
 ### Scope

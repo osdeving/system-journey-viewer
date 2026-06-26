@@ -2,6 +2,31 @@
 
 Chronological engineering log. Entries are kept concise and focused on behavior and validation.
 
+## 2026-06-26 - Presentation toolbar cleanup
+
+### Scope
+
+- Cleaned up Presentation mode topbar so non-presentation utilities no longer crowd the presentation controls.
+
+### Changes
+
+- `apps/web/src/App.tsx`
+  - hides the desktop Search command trigger and cloud badge strip while Presentation mode is active.
+- `apps/web/src/App.css`
+  - tightened the Presentation topbar grid so the app logo occupies the first column and presentation controls start immediately to its right,
+  - added a defensive Presentation rule that keeps the utility strip hidden if it is reintroduced accidentally.
+- `apps/web/src/App.source.test.ts`, `apps/web/src/App.styles.test.ts`
+  - added regressions ensuring `topbar-utility-strip` is gated by `!presentationMode` and hidden by presentation CSS.
+
+### Validation
+
+- `npm --workspace @sjv/web run test:run -- src/App.source.test.ts src/App.styles.test.ts`
+- `npm --workspace @sjv/web run lint`
+- `npm --workspace @sjv/web run test:run`
+- `npm --workspace @sjv/web run build`
+- `git diff --check`
+- Playwright/Firefox check against `http://127.0.0.1:5178/`: verified Presentation mode has no `topbar-utility-strip`, Search trigger, or cloud badge; presentation toolbar starts 10px after the logo on the same row.
+
 ## 2026-06-26 - Compact toolbar and shell tone regression fix
 
 ### Scope

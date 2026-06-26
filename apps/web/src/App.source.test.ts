@@ -103,6 +103,11 @@ describe('App source regressions', () => {
     expect(appSource).toContain('className="app-logo-badge app-logo-button"')
     expect(appSource).toContain('menuBarVisible: !current.menuBarVisible')
     expect(appSource).toContain('compactInlineTopbar ? null : cloudBadgeControl')
+    const utilityStripIndex = appSource.indexOf('className="topbar-utility-strip"')
+    expect(utilityStripIndex).toBeGreaterThan(0)
+    expect(appSource.slice(Math.max(0, utilityStripIndex - 120), utilityStripIndex)).toContain(
+      '!presentationMode ? (',
+    )
     expect(appSource).not.toContain('topbar-menu-restore-button')
     expect(appSource).toContain('style={appLayoutStyle}')
   })

@@ -129,6 +129,12 @@ describe('App boundary styles', () => {
     expect(appCss).toMatch(
       /\.app-layout-presentation\s+\.topbar\s*\{[^}]*grid-template-columns:\s*auto minmax\(0,\s*1fr\);[^}]*\}/s,
     )
+    expect(appCss).toMatch(
+      /\.app-layout-presentation\s+\.topbar-meta\s*\{[^}]*grid-template-columns:\s*auto;[^}]*\}/s,
+    )
+    expect(appCss).toMatch(
+      /\.app-layout-presentation\s+\.topbar-utility-strip\s*\{[^}]*display:\s*none;[^}]*\}/s,
+    )
     expect(appCss).toContain('.topbar-cloud-shell')
     expect(appCss).toContain('.topbar-utility-strip')
     expect(appCss).toContain('.command-palette-trigger')

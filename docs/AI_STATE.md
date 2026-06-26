@@ -29,7 +29,7 @@
 - Latest managed-window placement hotfix (2026-03-03, late-night pass) reopens closed docked panels in their remembered host (`left|right|bottom`) instead of forcing the default host, and no longer auto-opens the bottom workbench when leaving Presentation mode.
 - Latest product polish increment (2026-06-26) adds a searchable command palette (`Ctrl/Cmd+K` or `/`) for commands/views/journeys/nodes/edges, a canvas minimap with click-to-recenter navigation, a canvas status strip, and a persisted performance mode that disables extra motion/depth/confetti work.
 - Latest cloud-provider decoupling increment (2026-06-26) extracts workspace/script/gallery cloud persistence into a provider-neutral `WorkspaceCloudStore`, keeps Supabase as a hosted adapter, and adds a functional local IndexedDB provider selected by `VITE_SJV_DB_URL=indexeddb://...` with automatic `indexeddb://sjv-local` fallback when Supabase env vars are absent.
-- Latest cylinder preset hotfix (2026-06-26) constrains `db` and `queue`/Kafka cylinder node bounds during resize, auto-arrange, and browser snapshot hydration so they no longer become excessively stretched horizontally.
+- Latest cylinder preset hotfix (2026-06-26) lets `db` and `queue`/Kafka cylinder nodes keep arbitrary user-controlled widths while queue/Kafka rendering keeps the right-side cylinder face visually stable instead of scaling it with node width.
 - Latest export hotfix (2026-03-01, night pass) aligns animated export theme backgrounds to the SVG `viewBox`/source frame and pre-fills raster composition frames so wide MP4 exports no longer reveal black transparent regions.
 - Latest canvas affordance hotfix (2026-03-01, late-night pass) adds a pulsing blue hover cue on exact node ports and lets `Select` mode start a connection directly from that hover without leaving selection mode.
 - Latest edge targeting hotfix (2026-03-01, final pass) widens the invisible pointer hit area for dashed edges so selection no longer requires near-pixel-perfect clicks, while automatic curve routing remains unchanged.
@@ -208,7 +208,7 @@
   - edge endpoint drag handles now use larger capture area and stronger visual indicator.
 - Node text editing and layout:
   - double-click inline editing for node title and subtitle/tech text,
-  - `db` and `queue`/Kafka cylinder nodes enforce a compact max width-to-height ratio during editor-driven resize and auto-arrange, with older browser snapshots normalized on hydrate.
+  - `db` and `queue`/Kafka cylinder nodes can be widened freely; the horizontal queue/Kafka cylinder body stretches while its right-side face size is derived from node height, not total width.
   - hexagon infra nodes now render centered/top labels with truncation to avoid overflow.
   - inspector now supports explicit node text color customization (persisted in workspace model).
 - Node fill presets are now theme-aware (light/dark Tailwind-inspired palettes) for stronger contrast in dark-mode workflows.

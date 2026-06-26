@@ -4,7 +4,6 @@
 
 import { create } from 'zustand'
 import { immer } from 'zustand/middleware/immer'
-import { resolveCylinderNodeBounds } from '../diagram/nodes/nodeShapePaths'
 import { nearestPortId, nodeCenter } from '../engine/geometry'
 import { journeyColorByIndex } from '../journeys/colors'
 import {
@@ -148,15 +147,6 @@ interface EditorState {
   resetPlayer: () => void
 }
 
-const normalizePersistedCylinderNodeBounds = (workspace: WorkspaceModel): WorkspaceModel => {
-  for (const node of Object.values(workspace.nodes)) {
-    node.bounds = resolveCylinderNodeBounds(node.kind, node.bounds, {
-      horizontalAnchor: 'center',
-    })
-  }
-  return workspace
-}
-
 const getDefaultState = (): Pick<
   EditorState,
   | 'workspace'
@@ -208,9 +198,7 @@ const getDefaultState = (): Pick<
       playerConfettiNodeId: null,
     }
   }
-  const normalizedWorkspace = normalizeWorkspaceNodePorts(
-    normalizePersistedCylinderNodeBounds(snapshot.workspace),
-  )
+  const normalizedWorkspace = normalizeWorkspaceNodePorts(snapshot.workspace)
   const fallbackViewId = Object.keys(normalizedWorkspace.views)[0] ?? DEFAULT_VIEW_ID
   const resolvedViewId = normalizedWorkspace.views[snapshot.currentViewId]
     ? snapshot.currentViewId
@@ -348,11 +336,10 @@ const createNode = (id: string, presetId: string, x: number, y: number): NodeMod
 }
 
 const applyNodeBounds = (node: NodeModel, bounds: NodeBounds): void => {
-  const nextBounds = resolveCylinderNodeBounds(node.kind, bounds)
-  const sizeChanged = node.bounds.w !== nextBounds.w || node.bounds.h !== nextBounds.h
-  node.bounds = nextBounds
+  const sizeChanged = node.bounds.w !== bounds.w || node.bounds.h !== bounds.h
+  node.bounds = bounds
   if (sizeChanged) {
-    node.ports = resolveNodePorts(nextBounds, node.kind)
+    node.ports = resolveNodePorts(bounds, node.kind)
   }
 }
 

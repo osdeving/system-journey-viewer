@@ -3,7 +3,6 @@
  */
 
 import { beforeEach, describe, expect, it } from 'vitest'
-import { CYLINDER_NODE_MAX_WIDTH_TO_HEIGHT_RATIO } from '../diagram/nodes/nodeShapePaths'
 import { liteToFullWorkspace } from '../dsl-lite/convert'
 import { parseLiteDsl } from '../dsl-lite/parser'
 import { saveSnapshot } from './persistence'
@@ -139,7 +138,7 @@ describe('useEditorStore', () => {
     expect(restored.pendingConnectionFrom).toBe(targetNodeId)
   })
 
-  it('normalizes stretched persisted db and kafka cylinders on hydrate', () => {
+  it('preserves stretched persisted db and kafka cylinder bounds on hydrate', () => {
     const state = useEditorStore.getState()
     const workspace = structuredClone(state.workspace)
     workspace.nodes.n_kafka.bounds = { ...workspace.nodes.n_kafka.bounds, w: 520, h: 80 }
@@ -153,9 +152,9 @@ describe('useEditorStore', () => {
     state.hydrate()
     const restored = useEditorStore.getState()
 
-    expect(restored.workspace.nodes.n_kafka.bounds.w).toBe(80 * CYLINDER_NODE_MAX_WIDTH_TO_HEIGHT_RATIO)
-    expect(restored.workspace.nodes.n_db.bounds.w).toBe(100 * CYLINDER_NODE_MAX_WIDTH_TO_HEIGHT_RATIO)
-eu   })
+    expect(restored.workspace.nodes.n_kafka.bounds.w).toBe(520)
+    expect(restored.workspace.nodes.n_db.bounds.w).toBe(560)
+  })
 
   it('connects nodes when connector tool is active', () => {
     const state = useEditorStore.getState()
@@ -225,7 +224,7 @@ eu   })
     expect(updated.workspace.nodes.n_api.ports.length).toBeGreaterThan(beforePorts)
   })
 
-  it('constrains db and kafka cylinder bounds when nodes are resized', () => {
+  it('preserves db and kafka cylinder width when nodes are resized', () => {
     const state = useEditorStore.getState()
 
     state.setNodeBounds('n_kafka', { ...state.workspace.nodes.n_kafka.bounds, w: 520, h: 80 })
@@ -233,8 +232,8 @@ eu   })
     state.setNodeBounds('n_api', { ...state.workspace.nodes.n_api.bounds, w: 520, h: 80 })
     const updated = useEditorStore.getState()
 
-    expect(updated.workspace.nodes.n_kafka.bounds.w).toBe(80 * CYLINDER_NODE_MAX_WIDTH_TO_HEIGHT_RATIO)
-    expect(updated.workspace.nodes.n_db.bounds.w).toBe(100 * CYLINDER_NODE_MAX_WIDTH_TO_HEIGHT_RATIO)
+    expect(updated.workspace.nodes.n_kafka.bounds.w).toBe(520)
+    expect(updated.workspace.nodes.n_db.bounds.w).toBe(560)
     expect(updated.workspace.nodes.n_api.bounds.w).toBe(520)
     expect(updated.workspace.nodes.n_kafka.ports.length).toBeGreaterThan(4)
   })
@@ -443,15 +442,18 @@ eu   })
     expect(updated.workspace.edges.e_c_1.style.labelPosition ?? 1).toBeLessThanOrEqual(0.92)
   })
 
-  it('keeps kafka cylinder nodes compact during auto-arrange text sizing', () => {
+  it('allows kafka cylinder nodes to widen during auto-arrange text sizing', () => {
     const state = useEditorStore.getState()
     const nodeId = state.addNode('queue', 120, 120)
 
-    state.setNodeName(nodeId, 'Kafka topic with an intentionally long integration event name')
+    state.setNodeName(
+      nodeId,
+      'Kafka topic with an intentionally very long integration event name that needs width',
+    )
     state.autoArrangeCurrentView()
     const bounds = useEditorStore.getState().workspace.nodes[nodeId].bounds
 
-    expect(bounds.w / bounds.h).toBeLessThanOrEqual(CYLINDER_NODE_MAX_WIDTH_TO_HEIGHT_RATIO)
+    expect(bounds.w).toBeGreaterThan(bounds.h * 2.4)
   })
 
   it('supports scoped auto-arrange without moving out-of-scope nodes', () => {

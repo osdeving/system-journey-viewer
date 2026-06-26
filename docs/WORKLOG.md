@@ -2,6 +2,32 @@
 
 Chronological engineering log. Entries are kept concise and focused on behavior and validation.
 
+## 2026-06-26 - Professional dark sidebar and canvas tools rail
+
+### Scope
+
+- Moved the shell closer to a polished board/editor product language by darkening the left workspace surface and adding a compact floating canvas tools rail.
+
+### Changes
+
+- `apps/web/src/App.tsx`
+  - added a vertical canvas tools rail with real actions for Select, Connect, Palette, Inspector, SJV Script, Fit, Grid, Snap, and Search.
+- `apps/web/src/App.css`
+  - restyled the left managed host as a dark productive sidebar with one-column palette items, muted hierarchy, and darker tab/action controls,
+  - added a compact dark floating tools rail over the canvas,
+  - kept the rail and sidebar styling stable across theme overrides.
+- `apps/web/src/App.source.test.ts`, `apps/web/src/App.styles.test.ts`
+  - added source/CSS regressions for the canvas tools rail, dark left sidebar, and one-column palette list contract.
+
+### Validation
+
+- `npm --workspace @sjv/web run test:run -- src/App.source.test.ts src/App.styles.test.ts`
+- `npm --workspace @sjv/web run lint`
+- `npm --workspace @sjv/web run test:run`
+- `npm --workspace @sjv/web run build`
+- `git diff --check`
+- Playwright/Firefox check against `http://127.0.0.1:5175/`: verified dark left sidebar rendering, one-column palette card layout, and 9-button canvas tools rail with dark rounded styling.
+
 ## 2026-06-26 - Toolbar grouping and palette typography polish
 
 ### Scope

@@ -8561,6 +8561,94 @@ function App() {
             onEdgePointerStart={handleCanvasEdgePointerStart}
           />
         )}
+        {!presentationMode ? (
+          <aside className="canvas-tools-rail" aria-label="Canvas tools">
+            <button
+              type="button"
+              className={activeTool === 'select' ? 'canvas-tool-button canvas-tool-button-active' : 'canvas-tool-button'}
+              onClick={() => setActiveTool('select')}
+              title={withTooltip('Select and move')}
+              aria-label="Select tool"
+            >
+              <MousePointer size={16} />
+            </button>
+            <button
+              type="button"
+              className={activeTool === 'connector' ? 'canvas-tool-button canvas-tool-button-active' : 'canvas-tool-button'}
+              onClick={() => setActiveTool('connector')}
+              title={withTooltip('Connect nodes')}
+              aria-label="Connector tool"
+            >
+              <Link2 size={16} />
+            </button>
+            <span className="canvas-tool-divider" aria-hidden="true" />
+            <button
+              type="button"
+              className={paletteWindowOpen ? 'canvas-tool-button canvas-tool-button-active' : 'canvas-tool-button'}
+              onClick={() => openManagedDockedWindowFromDockTab('palette')}
+              title={withTooltip('Open palette')}
+              aria-label="Open palette"
+            >
+              <PanelLeftOpen size={16} />
+            </button>
+            <button
+              type="button"
+              className="canvas-tool-button"
+              onClick={() => openManagedDockedWindowFromDockTab('inspector')}
+              title={withTooltip('Open inspector')}
+              aria-label="Open inspector"
+            >
+              <SlidersHorizontal size={16} />
+            </button>
+            <button
+              type="button"
+              className="canvas-tool-button"
+              onClick={() => openManagedDockedWindowFromDockTab('dsl')}
+              title={withTooltip('Open SJV Script')}
+              aria-label="Open SJV Script"
+            >
+              <Code2 size={16} />
+            </button>
+            <span className="canvas-tool-divider" aria-hidden="true" />
+            <button
+              type="button"
+              className="canvas-tool-button"
+              onClick={() => fitCurrentViewToCanvas()}
+              title={withTooltip('Fit view')}
+              aria-label="Fit view"
+            >
+              <Target size={16} />
+            </button>
+            <button
+              type="button"
+              className={gridEnabled ? 'canvas-tool-button canvas-tool-button-active' : 'canvas-tool-button'}
+              onClick={() => setGridEnabled(!gridEnabled)}
+              title={withTooltip(gridEnabled ? 'Hide grid' : 'Show grid')}
+              aria-label={gridEnabled ? 'Hide grid' : 'Show grid'}
+            >
+              <Grid3X3 size={16} />
+            </button>
+            <button
+              type="button"
+              className={snapEnabled ? 'canvas-tool-button canvas-tool-button-active' : 'canvas-tool-button'}
+              onClick={() => setSnapEnabled(!snapEnabled)}
+              title={withTooltip(snapEnabled ? 'Disable snap' : 'Enable snap')}
+              aria-label={snapEnabled ? 'Disable snap' : 'Enable snap'}
+            >
+              <Magnet size={16} />
+            </button>
+            <span className="canvas-tool-divider" aria-hidden="true" />
+            <button
+              type="button"
+              className="canvas-tool-button"
+              onClick={() => openCommandPalette()}
+              title={withTooltip('Search commands')}
+              aria-label="Search commands"
+            >
+              <Search size={16} />
+            </button>
+          </aside>
+        ) : null}
         {!presentationMode && uiPreferences.minimapEnabled && minimapModel ? (
           <aside className="canvas-minimap" aria-label="Canvas minimap">
             <div className="canvas-minimap-header">

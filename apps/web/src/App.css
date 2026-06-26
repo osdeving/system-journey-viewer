@@ -2203,6 +2203,152 @@ button.topbar-cloud-script-row-delete {
   padding: 10px;
 }
 
+.managed-host-sidebar-left {
+  padding: 0;
+  background: #17212b;
+  border-right-color: #263544;
+}
+
+.managed-host-sidebar-left .dock-host {
+  gap: 10px;
+  padding: 10px 6px 10px;
+  background: #17212b;
+  color: #d7e0ea;
+}
+
+.managed-host-sidebar-left .dock-host-strip {
+  gap: 8px;
+}
+
+.managed-host-sidebar-left .dock-host-actions-row {
+  justify-content: flex-end;
+  padding: 0 4px;
+}
+
+.managed-host-sidebar-left .dock-host-tabs {
+  gap: 4px;
+  padding: 0 4px;
+}
+
+.managed-host-sidebar-left .dock-host-tab {
+  min-height: 28px;
+  border-color: transparent;
+  background: transparent;
+  color: #aebdca;
+}
+
+.managed-host-sidebar-left .dock-host-tab:hover {
+  border-color: #33485a;
+  background: #202d39;
+  color: #f4f7fb;
+}
+
+.managed-host-sidebar-left .dock-host-tab.dock-tab-active {
+  border-color: #3a5164;
+  background: #2c3a47;
+  color: #ffffff;
+}
+
+.managed-host-sidebar-left .dock-host-body {
+  padding: 0 4px 10px;
+}
+
+.managed-host-sidebar-left .dock-placement {
+  width: 26px;
+  height: 26px;
+  justify-content: center;
+  border-color: #33485a;
+  background: transparent;
+  color: #c7d3df;
+  padding: 0;
+}
+
+.managed-host-sidebar-left .dock-placement:hover,
+.managed-host-sidebar-left .dock-placement-active {
+  border-color: #4f86a7;
+  background: #203344;
+  color: #e7f6ff;
+}
+
+.managed-host-sidebar-left .palette-browser {
+  gap: 13px;
+}
+
+.managed-host-sidebar-left .palette-browser-title,
+.managed-host-sidebar-left .palette-section-title,
+.managed-host-sidebar-left .toolbox-item-label {
+  color: #f1f5f9;
+}
+
+.managed-host-sidebar-left .palette-browser-description,
+.managed-host-sidebar-left .app-text-tone-muted,
+.managed-host-sidebar-left .palette-preset-copy .app-text {
+  color: #9fb0c0;
+}
+
+.managed-host-sidebar-left .palette-browser-count {
+  border-color: rgba(34, 211, 238, 0.22);
+  background: rgba(34, 211, 238, 0.1);
+  color: #7dd3fc;
+}
+
+.managed-host-sidebar-left .palette-search {
+  border-color: #314253;
+  border-radius: 7px;
+  background: #101923;
+  color: #8293a4;
+  box-shadow: none;
+}
+
+.managed-host-sidebar-left .palette-search input {
+  color: #d7e0ea;
+}
+
+.managed-host-sidebar-left .palette-category-strip {
+  gap: 5px;
+}
+
+.managed-host-sidebar-left .palette-category-chip {
+  border-color: #33485a;
+  background: transparent;
+  color: #b8c5d1;
+}
+
+.managed-host-sidebar-left .palette-category-chip span {
+  background: #263544;
+  color: #c7d3df;
+}
+
+.managed-host-sidebar-left .palette-category-chip-active {
+  border-color: rgba(56, 189, 248, 0.46);
+  background: rgba(14, 165, 233, 0.16);
+  color: #bae6fd;
+}
+
+.managed-host-sidebar-left .palette-preset-grid {
+  grid-template-columns: 1fr;
+  gap: 7px;
+}
+
+.managed-host-sidebar-left .palette-preset-card {
+  min-height: 42px;
+  grid-template-columns: 30px minmax(0, 1fr);
+  border-color: #304354;
+  background: #1a2632;
+  color: #dbe5ee;
+}
+
+.managed-host-sidebar-left .palette-preset-card:hover {
+  border-color: #4a6680;
+  background: #253342;
+  box-shadow: none;
+}
+
+.managed-host-sidebar-left .palette-preset-icon {
+  border-color: #374b5f;
+  background: #22303d;
+}
+
 .dock-panel {
   border: 1px solid #d6dee9;
   border-radius: 14px;
@@ -3077,6 +3223,53 @@ button.topbar-cloud-script-row-delete {
   fill: rgba(14, 165, 233, 0.16);
   stroke: rgba(2, 132, 199, 0.95);
   stroke-width: 1.8;
+}
+
+.canvas-tools-rail {
+  position: absolute;
+  left: 16px;
+  top: 72px;
+  z-index: 8;
+  display: grid;
+  gap: 4px;
+  padding: 7px;
+  border: 1px solid rgba(15, 23, 42, 0.28);
+  border-radius: 12px;
+  background: #1d2a35;
+  box-shadow: 0 16px 34px rgba(15, 23, 42, 0.28);
+}
+
+.canvas-tool-button {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: #d7e0ea;
+  cursor: pointer;
+  padding: 0;
+}
+
+.canvas-tool-button:hover {
+  border-color: #40576a;
+  background: #2b3a47;
+  color: #ffffff;
+}
+
+.canvas-tool-button-active {
+  border-color: #54708a;
+  background: #354657;
+  color: #ffffff;
+}
+
+.canvas-tool-divider {
+  width: 22px;
+  height: 1px;
+  justify-self: center;
+  margin: 3px 0;
+  background: #344656;
 }
 
 .app-status-bar {
@@ -5176,6 +5369,49 @@ button.help-gallery-icon-button {
 .theme-dark .palette-empty {
   border-color: rgba(71, 85, 105, 0.72);
   background: rgba(15, 23, 42, 0.46);
+}
+
+.theme-dark .managed-host-sidebar-left {
+  background: #17212b;
+  border-right-color: #263544;
+}
+
+.theme-dark .managed-host-sidebar-left .dock-host {
+  background: #17212b;
+}
+
+.theme-dark .managed-host-sidebar-left .dock-host-tab {
+  border-color: transparent;
+  background: transparent;
+  color: #aebdca;
+}
+
+.theme-dark .managed-host-sidebar-left .dock-host-tab.dock-tab-active {
+  border-color: #3a5164;
+  background: #2c3a47;
+  color: #ffffff;
+}
+
+.theme-dark .managed-host-sidebar-left .palette-search {
+  border-color: #314253;
+  background: #101923;
+}
+
+.theme-dark .managed-host-sidebar-left .palette-category-chip {
+  border-color: #33485a;
+  background: transparent;
+  color: #b8c5d1;
+}
+
+.theme-dark .managed-host-sidebar-left .palette-preset-card {
+  border-color: #304354;
+  background: #1a2632;
+}
+
+.theme-dark .managed-host-sidebar-left .palette-preset-card:hover {
+  border-color: #4a6680;
+  background: #253342;
+  box-shadow: none;
 }
 
 .theme-dark .dock-panel {

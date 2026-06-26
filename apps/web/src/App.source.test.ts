@@ -325,4 +325,15 @@ describe('App source regressions', () => {
     expect(appSource).toContain('layout-splitter-managed-right')
     expect(appSource).toContain('layout-splitter-managed-bottom')
   })
+
+  it('renders a floating canvas tools rail with real editor actions', () => {
+    expect(appSource).toContain('className="canvas-tools-rail"')
+    expect(appSource).toContain('aria-label="Canvas tools"')
+    expect(appSource).toContain('aria-label="Select tool"')
+    expect(appSource).toContain('aria-label="Connector tool"')
+    expect(appSource).toContain("openManagedDockedWindowFromDockTab('palette')")
+    expect(appSource).toContain("openManagedDockedWindowFromDockTab('inspector')")
+    expect(appSource).toContain("openManagedDockedWindowFromDockTab('dsl')")
+    expect(appSource).toContain('onClick={() => openCommandPalette()}')
+  })
 })

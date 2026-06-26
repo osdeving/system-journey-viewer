@@ -6392,8 +6392,8 @@ function App() {
       <circle cx="41" cy="44" r="4.2" fill="#38bdf8" />
     </svg>
   )
-  const compactInlineTopbar =
-    !presentationMode && !uiPreferences.menuBarVisible && uiPreferences.toolbarInlineWithBrand
+  const compactInlineTopbar = !presentationMode && !uiPreferences.menuBarVisible
+  const topbarToolbarInline = compactInlineTopbar || uiPreferences.toolbarInlineWithBrand
 
   const commandPaletteItems: CommandPaletteActionItem[] = commandPaletteOpen ? (() => {
     const items: CommandPaletteActionItem[] = [
@@ -6975,7 +6975,7 @@ function App() {
       } app-layout-density-${uiPreferences.density} app-layout-font-${uiPreferences.fontScale} app-chrome-theme-${uiPreferences.chromeThemeId} app-icon-set-${uiPreferences.iconSet} ${
         uiPreferences.menuBarVisible ? 'app-menu-visible' : 'app-menu-hidden'
       } ${
-        uiPreferences.toolbarInlineWithBrand ? 'app-toolbar-inline' : 'app-toolbar-stacked'
+        topbarToolbarInline ? 'app-toolbar-inline' : 'app-toolbar-stacked'
       } ${
         theme === 'dark' ? 'theme-dark' : 'theme-light'
       } ${
@@ -7019,18 +7019,18 @@ function App() {
       <header ref={topbarRef} className="topbar">
         <div className="topbar-meta">
           <div className="topbar-brand-row">
-            {!presentationMode && !uiPreferences.menuBarVisible ? (
+            {!presentationMode ? (
               <button
                 type="button"
                 className="app-logo-badge app-logo-button"
                 onClick={() =>
                   setUiPreferences((current) => ({
                     ...current,
-                    menuBarVisible: true,
+                    menuBarVisible: !current.menuBarVisible,
                   }))
                 }
-                title={withTooltip('Show main menu')}
-                aria-label="Show main menu"
+                title={withTooltip(uiPreferences.menuBarVisible ? 'Hide main menu' : 'Show main menu')}
+                aria-label={uiPreferences.menuBarVisible ? 'Hide main menu' : 'Show main menu'}
               >
                 {appLogoGlyph}
               </button>

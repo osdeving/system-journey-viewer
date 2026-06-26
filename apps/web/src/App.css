@@ -324,6 +324,7 @@
   grid-column: 2;
   grid-row: 1;
   width: auto;
+  align-self: center;
 }
 
 .app-toolbar-inline.app-menu-hidden .topbar-utility-strip {
@@ -6526,7 +6527,7 @@ button.help-gallery-icon-button {
 
 :is(.app-chrome-theme-midnight, .app-chrome-theme-graphite, .app-chrome-theme-teal, .app-chrome-theme-custom) {
   background: var(--sjv-shell-bg);
-  color: var(--sjv-shell-text);
+  color: var(--sjv-shell-muted);
   --sjv-canvas-bg: #eef1f5;
   --sjv-grid-line: rgba(100, 116, 139, 0.16);
 }
@@ -6535,7 +6536,7 @@ button.help-gallery-icon-button {
   :is(.topbar, .desktop-menu-bar, .managed-host-sidebar, .managed-host-bottom, .journey-drawer, .mobile-topbar, .mobile-panel-shell) {
   background: var(--sjv-shell-bg);
   border-color: var(--sjv-shell-border);
-  color: var(--sjv-shell-text);
+  color: var(--sjv-shell-muted);
 }
 
 :is(.app-chrome-theme-midnight, .app-chrome-theme-graphite, .app-chrome-theme-teal, .app-chrome-theme-custom)
@@ -6559,7 +6560,7 @@ button.help-gallery-icon-button {
   gap: 10px;
   padding: 10px 6px;
   background: var(--sjv-shell-panel-bg);
-  color: var(--sjv-shell-text);
+  color: var(--sjv-shell-muted);
 }
 
 :is(.app-chrome-theme-midnight, .app-chrome-theme-graphite, .app-chrome-theme-teal, .app-chrome-theme-custom)
@@ -6599,6 +6600,9 @@ button.help-gallery-icon-button {
   :is(
     .desktop-menu-trigger,
     .desktop-menu-list button,
+    .view-hierarchy-control,
+    .view-hierarchy-select,
+    .presentation-select,
     .command-palette-trigger,
     .app-logo-button,
     .topbar-actions button,
@@ -6638,15 +6642,15 @@ button.help-gallery-icon-button {
   ) {
   background: var(--sjv-shell-control-bg);
   border-color: var(--sjv-shell-border);
-  color: color-mix(in srgb, var(--sjv-shell-control-text) 82%, var(--sjv-shell-muted));
+  color: var(--sjv-shell-muted);
   box-shadow: none;
 }
 
 :is(.app-chrome-theme-midnight, .app-chrome-theme-graphite, .app-chrome-theme-teal, .app-chrome-theme-custom)
-  :is(.desktop-menu-trigger:hover, .desktop-menu-list button:hover, .command-palette-trigger:hover, .app-logo-button:hover, .topbar-actions button:hover, .topbar-cloud-badge:hover, .dock-host-scroll-controls button:not(:disabled):hover, .dock-tab:hover, .dock-placement:hover, .canvas-tool-button:hover) {
+  :is(.desktop-menu-trigger:hover, .desktop-menu-list button:hover, .view-hierarchy-control:hover, .view-hierarchy-select:hover, .presentation-select:hover, .command-palette-trigger:hover, .app-logo-button:hover, .topbar-actions button:hover, .topbar-cloud-badge:hover, .dock-host-scroll-controls button:not(:disabled):hover, .dock-tab:hover, .dock-placement:hover, .canvas-tool-button:hover) {
   border-color: var(--sjv-shell-accent-border);
   background: var(--sjv-shell-control-hover);
-  color: var(--sjv-shell-control-text);
+  color: color-mix(in srgb, var(--sjv-shell-muted) 58%, var(--sjv-shell-control-text));
   box-shadow: none;
 }
 
@@ -6654,7 +6658,7 @@ button.help-gallery-icon-button {
   :is(.desktop-menu-open .desktop-menu-trigger, .dock-tab-active, .dock-placement-active, .drawer-tab-active, .help-section-tab-active, .tool-active, .focus-toggle-button) {
   border-color: var(--sjv-shell-accent-border);
   background: var(--sjv-shell-accent-soft);
-  color: var(--sjv-shell-control-text);
+  color: color-mix(in srgb, var(--sjv-shell-muted) 48%, var(--sjv-shell-control-text));
 }
 
 :is(.app-chrome-theme-midnight, .app-chrome-theme-graphite, .app-chrome-theme-teal, .app-chrome-theme-custom)
@@ -6664,7 +6668,7 @@ button.help-gallery-icon-button {
 
 :is(.app-chrome-theme-midnight, .app-chrome-theme-graphite, .app-chrome-theme-teal, .app-chrome-theme-custom)
   :is(.app-text-tone-strong, .palette-browser-title, .palette-section-title, .toolbox-item-label, .floating-window-header strong, .panel-group-title, .preferences-toggle, .preferences-select, .preferences-fieldset legend, .inspector-form label, .journey-side-group h3, .topbar-cloud-command-label, .topbar-cloud-section-title) {
-  color: var(--sjv-shell-text);
+  color: color-mix(in srgb, var(--sjv-shell-muted) 70%, var(--sjv-shell-control-text));
 }
 
 :is(.app-chrome-theme-midnight, .app-chrome-theme-graphite, .app-chrome-theme-teal, .app-chrome-theme-custom)
@@ -6690,14 +6694,14 @@ button.help-gallery-icon-button {
 }
 
 :is(.app-chrome-theme-midnight, .app-chrome-theme-graphite, .app-chrome-theme-teal, .app-chrome-theme-custom)
-  :is(.desktop-menu-trigger, .toolbar-command-button, .toolbar-icon-button, .icon-toggle-button, .focus-toggle-button, .command-palette-trigger, .app-logo-button, .topbar-cloud-badge) {
+  :is(.desktop-menu-trigger, .view-hierarchy-control, .view-hierarchy-select, .presentation-select, .toolbar-command-button, .toolbar-icon-button, .icon-toggle-button, .focus-toggle-button, .command-palette-trigger, .app-logo-button, .topbar-cloud-badge) {
   border-radius: 5px;
   font-weight: 600;
 }
 
 :is(.app-chrome-theme-midnight, .app-chrome-theme-graphite, .app-chrome-theme-teal, .app-chrome-theme-custom)
-  :is(.toolbar-button-label, .desktop-menu-trigger, .command-palette-trigger span, .topbar-cloud-badge-copy strong) {
-  color: color-mix(in srgb, var(--sjv-shell-control-text) 78%, var(--sjv-shell-muted));
+  :is(.toolbar-button-label, .desktop-menu-trigger, .view-hierarchy-control, .view-hierarchy-select, .presentation-select, .command-palette-trigger span, .topbar-cloud-badge-copy strong) {
+  color: var(--sjv-shell-muted);
 }
 
 :is(.app-chrome-theme-midnight, .app-chrome-theme-graphite, .app-chrome-theme-teal, .app-chrome-theme-custom)
@@ -6721,7 +6725,7 @@ button.help-gallery-icon-button {
   .palette-preset-card {
   border-color: var(--sjv-shell-border);
   background: var(--sjv-shell-panel-bg-alt);
-  color: var(--sjv-shell-text);
+  color: var(--sjv-shell-muted);
 }
 
 :is(.app-chrome-theme-midnight, .app-chrome-theme-graphite, .app-chrome-theme-teal, .app-chrome-theme-custom)
@@ -6748,7 +6752,7 @@ button.help-gallery-icon-button {
 
 :is(.app-chrome-theme-midnight, .app-chrome-theme-graphite, .app-chrome-theme-teal, .app-chrome-theme-custom)
   .palette-search input {
-  color: var(--sjv-shell-text);
+  color: color-mix(in srgb, var(--sjv-shell-muted) 66%, var(--sjv-shell-control-text));
 }
 
 :is(.app-chrome-theme-midnight, .app-chrome-theme-graphite, .app-chrome-theme-teal, .app-chrome-theme-custom)
@@ -6762,7 +6766,7 @@ button.help-gallery-icon-button {
   .palette-category-chip-active {
   border-color: var(--sjv-shell-accent-border);
   background: var(--sjv-shell-accent-soft);
-  color: var(--sjv-shell-text);
+  color: color-mix(in srgb, var(--sjv-shell-muted) 58%, var(--sjv-shell-control-text));
 }
 
 :is(.app-chrome-theme-midnight, .app-chrome-theme-graphite, .app-chrome-theme-teal, .app-chrome-theme-custom)
@@ -6775,7 +6779,7 @@ button.help-gallery-icon-button {
 :is(.app-chrome-theme-midnight, .app-chrome-theme-graphite, .app-chrome-theme-teal, .app-chrome-theme-custom)
   .palette-category-overflow .overflow-strip-nav:not(:disabled):hover {
   background: var(--sjv-shell-accent-soft);
-  color: var(--sjv-shell-control-text);
+  color: color-mix(in srgb, var(--sjv-shell-muted) 58%, var(--sjv-shell-control-text));
 }
 
 :is(.app-chrome-theme-midnight, .app-chrome-theme-graphite, .app-chrome-theme-teal, .app-chrome-theme-custom)
@@ -6793,7 +6797,7 @@ button.help-gallery-icon-button {
   .canvas-tool-button-active {
   border-color: var(--sjv-shell-accent-border);
   background: var(--sjv-shell-accent-soft);
-  color: var(--sjv-shell-text);
+  color: color-mix(in srgb, var(--sjv-shell-muted) 58%, var(--sjv-shell-control-text));
 }
 
 :is(.app-chrome-theme-midnight, .app-chrome-theme-graphite, .app-chrome-theme-teal, .app-chrome-theme-custom)
@@ -6805,7 +6809,7 @@ button.help-gallery-icon-button {
   .app-status-bar {
   border-top-color: var(--sjv-shell-status-border);
   background: var(--sjv-shell-status-bg);
-  color: var(--sjv-shell-text);
+  color: var(--sjv-shell-muted);
 }
 
 :is(.app-chrome-theme-midnight, .app-chrome-theme-graphite, .app-chrome-theme-teal, .app-chrome-theme-custom)
@@ -6821,7 +6825,36 @@ button.help-gallery-icon-button {
 :is(.app-chrome-theme-midnight, .app-chrome-theme-graphite, .app-chrome-theme-teal, .app-chrome-theme-custom)
   :is(.app-status-bar-button:hover, .app-status-bar-button:focus-visible, .app-status-bar-button-active) {
   background: var(--sjv-shell-accent-soft);
-  color: var(--sjv-shell-text);
+  color: color-mix(in srgb, var(--sjv-shell-muted) 58%, var(--sjv-shell-control-text));
+}
+
+:is(.app-chrome-theme-midnight, .app-chrome-theme-graphite, .app-chrome-theme-teal, .app-chrome-theme-custom)
+  :is(.preferences-theme-card, .preferences-gallery-item) {
+  border-color: var(--sjv-shell-border);
+  background: var(--sjv-shell-panel-bg-alt);
+  color: var(--sjv-shell-muted);
+}
+
+:is(.app-chrome-theme-midnight, .app-chrome-theme-graphite, .app-chrome-theme-teal, .app-chrome-theme-custom)
+  .preferences-theme-card-active {
+  border-color: var(--sjv-shell-accent-border);
+  background: var(--sjv-shell-accent-soft);
+  box-shadow: none;
+}
+
+:is(.app-chrome-theme-midnight, .app-chrome-theme-graphite, .app-chrome-theme-teal, .app-chrome-theme-custom)
+  :is(.preferences-theme-copy strong, .preferences-gallery-copy strong) {
+  color: color-mix(in srgb, var(--sjv-shell-muted) 62%, var(--sjv-shell-control-text));
+}
+
+:is(.app-chrome-theme-midnight, .app-chrome-theme-graphite, .app-chrome-theme-teal, .app-chrome-theme-custom)
+  :is(.preferences-theme-copy span, .preferences-gallery-copy span, .preferences-color-control) {
+  color: var(--sjv-shell-muted);
+}
+
+:is(.app-chrome-theme-midnight, .app-chrome-theme-graphite, .app-chrome-theme-teal, .app-chrome-theme-custom)
+  .preferences-fieldset {
+  border-color: var(--sjv-shell-border);
 }
 
 :is(.app-chrome-theme-midnight, .app-chrome-theme-graphite, .app-chrome-theme-teal, .app-chrome-theme-custom)

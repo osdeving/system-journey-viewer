@@ -1,157 +1,33 @@
 /**
- * Purpose: Provide Supabase auth plus cloud persistence helpers for workspaces, scripts, and gallery files.
+ * Purpose: Provide the Supabase adapter and compatibility exports for workspace cloud persistence.
  */
 
 import { createClient } from '@supabase/supabase-js'
 import type { EditorSnapshot } from '../../model/types'
-import { resolveSupabasePublicConfig } from './config'
+import {
+  DEFAULT_LOCAL_DATABASE_URL,
+  resolveWorkspaceCloudProviderConfig,
+  resolveWorkspaceCloudProviderHint,
+} from '../cloud/providerConfig'
+import {
+  createWorkspaceCloudStore,
+  normalizeWorkspaceCloudError,
+  WORKSPACE_CLOUD_GALLERY_BUCKET,
+  type WorkspaceCloudScript,
+  type WorkspaceCloudScriptSummary,
+  type WorkspaceCloudStore,
+  type WorkspaceCloudStoreDeps,
+  type WorkspaceCloudUser,
+  type WorkspaceGalleryAsset,
+} from '../cloud/workspaceCloudStore'
+import { createLocalWorkspaceCloudStore } from '../localDb/localWorkspaceCloudStore'
 
-export { SUPABASE_PUBLIC_ENV_HINT } from './config'
+export type SupabaseCloudUser = WorkspaceCloudUser
+export type SupabaseCloudScriptSummary = WorkspaceCloudScriptSummary
+export type SupabaseCloudScript = WorkspaceCloudScript
+export type SupabaseGalleryAsset = WorkspaceGalleryAsset
 
-export const SUPABASE_GALLERY_BUCKET = 'gallery'
-
-export type SupabaseCloudUser = {
-  id: string
-  email: string | null
-}
-
-export type SupabaseCloudScriptSummary = {
-  workspaceId: string
-  title: string
-  updatedAt: string
-}
-
-export type SupabaseCloudScript = SupabaseCloudScriptSummary & {
-  content: string
-}
-
-export type SupabaseGalleryAsset = {
-  id: string
-  title: string
-  fileName: string
-  storagePath: string
-  contentType: string
-  sizeBytes: number
-  createdAt: string
-}
-
-type CloudError = {
-  message: string
-}
-
-type WorkspaceRecord = {
-  userId: string
-  workspaceId: string
-  name: string
-  snapshot: EditorSnapshot
-}
-
-type WorkspaceQuery = {
-  userId: string
-  workspaceId: string
-}
-
-type ScriptRecord = {
-  userId: string
-  workspaceId: string
-  title: string
-  content: string
-}
-
-type ScriptQuery = {
-  userId: string
-  workspaceId: string
-}
-
-type GalleryAssetDeleteQuery = {
-  userId: string
-  assetId: string
-}
-
-type GalleryAssetRecord = {
-  userId: string
-  title: string
-  fileName: string
-  storagePath: string
-  contentType: string
-  sizeBytes: number
-}
-
-type GalleryUploadRecord = {
-  path: string
-  file: File | Blob
-  contentType: string
-}
-
-type AuthResult = {
-  user: SupabaseCloudUser | null
-  error: CloudError | null
-}
-
-type VoidResult = {
-  error: CloudError | null
-}
-
-type WorkspaceLoadResult = {
-  snapshot: EditorSnapshot | null
-  error: CloudError | null
-}
-
-type ScriptLoadResult = {
-  script: SupabaseCloudScript | null
-  error: CloudError | null
-}
-
-type ScriptListResult = {
-  scripts: SupabaseCloudScriptSummary[]
-  error: CloudError | null
-}
-
-type GalleryInsertResult = {
-  asset: SupabaseGalleryAsset | null
-  error: CloudError | null
-}
-
-type GalleryListResult = {
-  assets: SupabaseGalleryAsset[]
-  error: CloudError | null
-}
-
-type GalleryDownloadResult = {
-  blob: Blob | null
-  error: CloudError | null
-}
-
-type GallerySignedUrlResult = {
-  url: string | null
-  error: CloudError | null
-}
-
-type WorkspaceCloudStoreDeps = {
-  signInWithPassword: (credentials: { email: string; password: string }) => Promise<AuthResult>
-  signOut: () => Promise<VoidResult>
-  getCurrentUser: () => Promise<AuthResult>
-  onAuthStateChange: (callback: (user: SupabaseCloudUser | null) => void) => () => void
-  createId: () => string
-  upsertWorkspace: (record: WorkspaceRecord) => Promise<VoidResult>
-  loadWorkspace: (query: WorkspaceQuery) => Promise<WorkspaceLoadResult>
-  upsertScript: (record: ScriptRecord) => Promise<VoidResult>
-  listScripts: (userId: string) => Promise<ScriptListResult>
-  loadLatestScript: (query: ScriptQuery) => Promise<ScriptLoadResult>
-  deleteScript: (query: ScriptQuery) => Promise<VoidResult>
-  uploadGalleryFile: (record: GalleryUploadRecord) => Promise<VoidResult>
-  insertGalleryAsset: (record: GalleryAssetRecord) => Promise<GalleryInsertResult>
-  listGalleryAssets: (userId: string) => Promise<GalleryListResult>
-  deleteGalleryAssetRecord: (query: GalleryAssetDeleteQuery) => Promise<VoidResult>
-  downloadGalleryFile: (storagePath: string) => Promise<GalleryDownloadResult>
-  deleteGalleryFile: (storagePath: string) => Promise<VoidResult>
-  createGallerySignedUrl: (storagePath: string, expiresIn: number) => Promise<GallerySignedUrlResult>
-}
-
-const SIGN_IN_REQUIRED_MESSAGE = 'Sign in to Supabase before using cloud save/load.'
-
-const normalizeError = (error: { message?: string } | null | undefined): CloudError | null =>
-  error?.message ? { message: error.message } : null
+export const SUPABASE_GALLERY_BUCKET = WORKSPACE_CLOUD_GALLERY_BUCKET
 
 const toCloudUser = (user: { id: string; email?: string | null } | null | undefined): SupabaseCloudUser | null =>
   user
@@ -181,21 +57,6 @@ const toCloudScript = (value: {
   content: value.content,
 })
 
-const sanitizeFileName = (value: string): string =>
-  value
-    .trim()
-    .replace(/[\\/]+/g, '-')
-    .replace(/\s+/g, '-')
-    .replace(/[^a-zA-Z0-9._-]+/g, '-')
-    .replace(/-+/g, '-')
-    .replace(/^-+|-+$/g, '') || 'asset'
-
-const assertSupportedGalleryContentType = (contentType: string): void => {
-  if (!contentType.startsWith('image/') && !contentType.startsWith('video/')) {
-    throw new Error('Only image and video files are supported for the gallery.')
-  }
-}
-
 const toGalleryAsset = (value: {
   id: string
   title: string
@@ -214,270 +75,37 @@ const toGalleryAsset = (value: {
   createdAt: value.created_at,
 })
 
-const unwrapError = (error: CloudError | null): void => {
-  if (error) {
-    throw new Error(error.message)
-  }
-}
+export const createSupabaseWorkspaceCloudStore = (
+  deps: WorkspaceCloudStoreDeps,
+): WorkspaceCloudStore =>
+  createWorkspaceCloudStore({
+    ...deps,
+    providerLabel: 'Supabase',
+  })
 
-const requireSignedInUser = async (
-  deps: Pick<WorkspaceCloudStoreDeps, 'getCurrentUser'>,
-): Promise<SupabaseCloudUser> => {
-  const auth = await deps.getCurrentUser()
-  unwrapError(auth.error)
+const workspaceCloudProviderConfig = resolveWorkspaceCloudProviderConfig()
 
-  if (!auth.user) {
-    throw new Error(SIGN_IN_REQUIRED_MESSAGE)
-  }
+export const workspaceCloudProviderKind = workspaceCloudProviderConfig.kind
+export const workspaceCloudProviderLabel = workspaceCloudProviderConfig.providerLabel
+export const workspaceCloudStatusLabel = workspaceCloudProviderConfig.statusLabel
+export const workspaceCloudDatabaseUrl =
+  workspaceCloudProviderConfig.kind === 'local'
+    ? workspaceCloudProviderConfig.databaseUrl
+    : workspaceCloudProviderConfig.kind === 'supabase'
+      ? workspaceCloudProviderConfig.supabase.url
+      : DEFAULT_LOCAL_DATABASE_URL
 
-  return auth.user
-}
+export const SUPABASE_PUBLIC_ENV_HINT = resolveWorkspaceCloudProviderHint(workspaceCloudProviderConfig)
 
-export const createSupabaseWorkspaceCloudStore = (deps: WorkspaceCloudStoreDeps) => ({
-  async signIn(email: string, password: string): Promise<SupabaseCloudUser> {
-    const normalizedEmail = email.trim()
-    if (!normalizedEmail || !password) {
-      throw new Error('Email and password are required.')
-    }
+const browserClient =
+  workspaceCloudProviderConfig.kind === 'supabase'
+    ? createClient(
+        workspaceCloudProviderConfig.supabase.url,
+        workspaceCloudProviderConfig.supabase.publishableKey,
+      )
+    : null
 
-    const result = await deps.signInWithPassword({
-      email: normalizedEmail,
-      password,
-    })
-    unwrapError(result.error)
-
-    if (!result.user) {
-      throw new Error(SIGN_IN_REQUIRED_MESSAGE)
-    }
-
-    return result.user
-  },
-
-  async signOut(): Promise<void> {
-    const result = await deps.signOut()
-    unwrapError(result.error)
-  },
-
-  observeAuth(callback: (user: SupabaseCloudUser | null) => void): () => void {
-    return deps.onAuthStateChange(callback)
-  },
-
-  async saveWorkspace(snapshot: EditorSnapshot): Promise<void> {
-    const user = await requireSignedInUser(deps)
-    const result = await deps.upsertWorkspace({
-      userId: user.id,
-      workspaceId: snapshot.workspace.workspace.id,
-      name: snapshot.workspace.workspace.name,
-      snapshot,
-    })
-    unwrapError(result.error)
-  },
-
-  async loadWorkspace(workspaceId: string): Promise<EditorSnapshot | null> {
-    const user = await requireSignedInUser(deps)
-    const result = await deps.loadWorkspace({
-      userId: user.id,
-      workspaceId,
-    })
-    unwrapError(result.error)
-    return result.snapshot
-  },
-
-  async saveScript(workspaceId: string, title: string, content: string): Promise<void> {
-    const user = await requireSignedInUser(deps)
-    const normalizedTitle = title.trim() || 'SJV Script'
-    const normalizedContent = content.trim()
-    if (!normalizedContent) {
-      throw new Error('SJV Script content is empty.')
-    }
-
-    const result = await deps.upsertScript({
-      userId: user.id,
-      workspaceId,
-      title: normalizedTitle,
-      content: normalizedContent,
-    })
-    unwrapError(result.error)
-  },
-
-  async listScripts(): Promise<SupabaseCloudScriptSummary[]> {
-    const user = await requireSignedInUser(deps)
-    const result = await deps.listScripts(user.id)
-    unwrapError(result.error)
-    return result.scripts
-  },
-
-  async loadLatestScript(workspaceId: string): Promise<SupabaseCloudScript | null> {
-    const user = await requireSignedInUser(deps)
-    const result = await deps.loadLatestScript({
-      userId: user.id,
-      workspaceId,
-    })
-    unwrapError(result.error)
-    return result.script
-  },
-
-  async deleteScript(workspaceId: string): Promise<void> {
-    const user = await requireSignedInUser(deps)
-    const normalizedWorkspaceId = workspaceId.trim()
-    if (!normalizedWorkspaceId) {
-      throw new Error('A workspace id is required to delete a cloud script.')
-    }
-
-    const result = await deps.deleteScript({
-      userId: user.id,
-      workspaceId: normalizedWorkspaceId,
-    })
-    unwrapError(result.error)
-  },
-
-  async uploadGalleryAsset(file: File, title?: string): Promise<SupabaseGalleryAsset> {
-    const user = await requireSignedInUser(deps)
-    const normalizedFileName = sanitizeFileName(file.name)
-    const normalizedType = file.type.trim()
-    assertSupportedGalleryContentType(normalizedType)
-
-    const assetId = deps.createId()
-    const storagePath = `${user.id}/${assetId}/${normalizedFileName}`
-
-    const uploadResult = await deps.uploadGalleryFile({
-      path: storagePath,
-      file,
-      contentType: normalizedType,
-    })
-    unwrapError(uploadResult.error)
-
-    const metadataResult = await deps.insertGalleryAsset({
-      userId: user.id,
-      title: title?.trim() || normalizedFileName,
-      fileName: normalizedFileName,
-      storagePath,
-      contentType: normalizedType,
-      sizeBytes: file.size,
-    })
-    unwrapError(metadataResult.error)
-
-    if (!metadataResult.asset) {
-      throw new Error('Supabase did not return the new gallery asset metadata.')
-    }
-
-    return metadataResult.asset
-  },
-
-  async uploadGalleryAssetBlob(
-    blob: Blob,
-    options: {
-      fileName: string
-      title?: string
-      contentType?: string
-    },
-  ): Promise<SupabaseGalleryAsset> {
-    const user = await requireSignedInUser(deps)
-    const normalizedFileName = sanitizeFileName(options.fileName)
-    const normalizedType = (options.contentType ?? blob.type).trim()
-    if (!normalizedFileName) {
-      throw new Error('A gallery file name is required.')
-    }
-    if (!normalizedType) {
-      throw new Error('A gallery content type is required.')
-    }
-    assertSupportedGalleryContentType(normalizedType)
-
-    const assetId = deps.createId()
-    const storagePath = `${user.id}/${assetId}/${normalizedFileName}`
-
-    const uploadResult = await deps.uploadGalleryFile({
-      path: storagePath,
-      file: blob,
-      contentType: normalizedType,
-    })
-    unwrapError(uploadResult.error)
-
-    const metadataResult = await deps.insertGalleryAsset({
-      userId: user.id,
-      title: options.title?.trim() || normalizedFileName,
-      fileName: normalizedFileName,
-      storagePath,
-      contentType: normalizedType,
-      sizeBytes: blob.size,
-    })
-    unwrapError(metadataResult.error)
-
-    if (!metadataResult.asset) {
-      throw new Error('Supabase did not return the new gallery asset metadata.')
-    }
-
-    return metadataResult.asset
-  },
-
-  async listGalleryAssets(): Promise<SupabaseGalleryAsset[]> {
-    const user = await requireSignedInUser(deps)
-    const result = await deps.listGalleryAssets(user.id)
-    unwrapError(result.error)
-    return result.assets
-  },
-
-  async deleteGalleryAsset(asset: SupabaseGalleryAsset): Promise<void> {
-    const user = await requireSignedInUser(deps)
-    if (!asset.id.trim()) {
-      throw new Error('A gallery asset id is required.')
-    }
-    if (!asset.storagePath.startsWith(`${user.id}/`)) {
-      throw new Error('Requested gallery asset is outside the signed-in user scope.')
-    }
-
-    const fileDeleteResult = await deps.deleteGalleryFile(asset.storagePath)
-    unwrapError(fileDeleteResult.error)
-
-    const metadataDeleteResult = await deps.deleteGalleryAssetRecord({
-      userId: user.id,
-      assetId: asset.id,
-    })
-    unwrapError(metadataDeleteResult.error)
-  },
-
-  async downloadGalleryAsset(storagePath: string): Promise<Blob> {
-    const user = await requireSignedInUser(deps)
-    if (!storagePath.startsWith(`${user.id}/`)) {
-      throw new Error('Requested gallery asset is outside the signed-in user scope.')
-    }
-
-    const result = await deps.downloadGalleryFile(storagePath)
-    unwrapError(result.error)
-
-    if (!result.blob) {
-      throw new Error('Supabase returned an empty gallery download.')
-    }
-
-    return result.blob
-  },
-
-  async createGalleryAssetPreviewUrl(storagePath: string, expiresInSeconds = 3600): Promise<string> {
-    const user = await requireSignedInUser(deps)
-    if (!storagePath.startsWith(`${user.id}/`)) {
-      throw new Error('Requested gallery asset is outside the signed-in user scope.')
-    }
-
-    const result = await deps.createGallerySignedUrl(storagePath, Math.max(60, Math.round(expiresInSeconds)))
-    unwrapError(result.error)
-
-    if (!result.url) {
-      throw new Error('Supabase returned an empty signed URL.')
-    }
-
-    return result.url
-  },
-})
-
-const supabaseConfig = resolveSupabasePublicConfig()
-
-export const supabaseCloudConfigured = supabaseConfig !== null
-
-const browserClient = supabaseConfig
-  ? createClient(supabaseConfig.url, supabaseConfig.publishableKey)
-  : null
-
-export const supabaseWorkspaceCloudStore = browserClient
+const supabaseStore = browserClient
   ? createSupabaseWorkspaceCloudStore({
       signInWithPassword: async ({ email, password }) => {
         const { data, error } = await browserClient.auth.signInWithPassword({
@@ -486,18 +114,18 @@ export const supabaseWorkspaceCloudStore = browserClient
         })
         return {
           user: toCloudUser(data.user),
-          error: normalizeError(error),
+          error: normalizeWorkspaceCloudError(error),
         }
       },
       signOut: async () => {
         const { error } = await browserClient.auth.signOut()
-        return { error: normalizeError(error) }
+        return { error: normalizeWorkspaceCloudError(error) }
       },
       getCurrentUser: async () => {
         const { data, error } = await browserClient.auth.getUser()
         return {
           user: toCloudUser(data.user),
-          error: normalizeError(error),
+          error: normalizeWorkspaceCloudError(error),
         }
       },
       onAuthStateChange: (callback) => {
@@ -525,7 +153,7 @@ export const supabaseWorkspaceCloudStore = browserClient
               onConflict: 'user_id,workspace_id',
             },
           )
-        return { error: normalizeError(error) }
+        return { error: normalizeWorkspaceCloudError(error) }
       },
       loadWorkspace: async ({ userId, workspaceId }) => {
         const { data, error } = await browserClient
@@ -537,7 +165,7 @@ export const supabaseWorkspaceCloudStore = browserClient
 
         return {
           snapshot: data?.snapshot ? (data.snapshot as EditorSnapshot) : null,
-          error: normalizeError(error),
+          error: normalizeWorkspaceCloudError(error),
         }
       },
       upsertScript: async ({ userId, workspaceId, title, content }) => {
@@ -555,7 +183,7 @@ export const supabaseWorkspaceCloudStore = browserClient
               onConflict: 'user_id,workspace_id',
             },
           )
-        return { error: normalizeError(error) }
+        return { error: normalizeWorkspaceCloudError(error) }
       },
       listScripts: async (userId) => {
         const { data, error } = await browserClient
@@ -567,7 +195,7 @@ export const supabaseWorkspaceCloudStore = browserClient
 
         return {
           scripts: (data ?? []).map((value) => toCloudScriptSummary(value as never)),
-          error: normalizeError(error),
+          error: normalizeWorkspaceCloudError(error),
         }
       },
       loadLatestScript: async ({ userId, workspaceId }) => {
@@ -582,7 +210,7 @@ export const supabaseWorkspaceCloudStore = browserClient
 
         return {
           script: data ? toCloudScript(data as never) : null,
-          error: normalizeError(error),
+          error: normalizeWorkspaceCloudError(error),
         }
       },
       deleteScript: async ({ userId, workspaceId }) => {
@@ -592,14 +220,16 @@ export const supabaseWorkspaceCloudStore = browserClient
           .eq('user_id', userId)
           .eq('workspace_id', workspaceId)
 
-        return { error: normalizeError(error) }
+        return { error: normalizeWorkspaceCloudError(error) }
       },
       uploadGalleryFile: async ({ path, file, contentType }) => {
-        const { error } = await browserClient.storage.from(SUPABASE_GALLERY_BUCKET).upload(path, file, {
-          upsert: false,
-          contentType,
-        })
-        return { error: normalizeError(error) }
+        const { error } = await browserClient.storage
+          .from(SUPABASE_GALLERY_BUCKET)
+          .upload(path, file, {
+            upsert: false,
+            contentType,
+          })
+        return { error: normalizeWorkspaceCloudError(error) }
       },
       insertGalleryAsset: async ({ userId, title, fileName, storagePath, contentType, sizeBytes }) => {
         const { data, error } = await browserClient
@@ -617,7 +247,7 @@ export const supabaseWorkspaceCloudStore = browserClient
 
         return {
           asset: data ? toGalleryAsset(data as never) : null,
-          error: normalizeError(error),
+          error: normalizeWorkspaceCloudError(error),
         }
       },
       listGalleryAssets: async (userId) => {
@@ -630,7 +260,7 @@ export const supabaseWorkspaceCloudStore = browserClient
 
         return {
           assets: (data ?? []).map((value) => toGalleryAsset(value as never)),
-          error: normalizeError(error),
+          error: normalizeWorkspaceCloudError(error),
         }
       },
       deleteGalleryAssetRecord: async ({ userId, assetId }) => {
@@ -640,7 +270,7 @@ export const supabaseWorkspaceCloudStore = browserClient
           .eq('user_id', userId)
           .eq('id', assetId)
 
-        return { error: normalizeError(error) }
+        return { error: normalizeWorkspaceCloudError(error) }
       },
       downloadGalleryFile: async (storagePath) => {
         const { data, error } = await browserClient.storage
@@ -649,7 +279,7 @@ export const supabaseWorkspaceCloudStore = browserClient
 
         return {
           blob: data ?? null,
-          error: normalizeError(error),
+          error: normalizeWorkspaceCloudError(error),
         }
       },
       deleteGalleryFile: async (storagePath) => {
@@ -657,7 +287,7 @@ export const supabaseWorkspaceCloudStore = browserClient
           .from(SUPABASE_GALLERY_BUCKET)
           .remove([storagePath])
 
-        return { error: normalizeError(error) }
+        return { error: normalizeWorkspaceCloudError(error) }
       },
       createGallerySignedUrl: async (storagePath, expiresIn) => {
         const { data, error } = await browserClient.storage
@@ -666,8 +296,21 @@ export const supabaseWorkspaceCloudStore = browserClient
 
         return {
           url: data?.signedUrl ?? null,
-          error: normalizeError(error),
+          error: normalizeWorkspaceCloudError(error),
         }
       },
     })
   : null
+
+const localStore =
+  workspaceCloudProviderConfig.kind === 'local'
+    ? createLocalWorkspaceCloudStore({
+        databaseName: workspaceCloudProviderConfig.databaseName,
+      })
+    : null
+
+export const supabaseCloudConfigured = workspaceCloudProviderConfig.kind !== 'disabled'
+export const supabaseWorkspaceCloudStore = supabaseStore ?? localStore
+
+export const workspaceCloudConfigured = supabaseCloudConfigured
+export const workspaceCloudStore = supabaseWorkspaceCloudStore

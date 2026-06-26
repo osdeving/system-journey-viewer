@@ -2,6 +2,37 @@
 
 Chronological engineering log. Entries are kept concise and focused on behavior and validation.
 
+## 2026-06-26 - Provider-neutral cloud persistence with local database fallback
+
+### Scope
+
+- Decoupled workspace/script/gallery cloud persistence from Supabase so cloud-dependent features can run against a local browser database when Supabase is unavailable.
+
+### Changes
+
+- `apps/web/src/integrations/cloud/workspaceCloudStore.ts`
+  - extracted the provider-neutral `WorkspaceCloudStore` contract and shared workspace/script/gallery validation.
+- `apps/web/src/integrations/cloud/providerConfig.ts`
+  - added provider selection via `VITE_SJV_DB_URL=indexeddb://...`, Supabase public env fallback, and automatic `indexeddb://sjv-local` fallback when Supabase is absent.
+- `apps/web/src/integrations/localDb/localWorkspaceCloudStore.ts`
+  - added a functional IndexedDB-backed local provider plus an in-memory database for standalone tests.
+- `apps/web/src/integrations/supabase/workspaceCloudStore.ts`
+  - reduced Supabase to a hosted adapter while preserving existing `supabase*` compatibility exports.
+- `apps/web/src/App.tsx`, `apps/web/src/help/help.md`, `apps/web/src/App.source.test.ts`
+  - made visible cloud-provider copy use the active provider label instead of hardcoded Supabase text.
+- `apps/web/.env.example`
+  - documented the optional `VITE_SJV_DB_URL=indexeddb://sjv-local` override.
+- `docs/DATABASE_PROVIDERS.md`, `docs/SUPABASE_SETUP.md`, `docs/DECISIONS.md`, `docs/FILE_ATLAS.md`, `docs/AI_STATE.md`
+  - documented local database usage, provider precedence, migration constraints, and the new folder taxonomy.
+
+### Validation
+
+- `npm --workspace @sjv/web run test:run -- src/integrations/cloud/providerConfig.test.ts src/integrations/localDb/localWorkspaceCloudStore.test.ts src/integrations/supabase/workspaceCloudStore.test.ts src/App.source.test.ts`
+- `npm --workspace @sjv/web run lint`
+- `npm --workspace @sjv/web run test:run`
+- `npm --workspace @sjv/web run build`
+- `git diff --check`
+
 ## 2026-06-26 - Desktop polish command palette, minimap, and performance mode
 
 ### Scope

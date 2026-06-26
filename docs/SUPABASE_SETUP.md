@@ -1,6 +1,6 @@
 # Supabase Setup
 
-Purpose: bootstrap the current `apps/web` Supabase integration for manual auth plus cloud save/load for workspaces, generated scripts, and gallery files.
+Purpose: bootstrap the hosted Supabase provider for manual auth plus cloud save/load for workspaces, generated scripts, and gallery files.
 
 ## What the app expects
 
@@ -13,6 +13,26 @@ Purpose: bootstrap the current `apps/web` Supabase integration for manual auth p
   - `VITE_SUPABASE_ANON_KEY`
 
 The Vite build in this repo also bridges the safe Vercel integration values (`SUPABASE_URL`, `SUPABASE_ANON_KEY`, and `NEXT_PUBLIC_*` public aliases) into the browser bundle, so you do not need to expose secret keys.
+
+## Provider Selection
+
+The UI now talks to a provider-neutral `WorkspaceCloudStore`. Supabase is the hosted provider; local IndexedDB is the default development provider when Supabase env vars are absent.
+
+- Force local browser storage:
+
+```bash
+VITE_SJV_DB_URL=indexeddb://sjv-local
+```
+
+- Use another local database by changing only the URL database name:
+
+```bash
+VITE_SJV_DB_URL=indexeddb://feature-lab
+```
+
+- Use Supabase by leaving `VITE_SJV_DB_URL` unset and configuring `VITE_SUPABASE_URL` plus `VITE_SUPABASE_ANON_KEY`.
+
+See `docs/DATABASE_PROVIDERS.md` for the provider contract and migration notes. Raw remote database URLs are intentionally not accepted in the browser bundle.
 
 ## Supabase Console Steps
 
@@ -143,6 +163,14 @@ using (
 
 Create `apps/web/.env.local` from `apps/web/.env.example` and fill:
 
+For local browser database testing:
+
+```bash
+VITE_SJV_DB_URL=indexeddb://sjv-local
+```
+
+For Supabase:
+
 ```bash
 VITE_SUPABASE_URL=your-project-url
 VITE_SUPABASE_ANON_KEY=your-publishable-key
@@ -155,11 +183,11 @@ For Vercel, either:
 1. set `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` directly, or
 2. use the Supabase integration and let this repo’s Vite config bridge the safe public values automatically.
 
-Do not expose `SUPABASE_SERVICE_ROLE_KEY` to the browser.
+Do not expose `SUPABASE_SERVICE_ROLE_KEY` or any raw database URL to the browser.
 
 ## Current App Surface
 
-The current integration is intentionally small:
+The current provider-backed surface is intentionally small:
 
 - top-right cloud badge
   - sign in / sign out without opening `Preferences`
@@ -167,7 +195,7 @@ The current integration is intentionally small:
   - in-panel saved-script picker with search, active-target highlighting, and script deletion
   - shows auto-upload status for standard local `PNG` / `GIF` / `MP4` exports
   - local upload, full cloud-library refresh, and a shortcut into `Help > Export Gallery`
-- `Preferences > Supabase Cloud`
+- `Preferences > <active provider>`
   - the same manual auth/save/load controls remain available as a fallback
   - save/load the current workspace snapshot
   - save the generated SJV Script into a cloud row (and keep reusing that same row for later saves)
@@ -183,11 +211,11 @@ The current integration is intentionally small:
   - for Vercel builds: if the project root is the repo root, the output must resolve to `apps/web/dist`; if the project root is `apps/web`, the output must resolve to `dist` (both are now encoded in the checked-in `vercel.json` files)
   - keeps the visible card copy compact by showing only the item title under each thumbnail
 - `File` menu
-  - `Save to Supabase Cloud`
-  - `Load from Supabase Cloud`
-  - `Save Script to Supabase Cloud`
-  - `Load Script from Supabase Cloud`
-  - `Upload Media to Supabase Gallery`
+  - `Save to <active provider>`
+  - `Load from <active provider>`
+  - `Save Script to <active provider>`
+  - `Load Script from <active provider>`
+  - `Upload Media to <active provider>`
   - standard `Export PNG`, `Export GIF`, and `Export MP4` now auto-upload after the local file is generated when you are signed in
 
-This slice stores one cloud record per `(user_id, workspace_id)` for both `workspaces` and `scripts`, keeps `gallery_assets` metadata in Postgres, and stores the file binaries in the private `gallery` bucket. Local browser persistence remains the primary fallback.
+The Supabase provider stores one cloud record per `(user_id, workspace_id)` for both `workspaces` and `scripts`, keeps `gallery_assets` metadata in Postgres, and stores file binaries in the private `gallery` bucket. The local provider stores the same contract in IndexedDB for standalone development and feature testing.

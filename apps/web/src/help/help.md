@@ -132,8 +132,8 @@ Default playback/focus state:
 ## Export Gallery
 
 - Open from **Help > Open Export Gallery**.
-- When signed in, it shows your private Supabase gallery (`PNG`, `GIF`, `MP4`) instead of static sample assets.
-- Standard local `PNG`, `GIF`, and `MP4` exports now auto-upload to Supabase after the browser download finishes (when you are signed in).
+- When signed in, it shows your private cloud-provider gallery (`PNG`, `GIF`, `MP4`) instead of static sample assets.
+- Standard local `PNG`, `GIF`, and `MP4` exports now auto-upload to the active provider after the browser download finishes (when you are signed in).
 - Gallery actions focus on local upload and refresh for the private `gallery` bucket.
 - The top-right cloud badge gives quick access to sign-in, save/load, gallery refresh, and automatic-upload status.
 
@@ -148,7 +148,7 @@ Default playback/focus state:
   - Node depth effects enable/disable.
   - Showcase language (`EN` / `PT`).
   - Toolbar section visibility (`Navigation`, `Editing`, `Viewport`, `Panels`, `Modes`).
-  - Supabase cloud status, plus the original advanced cloud controls as a fallback to the topbar badge.
+  - Active cloud provider status, provider URL, and advanced cloud controls as a fallback to the topbar badge.
 
 ## Startup Splash and About
 

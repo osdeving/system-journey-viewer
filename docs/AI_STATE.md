@@ -28,6 +28,7 @@
 - Latest topbar sizing follow-up (2026-03-03, late-night follow-up) measures topbar height from in-flow header content only, so closed menus/popovers no longer leave side splitters starting too low.
 - Latest managed-window placement hotfix (2026-03-03, late-night pass) reopens closed docked panels in their remembered host (`left|right|bottom`) instead of forcing the default host, and no longer auto-opens the bottom workbench when leaving Presentation mode.
 - Latest product polish increment (2026-06-26) adds a searchable command palette (`Ctrl/Cmd+K` or `/`) for commands/views/journeys/nodes/edges, a canvas minimap with click-to-recenter navigation, a canvas status strip, and a persisted performance mode that disables extra motion/depth/confetti work.
+- Latest cloud-provider decoupling increment (2026-06-26) extracts workspace/script/gallery cloud persistence into a provider-neutral `WorkspaceCloudStore`, keeps Supabase as a hosted adapter, and adds a functional local IndexedDB provider selected by `VITE_SJV_DB_URL=indexeddb://...` with automatic `indexeddb://sjv-local` fallback when Supabase env vars are absent.
 - Latest export hotfix (2026-03-01, night pass) aligns animated export theme backgrounds to the SVG `viewBox`/source frame and pre-fills raster composition frames so wide MP4 exports no longer reveal black transparent regions.
 - Latest canvas affordance hotfix (2026-03-01, late-night pass) adds a pulsing blue hover cue on exact node ports and lets `Select` mode start a connection directly from that hover without leaving selection mode.
 - Latest edge targeting hotfix (2026-03-01, final pass) widens the invisible pointer hit area for dashed edges so selection no longer requires near-pixel-perfect clicks, while automatic curve routing remains unchanged.
@@ -110,7 +111,10 @@
   - `Open File` (snapshot or SJV Script import: `.json/.sjv/.dsl/.txt`),
   - `Save File` with File System Access API support (handle reuse on `Ctrl/Cmd+S` and Save As on `Ctrl/Cmd+Shift+S`, with download fallback as `.sjv.json`).
   - entry view selection for SJV Script import now respects drilldown hierarchy (root/top-level view first, instead of arbitrary view key order).
-- Optional Supabase cloud workspace persistence:
+- Provider-backed cloud workspace persistence:
+  - `VITE_SJV_DB_URL=indexeddb://<name>` selects a local browser database for standalone testing,
+  - absent Supabase env vars now fall back to `indexeddb://sjv-local`,
+  - Supabase remains available by configuring `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` without a `VITE_SJV_DB_URL` override,
   - manual sign-in/sign-out from `Preferences` and the top-right cloud badge,
   - manual save/load of the current `EditorSnapshot` keyed by `(user, workspace id)`,
   - manual save of the generated SJV Script keyed by `(user, workspace id)` on first cloud save, then reusing the selected cloud script row for subsequent saves,
@@ -120,7 +124,7 @@
   - cloud scripts and gallery media can now be deleted from the UI,
   - shareable viewer links can now be generated for private `MP4` / `GIF` gallery assets, opening a clean shared-export viewer that exposes only that single signed export plus an `Open Full App` path,
   - new share links now prefer the root URL plus a `sharedAsset` query payload (more hosting-safe), while legacy `/share?asset=...` links remain supported,
-  - standard local `PNG/GIF/MP4` exports auto-upload into the private gallery when a Supabase user is signed in,
+  - standard local `PNG/GIF/MP4` exports auto-upload into the private gallery when a provider user is signed in,
   - signed preview URLs let the private gallery render inside `Help > Export Gallery`,
   - local browser persistence remains the default fallback and continues to autosave independently.
 - View hierarchy selector in topbar allows direct navigation across all nested views.

@@ -127,6 +127,9 @@ import {
   SUPABASE_PUBLIC_ENV_HINT,
   supabaseCloudConfigured,
   supabaseWorkspaceCloudStore,
+  workspaceCloudDatabaseUrl,
+  workspaceCloudProviderLabel,
+  workspaceCloudStatusLabel,
   type SupabaseCloudScriptSummary,
   type SupabaseGalleryAsset,
   type SupabaseCloudUser,
@@ -205,6 +208,11 @@ const MIN_JOURNEY_HEIGHT = 160
 const MIN_MANAGED_HOST_BOTTOM_HEIGHT = 160
 const DEFAULT_TOPBAR_HEIGHT = 108
 const SUPABASE_SHARED_ASSET_LINK_EXPIRY_SECONDS = 60 * 60 * 24 * 7
+const CLOUD_PROVIDER_LABEL = workspaceCloudProviderLabel
+const CLOUD_STATUS_LABEL = workspaceCloudStatusLabel
+const CLOUD_SIGN_IN_PROMPT = `Sign in to enable ${CLOUD_STATUS_LABEL} save/load.`
+const CLOUD_SIGNED_OUT_STATUS = `Signed out. ${CLOUD_SIGN_IN_PROMPT}`
+const CLOUD_NOT_CONFIGURED_STATUS = `Cloud persistence is not configured. ${SUPABASE_PUBLIC_ENV_HINT}`
 const MIN_CANVAS_WIDTH = 320
 const MIN_CANVAS_HEIGHT = 220
 const MIN_DOCK_HEIGHT = 260
@@ -834,9 +842,7 @@ function App() {
   const [supabaseCloudUser, setSupabaseCloudUser] = useState<SupabaseCloudUser | null>(null)
   const [supabaseCloudBusy, setSupabaseCloudBusy] = useState(false)
   const [supabaseCloudStatus, setSupabaseCloudStatus] = useState<string>(() =>
-    supabaseCloudConfigured
-      ? 'Sign in to enable Supabase cloud save/load.'
-      : `Supabase cloud is not configured. ${SUPABASE_PUBLIC_ENV_HINT}`,
+    supabaseCloudConfigured ? CLOUD_SIGN_IN_PROMPT : CLOUD_NOT_CONFIGURED_STATUS,
   )
   const [supabaseCloudPanelOpen, setSupabaseCloudPanelOpen] = useState(false)
   const [supabaseCloudScripts, setSupabaseCloudScripts] = useState<SupabaseCloudScriptSummary[]>([])
@@ -1926,8 +1932,8 @@ function App() {
 
   const refreshSupabaseGalleryAssets = useCallback(async () => {
     if (!supabaseWorkspaceCloudStore) {
-      setSupabaseCloudStatus(`Supabase cloud is not configured. ${SUPABASE_PUBLIC_ENV_HINT}`)
-      throw new Error(`Supabase cloud is not configured. ${SUPABASE_PUBLIC_ENV_HINT}`)
+      setSupabaseCloudStatus(CLOUD_NOT_CONFIGURED_STATUS)
+      throw new Error(CLOUD_NOT_CONFIGURED_STATUS)
     }
 
     try {
@@ -1944,8 +1950,8 @@ function App() {
 
   const refreshSupabaseCloudScripts = useCallback(async () => {
     if (!supabaseWorkspaceCloudStore) {
-      setSupabaseCloudStatus(`Supabase cloud is not configured. ${SUPABASE_PUBLIC_ENV_HINT}`)
-      throw new Error(`Supabase cloud is not configured. ${SUPABASE_PUBLIC_ENV_HINT}`)
+      setSupabaseCloudStatus(CLOUD_NOT_CONFIGURED_STATUS)
+      throw new Error(CLOUD_NOT_CONFIGURED_STATUS)
     }
 
     try {
@@ -1964,7 +1970,7 @@ function App() {
     setSupabaseCloudBusy(true)
     try {
       await Promise.all([refreshSupabaseGalleryAssets(), refreshSupabaseCloudScripts()])
-      setSupabaseCloudStatus('Supabase cloud library refreshed.')
+      setSupabaseCloudStatus(`${CLOUD_PROVIDER_LABEL} library refreshed.`)
     } catch {
       // Individual refresh handlers already surface a specific error message.
     } finally {
@@ -1981,8 +1987,8 @@ function App() {
       setSupabaseCloudUser(user)
       setSupabaseCloudStatus(
         user
-          ? `Supabase ready for ${user.email ?? user.id}.`
-          : 'Signed out. Sign in to enable Supabase cloud save/load.',
+          ? `${CLOUD_PROVIDER_LABEL} ready for ${user.email ?? user.id}.`
+          : CLOUD_SIGNED_OUT_STATUS,
       )
     })
   }, [])
@@ -2059,7 +2065,7 @@ function App() {
   const uploadGeneratedBlobToSupabaseGallery = useCallback(
     async (blob: Blob, fileName: string, title: string) => {
       if (!supabaseWorkspaceCloudStore) {
-        throw new Error(`Supabase cloud is not configured. ${SUPABASE_PUBLIC_ENV_HINT}`)
+        throw new Error(CLOUD_NOT_CONFIGURED_STATUS)
       }
 
       const asset = await supabaseWorkspaceCloudStore.uploadGalleryAssetBlob(blob, {
@@ -2080,7 +2086,7 @@ function App() {
 
   const signInToSupabaseCloud = useCallback(async () => {
     if (!supabaseWorkspaceCloudStore) {
-      setSupabaseCloudStatus(`Supabase cloud is not configured. ${SUPABASE_PUBLIC_ENV_HINT}`)
+      setSupabaseCloudStatus(CLOUD_NOT_CONFIGURED_STATUS)
       setSupabaseCloudPanelOpen(true)
       return
     }
@@ -2097,10 +2103,12 @@ function App() {
       setSupabaseCloudScriptSearch('')
       setSupabaseCloudStatus(`Signed in as ${user.email ?? user.id}.`)
       setSupabaseCloudPanelOpen(false)
-      setTransientStatus('Supabase sign-in successful.')
+      setTransientStatus(`${CLOUD_PROVIDER_LABEL} sign-in successful.`)
     } catch (error) {
       setSupabaseCloudStatus(
-        error instanceof Error ? `Supabase sign-in failed: ${error.message}` : 'Supabase sign-in failed.',
+        error instanceof Error
+          ? `${CLOUD_PROVIDER_LABEL} sign-in failed: ${error.message}`
+          : `${CLOUD_PROVIDER_LABEL} sign-in failed.`,
       )
     } finally {
       setSupabaseCloudBusy(false)
@@ -2109,7 +2117,7 @@ function App() {
 
   const signOutOfSupabaseCloud = useCallback(async () => {
     if (!supabaseWorkspaceCloudStore) {
-      setSupabaseCloudStatus(`Supabase cloud is not configured. ${SUPABASE_PUBLIC_ENV_HINT}`)
+      setSupabaseCloudStatus(CLOUD_NOT_CONFIGURED_STATUS)
       setSupabaseCloudPanelOpen(true)
       return
     }
@@ -2122,12 +2130,14 @@ function App() {
       setSupabaseCloudScriptPickerOpen(false)
       setSupabaseCloudScriptSearch('')
       setActiveSupabaseScriptWorkspaceId(null)
-      setSupabaseCloudStatus('Signed out. Sign in to enable Supabase cloud save/load.')
+      setSupabaseCloudStatus(CLOUD_SIGNED_OUT_STATUS)
       setSupabaseCloudPanelOpen(false)
-      setTransientStatus('Supabase sign-out complete.')
+      setTransientStatus(`${CLOUD_PROVIDER_LABEL} sign-out complete.`)
     } catch (error) {
       setSupabaseCloudStatus(
-        error instanceof Error ? `Supabase sign-out failed: ${error.message}` : 'Supabase sign-out failed.',
+        error instanceof Error
+          ? `${CLOUD_PROVIDER_LABEL} sign-out failed: ${error.message}`
+          : `${CLOUD_PROVIDER_LABEL} sign-out failed.`,
       )
     } finally {
       setSupabaseCloudBusy(false)
@@ -2136,7 +2146,7 @@ function App() {
 
   const saveWorkspaceToSupabaseCloud = useCallback(async () => {
     if (!supabaseWorkspaceCloudStore) {
-      setSupabaseCloudStatus(`Supabase cloud is not configured. ${SUPABASE_PUBLIC_ENV_HINT}`)
+      setSupabaseCloudStatus(CLOUD_NOT_CONFIGURED_STATUS)
       return
     }
 
@@ -2144,7 +2154,7 @@ function App() {
     try {
       await supabaseWorkspaceCloudStore.saveWorkspace(buildEditorSnapshot())
       setSupabaseCloudStatus(`Cloud copy saved for workspace "${workspace.workspace.name}".`)
-      setTransientStatus('Workspace saved to Supabase cloud.')
+      setTransientStatus(`Workspace saved to ${CLOUD_STATUS_LABEL}.`)
     } catch (error) {
       setSupabaseCloudStatus(
         error instanceof Error ? `Cloud save failed: ${error.message}` : 'Cloud save failed.',
@@ -2156,7 +2166,7 @@ function App() {
 
   const loadWorkspaceFromSupabaseCloud = useCallback(async () => {
     if (!supabaseWorkspaceCloudStore) {
-      setSupabaseCloudStatus(`Supabase cloud is not configured. ${SUPABASE_PUBLIC_ENV_HINT}`)
+      setSupabaseCloudStatus(CLOUD_NOT_CONFIGURED_STATUS)
       return
     }
 
@@ -2176,7 +2186,7 @@ function App() {
       setSupabaseCloudScriptSearch('')
       setActiveSupabaseScriptWorkspaceId(null)
       setSupabaseCloudStatus(`Loaded cloud snapshot for workspace "${snapshot.workspace.workspace.name}".`)
-      setTransientStatus('Workspace loaded from Supabase cloud.')
+      setTransientStatus(`Workspace loaded from ${CLOUD_STATUS_LABEL}.`)
     } catch (error) {
       setSupabaseCloudStatus(
         error instanceof Error ? `Cloud load failed: ${error.message}` : 'Cloud load failed.',
@@ -2188,7 +2198,7 @@ function App() {
 
   const saveScriptToSupabaseCloud = useCallback(async () => {
     if (!supabaseWorkspaceCloudStore) {
-      setSupabaseCloudStatus(`Supabase cloud is not configured. ${SUPABASE_PUBLIC_ENV_HINT}`)
+      setSupabaseCloudStatus(CLOUD_NOT_CONFIGURED_STATUS)
       return
     }
 
@@ -2216,7 +2226,7 @@ function App() {
       })
       setActiveSupabaseScriptWorkspaceId(cloudScriptWorkspaceId)
       setSupabaseCloudStatus(`Cloud script saved for workspace "${workspace.workspace.name}".`)
-      setTransientStatus('SJV Script saved to Supabase cloud.')
+      setTransientStatus(`SJV Script saved to ${CLOUD_STATUS_LABEL}.`)
     } catch (error) {
       setSupabaseCloudStatus(
         error instanceof Error ? `Cloud script save failed: ${error.message}` : 'Cloud script save failed.',
@@ -2228,7 +2238,7 @@ function App() {
 
   const loadScriptFromSupabaseCloud = useCallback(async () => {
     if (!supabaseWorkspaceCloudStore) {
-      setSupabaseCloudStatus(`Supabase cloud is not configured. ${SUPABASE_PUBLIC_ENV_HINT}`)
+      setSupabaseCloudStatus(CLOUD_NOT_CONFIGURED_STATUS)
       setSupabaseCloudPanelOpen(true)
       return
     }
@@ -2260,7 +2270,7 @@ function App() {
   const loadSelectedSupabaseCloudScript = useCallback(
     async (selectedScript: SupabaseCloudScriptSummary) => {
       if (!supabaseWorkspaceCloudStore) {
-        setSupabaseCloudStatus(`Supabase cloud is not configured. ${SUPABASE_PUBLIC_ENV_HINT}`)
+        setSupabaseCloudStatus(CLOUD_NOT_CONFIGURED_STATUS)
         setSupabaseCloudPanelOpen(true)
         return
       }
@@ -2284,7 +2294,7 @@ function App() {
           setActiveSupabaseScriptWorkspaceId(selectedScript.workspaceId)
           setSupabaseCloudStatus(`Loaded cloud script "${script.title}".`)
           setSupabaseCloudPanelOpen(false)
-          setTransientStatus('SJV Script loaded from Supabase cloud.')
+          setTransientStatus(`SJV Script loaded from ${CLOUD_STATUS_LABEL}.`)
         } catch (error) {
           setDslError(error instanceof Error ? error.message : 'Failed to import SJV Script.')
           setSupabaseCloudStatus(`Loaded cloud script "${script.title}" into the editor, but import failed.`)
@@ -2307,7 +2317,7 @@ function App() {
   const downloadSupabaseGalleryAsset = useCallback(
     async (asset: SupabaseGalleryAsset) => {
       if (!supabaseWorkspaceCloudStore) {
-        setSupabaseCloudStatus(`Supabase cloud is not configured. ${SUPABASE_PUBLIC_ENV_HINT}`)
+        setSupabaseCloudStatus(CLOUD_NOT_CONFIGURED_STATUS)
         return
       }
 
@@ -2323,7 +2333,7 @@ function App() {
         link.remove()
         URL.revokeObjectURL(objectUrl)
         setSupabaseCloudStatus(`Downloaded gallery asset "${asset.fileName}".`)
-        setTransientStatus('Gallery asset downloaded from Supabase.')
+        setTransientStatus(`Gallery asset downloaded from ${CLOUD_STATUS_LABEL}.`)
       } catch (error) {
         setSupabaseCloudStatus(
           error instanceof Error ? `Gallery download failed: ${error.message}` : 'Gallery download failed.',
@@ -2338,7 +2348,7 @@ function App() {
   const shareSupabaseGalleryAsset = useCallback(
     async (asset: SupabaseGalleryAsset) => {
       if (!supabaseWorkspaceCloudStore) {
-        setSupabaseCloudStatus(`Supabase cloud is not configured. ${SUPABASE_PUBLIC_ENV_HINT}`)
+        setSupabaseCloudStatus(CLOUD_NOT_CONFIGURED_STATUS)
         return
       }
       if (!isSupabaseGalleryAssetShareable(asset)) {
@@ -2397,7 +2407,7 @@ function App() {
   const deleteSupabaseCloudScript = useCallback(
     async (script: SupabaseCloudScriptSummary) => {
       if (!supabaseWorkspaceCloudStore) {
-        setSupabaseCloudStatus(`Supabase cloud is not configured. ${SUPABASE_PUBLIC_ENV_HINT}`)
+        setSupabaseCloudStatus(CLOUD_NOT_CONFIGURED_STATUS)
         setSupabaseCloudPanelOpen(true)
         return
       }
@@ -2413,7 +2423,7 @@ function App() {
           setActiveSupabaseScriptWorkspaceId(null)
         }
         setSupabaseCloudStatus(`Deleted cloud script "${script.title}".`)
-        setTransientStatus('SJV Script deleted from Supabase cloud.')
+        setTransientStatus(`SJV Script deleted from ${CLOUD_STATUS_LABEL}.`)
       } catch (error) {
         setSupabaseCloudStatus(
           error instanceof Error ? `Cloud script delete failed: ${error.message}` : 'Cloud script delete failed.',
@@ -2428,7 +2438,7 @@ function App() {
   const deleteSupabaseGalleryAsset = useCallback(
     async (asset: SupabaseGalleryAsset) => {
       if (!supabaseWorkspaceCloudStore) {
-        setSupabaseCloudStatus(`Supabase cloud is not configured. ${SUPABASE_PUBLIC_ENV_HINT}`)
+        setSupabaseCloudStatus(CLOUD_NOT_CONFIGURED_STATUS)
         return
       }
       if (typeof window !== 'undefined' && !window.confirm(`Delete the gallery asset "${asset.title}"?`)) {
@@ -2448,7 +2458,7 @@ function App() {
           return next
         })
         setSupabaseCloudStatus(`Deleted gallery asset "${asset.fileName}".`)
-        setTransientStatus('Gallery asset deleted from Supabase.')
+        setTransientStatus(`Gallery asset deleted from ${CLOUD_STATUS_LABEL}.`)
       } catch (error) {
         setSupabaseCloudStatus(
           error instanceof Error ? `Gallery delete failed: ${error.message}` : 'Gallery delete failed.',
@@ -2468,7 +2478,7 @@ function App() {
         return
       }
       if (!supabaseWorkspaceCloudStore) {
-        setSupabaseCloudStatus(`Supabase cloud is not configured. ${SUPABASE_PUBLIC_ENV_HINT}`)
+        setSupabaseCloudStatus(CLOUD_NOT_CONFIGURED_STATUS)
         return
       }
 
@@ -2477,7 +2487,7 @@ function App() {
         const asset = await supabaseWorkspaceCloudStore.uploadGalleryAsset(file)
         setSupabaseGalleryAssets((current) => [asset, ...current].slice(0, 24))
         setSupabaseCloudStatus(`Uploaded "${asset.fileName}" to bucket "${SUPABASE_GALLERY_BUCKET}".`)
-        setTransientStatus('Gallery asset uploaded to Supabase.')
+        setTransientStatus(`Gallery asset uploaded to ${CLOUD_STATUS_LABEL}.`)
       } catch (error) {
         setSupabaseCloudStatus(
           error instanceof Error ? `Gallery upload failed: ${error.message}` : 'Gallery upload failed.',
@@ -4046,7 +4056,7 @@ function App() {
         )
         setExportStatus(
           autoUploaded
-            ? 'PNG exported and auto-uploaded to Supabase gallery.'
+            ? `PNG exported and auto-uploaded to ${CLOUD_STATUS_LABEL} gallery.`
             : 'PNG exported.',
         )
         window.setTimeout(() => setExportStatus(null), 2800)
@@ -4365,8 +4375,8 @@ function App() {
       setExportStatus(
         autoUploaded
           ? format === 'gif'
-            ? 'Animated GIF exported and auto-uploaded to Supabase gallery.'
-            : 'MP4 exported and auto-uploaded to Supabase gallery.'
+            ? `Animated GIF exported and auto-uploaded to ${CLOUD_STATUS_LABEL} gallery.`
+            : `MP4 exported and auto-uploaded to ${CLOUD_STATUS_LABEL} gallery.`
           : asset.successMessage,
       )
       window.setTimeout(() => setExportStatus(null), format === 'svg' ? 2800 : 3200)
@@ -4635,9 +4645,9 @@ function App() {
           <p>
             {supabaseCloudConfigured
               ? supabaseCloudReady
-                ? 'Your private Supabase cloud library is live below. Saved scripts are grouped beside your uploaded assets. Standard PNG/GIF/MP4 exports now auto-upload here after the local file is generated.'
-                : 'Sign in from the top-right cloud badge to unlock your private Supabase cloud library, secure previews, and automatic upload after each PNG/GIF/MP4 export.'
-              : `Supabase cloud is not configured. ${SUPABASE_PUBLIC_ENV_HINT}`}
+                ? `Your private ${CLOUD_PROVIDER_LABEL} library is live below. Saved scripts are grouped beside your uploaded assets. Standard PNG/GIF/MP4 exports now auto-upload here after the local file is generated.`
+                : `Sign in from the top-right cloud badge to unlock your private ${CLOUD_PROVIDER_LABEL} library, previews, and automatic upload after each PNG/GIF/MP4 export.`
+              : CLOUD_NOT_CONFIGURED_STATUS}
           </p>
           <div className="help-gallery-actions">
             <button
@@ -4712,7 +4722,7 @@ function App() {
                               type="button"
                               className="help-gallery-icon-button"
                               aria-label={`Delete ${item.title}`}
-                              title={item.kind === 'script' ? 'Delete script from Supabase Cloud' : 'Delete media from Supabase Cloud'}
+                              title={item.kind === 'script' ? `Delete script from ${CLOUD_PROVIDER_LABEL}` : `Delete media from ${CLOUD_PROVIDER_LABEL}`}
                               disabled={supabaseCloudBusy}
                               onClick={() => {
                                 if (item.kind === 'script') {
@@ -4733,7 +4743,7 @@ function App() {
               </div>
             ) : (
               <p className="help-gallery-empty">
-                No Supabase cloud library items yet. Run a normal PNG/GIF/MP4 export while signed in, save an SJV Script, or upload local media here.
+                No cloud library items yet. Run a normal PNG/GIF/MP4 export while signed in, save an SJV Script, or upload local media here.
               </p>
             )
           ) : null}
@@ -4893,8 +4903,9 @@ function App() {
           Modes
         </label>
       </PanelGroup>
-      <PanelGroup title="Supabase Cloud" defaultExpanded={false}>
+      <PanelGroup title={CLOUD_PROVIDER_LABEL} defaultExpanded={false}>
         <p className="preferences-status">Use the top-right cloud badge for quick sign-in, gallery access, and automatic upload after standard PNG/GIF/MP4 exports.</p>
+        <p className="preferences-status">Provider URL: {workspaceCloudDatabaseUrl}</p>
         <p className="preferences-status">{supabaseCloudStatus}</p>
         <p className="preferences-status">Current workspace id: {workspace.workspace.id}</p>
         <p className="preferences-status">
@@ -4904,7 +4915,7 @@ function App() {
           Load Saved SJV Script opens the clickable script list in the top-right cloud panel.
         </p>
         <label className="preferences-select">
-          Supabase email
+          Account email
           <input
             type="email"
             value={supabaseAuthDraft.email}
@@ -4919,7 +4930,7 @@ function App() {
           />
         </label>
         <label className="preferences-select">
-          Supabase password
+          Password
           <input
             type="password"
             value={supabaseAuthDraft.password}
@@ -4929,7 +4940,7 @@ function App() {
                 password: event.target.value,
               }))
             }
-            placeholder="Your Supabase password"
+            placeholder="Provider password"
             autoComplete="current-password"
           />
         </label>
@@ -4942,7 +4953,7 @@ function App() {
               void signInToSupabaseCloud()
             }}
           >
-            {supabaseCloudBusy ? 'Working...' : 'Sign In to Supabase'}
+            {supabaseCloudBusy ? 'Working...' : 'Sign In'}
           </button>
           <button
             type="button"
@@ -5046,7 +5057,7 @@ function App() {
               </div>
             ))
           ) : (
-            <p className="preferences-status">No Supabase gallery assets yet.</p>
+            <p className="preferences-status">No gallery assets yet.</p>
           )}
         </div>
       </PanelGroup>
@@ -5915,10 +5926,10 @@ function App() {
         }
         aria-expanded={supabaseCloudPanelOpen}
         aria-haspopup="dialog"
-        aria-label="Open Supabase cloud panel"
+        aria-label={`Open ${CLOUD_PROVIDER_LABEL} panel`}
       >
         <span className="topbar-cloud-badge-copy">
-          <strong>{supabaseCloudUser?.email ?? (supabaseCloudConfigured ? 'Supabase Cloud' : 'Cloud Offline')}</strong>
+          <strong>{supabaseCloudUser?.email ?? (supabaseCloudConfigured ? CLOUD_PROVIDER_LABEL : 'Cloud Offline')}</strong>
           <span>
             {!supabaseCloudConfigured
               ? 'Not configured'
@@ -5937,7 +5948,7 @@ function App() {
         />
       </button>
       {supabaseCloudPanelOpen ? (
-        <div className="topbar-cloud-panel" role="dialog" aria-label="Supabase cloud panel">
+        <div className="topbar-cloud-panel" role="dialog" aria-label={`${CLOUD_PROVIDER_LABEL} panel`}>
           <p className="topbar-cloud-status">{supabaseCloudStatus}</p>
           {!supabaseCloudConfigured ? (
             <p className="topbar-cloud-hint">{SUPABASE_PUBLIC_ENV_HINT}</p>
@@ -5952,7 +5963,7 @@ function App() {
                   <div className="topbar-cloud-command-buttons">
                     <button
                       type="button"
-                      aria-label="Save workspace snapshot to Supabase Cloud"
+                      aria-label={`Save workspace snapshot to ${CLOUD_PROVIDER_LABEL}`}
                       disabled={supabaseCloudBusy}
                       onClick={() => {
                         void saveWorkspaceToSupabaseCloud()
@@ -5962,7 +5973,7 @@ function App() {
                     </button>
                     <button
                       type="button"
-                      aria-label="Load workspace snapshot from Supabase Cloud"
+                      aria-label={`Load workspace snapshot from ${CLOUD_PROVIDER_LABEL}`}
                       disabled={supabaseCloudBusy}
                       onClick={() => {
                         void loadWorkspaceFromSupabaseCloud()
@@ -5977,7 +5988,7 @@ function App() {
                   <div className="topbar-cloud-command-buttons">
                     <button
                       type="button"
-                      aria-label="Save script to Supabase Cloud"
+                      aria-label={`Save script to ${CLOUD_PROVIDER_LABEL}`}
                       disabled={supabaseCloudBusy}
                       onClick={() => {
                         void saveScriptToSupabaseCloud()
@@ -5987,7 +5998,7 @@ function App() {
                     </button>
                     <button
                       type="button"
-                      aria-label="Load script from Supabase Cloud"
+                      aria-label={`Load script from ${CLOUD_PROVIDER_LABEL}`}
                       disabled={supabaseCloudBusy}
                       onClick={() => {
                         void loadScriptFromSupabaseCloud()
@@ -6058,7 +6069,7 @@ function App() {
                                 type="button"
                                 className="topbar-cloud-script-row-delete"
                                 aria-label={`Delete ${script.title}`}
-                                title="Delete script from Supabase Cloud"
+                                title={`Delete script from ${CLOUD_PROVIDER_LABEL}`}
                                 disabled={supabaseCloudBusy}
                                 onClick={() => {
                                   void deleteSupabaseCloudScript(script)
@@ -6141,7 +6152,7 @@ function App() {
                       password: event.target.value,
                     }))
                   }
-                  placeholder="Your Supabase password"
+                  placeholder="Provider password"
                   autoComplete="current-password"
                 />
               </label>
@@ -6339,7 +6350,7 @@ function App() {
       },
       {
         id: 'command:cloud-save-script',
-        title: 'Save Generated SJV Script to Supabase',
+        title: `Save Generated SJV Script to ${CLOUD_PROVIDER_LABEL}`,
         section: 'Files',
         disabled: !supabaseCloudReady || supabaseCloudBusy,
         keywords: ['cloud', 'script'],
@@ -6879,7 +6890,7 @@ function App() {
                   >
                     {renderDesktopMenuItem(
                       <Save size={13} />,
-                      supabaseCloudBusy ? 'Cloud Busy...' : 'Save to Supabase Cloud',
+                      supabaseCloudBusy ? 'Cloud Busy...' : `Save to ${CLOUD_PROVIDER_LABEL}`,
                     )}
                   </button>
                   <button
@@ -6894,7 +6905,7 @@ function App() {
                   >
                     {renderDesktopMenuItem(
                       <Download size={13} />,
-                      supabaseCloudBusy ? 'Cloud Busy...' : 'Load from Supabase Cloud',
+                      supabaseCloudBusy ? 'Cloud Busy...' : `Load from ${CLOUD_PROVIDER_LABEL}`,
                     )}
                   </button>
                   <button
@@ -6909,7 +6920,7 @@ function App() {
                   >
                     {renderDesktopMenuItem(
                       <Code2 size={13} />,
-                      supabaseCloudBusy ? 'Cloud Busy...' : 'Save Script to Supabase Cloud',
+                      supabaseCloudBusy ? 'Cloud Busy...' : `Save Script to ${CLOUD_PROVIDER_LABEL}`,
                     )}
                   </button>
                   <button
@@ -6924,7 +6935,7 @@ function App() {
                   >
                     {renderDesktopMenuItem(
                       <Code2 size={13} />,
-                      supabaseCloudBusy ? 'Cloud Busy...' : 'Load Script from Supabase Cloud',
+                      supabaseCloudBusy ? 'Cloud Busy...' : `Load Script from ${CLOUD_PROVIDER_LABEL}`,
                     )}
                   </button>
                   <button
@@ -6935,7 +6946,7 @@ function App() {
                   >
                     {renderDesktopMenuItem(
                       <FolderOpen size={13} />,
-                      supabaseCloudBusy ? 'Cloud Busy...' : 'Upload Media to Supabase Gallery',
+                      supabaseCloudBusy ? 'Cloud Busy...' : `Upload Media to ${CLOUD_PROVIDER_LABEL}`,
                     )}
                   </button>
                   <button

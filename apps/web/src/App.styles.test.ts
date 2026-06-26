@@ -180,6 +180,8 @@ describe('App boundary styles', () => {
     expect(appCss).toContain('.canvas-minimap')
     expect(appCss).toContain('.canvas-minimap-actions')
     expect(appCss).toContain('.canvas-minimap-viewport')
+    expect(appCss).toContain('.canvas-tools-rail')
+    expect(appCss).toContain('.canvas-tool-button-active')
     expect(appCss).toContain('.palette-browser')
     expect(appCss).toContain('.palette-search')
     expect(appCss).toContain('.palette-category-chip-active')
@@ -221,6 +223,9 @@ describe('App boundary styles', () => {
     expect(appCss).toContain('.palette-browser-title')
     expect(appCss).toMatch(/\.palette-category-chip\s*\{[^}]*font-weight:\s*500;[^}]*\}/s)
     expect(appCss).toMatch(/\.toolbox-item-label\s*\{[^}]*font-weight:\s*500;[^}]*\}/s)
+    expect(appCss).toMatch(/\.managed-host-sidebar-left\s*\{[^}]*background:\s*#17212b;[^}]*border-right-color:\s*#263544;[^}]*\}/s)
+    expect(appCss).toMatch(/\.managed-host-sidebar-left\s+\.palette-preset-grid\s*\{[^}]*grid-template-columns:\s*1fr;[^}]*\}/s)
+    expect(appCss).toMatch(/\.canvas-tools-rail\s*\{[^}]*position:\s*absolute;[^}]*background:\s*#1d2a35;[^}]*\}/s)
     expect(appCss).toMatch(/\.node-depth-fill\s*\{[^}]*opacity:\s*0\.18;[^}]*\}/s)
   })
 

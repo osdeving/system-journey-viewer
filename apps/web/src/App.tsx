@@ -3550,7 +3550,14 @@ function App() {
       window.removeEventListener('resize', updateTopbarHeight)
       observer?.disconnect()
     }
-  }, [hasVisibleToolbarSection, presentationMode, uiPreferences.fontScale, uiPreferences.toolbarVisibility])
+  }, [
+    hasVisibleToolbarSection,
+    presentationMode,
+    uiPreferences.fontScale,
+    uiPreferences.menuBarVisible,
+    uiPreferences.toolbarInlineWithBrand,
+    uiPreferences.toolbarVisibility,
+  ])
 
   useEffect(() => {
     const canvasPanel = canvasPanelRef.current
@@ -5063,6 +5070,32 @@ function App() {
         <label className="preferences-toggle">
           <input
             type="checkbox"
+            checked={uiPreferences.menuBarVisible}
+            onChange={(event) =>
+              setUiPreferences((current) => ({
+                ...current,
+                menuBarVisible: event.target.checked,
+              }))
+            }
+          />
+          Show main menu
+        </label>
+        <label className="preferences-toggle">
+          <input
+            type="checkbox"
+            checked={uiPreferences.toolbarInlineWithBrand}
+            onChange={(event) =>
+              setUiPreferences((current) => ({
+                ...current,
+                toolbarInlineWithBrand: event.target.checked,
+              }))
+            }
+          />
+          Place toolbar beside app icon
+        </label>
+        <label className="preferences-toggle">
+          <input
+            type="checkbox"
             checked={uiPreferences.toolbarVisibility.navigation}
             onChange={() => toggleToolbarSection('navigation')}
           />
@@ -6413,6 +6446,28 @@ function App() {
           })),
       },
       {
+        id: 'command:toggle-main-menu',
+        title: uiPreferences.menuBarVisible ? 'Hide Main Menu' : 'Show Main Menu',
+        section: 'Commands',
+        keywords: ['menu', 'menubar', 'topbar', 'chrome'],
+        run: () =>
+          setUiPreferences((current) => ({
+            ...current,
+            menuBarVisible: !current.menuBarVisible,
+          })),
+      },
+      {
+        id: 'command:toggle-inline-toolbar',
+        title: uiPreferences.toolbarInlineWithBrand ? 'Stack Toolbar Below Topbar' : 'Place Toolbar Beside App Icon',
+        section: 'Commands',
+        keywords: ['toolbar', 'compact', 'topbar', 'chrome'],
+        run: () =>
+          setUiPreferences((current) => ({
+            ...current,
+            toolbarInlineWithBrand: !current.toolbarInlineWithBrand,
+          })),
+      },
+      {
         id: 'command:toggle-performance-mode',
         title: uiPreferences.performanceModeEnabled ? 'Disable Performance Mode' : 'Enable Performance Mode',
         section: 'Commands',
@@ -6889,6 +6944,10 @@ function App() {
       className={`app-layout ${focusMode ? 'app-layout-focus' : ''} ${
         presentationMode ? 'app-layout-presentation' : ''
       } app-layout-density-${uiPreferences.density} app-layout-font-${uiPreferences.fontScale} app-chrome-theme-${uiPreferences.chromeThemeId} app-icon-set-${uiPreferences.iconSet} ${
+        uiPreferences.menuBarVisible ? 'app-menu-visible' : 'app-menu-hidden'
+      } ${
+        uiPreferences.toolbarInlineWithBrand ? 'app-toolbar-inline' : 'app-toolbar-stacked'
+      } ${
         theme === 'dark' ? 'theme-dark' : 'theme-light'
       } ${
         uiPreferences.performanceModeEnabled ? 'app-layout-performance' : ''
@@ -6952,12 +7011,29 @@ function App() {
                 <circle cx="41" cy="44" r="4.2" fill="#38bdf8" />
               </svg>
             </div>
+            {!presentationMode && !uiPreferences.menuBarVisible ? (
+              <button
+                type="button"
+                className="topbar-menu-restore-button"
+                onClick={() =>
+                  setUiPreferences((current) => ({
+                    ...current,
+                    menuBarVisible: true,
+                  }))
+                }
+                title={withTooltip('Show main menu')}
+                aria-label="Show main menu"
+              >
+                {renderAppIcon('list-ordered', 14)}
+                <span>Menu</span>
+              </button>
+            ) : null}
             <div className="app-brand-copy">
               <h1>{workspace.workspace.name}</h1>
               <p>{breadcrumb.map((viewId) => workspace.views[viewId]?.name ?? viewId).join(' / ')}</p>
             </div>
           </div>
-          {!presentationMode ? (
+          {!presentationMode && uiPreferences.menuBarVisible ? (
             <nav
               className="desktop-menu-bar"
               aria-label="Main menu"
@@ -7357,6 +7433,42 @@ function App() {
                     {renderDesktopMenuItem(
                       uiPreferences.statusBarEnabled ? <PanelBottomClose size={13} /> : <PanelBottomOpen size={13} />,
                       uiPreferences.statusBarEnabled ? 'Hide Status Bar' : 'Show Status Bar',
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() =>
+                      runDesktopMenuAction(() =>
+                        setUiPreferences((current) => ({
+                          ...current,
+                          menuBarVisible: !current.menuBarVisible,
+                        })),
+                      )
+                    }
+                  >
+                    {renderDesktopMenuItem(
+                      <ListOrdered size={13} />,
+                      uiPreferences.menuBarVisible ? 'Hide Main Menu' : 'Show Main Menu',
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() =>
+                      runDesktopMenuAction(() =>
+                        setUiPreferences((current) => ({
+                          ...current,
+                          toolbarInlineWithBrand: !current.toolbarInlineWithBrand,
+                        })),
+                      )
+                    }
+                  >
+                    {renderDesktopMenuItem(
+                      <SlidersHorizontal size={13} />,
+                      uiPreferences.toolbarInlineWithBrand
+                        ? 'Stack Toolbar Below Topbar'
+                        : 'Place Toolbar Beside App Icon',
                     )}
                   </button>
                   <button

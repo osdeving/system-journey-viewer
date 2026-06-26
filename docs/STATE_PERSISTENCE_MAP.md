@@ -92,6 +92,8 @@ Includes:
 - UI font scale
 - chrome theme preset/custom color tokens
 - icon set
+- main menu visibility
+- compact inline toolbar placement
 - toolbar section visibility
 
 ## 2) SJV Script synchronization model

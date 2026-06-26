@@ -81,6 +81,15 @@ describe('PalettePanel', () => {
     expect(activeContainer?.querySelector('.palette-section-title')?.textContent).toBe('Infra')
   })
 
+  it('uses arrow overflow controls for category navigation', () => {
+    renderPalette()
+
+    expect(activeContainer?.querySelector('.palette-category-overflow')).not.toBeNull()
+    expect(activeContainer?.querySelector('.palette-category-viewport')).not.toBeNull()
+    expect(activeContainer?.querySelector('[role="tablist"]')?.className).toContain('palette-category-strip')
+    expect(activeContainer?.querySelectorAll('.overflow-strip-nav')).toHaveLength(2)
+  })
+
   it('filters presets by search text and active category', () => {
     renderPalette()
 

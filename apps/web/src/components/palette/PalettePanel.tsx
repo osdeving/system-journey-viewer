@@ -5,6 +5,7 @@
 import { useMemo, useState, type DragEvent, type ReactNode } from 'react'
 import { Search } from 'lucide-react'
 import { NODE_PRESET_DRAG_MIME_TYPE } from '../../presets/presetDragData'
+import { OverflowStrip } from '../chrome/OverflowStrip'
 import { Text } from '../text/Text'
 
 export interface PalettePanelPreset {
@@ -81,7 +82,14 @@ export const PalettePanel = ({
           onInput={(event) => setQuery(event.currentTarget.value)}
         />
       </label>
-      <div className="palette-category-strip" role="tablist" aria-label="Palette categories">
+      <OverflowStrip
+        className="palette-category-overflow"
+        viewportClassName="palette-category-viewport"
+        contentClassName="palette-category-strip"
+        contentProps={{ role: 'tablist', 'aria-label': 'Palette categories' }}
+        navAriaLabel="palette categories"
+        scrollStepPx={92}
+      >
         <button
           type="button"
           role="tab"
@@ -109,7 +117,7 @@ export const PalettePanel = ({
             <span>{category.presets.length}</span>
           </button>
         ))}
-      </div>
+      </OverflowStrip>
       <div className="palette-sections">
         {visibleCategories.map((category) => (
           <section key={category.id} className="palette-section">

@@ -29,6 +29,7 @@
 - Latest managed-window placement hotfix (2026-03-03, late-night pass) reopens closed docked panels in their remembered host (`left|right|bottom`) instead of forcing the default host, and no longer auto-opens the bottom workbench when leaving Presentation mode.
 - Latest product polish increment (2026-06-26) adds a searchable command palette (`Ctrl/Cmd+K` or `/`) for commands/views/journeys/nodes/edges, a hideable canvas minimap with click-to-recenter navigation, a VS Code-style hideable status bar, and a persisted performance mode that disables extra motion/depth/confetti work.
 - Latest shell polish follow-up (2026-06-26) flattens the desktop chrome and canvas background, reduces app text/control scale, exposes labeled primary toolbar commands with working `V`/`C` Select/Connect shortcuts, uses vertical toolbar group separators instead of boxed shortcut grouping, restyles the left managed host as a dark professional sidebar with one-column palette items, adds a compact floating canvas tools rail, lightens palette typography with explicit text classes instead of browser heading defaults, defaults node depth effects off for clean installs, and fixes inline text editing focus so typed characters no longer overwrite the selected value after every keystroke.
+- Latest appearance polish follow-up (2026-06-26) extends the dark professional shell across menus, topbar, managed hosts, floating windows, Preferences, command palette, canvas tools rail, and status bar while preserving a light canvas; it also adds `Preferences > Appearance` controls for app-wide UI font size, chrome theme presets/custom colors, and switchable icon set profiles backed by a centralized icon registry.
 - Latest cloud-provider decoupling increment (2026-06-26) extracts workspace/script/gallery cloud persistence into a provider-neutral `WorkspaceCloudStore`, keeps Supabase as a hosted adapter, and adds a functional local IndexedDB provider selected by `VITE_SJV_DB_URL=indexeddb://...` with automatic `indexeddb://sjv-local` fallback when Supabase env vars are absent.
 - Latest cylinder preset hotfix (2026-06-26) lets `db` and `queue`/Kafka cylinder nodes keep arbitrary user-controlled widths while queue/Kafka rendering keeps the right-side cylinder face visually stable instead of scaling it with node width.
 - Latest componentization refactor (2026-06-26) extracts reusable `DiagramNode`, `PalettePanel`, `InspectorPanel`, and `JourneyTimelinePanel` components plus pure node label helpers, reducing direct rendering weight in `App.tsx` and `DiagramCanvas.tsx` without changing behavior.
@@ -62,6 +63,11 @@
   - minimap can be hidden from its own close action, the status bar, the command palette, `View`, or Preferences,
   - bottom status bar shows current view, zoom, entity counts, selection, active journey, active tool, playback mode, provider state, and quick actions for palette/tool/fit/grid/snap/minimap/performance/search,
   - status bar visibility is persisted and can be restored from `View`, the command palette, or Preferences.
+- UI appearance:
+  - desktop chrome defaults to a dark productive shell, including topbar, menus, managed hosts, floating windows, Preferences, command palette, canvas tools rail, and status bar,
+  - canvas/content remains light by default so diagrams keep the board/editor contrast the user requested,
+  - `Preferences > Appearance` exposes `Small` / `Normal` / `Large` app font scaling, chrome color presets, custom hex color tokens, and icon set selection,
+  - icon rendering for prominent shell/palette/status/rail surfaces flows through `src/icons/*` so icon mappings and stroke profiles can be changed centrally.
 - Touch-first mobile shell flow:
   - dedicated `/m` route renders a simplified mobile chrome over the same workspace/store,
   - narrow touch-first devices auto-open into that shell,
@@ -240,7 +246,8 @@
   - topbar height measurement now ignores absolutely positioned popovers when computing persisted shell offsets, so full-height side splitters stay aligned after menus/panels close,
   - toolbar is now grouped and rendered in a dedicated row with section-level visibility preferences,
   - topbar includes a Search command-palette trigger beside the cloud badge,
-  - preferences persist minimap visibility, status bar visibility, and performance mode on the existing backward-compatible `sjv-ui-preferences-v1` key with additive defaults,
+  - preferences persist minimap visibility, status bar visibility, performance mode, UI font scale, chrome theme/custom colors, and icon set on the existing backward-compatible `sjv-ui-preferences-v1` key with additive defaults,
+  - note title typography now uses regular weight for a softer sticky-note read,
   - tooltips are user-configurable from settings/preferences.
 - Cloud chrome enhancement:
   - a top-right Supabase badge now exposes login state, quick save/load, upload, refresh, gallery access, and auto-upload status without opening `Preferences`.

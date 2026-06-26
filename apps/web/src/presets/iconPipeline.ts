@@ -1,26 +1,9 @@
 /**
- * Purpose: Define palette presets and catalog metadata for node creation.
+ * Purpose: Provide stable canvas glyph fallbacks for preset icon keys.
  */
 
-const icons: Record<string, string> = {
-  system: '🧭',
-  container: '📦',
-  component: '🧩',
-  boundary: '🗂️',
-  database: '🛢️',
-  queue: '📨',
-  gateway: '🌐',
-  security: '🔐',
-  spring: '🍃',
-  kafka: '🟦',
-  postgres: '🐘',
-  cache: '⚡',
-  search: '🔎',
-}
+import { presetIconGlyphForKey } from '../icons/iconRegistryData'
 
 export const iconForKey = (key?: string): string => {
-  if (!key) {
-    return '⬜'
-  }
-  return icons[key] ?? '⬜'
+  return presetIconGlyphForKey(key)
 }

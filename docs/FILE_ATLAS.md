@@ -67,6 +67,8 @@ Managed window state, host layout helpers, and window UI configuration metadata.
 - `src/store/`: editor state and persistence integration
 - `src/model/`: core workspace model types and fixtures/defaults
 - `src/presets/`: node/technology/protocol preset catalogs and preset interaction contracts
+- `src/preferences/`: persisted UI preference defaults, parsers, and CSS variable resolvers
+- `src/icons/`: centralized app/preset icon mappings, icon-set metadata, and stable glyph fallbacks
 - `src/showcaseGallery/`: bundled gallery sample catalog and SJV Script examples used by the in-app export gallery
 - `src/export/`: static/animated export pipeline
 - `src/file/`: file import/export and recent files support

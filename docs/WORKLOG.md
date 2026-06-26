@@ -2,6 +2,43 @@
 
 Chronological engineering log. Entries are kept concise and focused on behavior and validation.
 
+## 2026-06-26 - UI appearance themes and icon registry
+
+### Scope
+
+- Extended the professional dark chrome polish across the full desktop shell while keeping the canvas light, and added user-facing appearance controls for font scale, color themes, custom colors, and icon set selection.
+
+### Changes
+
+- `apps/web/src/preferences/uiPreferences.ts`
+  - extracted persisted UI preference parsing/defaults out of `App.tsx`,
+  - added additive persisted fields for `fontScale`, `chromeThemeId`, `customChromeColors`, and `iconSet` on the existing `sjv-ui-preferences-v1` key,
+  - added preset chrome themes (`Midnight Pro`, `Graphite`, `Teal Focus`) plus safe hex-color parsing for custom chrome tokens,
+  - added CSS variable resolution for app-wide UI font scale and shell color tokens.
+- `apps/web/src/icons/IconRegistry.tsx`, `apps/web/src/icons/iconRegistryData.ts`, `apps/web/src/icons/iconSets.ts`
+  - introduced a centralized icon registry for app chrome and palette preset icons,
+  - added switchable Lucide-based icon set profiles so stroke weight can be changed consistently,
+  - kept stable canvas glyph fallbacks for diagram labels/export surfaces.
+- `apps/web/src/App.tsx`, `apps/web/src/App.css`
+  - added `Preferences > Appearance` controls for UI font size, icon set, chrome theme presets, and custom chrome colors,
+  - applied the dark chrome theme to menus, topbar, left/right/bottom managed hosts, floating windows, Preferences, command palette, canvas tools rail, and status bar,
+  - preserved a light canvas/grid surface under the dark shell,
+  - softened note text by removing the heavy note title weight,
+  - routed prominent toolbar/status/palette/rail icons through the centralized registry.
+- `apps/web/src/presets/iconPipeline.ts`
+  - simplified preset glyph fallbacks so canvas labels no longer depend on emoji-style icons.
+- `apps/web/src/help/help.md`, `docs/FILE_ATLAS.md`, `docs/AI_STATE.md`
+  - documented the new Appearance controls, icon/preference helper folders, and additive UI preference behavior.
+
+### Validation
+
+- `npm --workspace @sjv/web run test:run -- src/preferences/uiPreferences.test.ts src/icons/iconSets.test.ts src/icons/IconRegistry.test.tsx src/App.source.test.ts src/App.styles.test.ts`
+- `npm --workspace @sjv/web run lint`
+- `npm --workspace @sjv/web run test:run`
+- `npm --workspace @sjv/web run build`
+- `git diff --check`
+- Playwright/Firefox check against `http://127.0.0.1:5175/`: verified dark topbar/menu/sidebar/right-sidebar/status/tool-rail chrome, light canvas background, visible File menu bounds, Preferences Appearance controls, note title font weight `400`, and global font-scale persistence (`normal` -> `large` -> `normal`) on `sjv-ui-preferences-v1`.
+
 ## 2026-06-26 - Professional dark sidebar and canvas tools rail
 
 ### Scope

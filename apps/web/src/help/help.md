@@ -156,7 +156,10 @@ Default playback/focus state:
   - Performance mode enable/disable.
   - Node depth effects enable/disable.
   - Showcase language (`EN` / `PT`).
-  - Toolbar section visibility (`Navigation`, `Editing`, `Viewport`, `Panels`, `Modes`).
+  - UI font size (`Small`, `Normal`, `Large`).
+  - Chrome color theme presets and custom chrome color tokens.
+  - Icon set selection for the app chrome.
+  - Toolbar section visibility (`Navigation`, `Editing`, `Panels`, `Modes`).
   - Active cloud provider status, provider URL, and advanced cloud controls as a fallback to the topbar badge.
 
 ## Startup Splash and About

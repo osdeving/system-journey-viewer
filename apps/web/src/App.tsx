@@ -5,6 +5,7 @@
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type {
   ChangeEvent,
+  CSSProperties,
   PointerEvent as ReactPointerEvent,
   ReactNode,
 } from 'react'
@@ -35,7 +36,6 @@ import {
   PanelBottomOpen,
   PanelLeftClose,
   PanelLeftOpen,
-  PanelRightClose,
   PanelRightOpen,
   Pause,
   Play,
@@ -54,7 +54,6 @@ import {
   Trash2,
   Undo2,
   Workflow,
-  X,
   ZoomIn,
   ZoomOut,
 } from 'lucide-react'
@@ -73,6 +72,9 @@ import { FloatingWindow } from './components/windowing/FloatingWindow'
 import { PalettePanel, type PalettePanelCategory } from './components/palette/PalettePanel'
 import { JourneyTimelinePanel } from './components/journeys/JourneyTimelinePanel'
 import { InspectorPanel } from './components/inspector/InspectorPanel'
+import { AppIcon, PresetIcon } from './icons/IconRegistry'
+import type { AppIconId } from './icons/iconRegistryData'
+import { APP_ICON_SET_OPTIONS } from './icons/iconSets'
 import {
   buildNodeConfettiBursts,
   resolveNodeConfettiAnchor,
@@ -161,7 +163,19 @@ import { resolveTopbarHeight } from './layout/topbarSizing'
 import { BLANK_WORKSPACE_VIEW_ID, createBlankWorkspace } from './model/blankWorkspace'
 import type { EditorSnapshot, JourneyModel, ViewportState, WorkspaceModel } from './model/types'
 import { nodePresetsByCategory, protocolPresets, resolveNodePreset } from './presets/catalog'
-import { iconForKey } from './presets/iconPipeline'
+import {
+  CHROME_THEME_PRESETS,
+  DEFAULT_CUSTOM_CHROME_COLORS,
+  resolveInitialUiPreferences,
+  resolveUiPreferenceCssVariables,
+  UI_PREFERENCES_STORAGE_KEY,
+  type ChromeThemeId,
+  type UiChromeCustomColors,
+  type UiDensity,
+  type UiFontScale,
+  type UiPreferences,
+  type ToolbarSectionId,
+} from './preferences/uiPreferences'
 import { applyWorkspaceLayout, loadWorkspaceLayout, saveWorkspaceLayout } from './store/layoutPersistence'
 import { useEditorStore } from './store/useEditorStore'
 import { deriveSequenceDiagramScene } from './sequence/deriveSequenceScene'
@@ -231,7 +245,6 @@ const DEFAULT_FILE_VIEWPORT = { x: 100, y: 80, zoom: 1 }
 const DEFAULT_FLOATING_DOCK_RECT = { x: 28, y: 108, width: 480, height: 420 }
 const DEFAULT_MINIMAP_SIZE: MinimapSize = { width: 196, height: 124 }
 const STATUS_BAR_HEIGHT = 24
-const UI_PREFERENCES_STORAGE_KEY = 'sjv-ui-preferences-v1'
 const MANAGED_WINDOWS_LAYOUT_STORAGE_KEY = 'sjv-managed-windows-layout-v1'
 const APP_VERSION_LABEL = 'MVP Beta'
 const APP_COPYRIGHT_LABEL = 'Willams Sousa'
@@ -261,6 +274,15 @@ const DARK_NODE_COLOR_PRESETS = [
 ]
 const LIGHT_TEXT_COLOR_PRESETS = ['#0f172a', '#1e293b', '#334155', '#475569', '#64748b', '#ffffff']
 const DARK_TEXT_COLOR_PRESETS = ['#ffffff', '#f8fafc', '#e2e8f0', '#cbd5e1', '#94a3b8', '#0f172a']
+const CUSTOM_CHROME_COLOR_FIELDS: Array<{ key: keyof UiChromeCustomColors; label: string }> = [
+  { key: 'shellBackground', label: 'Shell background' },
+  { key: 'panelBackground', label: 'Panel background' },
+  { key: 'controlBackground', label: 'Control background' },
+  { key: 'accentColor', label: 'Accent' },
+  { key: 'textColor', label: 'Text' },
+  { key: 'mutedTextColor', label: 'Muted text' },
+  { key: 'borderColor', label: 'Border' },
+]
 
 const MonacoEditor = lazy(() => import('@monaco-editor/react'))
 const NODE_PALETTE_CATEGORIES = Object.entries(nodePresetsByCategory).map(
@@ -303,26 +325,12 @@ type PresentationSurface = 'journey' | 'sequence'
 type FileWriteMode = 'prompt' | 'reuse'
 type StepDragState = { journeyId: string; edgeId: string }
 type HelpSection = 'guide' | 'gallery' | 'about'
-type ToolbarSectionId = 'navigation' | 'editing' | 'viewport' | 'panels' | 'modes'
-type UiDensity = 'comfortable' | 'compact'
 type SupabaseAuthDraft = {
   email: string
   password: string
 }
 type CommandPaletteActionItem = CommandPaletteItem & {
   run: () => void
-}
-
-type UiPreferences = {
-  tooltipsEnabled: boolean
-  splashEnabled: boolean
-  nodeDepthEffectsEnabled: boolean
-  performanceModeEnabled: boolean
-  minimapEnabled: boolean
-  statusBarEnabled: boolean
-  showcaseLocale: ShowcaseLocale
-  density: UiDensity
-  toolbarVisibility: Record<ToolbarSectionId, boolean>
 }
 
 const resolveInitialAppShellMode = (): AppShellMode => {
@@ -422,70 +430,6 @@ const isManagedDockTab = (tab: DockTab): tab is ManagedWindowId =>
     tab as ManagedWindowId,
   )
 const HISTORY_LIMIT = 120
-const DEFAULT_UI_PREFERENCES: UiPreferences = {
-  tooltipsEnabled: true,
-  splashEnabled: true,
-  nodeDepthEffectsEnabled: false,
-  performanceModeEnabled: false,
-  minimapEnabled: true,
-  statusBarEnabled: true,
-  showcaseLocale: 'en',
-  density: 'compact',
-  toolbarVisibility: {
-    navigation: true,
-    editing: true,
-    viewport: true,
-    panels: true,
-    modes: true,
-  },
-}
-
-const resolveInitialUiPreferences = (): UiPreferences => {
-  if (typeof window === 'undefined') {
-    return DEFAULT_UI_PREFERENCES
-  }
-  try {
-    const raw = window.localStorage.getItem(UI_PREFERENCES_STORAGE_KEY)
-    if (!raw) {
-      return DEFAULT_UI_PREFERENCES
-    }
-    const parsed = JSON.parse(raw) as Partial<UiPreferences>
-    return {
-      tooltipsEnabled: parsed.tooltipsEnabled ?? DEFAULT_UI_PREFERENCES.tooltipsEnabled,
-      splashEnabled: parsed.splashEnabled ?? DEFAULT_UI_PREFERENCES.splashEnabled,
-      nodeDepthEffectsEnabled:
-        parsed.nodeDepthEffectsEnabled ?? DEFAULT_UI_PREFERENCES.nodeDepthEffectsEnabled,
-      performanceModeEnabled:
-        parsed.performanceModeEnabled ?? DEFAULT_UI_PREFERENCES.performanceModeEnabled,
-      minimapEnabled:
-        parsed.minimapEnabled ?? DEFAULT_UI_PREFERENCES.minimapEnabled,
-      statusBarEnabled:
-        parsed.statusBarEnabled ?? DEFAULT_UI_PREFERENCES.statusBarEnabled,
-      showcaseLocale:
-        parsed.showcaseLocale === 'pt' || parsed.showcaseLocale === 'en'
-          ? parsed.showcaseLocale
-          : DEFAULT_UI_PREFERENCES.showcaseLocale,
-      density:
-        parsed.density === 'compact' || parsed.density === 'comfortable'
-          ? parsed.density
-          : DEFAULT_UI_PREFERENCES.density,
-      toolbarVisibility: {
-        navigation:
-          parsed.toolbarVisibility?.navigation ?? DEFAULT_UI_PREFERENCES.toolbarVisibility.navigation,
-        editing:
-          parsed.toolbarVisibility?.editing ?? DEFAULT_UI_PREFERENCES.toolbarVisibility.editing,
-        viewport:
-          parsed.toolbarVisibility?.viewport ?? DEFAULT_UI_PREFERENCES.toolbarVisibility.viewport,
-        panels:
-          parsed.toolbarVisibility?.panels ?? DEFAULT_UI_PREFERENCES.toolbarVisibility.panels,
-        modes:
-          parsed.toolbarVisibility?.modes ?? DEFAULT_UI_PREFERENCES.toolbarVisibility.modes,
-      },
-    }
-  } catch {
-    return DEFAULT_UI_PREFERENCES
-  }
-}
 
 const createBaselineManagedWindowsState = (topbarHeight: number): ManagedWindowsState =>
   dockManagedWindowState(createManagedWindowsState(createDefaultManagedWindowRects(topbarHeight)), 'palette', 'left')
@@ -1205,10 +1149,27 @@ function App() {
       statusBarVisible,
     ],
   )
+  const uiAppearanceStyle = useMemo(
+    () => resolveUiPreferenceCssVariables(uiPreferences),
+    [uiPreferences],
+  )
+  const appLayoutStyle = useMemo<CSSProperties>(
+    () => ({
+      ...layoutStyle,
+      ...uiAppearanceStyle,
+    }),
+    [layoutStyle, uiAppearanceStyle],
+  )
 
   const playerAnimationPreset = useMemo(
     () => resolvePlayerAnimationPreset(playerTrailEnabled, playerHighlightNodes),
     [playerHighlightNodes, playerTrailEnabled],
+  )
+  const renderAppIcon = useCallback(
+    (id: AppIconId, size = 13): ReactNode => (
+      <AppIcon id={id} iconSet={uiPreferences.iconSet} size={size} />
+    ),
+    [uiPreferences.iconSet],
   )
   const withTooltip = useCallback(
     (label: string): string | undefined =>
@@ -1691,6 +1652,31 @@ function App() {
       },
     }))
   }, [])
+  const setUiFontScalePreference = useCallback((fontScale: UiFontScale) => {
+    setUiPreferences((current) => ({
+      ...current,
+      fontScale,
+    }))
+  }, [])
+  const setChromeThemePreference = useCallback((chromeThemeId: ChromeThemeId) => {
+    setUiPreferences((current) => ({
+      ...current,
+      chromeThemeId,
+    }))
+  }, [])
+  const updateCustomChromeColor = useCallback(
+    (colorKey: keyof UiChromeCustomColors, value: string) => {
+      setUiPreferences((current) => ({
+        ...current,
+        chromeThemeId: 'custom',
+        customChromeColors: {
+          ...current.customChromeColors,
+          [colorKey]: value,
+        },
+      }))
+    },
+    [],
+  )
 
   const openPreferencesWindow = () => {
     openManagedFloatingWindow('preferences')
@@ -3564,7 +3550,7 @@ function App() {
       window.removeEventListener('resize', updateTopbarHeight)
       observer?.disconnect()
     }
-  }, [hasVisibleToolbarSection, presentationMode, uiPreferences.toolbarVisibility])
+  }, [hasVisibleToolbarSection, presentationMode, uiPreferences.fontScale, uiPreferences.toolbarVisibility])
 
   useEffect(() => {
     const canvasPanel = canvasPanelRef.current
@@ -4966,6 +4952,113 @@ function App() {
           </select>
         </label>
       </PanelGroup>
+      <PanelGroup title="Appearance">
+        <label className="preferences-select">
+          UI font size
+          <select
+            value={uiPreferences.fontScale}
+            onChange={(event) =>
+              setUiFontScalePreference(event.target.value as UiFontScale)
+            }
+          >
+            <option value="small">Small</option>
+            <option value="normal">Normal</option>
+            <option value="large">Large</option>
+          </select>
+        </label>
+        <label className="preferences-select">
+          Icon set
+          <select
+            value={uiPreferences.iconSet}
+            onChange={(event) =>
+              setUiPreferences((current) => ({
+                ...current,
+                iconSet: event.target.value as typeof current.iconSet,
+              }))
+            }
+          >
+            {APP_ICON_SET_OPTIONS.map((option) => (
+              <option key={option.id} value={option.id}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <div className="preferences-theme-grid" role="list" aria-label="Chrome color themes">
+          {CHROME_THEME_PRESETS.map((preset) => (
+            <button
+              key={preset.id}
+              type="button"
+              role="listitem"
+              className={
+                uiPreferences.chromeThemeId === preset.id
+                  ? 'preferences-theme-card preferences-theme-card-active'
+                  : 'preferences-theme-card'
+              }
+              onClick={() => setChromeThemePreference(preset.id)}
+              title={withTooltip(preset.description)}
+            >
+              <span className="preferences-theme-swatches" aria-hidden="true">
+                <span style={{ background: preset.colors.shellBackground }} />
+                <span style={{ background: preset.colors.panelBackground }} />
+                <span style={{ background: preset.colors.accentColor }} />
+              </span>
+              <span className="preferences-theme-copy">
+                <strong>{preset.label}</strong>
+                <span>{preset.description}</span>
+              </span>
+            </button>
+          ))}
+          <button
+            type="button"
+            role="listitem"
+            className={
+              uiPreferences.chromeThemeId === 'custom'
+                ? 'preferences-theme-card preferences-theme-card-active'
+                : 'preferences-theme-card'
+            }
+            onClick={() => setChromeThemePreference('custom')}
+          >
+            <span className="preferences-theme-swatches" aria-hidden="true">
+              <span style={{ background: uiPreferences.customChromeColors.shellBackground }} />
+              <span style={{ background: uiPreferences.customChromeColors.panelBackground }} />
+              <span style={{ background: uiPreferences.customChromeColors.accentColor }} />
+            </span>
+            <span className="preferences-theme-copy">
+              <strong>Custom</strong>
+              <span>Edit the chrome color tokens below.</span>
+            </span>
+          </button>
+        </div>
+        <fieldset className="preferences-fieldset preferences-color-fieldset">
+          <legend>Custom chrome colors</legend>
+          <div className="preferences-color-grid">
+            {CUSTOM_CHROME_COLOR_FIELDS.map((field) => (
+              <label key={field.key} className="preferences-color-control">
+                <span>{field.label}</span>
+                <input
+                  type="color"
+                  value={uiPreferences.customChromeColors[field.key]}
+                  onChange={(event) => updateCustomChromeColor(field.key, event.target.value)}
+                />
+              </label>
+            ))}
+          </div>
+          <button
+            type="button"
+            className="preferences-inline-action"
+            onClick={() =>
+              setUiPreferences((current) => ({
+                ...current,
+                chromeThemeId: 'custom',
+                customChromeColors: DEFAULT_CUSTOM_CHROME_COLORS,
+              }))
+            }
+          >
+            Reset custom colors
+          </button>
+        </fieldset>
+      </PanelGroup>
       <PanelGroup title="Toolbar sections">
         <label className="preferences-toggle">
           <input
@@ -5164,7 +5257,9 @@ function App() {
   const palettePanelContent = (
     <PalettePanel
       categories={NODE_PALETTE_CATEGORIES}
-      renderPresetIcon={(preset) => iconForKey(preset.iconKey)}
+      renderPresetIcon={(preset) => (
+        <PresetIcon iconKey={preset.iconKey} iconSet={uiPreferences.iconSet} size={16} />
+      )}
     />
   )
 
@@ -5178,13 +5273,13 @@ function App() {
     preferences: 'Preferences',
   }
   const dockIconByTab: Record<DockTab, ReactNode> = {
-    palette: <PanelLeftOpen size={13} />,
-    inspector: <SlidersHorizontal size={13} />,
-    journeys: <Workflow size={13} />,
-    timeline: <ListOrdered size={13} />,
-    dsl: <Code2 size={13} />,
-    help: <CircleHelp size={13} />,
-    preferences: <SlidersHorizontal size={13} />,
+    palette: renderAppIcon('panel-left-open'),
+    inspector: renderAppIcon('sliders'),
+    journeys: renderAppIcon('workflow'),
+    timeline: renderAppIcon('list-ordered'),
+    dsl: renderAppIcon('code'),
+    help: renderAppIcon('help'),
+    preferences: renderAppIcon('sliders'),
   }
   const legacyDockTabOrder = dockTabOrder.filter((tab) => !isManagedDockTab(tab)) as DockTab[]
   const resolvedActiveDockTab = dockTabOrder.includes(activeDockTab) ? activeDockTab : dockTabOrder[0]
@@ -5505,14 +5600,14 @@ function App() {
       <span className="dock-tab-spacer" />
       {legacyDockShellAvailable ? (
         <div className="dock-placement-actions">
-          <button
-            type="button"
-            className={dockPosition === 'left' ? 'dock-placement dock-placement-active' : 'dock-placement'}
+        <button
+          type="button"
+          className={dockPosition === 'left' ? 'dock-placement dock-placement-active' : 'dock-placement'}
             onClick={() => moveDockToLeft()}
             title={withTooltip('Dock left')}
-            aria-label="Dock left"
-          >
-            <PanelLeftOpen size={14} />
+          aria-label="Dock left"
+        >
+            {renderAppIcon('panel-left-open', 14)}
           </button>
           <button
             type="button"
@@ -5521,7 +5616,7 @@ function App() {
             title={withTooltip('Dock right')}
             aria-label="Dock right"
           >
-            <PanelRightOpen size={14} />
+            {renderAppIcon('panel-right-open', 14)}
           </button>
           <button
             type="button"
@@ -5530,7 +5625,7 @@ function App() {
             title={withTooltip('Dock bottom')}
             aria-label="Dock bottom"
           >
-            <PanelBottomOpen size={14} />
+            {renderAppIcon('panel-bottom-open', 14)}
           </button>
           <button
             type="button"
@@ -5539,7 +5634,7 @@ function App() {
             title={withTooltip('Floating dock')}
             aria-label="Floating dock"
           >
-            <Dock size={14} />
+            {renderAppIcon('dock', 14)}
           </button>
         </div>
       ) : null}
@@ -5593,7 +5688,7 @@ function App() {
           title={withTooltip(`Dock ${dockLabelByTab[activeWindowId]} left`)}
           aria-label={`Dock ${dockLabelByTab[activeWindowId]} left`}
         >
-          <PanelLeftOpen size={14} />
+          {renderAppIcon('panel-left-open', 14)}
         </button>
         <button
           type="button"
@@ -5602,7 +5697,7 @@ function App() {
           title={withTooltip(`Dock ${dockLabelByTab[activeWindowId]} right`)}
           aria-label={`Dock ${dockLabelByTab[activeWindowId]} right`}
         >
-          <PanelRightOpen size={14} />
+          {renderAppIcon('panel-right-open', 14)}
         </button>
         <button
           type="button"
@@ -5611,7 +5706,7 @@ function App() {
           title={withTooltip(`Dock ${dockLabelByTab[activeWindowId]} bottom`)}
           aria-label={`Dock ${dockLabelByTab[activeWindowId]} bottom`}
         >
-          <PanelBottomOpen size={14} />
+          {renderAppIcon('panel-bottom-open', 14)}
         </button>
         <button
           type="button"
@@ -5620,7 +5715,7 @@ function App() {
           title={withTooltip(`Float ${dockLabelByTab[activeWindowId]}`)}
           aria-label={`Float ${dockLabelByTab[activeWindowId]}`}
         >
-          <Dock size={14} />
+          {renderAppIcon('dock', 14)}
         </button>
         <button
           type="button"
@@ -5629,7 +5724,7 @@ function App() {
           title={withTooltip(`Close ${dockLabelByTab[activeWindowId]}`)}
           aria-label={`Close ${dockLabelByTab[activeWindowId]}`}
         >
-          <X size={14} />
+          {renderAppIcon('close', 14)}
         </button>
       </span>
     ) : null
@@ -5735,7 +5830,7 @@ function App() {
         title={withTooltip('Floating window')}
         aria-label="Keep floating"
       >
-        <Dock size={14} />
+        {renderAppIcon('dock', 14)}
       </button>
       <button
         type="button"
@@ -5744,7 +5839,7 @@ function App() {
         title={withTooltip('Dock left')}
         aria-label="Dock left"
       >
-        <PanelLeftOpen size={14} />
+        {renderAppIcon('panel-left-open', 14)}
       </button>
       <button
         type="button"
@@ -5753,7 +5848,7 @@ function App() {
         title={withTooltip('Dock right')}
         aria-label="Dock right"
       >
-        <PanelRightOpen size={14} />
+        {renderAppIcon('panel-right-open', 14)}
       </button>
       <button
         type="button"
@@ -5762,7 +5857,7 @@ function App() {
         title={withTooltip('Dock bottom')}
         aria-label="Dock bottom"
       >
-        <PanelBottomOpen size={14} />
+        {renderAppIcon('panel-bottom-open', 14)}
       </button>
     </span>
   )
@@ -5865,7 +5960,7 @@ function App() {
     {
       id: 'palette',
       label: 'Palette',
-      icon: <PanelLeftOpen size={12} />,
+      icon: renderAppIcon('panel-left-open', 12),
       active: paletteWindowOpen,
       title: withTooltip(paletteWindowOpen ? 'Palette is open' : 'Open palette panel'),
       onClick: () => openManagedDockedWindowFromDockTab('palette'),
@@ -5873,7 +5968,7 @@ function App() {
     {
       id: 'tool',
       label: activeTool === 'connector' ? 'Connector' : 'Select',
-      icon: activeTool === 'connector' ? <Link2 size={12} /> : <MousePointer size={12} />,
+      icon: activeTool === 'connector' ? renderAppIcon('link', 12) : renderAppIcon('pointer', 12),
       active: activeTool === 'connector',
       title: withTooltip(activeTool === 'connector' ? 'Switch to select tool' : 'Switch to connector tool'),
       onClick: () => setActiveTool(activeTool === 'connector' ? 'select' : 'connector'),
@@ -5881,14 +5976,14 @@ function App() {
     {
       id: 'fit',
       label: 'Fit',
-      icon: <Target size={12} />,
+      icon: renderAppIcon('target', 12),
       title: withTooltip('Fit view to canvas'),
       onClick: () => fitCurrentViewToCanvas(),
     },
     {
       id: 'grid',
       label: 'Grid',
-      icon: <Grid3X3 size={12} />,
+      icon: renderAppIcon('grid', 12),
       active: gridEnabled,
       title: withTooltip(gridEnabled ? 'Hide grid' : 'Show grid'),
       onClick: () => setGridEnabled(!gridEnabled),
@@ -5896,7 +5991,7 @@ function App() {
     {
       id: 'snap',
       label: 'Snap',
-      icon: <Magnet size={12} />,
+      icon: renderAppIcon('magnet', 12),
       active: snapEnabled,
       title: withTooltip(snapEnabled ? 'Disable snap' : 'Enable snap'),
       onClick: () => setSnapEnabled(!snapEnabled),
@@ -5904,7 +5999,7 @@ function App() {
     {
       id: 'minimap',
       label: 'Minimap',
-      icon: <Grid3X3 size={12} />,
+      icon: renderAppIcon('grid', 12),
       active: uiPreferences.minimapEnabled,
       title: withTooltip(uiPreferences.minimapEnabled ? 'Hide minimap' : 'Show minimap'),
       onClick: () =>
@@ -5916,7 +6011,7 @@ function App() {
     {
       id: 'performance',
       label: 'Performance',
-      icon: <Sparkles size={12} />,
+      icon: renderAppIcon('sparkles', 12),
       active: uiPreferences.performanceModeEnabled,
       title: withTooltip(
         uiPreferences.performanceModeEnabled ? 'Disable performance mode' : 'Enable performance mode',
@@ -5930,14 +6025,14 @@ function App() {
     {
       id: 'search',
       label: 'Search',
-      icon: <Search size={12} />,
+      icon: renderAppIcon('search', 12),
       title: withTooltip('Open command palette'),
       onClick: () => openCommandPalette(),
     },
     {
       id: 'hide-status',
       label: 'Hide',
-      icon: <PanelBottomClose size={12} />,
+      icon: renderAppIcon('panel-bottom-close', 12),
       title: withTooltip('Hide status bar'),
       onClick: () =>
         setUiPreferences((current) => ({
@@ -6107,7 +6202,7 @@ function App() {
                               >
                                 <span className="topbar-cloud-script-row-copy">
                                   <span className="topbar-cloud-script-row-chip">
-                                    <Code2 size={12} />
+                                    {renderAppIcon('code', 12)}
                                     Script
                                   </span>
                                   <strong>{script.title}</strong>
@@ -6580,9 +6675,10 @@ function App() {
   if (appShellMode === 'mobile') {
     return (
       <div
-        className={`mobile-app app-layout-density-${uiPreferences.density} ${
+        className={`mobile-app app-layout-density-${uiPreferences.density} app-layout-font-${uiPreferences.fontScale} app-chrome-theme-${uiPreferences.chromeThemeId} app-icon-set-${uiPreferences.iconSet} ${
           theme === 'dark' ? 'theme-dark' : 'theme-light'
         } ${uiPreferences.performanceModeEnabled ? 'app-layout-performance' : ''}`}
+        style={uiAppearanceStyle}
       >
         <input
           ref={snapshotFileInputRef}
@@ -6792,10 +6888,12 @@ function App() {
       ref={layoutRef}
       className={`app-layout ${focusMode ? 'app-layout-focus' : ''} ${
         presentationMode ? 'app-layout-presentation' : ''
-      } app-layout-density-${uiPreferences.density} ${theme === 'dark' ? 'theme-dark' : 'theme-light'} ${
+      } app-layout-density-${uiPreferences.density} app-layout-font-${uiPreferences.fontScale} app-chrome-theme-${uiPreferences.chromeThemeId} app-icon-set-${uiPreferences.iconSet} ${
+        theme === 'dark' ? 'theme-dark' : 'theme-light'
+      } ${
         uiPreferences.performanceModeEnabled ? 'app-layout-performance' : ''
       }`}
-      style={layoutStyle}
+      style={appLayoutStyle}
     >
       <input
         ref={snapshotFileInputRef}
@@ -8315,7 +8413,7 @@ function App() {
                     title={withTooltip('Select and move nodes or edges')}
                     aria-label="Select mode"
                   >
-                    <MousePointer size={13} />
+                    {renderAppIcon('pointer')}
                     <span className="toolbar-button-label">Select</span>
                     <kbd className="toolbar-button-shortcut">V</kbd>
                   </button>
@@ -8333,7 +8431,7 @@ function App() {
                     title={withTooltip('Connect nodes by dragging from one port to another')}
                     aria-label="Connector mode"
                   >
-                    <Link2 size={13} />
+                    {renderAppIcon('link')}
                     <span className="toolbar-button-label">Connect</span>
                     <kbd className="toolbar-button-shortcut">C</kbd>
                   </button>
@@ -8347,7 +8445,7 @@ function App() {
                     onClick={() => toggleLeftSidebar()}
                     title={withTooltip(paletteWindowOpen ? 'Hide palette' : 'Show palette')}
                   >
-                    {paletteWindowOpen ? <PanelLeftClose size={15} /> : <PanelLeftOpen size={15} />}
+                    {paletteWindowOpen ? renderAppIcon('panel-left-close', 15) : renderAppIcon('panel-left-open', 15)}
                   </button>
                   {legacyDockShellAvailable ? (
                     <button
@@ -8358,22 +8456,22 @@ function App() {
                     >
                       {dockPosition === 'bottom' ? (
                         dockCollapsed ? (
-                          <PanelBottomOpen size={15} />
+                          renderAppIcon('panel-bottom-open', 15)
                         ) : (
-                          <PanelBottomClose size={15} />
+                          renderAppIcon('panel-bottom-close', 15)
                         )
                       ) : dockPosition === 'floating' ? (
-                        <Dock size={15} />
+                        renderAppIcon('dock', 15)
                       ) : dockPosition === 'left' ? (
                         dockCollapsed ? (
-                          <PanelLeftOpen size={15} />
+                          renderAppIcon('panel-left-open', 15)
                         ) : (
-                          <PanelLeftClose size={15} />
+                          renderAppIcon('panel-left-close', 15)
                         )
                       ) : dockCollapsed ? (
-                        <PanelRightOpen size={15} />
+                        renderAppIcon('panel-right-open', 15)
                       ) : (
-                        <PanelRightClose size={15} />
+                        renderAppIcon('panel-right-close', 15)
                       )}
                     </button>
                   ) : null}
@@ -8383,7 +8481,7 @@ function App() {
                     onClick={() => toggleWorkbench()}
                     title={withTooltip(drawerCollapsed ? 'Show workbench' : 'Hide workbench')}
                   >
-                    {drawerCollapsed ? <PanelBottomOpen size={15} /> : <PanelBottomClose size={15} />}
+                    {drawerCollapsed ? renderAppIcon('panel-bottom-open', 15) : renderAppIcon('panel-bottom-close', 15)}
                   </button>
                   {!immersiveMode ? dockHeaderBar : null}
                 </div>
@@ -8397,7 +8495,7 @@ function App() {
                     title={withTooltip('Toggle focus mode')}
                     aria-label={focusMode ? 'Exit focus mode' : 'Focus mode'}
                   >
-                    <Target size={13} />
+                    {renderAppIcon('target')}
                     <span className="toolbar-button-label">{focusMode ? 'Exit focus' : 'Focus'}</span>
                     <kbd className="toolbar-button-shortcut">F</kbd>
                   </button>
@@ -8408,7 +8506,7 @@ function App() {
                     title={withTooltip('Toggle presentation mode')}
                     aria-label={presentationMode ? 'Exit presentation mode' : 'Presentation mode'}
                   >
-                    <Presentation size={13} />
+                    {renderAppIcon('presentation')}
                     <span className="toolbar-button-label">
                       {presentationMode ? 'Exit presentation' : 'Present'}
                     </span>
@@ -8570,7 +8668,7 @@ function App() {
               title={withTooltip('Select and move')}
               aria-label="Select tool"
             >
-              <MousePointer size={16} />
+              {renderAppIcon('pointer', 16)}
             </button>
             <button
               type="button"
@@ -8579,7 +8677,7 @@ function App() {
               title={withTooltip('Connect nodes')}
               aria-label="Connector tool"
             >
-              <Link2 size={16} />
+              {renderAppIcon('link', 16)}
             </button>
             <span className="canvas-tool-divider" aria-hidden="true" />
             <button
@@ -8589,7 +8687,7 @@ function App() {
               title={withTooltip('Open palette')}
               aria-label="Open palette"
             >
-              <PanelLeftOpen size={16} />
+              {renderAppIcon('panel-left-open', 16)}
             </button>
             <button
               type="button"
@@ -8598,7 +8696,7 @@ function App() {
               title={withTooltip('Open inspector')}
               aria-label="Open inspector"
             >
-              <SlidersHorizontal size={16} />
+              {renderAppIcon('sliders', 16)}
             </button>
             <button
               type="button"
@@ -8607,7 +8705,7 @@ function App() {
               title={withTooltip('Open SJV Script')}
               aria-label="Open SJV Script"
             >
-              <Code2 size={16} />
+              {renderAppIcon('code', 16)}
             </button>
             <span className="canvas-tool-divider" aria-hidden="true" />
             <button
@@ -8617,7 +8715,7 @@ function App() {
               title={withTooltip('Fit view')}
               aria-label="Fit view"
             >
-              <Target size={16} />
+              {renderAppIcon('target', 16)}
             </button>
             <button
               type="button"
@@ -8626,7 +8724,7 @@ function App() {
               title={withTooltip(gridEnabled ? 'Hide grid' : 'Show grid')}
               aria-label={gridEnabled ? 'Hide grid' : 'Show grid'}
             >
-              <Grid3X3 size={16} />
+              {renderAppIcon('grid', 16)}
             </button>
             <button
               type="button"
@@ -8635,7 +8733,7 @@ function App() {
               title={withTooltip(snapEnabled ? 'Disable snap' : 'Enable snap')}
               aria-label={snapEnabled ? 'Disable snap' : 'Enable snap'}
             >
-              <Magnet size={16} />
+              {renderAppIcon('magnet', 16)}
             </button>
             <span className="canvas-tool-divider" aria-hidden="true" />
             <button
@@ -8645,7 +8743,7 @@ function App() {
               title={withTooltip('Search commands')}
               aria-label="Search commands"
             >
-              <Search size={16} />
+              {renderAppIcon('search', 16)}
             </button>
           </aside>
         ) : null}
@@ -8668,7 +8766,7 @@ function App() {
                   aria-label="Hide minimap"
                   title={withTooltip('Hide minimap')}
                 >
-                  <X size={11} />
+                  {renderAppIcon('close', 11)}
                 </button>
               </span>
             </div>

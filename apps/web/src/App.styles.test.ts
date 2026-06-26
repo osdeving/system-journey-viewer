@@ -229,6 +229,24 @@ describe('App boundary styles', () => {
     expect(appCss).toMatch(/\.node-depth-fill\s*\{[^}]*opacity:\s*0\.18;[^}]*\}/s)
   })
 
+  it('supports polished chrome themes with UI font scale, custom colors, and light canvas', () => {
+    expect(appCss).toContain('--sjv-ui-font-scale')
+    expect(appCss).toMatch(/\.app-text-size-sm\s*\{[^}]*font-size:\s*var\(--sjv-ui-font-sm,\s*12px\);/s)
+    expect(appCss).toContain('.preferences-theme-grid')
+    expect(appCss).toContain('.preferences-theme-card-active')
+    expect(appCss).toContain('.preferences-color-grid')
+    expect(appCss).toContain('.preferences-color-control')
+    expect(appCss).toMatch(/\.node-note-title\s*\{[^}]*font-weight:\s*400;[^}]*letter-spacing:\s*0;/s)
+    expect(appCss).toContain('.app-chrome-theme-midnight')
+    expect(appCss).toContain('.app-chrome-theme-graphite')
+    expect(appCss).toContain('.app-chrome-theme-teal')
+    expect(appCss).toContain('.app-chrome-theme-custom')
+    expect(appCss).toMatch(/\.app-status-bar\s*\{[^}]*background:\s*#1d4ed8;/s)
+    expect(appCss).toMatch(/\.app-chrome-theme-midnight, \.app-chrome-theme-graphite, \.app-chrome-theme-teal, \.app-chrome-theme-custom\)/)
+    expect(appCss).toContain('background: var(--sjv-shell-status-bg);')
+    expect(appCss).toMatch(/:is\(\.app-chrome-theme-midnight,[^)]+\.app-chrome-theme-custom\)[\s\S]*\.canvas-panel[\s\S]*background:\s*#eef1f5;/)
+  })
+
   it('styles the guided tutorial overlay and help guide actions', () => {
     expect(appCss).toMatch(/\.splash-screen\s*\{[^}]*pointer-events:\s*auto;[^}]*\}/s)
     expect(appCss).toContain('.splash-preview-chip')

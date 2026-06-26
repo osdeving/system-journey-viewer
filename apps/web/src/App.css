@@ -51,22 +51,22 @@
 }
 
 .app-text-size-xs {
-  font-size: 11px;
+  font-size: var(--sjv-ui-font-xs, 11px);
   line-height: 1.25;
 }
 
 .app-text-size-sm {
-  font-size: 12px;
+  font-size: var(--sjv-ui-font-sm, 12px);
   line-height: 1.35;
 }
 
 .app-text-size-md {
-  font-size: 13px;
+  font-size: var(--sjv-ui-font-md, 13px);
   line-height: 1.35;
 }
 
 .app-text-size-lg {
-  font-size: 15px;
+  font-size: var(--sjv-ui-font-lg, 15px);
   line-height: 1.25;
 }
 
@@ -102,6 +102,25 @@
 }
 
 .app-layout {
+  --sjv-ui-font-scale: 1;
+  --sjv-ui-font-xs: calc(11px * var(--sjv-ui-font-scale));
+  --sjv-ui-font-sm: calc(12px * var(--sjv-ui-font-scale));
+  --sjv-ui-font-md: calc(13px * var(--sjv-ui-font-scale));
+  --sjv-ui-font-lg: calc(15px * var(--sjv-ui-font-scale));
+  --sjv-ui-font-xl: calc(16px * var(--sjv-ui-font-scale));
+  --sjv-shell-bg: #101923;
+  --sjv-shell-panel-bg: #17212b;
+  --sjv-shell-panel-bg-alt: #17212bdd;
+  --sjv-shell-control-bg: #22303d;
+  --sjv-shell-control-hover: #22303ddd;
+  --sjv-shell-border: #2c3f50;
+  --sjv-shell-text: #f4f7fb;
+  --sjv-shell-muted: #9fb0c0;
+  --sjv-shell-accent: #58c7f3;
+  --sjv-shell-accent-soft: rgba(88, 199, 243, 0.16);
+  --sjv-shell-accent-border: rgba(88, 199, 243, 0.48);
+  --sjv-shell-status-bg: #101923;
+  --sjv-shell-status-border: #2c3f50;
   --sjv-density-topbar-gap: 8px;
   --sjv-density-topbar-py: 10px;
   --sjv-density-topbar-px: 16px;
@@ -110,13 +129,13 @@
   --sjv-density-menu-trigger-py: 5px;
   --sjv-density-menu-trigger-px: 11px;
   --sjv-density-menu-trigger-radius: 4px;
-  --sjv-density-menu-trigger-font: 12px;
+  --sjv-density-menu-trigger-font: var(--sjv-ui-font-sm);
   --sjv-density-menu-list-gap: 4px;
   --sjv-density-menu-list-pad: 6px;
   --sjv-density-menu-item-py: 7px;
   --sjv-density-menu-item-px: 9px;
   --sjv-density-menu-item-gap: 12px;
-  --sjv-density-control-font: 12px;
+  --sjv-density-control-font: var(--sjv-ui-font-sm);
   --sjv-density-toolbar-gap: 8px;
   --sjv-density-toolbar-group-gap: 8px;
   --sjv-density-toolbar-button-py: 8px;
@@ -159,13 +178,13 @@
   --sjv-density-menu-trigger-py: 4px;
   --sjv-density-menu-trigger-px: 9px;
   --sjv-density-menu-trigger-radius: 4px;
-  --sjv-density-menu-trigger-font: 11px;
+  --sjv-density-menu-trigger-font: var(--sjv-ui-font-xs);
   --sjv-density-menu-list-gap: 3px;
   --sjv-density-menu-list-pad: 5px;
   --sjv-density-menu-item-py: 5px;
   --sjv-density-menu-item-px: 8px;
   --sjv-density-menu-item-gap: 10px;
-  --sjv-density-control-font: 11px;
+  --sjv-density-control-font: var(--sjv-ui-font-xs);
   --sjv-density-toolbar-gap: 6px;
   --sjv-density-toolbar-group-gap: 6px;
   --sjv-density-toolbar-button-py: 6px;
@@ -1913,6 +1932,101 @@ button.topbar-cloud-script-row-delete {
   padding: 0 6px;
 }
 
+.preferences-theme-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(156px, 1fr));
+  gap: calc(var(--sjv-density-toolbar-gap) - 2px);
+}
+
+.preferences-theme-card {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 9px;
+  border: 1px solid #d5deeb;
+  border-radius: 6px;
+  padding: 8px;
+  background: rgba(248, 250, 252, 0.9);
+  color: #334155;
+  text-align: left;
+  cursor: pointer;
+}
+
+.preferences-theme-card-active {
+  border-color: #38bdf8;
+  background: rgba(224, 242, 254, 0.8);
+  box-shadow: 0 0 0 1px rgba(56, 189, 248, 0.18);
+}
+
+.preferences-theme-swatches {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  overflow: hidden;
+  border-radius: 6px;
+  border: 1px solid rgba(15, 23, 42, 0.18);
+}
+
+.preferences-theme-copy {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.preferences-theme-copy strong,
+.preferences-theme-copy span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.preferences-theme-copy strong {
+  font-size: var(--sjv-ui-font-sm);
+  color: inherit;
+}
+
+.preferences-theme-copy span {
+  font-size: var(--sjv-ui-font-xs);
+  color: #64748b;
+}
+
+.preferences-color-fieldset {
+  gap: var(--sjv-density-toolbar-gap);
+}
+
+.preferences-color-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(126px, 1fr));
+  gap: calc(var(--sjv-density-toolbar-gap) - 2px);
+}
+
+.preferences-color-control {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 32px;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--sjv-density-control-font);
+  color: #334155;
+}
+
+.preferences-color-control span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.preferences-color-control input[type='color'] {
+  width: 32px;
+  height: 26px;
+  padding: 2px;
+  border: 1px solid #cbd5e1;
+  border-radius: 5px;
+  background: #ffffff;
+}
+
 .preferences-status {
   margin: 0;
   font-size: 12px;
@@ -3505,7 +3619,9 @@ button.topbar-cloud-script-row-delete {
 
 .node-note-title {
   font-size: 13px;
-  letter-spacing: 0.01em;
+  font-weight: 400;
+  letter-spacing: 0;
+  fill: #563f10;
 }
 
 .note-link {
@@ -6219,6 +6335,267 @@ button.help-gallery-icon-button {
 .theme-dark .edge-step-badge {
   stroke: rgba(15, 23, 42, 0.5);
   filter: drop-shadow(0 0 6px rgba(15, 23, 42, 0.4));
+}
+
+.theme-dark .node-note-title {
+  font-weight: 400;
+  fill: #fff7d6;
+}
+
+:is(.app-chrome-theme-midnight, .app-chrome-theme-graphite, .app-chrome-theme-teal, .app-chrome-theme-custom) {
+  background: var(--sjv-shell-bg);
+  color: var(--sjv-shell-text);
+  --sjv-canvas-bg: #eef1f5;
+  --sjv-grid-line: rgba(100, 116, 139, 0.16);
+}
+
+:is(.app-chrome-theme-midnight, .app-chrome-theme-graphite, .app-chrome-theme-teal, .app-chrome-theme-custom)
+  :is(.topbar, .desktop-menu-bar, .managed-host-sidebar, .managed-host-bottom, .journey-drawer, .mobile-topbar, .mobile-panel-shell) {
+  background: var(--sjv-shell-bg);
+  border-color: var(--sjv-shell-border);
+  color: var(--sjv-shell-text);
+}
+
+:is(.app-chrome-theme-midnight, .app-chrome-theme-graphite, .app-chrome-theme-teal, .app-chrome-theme-custom)
+  :is(.managed-host-sidebar-left, .managed-host-sidebar-right, .managed-host-bottom) {
+  padding: 0;
+  background: var(--sjv-shell-panel-bg);
+}
+
+:is(.app-chrome-theme-midnight, .app-chrome-theme-graphite, .app-chrome-theme-teal, .app-chrome-theme-custom)
+  .managed-host-sidebar-left {
+  border-right-color: var(--sjv-shell-border);
+}
+
+:is(.app-chrome-theme-midnight, .app-chrome-theme-graphite, .app-chrome-theme-teal, .app-chrome-theme-custom)
+  .managed-host-sidebar-right {
+  border-left-color: var(--sjv-shell-border);
+}
+
+:is(.app-chrome-theme-midnight, .app-chrome-theme-graphite, .app-chrome-theme-teal, .app-chrome-theme-custom)
+  :is(.dock-host, .managed-host-sidebar-left .dock-host, .managed-host-sidebar-right .dock-host, .managed-host-bottom .dock-host) {
+  gap: 10px;
+  padding: 10px 6px;
+  background: var(--sjv-shell-panel-bg);
+  color: var(--sjv-shell-text);
+}
+
+:is(.app-chrome-theme-midnight, .app-chrome-theme-graphite, .app-chrome-theme-teal, .app-chrome-theme-custom)
+  :is(.dock-host-body, .managed-host-sidebar-left .dock-host-body, .managed-host-sidebar-right .dock-host-body) {
+  padding: 0 4px 10px;
+}
+
+:is(.app-chrome-theme-midnight, .app-chrome-theme-graphite, .app-chrome-theme-teal, .app-chrome-theme-custom)
+  :is(.desktop-menu-list, .topbar-cloud-panel, .command-palette, .floating-window, .floating-dock-window, .preferences-window) {
+  background: var(--sjv-shell-panel-bg);
+  border-color: var(--sjv-shell-border);
+  color: var(--sjv-shell-text);
+  box-shadow: 0 18px 40px rgba(2, 6, 23, 0.42);
+}
+
+:is(.app-chrome-theme-midnight, .app-chrome-theme-graphite, .app-chrome-theme-teal, .app-chrome-theme-custom)
+  :is(.floating-window-header, .floating-dock-header, .preferences-window .floating-window-header) {
+  background: var(--sjv-shell-bg);
+  border-bottom-color: var(--sjv-shell-border);
+  color: var(--sjv-shell-text);
+}
+
+:is(.app-chrome-theme-midnight, .app-chrome-theme-graphite, .app-chrome-theme-teal, .app-chrome-theme-custom)
+  :is(.dock-panel, .dsl-panel, .help-panel, .journey-side-group) {
+  background: var(--sjv-shell-panel-bg);
+  border-color: var(--sjv-shell-border);
+  box-shadow: none;
+}
+
+:is(.app-chrome-theme-midnight, .app-chrome-theme-graphite, .app-chrome-theme-teal, .app-chrome-theme-custom)
+  :is(
+    .desktop-menu-trigger,
+    .desktop-menu-list button,
+    .topbar-actions button,
+    .topbar-cloud-panel button,
+    .dock-tab,
+    .dock-placement,
+    .drawer-tab,
+    .drawer-maximize-button,
+    .preferences-inline-action,
+    .preferences-select select,
+    .preferences-select input,
+    .preferences-color-control input[type='color'],
+    .inspector-form input,
+    .inspector-form textarea,
+    .inspector-form select,
+    .inspector-form button,
+    .journey-side-create input,
+    .journey-side-create button,
+    .journey-side-filter select,
+    .journey-side-filter button,
+    .journey-side-player select,
+    .journey-player-actions button,
+    .journey-toolbar input,
+    .journey-toolbar select,
+    .journey-toolbar button,
+    .dsl-toolbar button,
+    .help-section-tab,
+    .help-guide-actions button,
+    .help-gallery-actions button,
+    .help-gallery-card-actions button,
+    .help-gallery-card-actions a,
+    .mobile-toolbar-button,
+    .mobile-panel-tab,
+    .mobile-panel-toggle
+  ) {
+  background: var(--sjv-shell-control-bg);
+  border-color: var(--sjv-shell-border);
+  color: var(--sjv-shell-text);
+}
+
+:is(.app-chrome-theme-midnight, .app-chrome-theme-graphite, .app-chrome-theme-teal, .app-chrome-theme-custom)
+  :is(.desktop-menu-trigger:hover, .desktop-menu-list button:hover, .topbar-actions button:hover, .dock-tab:hover, .dock-placement:hover, .canvas-tool-button:hover) {
+  border-color: var(--sjv-shell-accent-border);
+  background: var(--sjv-shell-control-hover);
+  color: var(--sjv-shell-text);
+  box-shadow: none;
+}
+
+:is(.app-chrome-theme-midnight, .app-chrome-theme-graphite, .app-chrome-theme-teal, .app-chrome-theme-custom)
+  :is(.desktop-menu-open .desktop-menu-trigger, .dock-tab-active, .dock-placement-active, .drawer-tab-active, .help-section-tab-active, .tool-active, .focus-toggle-button) {
+  border-color: var(--sjv-shell-accent-border);
+  background: var(--sjv-shell-accent-soft);
+  color: var(--sjv-shell-text);
+}
+
+:is(.app-chrome-theme-midnight, .app-chrome-theme-graphite, .app-chrome-theme-teal, .app-chrome-theme-custom)
+  :is(.app-text-tone-muted, .palette-browser-description, .preferences-status, .topbar p, .player-step-info, .command-palette-copy span, .command-palette-meta, .topbar-cloud-hint, .topbar-cloud-status) {
+  color: var(--sjv-shell-muted);
+}
+
+:is(.app-chrome-theme-midnight, .app-chrome-theme-graphite, .app-chrome-theme-teal, .app-chrome-theme-custom)
+  :is(.app-text-tone-strong, .palette-browser-title, .palette-section-title, .toolbox-item-label, .floating-window-header strong, .panel-group-title, .preferences-toggle, .preferences-select, .preferences-fieldset legend, .inspector-form label, .journey-side-group h3, .topbar-cloud-command-label, .topbar-cloud-section-title) {
+  color: var(--sjv-shell-text);
+}
+
+:is(.app-chrome-theme-midnight, .app-chrome-theme-graphite, .app-chrome-theme-teal, .app-chrome-theme-custom)
+  :is(.desktop-menu-item-icon, .dock-tab-icon, .panel-group-toggle-icon, .app-status-bar-icon) {
+  color: var(--sjv-shell-muted);
+}
+
+:is(.app-chrome-theme-midnight, .app-chrome-theme-graphite, .app-chrome-theme-teal, .app-chrome-theme-custom)
+  .toolbar-group + .toolbar-group::before {
+  background: var(--sjv-shell-border);
+}
+
+:is(.app-chrome-theme-midnight, .app-chrome-theme-graphite, .app-chrome-theme-teal, .app-chrome-theme-custom)
+  .topbar-dock-strip {
+  border-left-color: var(--sjv-shell-border);
+}
+
+:is(.app-chrome-theme-midnight, .app-chrome-theme-graphite, .app-chrome-theme-teal, .app-chrome-theme-custom)
+  .palette-preset-card {
+  border-color: var(--sjv-shell-border);
+  background: var(--sjv-shell-panel-bg-alt);
+  color: var(--sjv-shell-text);
+}
+
+:is(.app-chrome-theme-midnight, .app-chrome-theme-graphite, .app-chrome-theme-teal, .app-chrome-theme-custom)
+  .palette-preset-card:hover {
+  border-color: var(--sjv-shell-accent-border);
+  background: var(--sjv-shell-control-hover);
+  box-shadow: none;
+}
+
+:is(.app-chrome-theme-midnight, .app-chrome-theme-graphite, .app-chrome-theme-teal, .app-chrome-theme-custom)
+  .palette-preset-icon {
+  border-color: var(--sjv-shell-border);
+  background: var(--sjv-shell-control-bg);
+  color: var(--sjv-shell-accent);
+}
+
+:is(.app-chrome-theme-midnight, .app-chrome-theme-graphite, .app-chrome-theme-teal, .app-chrome-theme-custom)
+  .palette-search {
+  border-color: var(--sjv-shell-border);
+  background: var(--sjv-shell-bg);
+  color: var(--sjv-shell-muted);
+  box-shadow: none;
+}
+
+:is(.app-chrome-theme-midnight, .app-chrome-theme-graphite, .app-chrome-theme-teal, .app-chrome-theme-custom)
+  .palette-search input {
+  color: var(--sjv-shell-text);
+}
+
+:is(.app-chrome-theme-midnight, .app-chrome-theme-graphite, .app-chrome-theme-teal, .app-chrome-theme-custom)
+  .palette-category-chip {
+  border-color: var(--sjv-shell-border);
+  background: transparent;
+  color: var(--sjv-shell-muted);
+}
+
+:is(.app-chrome-theme-midnight, .app-chrome-theme-graphite, .app-chrome-theme-teal, .app-chrome-theme-custom)
+  .palette-category-chip-active {
+  border-color: var(--sjv-shell-accent-border);
+  background: var(--sjv-shell-accent-soft);
+  color: var(--sjv-shell-text);
+}
+
+:is(.app-chrome-theme-midnight, .app-chrome-theme-graphite, .app-chrome-theme-teal, .app-chrome-theme-custom)
+  .canvas-tools-rail {
+  background: var(--sjv-shell-panel-bg);
+  border-color: var(--sjv-shell-border);
+}
+
+:is(.app-chrome-theme-midnight, .app-chrome-theme-graphite, .app-chrome-theme-teal, .app-chrome-theme-custom)
+  .canvas-tool-button {
+  color: var(--sjv-shell-muted);
+}
+
+:is(.app-chrome-theme-midnight, .app-chrome-theme-graphite, .app-chrome-theme-teal, .app-chrome-theme-custom)
+  .canvas-tool-button-active {
+  border-color: var(--sjv-shell-accent-border);
+  background: var(--sjv-shell-accent-soft);
+  color: var(--sjv-shell-text);
+}
+
+:is(.app-chrome-theme-midnight, .app-chrome-theme-graphite, .app-chrome-theme-teal, .app-chrome-theme-custom)
+  .canvas-tool-divider {
+  background: var(--sjv-shell-border);
+}
+
+:is(.app-chrome-theme-midnight, .app-chrome-theme-graphite, .app-chrome-theme-teal, .app-chrome-theme-custom)
+  .app-status-bar {
+  border-top-color: var(--sjv-shell-status-border);
+  background: var(--sjv-shell-status-bg);
+  color: var(--sjv-shell-text);
+}
+
+:is(.app-chrome-theme-midnight, .app-chrome-theme-graphite, .app-chrome-theme-teal, .app-chrome-theme-custom)
+  .app-status-bar-item {
+  border-right-color: color-mix(in srgb, var(--sjv-shell-border) 72%, transparent);
+}
+
+:is(.app-chrome-theme-midnight, .app-chrome-theme-graphite, .app-chrome-theme-teal, .app-chrome-theme-custom)
+  .app-status-bar-button {
+  border-left-color: color-mix(in srgb, var(--sjv-shell-border) 72%, transparent);
+}
+
+:is(.app-chrome-theme-midnight, .app-chrome-theme-graphite, .app-chrome-theme-teal, .app-chrome-theme-custom)
+  :is(.app-status-bar-button:hover, .app-status-bar-button:focus-visible, .app-status-bar-button-active) {
+  background: var(--sjv-shell-accent-soft);
+  color: var(--sjv-shell-text);
+}
+
+:is(.app-chrome-theme-midnight, .app-chrome-theme-graphite, .app-chrome-theme-teal, .app-chrome-theme-custom)
+  :is(.canvas-panel, .theme-dark .canvas-panel) {
+  background: #eef1f5;
+}
+
+:is(.app-chrome-theme-midnight, .app-chrome-theme-graphite, .app-chrome-theme-teal, .app-chrome-theme-custom).theme-dark
+  .canvas-panel::before {
+  opacity: 0.35;
+}
+
+:is(.app-chrome-theme-midnight, .app-chrome-theme-graphite, .app-chrome-theme-teal, .app-chrome-theme-custom)
+  .sequence-diagram-surface {
+  background: #eef1f5;
 }
 
 @keyframes menu-drop {

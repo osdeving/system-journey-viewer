@@ -3,7 +3,6 @@
  */
 
 import type {
-  MouseEvent as ReactMouseEvent,
   PointerEvent as ReactPointerEvent,
 } from 'react'
 import { iconForKey } from '../../presets/iconPipeline'
@@ -22,7 +21,7 @@ import {
   truncateCanvasText,
   type NodeLabelLayout,
 } from '../../diagram/nodes/nodeLabelLayout'
-import { CanvasText } from './CanvasText'
+import { Text } from '../text/Text'
 
 export type DiagramNodeConnectionTarget = {
   nodeId: string
@@ -64,7 +63,7 @@ export interface DiagramNodeProps {
   ) => void
   onNodeBorderPointerLeave: () => void
   onStartInlineEdit: (
-    event: ReactMouseEvent<SVGTextElement>,
+    event: ReactPointerEvent<SVGTextElement>,
     node: NodeModel,
     mode: DiagramNodeInlineEditMode,
     layout: NodeLabelLayout,
@@ -415,7 +414,7 @@ export const DiagramNode = ({
           />
         </g>
       ) : null}
-      <CanvasText
+      <Text.Svg
         x={labelLayout.titleX}
         y={labelLayout.titleY}
         className={[
@@ -428,14 +427,19 @@ export const DiagramNode = ({
           .join(' ')}
         textAnchor={labelLayout.textAnchor}
         style={nodeTextColor ? { fill: nodeTextColor } : undefined}
-        onDoubleClick={(event) => {
-          onStartInlineEdit(event, node, 'node-name', labelLayout)
-        }}
+        onLongPress={
+          presentationMode
+            ? undefined
+            : (event) => {
+                onStartInlineEdit(event, node, 'node-name', labelLayout)
+              }
+        }
+        onPressMoveStart={presentationMode ? undefined : (event) => onNodePointerDown(event, node, 'move')}
       >
         {node.kind === 'note' ? nodeTitleText : `${iconForKey(node.tech?.iconKey)} ${nodeTitleText}`}
-      </CanvasText>
+      </Text.Svg>
       {nodeSubtitleText ? (
-        <CanvasText
+        <Text.Svg
           x={labelLayout.subtitleX}
           y={labelLayout.subtitleY}
           className={[
@@ -447,12 +451,17 @@ export const DiagramNode = ({
             .join(' ')}
           textAnchor={labelLayout.textAnchor}
           style={nodeTextColor ? { fill: nodeTextColor } : undefined}
-          onDoubleClick={(event) => {
-            onStartInlineEdit(event, node, 'node-tech', labelLayout)
-          }}
+          onLongPress={
+            presentationMode
+              ? undefined
+              : (event) => {
+                  onStartInlineEdit(event, node, 'node-tech', labelLayout)
+                }
+          }
+          onPressMoveStart={presentationMode ? undefined : (event) => onNodePointerDown(event, node, 'move')}
         >
           {nodeSubtitleText}
-        </CanvasText>
+        </Text.Svg>
       ) : null}
       {!presentationMode
         ? node.ports.map((port) => {

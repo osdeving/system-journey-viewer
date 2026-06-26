@@ -1,0 +1,63 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1280 720" role="img" aria-label="Remote care consultation booking animated journey">
+  <defs>
+    <linearGradient id="careBg" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0%" stop-color="#f8fafc"/>
+      <stop offset="100%" stop-color="#dbeafe"/>
+    </linearGradient>
+    <filter id="softShadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="8" stdDeviation="10" flood-color="#0f172a" flood-opacity="0.16"/>
+    </filter>
+    <path id="careJourneyPath" d="M168 214 C256 150 338 152 430 212 S612 274 710 214 S888 152 982 214 S1112 326 1050 434 S840 520 706 456 S506 398 404 460"/>
+  </defs>
+  <rect width="1280" height="720" fill="url(#careBg)"/>
+  <text x="64" y="80" fill="#0f172a" font-family="Inter, Arial, sans-serif" font-size="34" font-weight="700">Remote Care Platform</text>
+  <text x="64" y="116" fill="#475569" font-family="Inter, Arial, sans-serif" font-size="18">Remote Consultation Booking</text>
+  <g fill="none" stroke="#94a3b8" stroke-width="4" stroke-linecap="round" stroke-dasharray="12 12">
+    <use href="#careJourneyPath"/>
+  </g>
+  <g font-family="Inter, Arial, sans-serif" font-size="18" font-weight="700" text-anchor="middle" filter="url(#softShadow)">
+    <g transform="translate(168 214)">
+      <rect x="-96" y="-42" width="192" height="84" rx="8" fill="#1e293b"/>
+      <text y="6" fill="#f8fafc">Patient App</text>
+    </g>
+    <g transform="translate(430 212)">
+      <path d="M-108 -44 L108 -44 L132 0 L108 44 L-108 44 L-132 0 Z" fill="#b45309"/>
+      <text y="6" fill="#fff7ed">API Gateway</text>
+    </g>
+    <g transform="translate(710 214)">
+      <rect x="-112" y="-48" width="224" height="96" rx="8" fill="#2563eb"/>
+      <text y="6" fill="#ffffff">Booking Service</text>
+    </g>
+    <g transform="translate(982 214)">
+      <path d="M-150 -45 H105 A32 45 0 0 1 105 45 H-150 A32 45 0 0 0 -150 -45" fill="#334155"/>
+      <path d="M105 -45 A32 45 0 0 1 105 45" fill="none" stroke="#cbd5e1" stroke-width="3"/>
+      <text y="6" fill="#f8fafc">Care Event Stream</text>
+    </g>
+    <g transform="translate(1050 434)">
+      <rect x="-110" y="-46" width="220" height="92" rx="8" fill="#0f766e"/>
+      <text y="6" fill="#f0fdfa">Triage Worker</text>
+    </g>
+    <g transform="translate(706 456)">
+      <rect x="-108" y="-44" width="216" height="88" rx="8" fill="#7c3aed"/>
+      <text y="6" fill="#f5f3ff">Video Room</text>
+    </g>
+    <g transform="translate(404 460)">
+      <path d="M-92 -42 H92 A30 42 0 0 1 92 42 H-92 A30 42 0 0 0 -92 -42" fill="#1e293b"/>
+      <path d="M92 -42 A30 42 0 0 1 92 42" fill="none" stroke="#cbd5e1" stroke-width="3"/>
+      <text y="6" fill="#e2e8f0">Care DB</text>
+    </g>
+  </g>
+  <circle r="13" fill="#0ea5e9" stroke="#ffffff" stroke-width="5">
+    <animateMotion dur="8s" repeatCount="indefinite" rotate="auto">
+      <mpath href="#careJourneyPath"/>
+    </animateMotion>
+  </circle>
+  <circle r="24" fill="none" stroke="#0ea5e9" stroke-width="4" opacity="0.5">
+    <animate attributeName="r" values="18;34;18" dur="1.8s" repeatCount="indefinite"/>
+    <animate attributeName="opacity" values="0.55;0.12;0.55" dur="1.8s" repeatCount="indefinite"/>
+    <animateMotion dur="8s" repeatCount="indefinite" rotate="auto">
+      <mpath href="#careJourneyPath"/>
+    </animateMotion>
+  </circle>
+  <text x="64" y="658" fill="#334155" font-family="Inter, Arial, sans-serif" font-size="18">Synchronous confirmation plus async clinical context preparation</text>
+</svg>

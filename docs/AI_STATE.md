@@ -27,7 +27,8 @@
 - Latest Vercel build-output hotfix (2026-03-03, same-night follow-up) explicitly aligns `outputDirectory` with the monorepo layout: `apps/web/dist` at repo root and `dist` inside `apps/web`.
 - Latest topbar sizing follow-up (2026-03-03, late-night follow-up) measures topbar height from in-flow header content only, so closed menus/popovers no longer leave side splitters starting too low.
 - Latest managed-window placement hotfix (2026-03-03, late-night pass) reopens closed docked panels in their remembered host (`left|right|bottom`) instead of forcing the default host, and no longer auto-opens the bottom workbench when leaving Presentation mode.
-- Latest product polish increment (2026-06-26) adds a searchable command palette (`Ctrl/Cmd+K` or `/`) for commands/views/journeys/nodes/edges, a canvas minimap with click-to-recenter navigation, a canvas status strip, and a persisted performance mode that disables extra motion/depth/confetti work.
+- Latest product polish increment (2026-06-26) adds a searchable command palette (`Ctrl/Cmd+K` or `/`) for commands/views/journeys/nodes/edges, a hideable canvas minimap with click-to-recenter navigation, a VS Code-style hideable status bar, and a persisted performance mode that disables extra motion/depth/confetti work.
+- Latest shell polish follow-up (2026-06-26) flattens the desktop chrome and canvas background, reduces app text/control scale, exposes labeled primary toolbar commands with working `V`/`C` Select/Connect shortcuts, defaults node depth effects off for clean installs, and fixes inline text editing focus so typed characters no longer overwrite the selected value after every keystroke.
 - Latest cloud-provider decoupling increment (2026-06-26) extracts workspace/script/gallery cloud persistence into a provider-neutral `WorkspaceCloudStore`, keeps Supabase as a hosted adapter, and adds a functional local IndexedDB provider selected by `VITE_SJV_DB_URL=indexeddb://...` with automatic `indexeddb://sjv-local` fallback when Supabase env vars are absent.
 - Latest cylinder preset hotfix (2026-06-26) lets `db` and `queue`/Kafka cylinder nodes keep arbitrary user-controlled widths while queue/Kafka rendering keeps the right-side cylinder face visually stable instead of scaling it with node width.
 - Latest componentization refactor (2026-06-26) extracts reusable `DiagramNode`, `PalettePanel`, `InspectorPanel`, and `JourneyTimelinePanel` components plus pure node label helpers, reducing direct rendering weight in `App.tsx` and `DiagramCanvas.tsx` without changing behavior.
@@ -47,6 +48,9 @@
 ## Implemented Product Flows
 
 - Canvas editing with pan/zoom, grid/snap, nodes/edges, ports, and docking.
+- Primary canvas tools:
+  - Select and Connect are exposed as labeled toolbar commands with visible shortcut badges,
+  - `V` switches to Select and `C` switches to Connect when focus is not inside a text/editing control.
 - Command palette:
   - opens via `Ctrl/Cmd+K`, `/`, desktop topbar Search, or mobile Search,
   - indexes commands, views, journeys, nodes, and edges,
@@ -54,7 +58,9 @@
 - Canvas minimap/status:
   - bottom-right minimap renders a lightweight SVG overview of current-view nodes and viewport,
   - minimap clicks recenter the canvas without changing the diagram model,
-  - bottom-left status strip shows current view, zoom, node count, edge count, and performance mode.
+  - minimap can be hidden from its own close action, the status bar, the command palette, `View`, or Preferences,
+  - bottom status bar shows current view, zoom, entity counts, selection, active journey, active tool, playback mode, provider state, and quick actions for palette/tool/fit/grid/snap/minimap/performance/search,
+  - status bar visibility is persisted and can be restored from `View`, the command palette, or Preferences.
 - Touch-first mobile shell flow:
   - dedicated `/m` route renders a simplified mobile chrome over the same workspace/store,
   - narrow touch-first devices auto-open into that shell,
@@ -94,6 +100,9 @@
   - auto-attach and auto-place behavior when dropping/dragging notes onto nodes.
 - Multiline text:
   - escaped text roundtrip in SJV Script (`\n`, `\r`, `\t`, `\"`, `\\`) for workspace, node, note, edge label, and journey names.
+  - press-and-hold text editing opens the canvas inline editor for node names, node tech labels, notes, and edge labels without using click or double-click.
+  - inline-edited text is sanitized before model updates so unsupported control characters do not leak into SJV Script export.
+  - inline editor focus/select behavior runs only when a new edit target opens, so regular typing does not repeatedly reselect the whole value.
   - multiline note text editing supported in canvas inline editor and inspector.
 - Semantic script export:
   - when internal IDs are generic (e.g., `e_c_1`, `j_c_1`), SJV Script export infers semantic edge/journey tokens from labels/names.
@@ -170,7 +179,9 @@
 ## UI/UX State
 
 - Desktop-style menubar with controlled open/close behavior.
-- Reusable collapsible panel-group chrome now wraps multi-section tab content (Journeys, Preferences, Palette categories, and Inspector details), with `Journeys` list open by default and `Supabase Cloud` collapsed by default.
+- Reusable collapsible panel-group chrome now wraps multi-section tab content (Journeys, Preferences, and Inspector details), with `Journeys` list open by default and `Supabase Cloud` collapsed by default.
+- Palette uses a searchable component browser with category chips and drag-ready cards instead of the older accordion-style category list.
+- Shared text primitives live in `components/text/Text.tsx` and cover chrome copy, SVG canvas labels, and in-place text editors used by node/edge editing.
 - File menu now separates:
   - local browser snapshot operations (`Save Snapshot`, `Reload Snapshot`),
   - disk file operations (`New/Open/Save File`).
@@ -228,7 +239,7 @@
   - topbar height measurement now ignores absolutely positioned popovers when computing persisted shell offsets, so full-height side splitters stay aligned after menus/panels close,
   - toolbar is now grouped and rendered in a dedicated row with section-level visibility preferences,
   - topbar includes a Search command-palette trigger beside the cloud badge,
-  - preferences persist minimap visibility and performance mode on the existing backward-compatible `sjv-ui-preferences-v1` key,
+  - preferences persist minimap visibility, status bar visibility, and performance mode on the existing backward-compatible `sjv-ui-preferences-v1` key with additive defaults,
   - tooltips are user-configurable from settings/preferences.
 - Cloud chrome enhancement:
   - a top-right Supabase badge now exposes login state, quick save/load, upload, refresh, gallery access, and auto-upload status without opening `Preferences`.

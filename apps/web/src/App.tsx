@@ -61,6 +61,7 @@ import {
 import './App.css'
 import type { CommandPaletteItem } from './commandPalette/commandPalette'
 import { CommandPalette } from './components/chrome/CommandPalette'
+import { StatusBar, type StatusBarAction, type StatusBarItem } from './components/chrome/StatusBar'
 import { PanelGroup } from './components/chrome/PanelGroup'
 import { SequenceDiagramView } from './components/sequence/SequenceDiagramView'
 import { OverflowStrip } from './components/chrome/OverflowStrip'
@@ -165,6 +166,13 @@ import { applyWorkspaceLayout, loadWorkspaceLayout, saveWorkspaceLayout } from '
 import { useEditorStore } from './store/useEditorStore'
 import { deriveSequenceDiagramScene } from './sequence/deriveSequenceScene'
 import {
+  DEFAULT_SHOWCASE_ANIMATIONS,
+  DEFAULT_SHOWCASE_LIBRARY_SECTIONS,
+  DEFAULT_SHOWCASE_SCRIPTS,
+  type DefaultShowcaseLibraryItem,
+  type DefaultShowcaseScriptItem,
+} from './showcaseGallery/defaultShowcaseGallery'
+import {
   buildViewHierarchyOptions,
   resolvePreferredEntryViewId,
 } from './viewHierarchy'
@@ -222,6 +230,7 @@ const MIN_DOCK_HEIGHT = 260
 const DEFAULT_FILE_VIEWPORT = { x: 100, y: 80, zoom: 1 }
 const DEFAULT_FLOATING_DOCK_RECT = { x: 28, y: 108, width: 480, height: 420 }
 const DEFAULT_MINIMAP_SIZE: MinimapSize = { width: 196, height: 124 }
+const STATUS_BAR_HEIGHT = 24
 const UI_PREFERENCES_STORAGE_KEY = 'sjv-ui-preferences-v1'
 const MANAGED_WINDOWS_LAYOUT_STORAGE_KEY = 'sjv-managed-windows-layout-v1'
 const APP_VERSION_LABEL = 'MVP Beta'
@@ -310,6 +319,7 @@ type UiPreferences = {
   nodeDepthEffectsEnabled: boolean
   performanceModeEnabled: boolean
   minimapEnabled: boolean
+  statusBarEnabled: boolean
   showcaseLocale: ShowcaseLocale
   density: UiDensity
   toolbarVisibility: Record<ToolbarSectionId, boolean>
@@ -415,9 +425,10 @@ const HISTORY_LIMIT = 120
 const DEFAULT_UI_PREFERENCES: UiPreferences = {
   tooltipsEnabled: true,
   splashEnabled: true,
-  nodeDepthEffectsEnabled: true,
+  nodeDepthEffectsEnabled: false,
   performanceModeEnabled: false,
   minimapEnabled: true,
+  statusBarEnabled: true,
   showcaseLocale: 'en',
   density: 'compact',
   toolbarVisibility: {
@@ -448,6 +459,8 @@ const resolveInitialUiPreferences = (): UiPreferences => {
         parsed.performanceModeEnabled ?? DEFAULT_UI_PREFERENCES.performanceModeEnabled,
       minimapEnabled:
         parsed.minimapEnabled ?? DEFAULT_UI_PREFERENCES.minimapEnabled,
+      statusBarEnabled:
+        parsed.statusBarEnabled ?? DEFAULT_UI_PREFERENCES.statusBarEnabled,
       showcaseLocale:
         parsed.showcaseLocale === 'pt' || parsed.showcaseLocale === 'en'
           ? parsed.showcaseLocale
@@ -900,6 +913,23 @@ function App() {
     [supabaseCloudScripts, supabaseGalleryAssets],
   )
   const supabaseCloudLibraryItemCount = supabaseCloudScripts.length + supabaseGalleryAssets.length
+  const renderDefaultShowcaseLibraryPreview = useCallback((item: DefaultShowcaseLibraryItem): ReactNode => {
+    if (item.kind === 'script') {
+      return (
+        <div className="help-gallery-script-preview" aria-hidden="true">
+          <span className="help-gallery-script-preview-badge">
+            <Code2 size={15} />
+            Sample Script
+          </span>
+          <span className="help-gallery-script-preview-line help-gallery-script-preview-line-wide" />
+          <span className="help-gallery-script-preview-line" />
+          <span className="help-gallery-script-preview-line help-gallery-script-preview-line-short" />
+        </div>
+      )
+    }
+
+    return <img src={item.href} alt={item.title} loading="lazy" />
+  }, [])
   const renderSupabaseCloudLibraryPreview = useCallback(
     (item: SupabaseCloudLibraryItem): ReactNode => {
       if (item.kind === 'script') {
@@ -1107,8 +1137,12 @@ function App() {
   const managedLeftHostVisible = !immersiveMode && managedWindows.hosts.left.tabs.length > 0
   const managedRightHostVisible = !immersiveMode && managedWindows.hosts.right.tabs.length > 0
   const managedBottomHostVisible = !immersiveMode && managedWindows.hosts.bottom.tabs.length > 0
+  const statusBarVisible = !presentationMode && uiPreferences.statusBarEnabled
+  const statusBarHeight = statusBarVisible ? STATUS_BAR_HEIGHT : 0
   const bottomPanelsInset =
-    (managedBottomHostVisible ? managedBottomHostHeight : 0) + (drawerVisible ? journeyHeight : 0)
+    (managedBottomHostVisible ? managedBottomHostHeight : 0) +
+    (drawerVisible ? journeyHeight : 0) +
+    statusBarHeight
   const clampFloatingDockRectInLayout = useCallback((candidate: FloatingDockRect): FloatingDockRect => {
     const layoutRect = layoutRef.current?.getBoundingClientRect()
     return clampFloatingDockRect({
@@ -1128,8 +1162,10 @@ function App() {
               immersiveMode: true,
               drawerVisible,
               journeyHeight,
+              statusBarVisible,
+              statusBarHeight: STATUS_BAR_HEIGHT,
             }),
-            gridTemplateAreas: `'topbar' 'main'`,
+            gridTemplateAreas: `'topbar' 'main' 'statusbar'`,
           }
         : {
             gridTemplateColumns: `${leftDockVisible ? leftDockWidth : 0}px ${
@@ -1143,11 +1179,14 @@ function App() {
               journeyHeight,
               managedBottomHostVisible,
               managedBottomHostHeight,
+              statusBarVisible,
+              statusBarHeight: STATUS_BAR_HEIGHT,
             }),
             gridTemplateAreas: `'topbar topbar topbar topbar topbar'
               'left managedLeft main managedRight right'
               'managedBottom managedBottom managedBottom managedBottom managedBottom'
-              'journey journey journey journey journey'`,
+              'journey journey journey journey journey'
+              'statusbar statusbar statusbar statusbar statusbar'`,
           },
     [
       drawerVisible,
@@ -1163,6 +1202,7 @@ function App() {
       managedRightHostVisible,
       rightDockVisible,
       rightDockWidth,
+      statusBarVisible,
     ],
   )
 
@@ -2072,6 +2112,26 @@ function App() {
     setSupabaseCloudPanelOpen(false)
   }, [openHelpWindow])
 
+  const loadDefaultShowcaseScript = useCallback(
+    (sample: DefaultShowcaseScriptItem) => {
+      setDslText(sample.script)
+      try {
+        const imported = resolveWorkspaceFromDslText(sample.script)
+        replaceWorkspace(imported.workspace, imported.entryViewId)
+        setViewport(DEFAULT_FILE_VIEWPORT)
+        setDslError(null)
+        setSupabaseCloudScriptPickerOpen(false)
+        setSupabaseCloudScriptSearch('')
+        setActiveSupabaseScriptWorkspaceId(null)
+        setTransientStatus(`Loaded sample SJV Script "${sample.title}".`)
+      } catch (error) {
+        setDslError(error instanceof Error ? error.message : 'Failed to import sample SJV Script.')
+        setTransientStatus('Sample SJV Script could not be loaded.')
+      }
+    },
+    [replaceWorkspace, resolveWorkspaceFromDslText, setTransientStatus, setViewport],
+  )
+
   const uploadGeneratedBlobToSupabaseGallery = useCallback(
     async (blob: Blob, fileName: string, title: string) => {
       if (!supabaseWorkspaceCloudStore) {
@@ -2093,6 +2153,60 @@ function App() {
     },
     [],
   )
+
+  const seedDefaultShowcaseLibrary = useCallback(async () => {
+    if (!supabaseWorkspaceCloudStore) {
+      setSupabaseCloudStatus(CLOUD_NOT_CONFIGURED_STATUS)
+      return
+    }
+
+    const cloudStore = supabaseWorkspaceCloudStore
+    setSupabaseCloudBusy(true)
+    try {
+      await Promise.all(
+        DEFAULT_SHOWCASE_SCRIPTS.map((sample) =>
+          cloudStore.saveScript(sample.workspaceId, sample.title, sample.script),
+        ),
+      )
+
+      const existingAssets = await cloudStore.listGalleryAssets()
+      const existingFileNames = new Set(existingAssets.map((asset) => asset.fileName))
+      for (const sample of DEFAULT_SHOWCASE_ANIMATIONS) {
+        if (existingFileNames.has(sample.fileName)) {
+          continue
+        }
+        const response = await fetch(sample.href)
+        if (!response.ok) {
+          throw new Error(`Could not load bundled sample asset "${sample.fileName}".`)
+        }
+        const fetchedBlob = await response.blob()
+        const blob =
+          fetchedBlob.type === sample.contentType
+            ? fetchedBlob
+            : new Blob([fetchedBlob], { type: sample.contentType })
+        await uploadGeneratedBlobToSupabaseGallery(blob, sample.fileName, sample.title)
+        existingFileNames.add(sample.fileName)
+      }
+
+      const [scripts, assets] = await Promise.all([
+        cloudStore.listScripts(),
+        cloudStore.listGalleryAssets(),
+      ])
+      setSupabaseCloudScripts(scripts)
+      setSupabaseGalleryAssets(assets)
+      setSupabaseCloudStatus('Sample showcase library saved to your provider library.')
+      setTransientStatus(`Sample showcase library saved to ${CLOUD_STATUS_LABEL}.`)
+    } catch (error) {
+      setSupabaseCloudStatus(
+        error instanceof Error
+          ? `Sample showcase seed failed: ${error.message}`
+          : 'Sample showcase seed failed.',
+      )
+      setTransientStatus('Sample showcase library could not be saved.')
+    } finally {
+      setSupabaseCloudBusy(false)
+    }
+  }, [setTransientStatus, uploadGeneratedBlobToSupabaseGallery])
 
   const signInToSupabaseCloud = useCallback(async () => {
     if (!supabaseWorkspaceCloudStore) {
@@ -3939,6 +4053,23 @@ function App() {
   }, [focusMode, presentationMode])
 
   useEffect(() => {
+    const onToolShortcut = (event: KeyboardEvent) => {
+      if (isTextInputTarget(event.target) || event.ctrlKey || event.metaKey || event.altKey) {
+        return
+      }
+      const key = event.key.toLowerCase()
+      if (key !== 'v' && key !== 'c') {
+        return
+      }
+      event.preventDefault()
+      setActiveTool(key === 'v' ? 'select' : 'connector')
+    }
+
+    window.addEventListener('keydown', onToolShortcut)
+    return () => window.removeEventListener('keydown', onToolShortcut)
+  }, [setActiveTool])
+
+  useEffect(() => {
     if (dockPosition !== 'bottom' && drawerTab === 'dock') {
       setDrawerTab('journeys')
     }
@@ -4545,11 +4676,8 @@ function App() {
       {helpSection === 'gallery' ? (
         <div className="help-gallery">
           <p>
-            {supabaseCloudConfigured
-              ? supabaseCloudReady
-                ? `Your private ${CLOUD_PROVIDER_LABEL} library is live below. Saved scripts are grouped beside your uploaded assets. Standard PNG/GIF/MP4 exports now auto-upload here after the local file is generated.`
-                : `Sign in from the top-right cloud badge to unlock your private ${CLOUD_PROVIDER_LABEL} library, previews, and automatic upload after each PNG/GIF/MP4 export.`
-              : CLOUD_NOT_CONFIGURED_STATUS}
+            Sample showcase scripts and animated exports are always available below. Sign in to save
+            the samples into your {CLOUD_STATUS_LABEL} library, then add your own PNG/GIF/MP4 exports.
           </p>
           <div className="help-gallery-actions">
             <button
@@ -4563,91 +4691,145 @@ function App() {
               type="button"
               disabled={!supabaseCloudReady || supabaseCloudBusy}
               onClick={() => {
+                void seedDefaultShowcaseLibrary()
+              }}
+            >
+              Seed Sample Library
+            </button>
+            <button
+              type="button"
+              disabled={!supabaseCloudReady || supabaseCloudBusy}
+              onClick={() => {
                 void refreshSupabaseCloudLibrary()
               }}
             >
               Refresh Library
             </button>
           </div>
-          {supabaseCloudReady ? (
-            supabaseCloudLibrarySections.length ? (
-              <div className="help-gallery-sections">
-                {supabaseCloudLibrarySections.map((section) => (
-                  <section key={section.id} className="help-gallery-section">
-                    <div className="help-gallery-section-header">
-                      <h3>{section.title}</h3>
-                      <span className="help-gallery-section-badge">{section.items.length}</span>
-                    </div>
-                    <div className="help-gallery-grid">
-                      {section.items.map((item) => (
-                        <article key={`${item.kind}:${item.id}`} className="help-gallery-card">
-                          {renderSupabaseCloudLibraryPreview(item)}
-                          <div className="help-gallery-card-copy">
-                            <h4 title={item.title}>{item.title}</h4>
-                          </div>
-                          <div className="help-gallery-card-actions">
-                            {item.kind === 'script' ? (
+          <p className="help-gallery-provider-status">
+            {supabaseCloudConfigured
+              ? supabaseCloudReady
+                ? `Your private ${CLOUD_PROVIDER_LABEL} library is live below. Saved scripts are grouped beside your uploaded assets. Standard PNG/GIF/MP4 exports now auto-upload here after the local file is generated.`
+                : `Sign in from the top-right cloud badge to unlock your private ${CLOUD_PROVIDER_LABEL} library, previews, automatic upload, and sample seeding.`
+              : CLOUD_NOT_CONFIGURED_STATUS}
+          </p>
+          <div className="help-gallery-sections">
+            {DEFAULT_SHOWCASE_LIBRARY_SECTIONS.map((section) => (
+              <section key={section.id} className="help-gallery-section">
+                <div className="help-gallery-section-header">
+                  <h3>{section.title}</h3>
+                  <span className="help-gallery-section-badge">{section.items.length}</span>
+                </div>
+                <div className="help-gallery-grid">
+                  {section.items.map((item) => (
+                    <article key={item.id} className="help-gallery-card">
+                      {renderDefaultShowcaseLibraryPreview(item)}
+                      <div className="help-gallery-card-copy">
+                        <h4 title={item.title}>{item.title}</h4>
+                        <p>{item.description}</p>
+                        <span className="help-gallery-card-meta">
+                          {item.kind === 'script' ? 'SJV Script sample' : 'Animated SVG export'}
+                        </span>
+                      </div>
+                      <div className="help-gallery-card-actions">
+                        {item.kind === 'script' ? (
+                          <button type="button" onClick={() => loadDefaultShowcaseScript(item)}>
+                            Load
+                          </button>
+                        ) : (
+                          <>
+                            <a href={item.href} target="_blank" rel="noreferrer">
+                              Open
+                            </a>
+                            <a href={item.href} download={item.fileName}>
+                              Download
+                            </a>
+                          </>
+                        )}
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              </section>
+            ))}
+            {supabaseCloudReady && supabaseCloudLibrarySections.length ? (
+              supabaseCloudLibrarySections.map((section) => (
+                <section key={`cloud-${section.id}`} className="help-gallery-section">
+                  <div className="help-gallery-section-header">
+                    <h3>{CLOUD_PROVIDER_LABEL} {section.title}</h3>
+                    <span className="help-gallery-section-badge">{section.items.length}</span>
+                  </div>
+                  <div className="help-gallery-grid">
+                    {section.items.map((item) => (
+                      <article key={`${item.kind}:${item.id}`} className="help-gallery-card">
+                        {renderSupabaseCloudLibraryPreview(item)}
+                        <div className="help-gallery-card-copy">
+                          <h4 title={item.title}>{item.title}</h4>
+                        </div>
+                        <div className="help-gallery-card-actions">
+                          {item.kind === 'script' ? (
+                            <button
+                              type="button"
+                              disabled={supabaseCloudBusy}
+                              onClick={() => {
+                                void loadSelectedSupabaseCloudScript(item.script)
+                              }}
+                            >
+                              Load
+                            </button>
+                          ) : (
+                            <>
                               <button
                                 type="button"
                                 disabled={supabaseCloudBusy}
                                 onClick={() => {
-                                  void loadSelectedSupabaseCloudScript(item.script)
+                                  void downloadSupabaseGalleryAsset(item.asset)
                                 }}
                               >
-                                Load
+                                Download
                               </button>
-                            ) : (
-                              <>
+                              {isSupabaseGalleryAssetShareable(item.asset) ? (
                                 <button
                                   type="button"
                                   disabled={supabaseCloudBusy}
                                   onClick={() => {
-                                    void downloadSupabaseGalleryAsset(item.asset)
+                                    void shareSupabaseGalleryAsset(item.asset)
                                   }}
                                 >
-                                  Download
+                                  Share link
                                 </button>
-                                {isSupabaseGalleryAssetShareable(item.asset) ? (
-                                  <button
-                                    type="button"
-                                    disabled={supabaseCloudBusy}
-                                    onClick={() => {
-                                      void shareSupabaseGalleryAsset(item.asset)
-                                    }}
-                                  >
-                                    Share link
-                                  </button>
-                                ) : null}
-                              </>
-                            )}
-                            <button
-                              type="button"
-                              className="help-gallery-icon-button"
-                              aria-label={`Delete ${item.title}`}
-                              title={item.kind === 'script' ? `Delete script from ${CLOUD_PROVIDER_LABEL}` : `Delete media from ${CLOUD_PROVIDER_LABEL}`}
-                              disabled={supabaseCloudBusy}
-                              onClick={() => {
-                                if (item.kind === 'script') {
-                                  void deleteSupabaseCloudScript(item.script)
-                                  return
-                                }
-                                void deleteSupabaseGalleryAsset(item.asset)
-                              }}
-                            >
-                              <Trash2 size={14} />
-                            </button>
-                          </div>
-                        </article>
-                      ))}
-                    </div>
-                  </section>
-                ))}
-              </div>
-            ) : (
-              <p className="help-gallery-empty">
-                No cloud library items yet. Run a normal PNG/GIF/MP4 export while signed in, save an SJV Script, or upload local media here.
-              </p>
-            )
+                              ) : null}
+                            </>
+                          )}
+                          <button
+                            type="button"
+                            className="help-gallery-icon-button"
+                            aria-label={`Delete ${item.title}`}
+                            title={item.kind === 'script' ? `Delete script from ${CLOUD_PROVIDER_LABEL}` : `Delete media from ${CLOUD_PROVIDER_LABEL}`}
+                            disabled={supabaseCloudBusy}
+                            onClick={() => {
+                              if (item.kind === 'script') {
+                                void deleteSupabaseCloudScript(item.script)
+                                return
+                              }
+                              void deleteSupabaseGalleryAsset(item.asset)
+                            }}
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                      </article>
+                    ))}
+                  </div>
+                </section>
+              ))
+            ) : null}
+          </div>
+          {supabaseCloudReady && !supabaseCloudLibrarySections.length ? (
+            <p className="help-gallery-empty">
+              No private library items yet. Seed the sample library, run a normal PNG/GIF/MP4 export,
+              save an SJV Script, or upload local media here.
+            </p>
           ) : null}
         </div>
       ) : null}
@@ -4719,6 +4901,19 @@ function App() {
             }
           />
           Show canvas minimap
+        </label>
+        <label className="preferences-toggle">
+          <input
+            type="checkbox"
+            checked={uiPreferences.statusBarEnabled}
+            onChange={(event) =>
+              setUiPreferences((current) => ({
+                ...current,
+                statusBarEnabled: event.target.checked,
+              }))
+            }
+          />
+          Show status bar
         </label>
         <label className="preferences-toggle">
           <input
@@ -5605,6 +5800,153 @@ function App() {
     setDraggedEdgeId(edgeId)
   }
 
+  const selectionStatusLabel = selectedEdge
+    ? `Edge: ${selectedEdge.label || selectedEdge.id}`
+    : selectedNodes.length > 1
+      ? `${selectedNodes.length} nodes selected`
+      : selectedNode
+        ? `Node: ${selectedNode.name}`
+        : 'Ready'
+  const statusBarItems: StatusBarItem[] = [
+    {
+      id: 'view',
+      label: currentView.name,
+      title: currentView.name,
+      priority: 'primary',
+    },
+    {
+      id: 'view-kind',
+      label: currentViewModeLabel,
+    },
+    {
+      id: 'zoom',
+      label: `${Math.round(viewport.zoom * 100)}%`,
+      title: 'Current canvas zoom',
+    },
+    {
+      id: 'entities',
+      label: `${currentView.nodeIds.length} nodes / ${currentView.edgeIds.length} edges`,
+    },
+    {
+      id: 'selection',
+      label: selectionStatusLabel,
+      title: selectionStatusLabel,
+    },
+    ...(activeJourney
+      ? [
+          {
+            id: 'journey',
+            label: `Journey: ${activeJourney.name}`,
+            title: activeJourney.name,
+          } satisfies StatusBarItem,
+        ]
+      : []),
+    {
+      id: 'tool',
+      label: `Tool: ${activeTool === 'connector' ? 'Connector' : 'Select'}`,
+    },
+    {
+      id: 'player',
+      label: `Player: ${playerModeLabel}`,
+    },
+    {
+      id: 'provider',
+      label: supabaseCloudReady
+        ? `${CLOUD_PROVIDER_LABEL}: ${supabaseCloudLibraryItemCount} items`
+        : CLOUD_PROVIDER_LABEL,
+      title: supabaseCloudReady
+        ? supabaseCloudStatus
+        : supabaseCloudConfigured
+          ? CLOUD_SIGN_IN_PROMPT
+          : CLOUD_NOT_CONFIGURED_STATUS,
+    },
+  ]
+  const statusBarActions: StatusBarAction[] = [
+    {
+      id: 'palette',
+      label: 'Palette',
+      icon: <PanelLeftOpen size={12} />,
+      active: paletteWindowOpen,
+      title: withTooltip(paletteWindowOpen ? 'Palette is open' : 'Open palette panel'),
+      onClick: () => openManagedDockedWindowFromDockTab('palette'),
+    },
+    {
+      id: 'tool',
+      label: activeTool === 'connector' ? 'Connector' : 'Select',
+      icon: activeTool === 'connector' ? <Link2 size={12} /> : <MousePointer size={12} />,
+      active: activeTool === 'connector',
+      title: withTooltip(activeTool === 'connector' ? 'Switch to select tool' : 'Switch to connector tool'),
+      onClick: () => setActiveTool(activeTool === 'connector' ? 'select' : 'connector'),
+    },
+    {
+      id: 'fit',
+      label: 'Fit',
+      icon: <Target size={12} />,
+      title: withTooltip('Fit view to canvas'),
+      onClick: () => fitCurrentViewToCanvas(),
+    },
+    {
+      id: 'grid',
+      label: 'Grid',
+      icon: <Grid3X3 size={12} />,
+      active: gridEnabled,
+      title: withTooltip(gridEnabled ? 'Hide grid' : 'Show grid'),
+      onClick: () => setGridEnabled(!gridEnabled),
+    },
+    {
+      id: 'snap',
+      label: 'Snap',
+      icon: <Magnet size={12} />,
+      active: snapEnabled,
+      title: withTooltip(snapEnabled ? 'Disable snap' : 'Enable snap'),
+      onClick: () => setSnapEnabled(!snapEnabled),
+    },
+    {
+      id: 'minimap',
+      label: 'Minimap',
+      icon: <Grid3X3 size={12} />,
+      active: uiPreferences.minimapEnabled,
+      title: withTooltip(uiPreferences.minimapEnabled ? 'Hide minimap' : 'Show minimap'),
+      onClick: () =>
+        setUiPreferences((current) => ({
+          ...current,
+          minimapEnabled: !current.minimapEnabled,
+        })),
+    },
+    {
+      id: 'performance',
+      label: 'Performance',
+      icon: <Sparkles size={12} />,
+      active: uiPreferences.performanceModeEnabled,
+      title: withTooltip(
+        uiPreferences.performanceModeEnabled ? 'Disable performance mode' : 'Enable performance mode',
+      ),
+      onClick: () =>
+        setUiPreferences((current) => ({
+          ...current,
+          performanceModeEnabled: !current.performanceModeEnabled,
+        })),
+    },
+    {
+      id: 'search',
+      label: 'Search',
+      icon: <Search size={12} />,
+      title: withTooltip('Open command palette'),
+      onClick: () => openCommandPalette(),
+    },
+    {
+      id: 'hide-status',
+      label: 'Hide',
+      icon: <PanelBottomClose size={12} />,
+      title: withTooltip('Hide status bar'),
+      onClick: () =>
+        setUiPreferences((current) => ({
+          ...current,
+          statusBarEnabled: false,
+        })),
+    },
+  ]
+
   const mobileDockTabs: DockTab[] = ['palette', 'inspector', 'journeys', 'timeline', 'dsl', 'help', 'preferences']
   const mobileDockTabLabel: Record<DockTab, string> = {
     palette: 'Palette',
@@ -5962,6 +6304,17 @@ function App() {
           setUiPreferences((current) => ({
             ...current,
             minimapEnabled: !current.minimapEnabled,
+          })),
+      },
+      {
+        id: 'command:toggle-status-bar',
+        title: uiPreferences.statusBarEnabled ? 'Hide Status Bar' : 'Show Status Bar',
+        section: 'Commands',
+        keywords: ['status', 'bar', 'chrome', 'footer'],
+        run: () =>
+          setUiPreferences((current) => ({
+            ...current,
+            statusBarEnabled: !current.statusBarEnabled,
           })),
       },
       {
@@ -6877,6 +7230,40 @@ function App() {
                   <button
                     type="button"
                     role="menuitem"
+                    onClick={() =>
+                      runDesktopMenuAction(() =>
+                        setUiPreferences((current) => ({
+                          ...current,
+                          minimapEnabled: !current.minimapEnabled,
+                        })),
+                      )
+                    }
+                  >
+                    {renderDesktopMenuItem(
+                      <Grid3X3 size={13} />,
+                      uiPreferences.minimapEnabled ? 'Hide Minimap' : 'Show Minimap',
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() =>
+                      runDesktopMenuAction(() =>
+                        setUiPreferences((current) => ({
+                          ...current,
+                          statusBarEnabled: !current.statusBarEnabled,
+                        })),
+                      )
+                    }
+                  >
+                    {renderDesktopMenuItem(
+                      uiPreferences.statusBarEnabled ? <PanelBottomClose size={13} /> : <PanelBottomOpen size={13} />,
+                      uiPreferences.statusBarEnabled ? 'Hide Status Bar' : 'Show Status Bar',
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
                     onClick={() => runDesktopMenuAction(() => togglePresentationMode())}
                   >
                     {renderDesktopMenuItem(
@@ -7490,6 +7877,40 @@ function App() {
                     role="menuitem"
                     onClick={() =>
                       runDesktopMenuAction(() =>
+                        setUiPreferences((current) => ({
+                          ...current,
+                          minimapEnabled: !current.minimapEnabled,
+                        })),
+                      )
+                    }
+                  >
+                    {renderDesktopMenuItem(
+                      <Grid3X3 size={13} />,
+                      uiPreferences.minimapEnabled ? 'Hide Minimap' : 'Show Minimap',
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() =>
+                      runDesktopMenuAction(() =>
+                        setUiPreferences((current) => ({
+                          ...current,
+                          statusBarEnabled: !current.statusBarEnabled,
+                        })),
+                      )
+                    }
+                  >
+                    {renderDesktopMenuItem(
+                      uiPreferences.statusBarEnabled ? <PanelBottomClose size={13} /> : <PanelBottomOpen size={13} />,
+                      uiPreferences.statusBarEnabled ? 'Hide Status Bar' : 'Show Status Bar',
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() =>
+                      runDesktopMenuAction(() =>
                         setUiPreferences((current) => ({ ...current, showcaseLocale: 'en' })),
                       )
                     }
@@ -7882,7 +8303,11 @@ function App() {
                 <div className="toolbar-group" data-tutorial-id="toolbar-editing-group">
                   <button
                     type="button"
-                    className={activeTool === 'select' ? 'tool-button tool-active toolbar-icon-button' : 'tool-button toolbar-icon-button'}
+                    className={
+                      activeTool === 'select'
+                        ? 'tool-button tool-active toolbar-command-button'
+                        : 'tool-button toolbar-command-button'
+                    }
                     onClick={() => {
                       recordGuidedTutorialEvent('toolbar-mode-click')
                       setActiveTool('select')
@@ -7890,15 +8315,16 @@ function App() {
                     title={withTooltip('Select and move nodes or edges')}
                     aria-label="Select mode"
                   >
-                    <MousePointer size={14} />
+                    <MousePointer size={13} />
                     <span className="toolbar-button-label">Select</span>
+                    <kbd className="toolbar-button-shortcut">V</kbd>
                   </button>
                   <button
                     type="button"
                     className={
                       activeTool === 'connector'
-                        ? 'tool-button tool-active toolbar-icon-button'
-                        : 'tool-button toolbar-icon-button'
+                        ? 'tool-button tool-active toolbar-command-button'
+                        : 'tool-button toolbar-command-button'
                     }
                     onClick={() => {
                       recordGuidedTutorialEvent('toolbar-mode-click')
@@ -7907,8 +8333,9 @@ function App() {
                     title={withTooltip('Connect nodes by dragging from one port to another')}
                     aria-label="Connector mode"
                   >
-                    <Link2 size={14} />
-                    <span className="toolbar-button-label">Connector</span>
+                    <Link2 size={13} />
+                    <span className="toolbar-button-label">Connect</span>
+                    <kbd className="toolbar-button-shortcut">C</kbd>
                   </button>
                 </div>
               ) : null}
@@ -7965,24 +8392,25 @@ function App() {
                 <div className="toolbar-group">
                   <button
                     type="button"
-                    className="focus-toggle-button toolbar-icon-button"
+                    className="focus-toggle-button toolbar-command-button"
                     onClick={() => toggleFocusMode()}
                     title={withTooltip('Toggle focus mode')}
                     aria-label={focusMode ? 'Exit focus mode' : 'Focus mode'}
                   >
-                    <Target size={14} />
+                    <Target size={13} />
                     <span className="toolbar-button-label">{focusMode ? 'Exit focus' : 'Focus'}</span>
+                    <kbd className="toolbar-button-shortcut">F</kbd>
                   </button>
                   <button
                     type="button"
-                    className="focus-toggle-button toolbar-icon-button"
+                    className="focus-toggle-button toolbar-command-button"
                     onClick={() => togglePresentationMode()}
                     title={withTooltip('Toggle presentation mode')}
                     aria-label={presentationMode ? 'Exit presentation mode' : 'Presentation mode'}
                   >
-                    <Presentation size={14} />
+                    <Presentation size={13} />
                     <span className="toolbar-button-label">
-                      {presentationMode ? 'Exit presentation' : 'Presentation mode'}
+                      {presentationMode ? 'Exit presentation' : 'Present'}
                     </span>
                   </button>
                 </div>
@@ -8067,7 +8495,7 @@ function App() {
       {!immersiveMode && managedBottomHostVisible ? (
         <div
           className="layout-splitter layout-splitter-managed-bottom"
-          style={{ bottom: (drawerVisible ? journeyHeight : 0) + managedBottomHostHeight - 3 }}
+          style={{ bottom: statusBarHeight + (drawerVisible ? journeyHeight : 0) + managedBottomHostHeight - 3 }}
           onPointerDown={onManagedBottomHostSplitterPointerDown}
           onPointerMove={onManagedBottomHostSplitterPointerMove}
           onPointerUp={stopManagedBottomHostResize}
@@ -8077,7 +8505,7 @@ function App() {
       {!immersiveMode && drawerVisible ? (
         <div
           className="layout-splitter layout-splitter-journey"
-          style={{ bottom: journeyHeight - 3 }}
+          style={{ bottom: statusBarHeight + journeyHeight - 3 }}
           onPointerDown={onJourneySplitterPointerDown}
           onPointerMove={onJourneySplitterPointerMove}
           onPointerUp={stopJourneyResize}
@@ -8133,22 +8561,28 @@ function App() {
             onEdgePointerStart={handleCanvasEdgePointerStart}
           />
         )}
-        {!presentationMode ? (
-          <div className="canvas-status-strip" aria-label="Canvas status">
-            <span>{currentView.name}</span>
-            <span>{Math.round(viewport.zoom * 100)}%</span>
-            <span>{currentView.nodeIds.length} nodes</span>
-            <span>{currentView.edgeIds.length} edges</span>
-            {uiPreferences.performanceModeEnabled ? <span>Performance</span> : null}
-          </div>
-        ) : null}
         {!presentationMode && uiPreferences.minimapEnabled && minimapModel ? (
           <aside className="canvas-minimap" aria-label="Canvas minimap">
             <div className="canvas-minimap-header">
               <span>Overview</span>
-              <button type="button" onClick={() => fitCurrentViewToCanvas()}>
-                Fit
-              </button>
+              <span className="canvas-minimap-actions">
+                <button type="button" onClick={() => fitCurrentViewToCanvas()}>
+                  Fit
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setUiPreferences((current) => ({
+                      ...current,
+                      minimapEnabled: false,
+                    }))
+                  }
+                  aria-label="Hide minimap"
+                  title={withTooltip('Hide minimap')}
+                >
+                  <X size={11} />
+                </button>
+              </span>
             </div>
             <svg
               className="canvas-minimap-svg"
@@ -8297,6 +8731,9 @@ function App() {
             <p>Dock is in side mode.</p>
           )}
         </section>
+      ) : null}
+      {statusBarVisible ? (
+        <StatusBar items={statusBarItems} actions={statusBarActions} />
       ) : null}
       {guidedTutorialStepIndex !== null ? (
         <GuidedTutorialOverlay

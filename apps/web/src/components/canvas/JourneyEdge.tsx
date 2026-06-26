@@ -2,13 +2,10 @@
  * Purpose: Provide React canvas rendering components for nodes, edges, labels, and interactive diagram visuals.
  */
 
-import type {
-  MouseEvent as ReactMouseEvent,
-  PointerEvent as ReactPointerEvent,
-} from 'react'
+import type { PointerEvent as ReactPointerEvent } from 'react'
 import type { EdgeModel } from '../../model/types'
 import type { EdgeJourneyBadge } from '../../diagram/edges/edgeJourneyBadge'
-import { CanvasText } from './CanvasText'
+import { Text } from '../text/Text'
 import { resolveJourneyEdgeClassName } from '../../diagram/edges/journeyEdgeClassName'
 import {
   composeEdgeDisplayLabel,
@@ -38,9 +35,9 @@ interface JourneyEdgeProps {
     edgeId: string,
     event: ReactPointerEvent<SVGTextElement>,
   ) => void
-  onEdgeLabelDoubleClick?: (
+  onEdgeLabelLongPress?: (
     edgeId: string,
-    event: ReactMouseEvent<SVGTextElement>,
+    event: ReactPointerEvent<SVGTextElement>,
   ) => void
   onSelect: () => void
 }
@@ -59,7 +56,7 @@ export const JourneyEdge = ({
   isInteractive,
   onEdgePointerStart,
   onEdgeLabelPointerDown,
-  onEdgeLabelDoubleClick,
+  onEdgeLabelLongPress,
   onSelect,
 }: JourneyEdgeProps) => {
   const labelPosition = Math.max(0.08, Math.min(0.92, edge.style.labelPosition ?? 0.5))
@@ -104,7 +101,7 @@ export const JourneyEdge = ({
           isDraggingToJourney,
         })}
       />
-      <CanvasText
+      <Text.Svg
         x={labelPlacement.point.x}
         y={labelPlacement.point.y}
         transform={`rotate(${finalLabelAngle} ${labelPlacement.point.x} ${labelPlacement.point.y})`}
@@ -116,25 +113,33 @@ export const JourneyEdge = ({
           .filter(Boolean)
           .join(' ')}
         onPointerDown={(event) => {
-          if (!isInteractive || event.button !== 0) {
+          if (!isInteractive || event.button !== 0 || onEdgeLabelLongPress) {
             return
           }
           event.preventDefault()
           event.stopPropagation()
           onEdgeLabelPointerDown?.(edge.id, event)
         }}
-        onDoubleClick={(event) => {
-          if (!isInteractive) {
-            return
-          }
-          event.preventDefault()
-          event.stopPropagation()
-          onEdgeLabelDoubleClick?.(edge.id, event)
-        }}
+        onLongPress={
+          isInteractive
+            ? (event) => {
+                event.preventDefault()
+                event.stopPropagation()
+                onEdgeLabelLongPress?.(edge.id, event)
+              }
+            : undefined
+        }
+        onPressMoveStart={
+          isInteractive
+            ? (event) => {
+                onEdgeLabelPointerDown?.(edge.id, event)
+              }
+            : undefined
+        }
         style={{ fontSize: `${labelFontSize}px` }}
       >
         {displayLabel}
-      </CanvasText>
+      </Text.Svg>
       {selectedPoint ? (
         <g className="edge-selected-indicator">
           <circle cx={selectedPoint.x} cy={selectedPoint.y} r={9} className="edge-selected-indicator-ring" />
@@ -155,13 +160,13 @@ export const JourneyEdge = ({
             r={8}
             style={{ fill: badge.colorKey }}
           />
-          <CanvasText
+          <Text.Svg
             className="edge-step-number"
             x={badgePoint.x}
             y={badgePoint.y}
           >
             {badge.stepNumber}
-          </CanvasText>
+          </Text.Svg>
         </g>
       ) : null}
     </g>

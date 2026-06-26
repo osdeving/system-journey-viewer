@@ -1,0 +1,119 @@
+workspace "Fintech Fraud Decisioning" {
+  view v_fraud_decisioning container {
+    system wallet "Mobile Wallet" tech react
+    gateway edge "Payment Edge" tech nginx
+    security auth "Strong Customer Auth" tech oauth2
+    container payment_api "Payment API" tech spring-boot
+    container risk_engine "Risk Decision Engine" tech spring-boot drilldown v_risk_components
+    container case_manager "Review Case Manager" tech spring-boot
+    queue risk_stream "Risk Event Stream" tech kafka
+    db ledger_db "Ledger DB" tech postgres
+    db feature_store "Feature Store" tech postgres
+    component notification "Customer Notification" tech component
+    component monitoring "Fraud Operations" tech observability
+    note note_sla on risk_engine "Demo SLA:\nsub-200ms approve/decline path with async case enrichment."
+    note note_feedback on case_manager "Feedback loop:\nanalyst decisions feed the feature store and future scoring."
+
+    e_start_payment: wallet -> edge : http "submit instant payment"
+    e_authenticate: edge -> auth : oauth2-token "verify step-up token"
+    e_authorize: edge -> payment_api : http "authorize payment"
+    e_score: payment_api -> risk_engine : grpc "score transaction"
+    e_read_features: risk_engine -> feature_store : sql "load behavioral features"
+    e_write_ledger: payment_api -> ledger_db : sql "reserve funds"
+    e_publish_risk: risk_engine -> risk_stream : kafka-event "risk.decisioned"
+    e_open_case: risk_stream -> case_manager : kafka-event "open manual review"
+    e_notify: payment_api -> notification : http "notify customer"
+    e_ops_metric: case_manager -> monitoring : http "publish fraud metric"
+    e_case_feedback: case_manager -> feature_store : sql "store analyst label"
+
+    journey j_instant_payment_risk "Instant Payment Risk Decision" color #dc2626 {
+      e_start_payment
+      e_authenticate
+      e_authorize
+      e_score
+      e_read_features
+      thread t_post_decision {
+        e_publish_risk
+        e_open_case
+        e_ops_metric
+      }
+      e_write_ledger
+      e_notify
+    }
+
+    journey j_manual_review_feedback "Manual Review Feedback" color #8b5cf6 {
+      e_publish_risk
+      e_open_case
+      e_ops_metric
+      e_case_feedback
+    }
+  }
+
+  view v_risk_components component parent v_fraud_decisioning via risk_engine {
+    component grpc_adapter "RiskGrpcAdapter" tech adapter-in
+    component score_use_case "ScoreTransaction" tech application-service
+    component rules "RulesPolicy" tech domain
+    component ml_adapter "MLModelAdapter" tech adapter-out
+    component feature_port "FeatureStorePort" tech port-out
+    component event_port "RiskEventPort" tech port-out
+    note note_risk_components on score_use_case "Hex/component demo:\npolicy rules, model score, and event publication stay independently visible."
+
+    e_adapter_use_case: grpc_adapter -> score_use_case : internal-call "score transaction"
+    e_use_case_rules: score_use_case -> rules : internal-call "apply policy"
+    e_use_case_features: score_use_case -> feature_port : sql "fetch features"
+    e_use_case_model: score_use_case -> ml_adapter : grpc "run model"
+    e_use_case_event: score_use_case -> event_port : kafka-event "publish risk.decisioned"
+
+    journey j_risk_component_score "Risk Component Scoring" color #2563eb {
+      e_adapter_use_case
+      e_use_case_features
+      e_use_case_rules
+      e_use_case_model
+      e_use_case_event
+    }
+  }
+
+  metadata ui-layout {
+    view v_fraud_decisioning {
+      node wallet at 70 170 size 235 120 fill #1e293b text #f8fafc
+      node edge at 360 160 size 220 108 fill #b45309 text #fff7ed
+      node auth at 360 320 size 220 104 fill #7f1d1d text #fee2e2
+      node payment_api at 650 160 size 240 120 fill #2563eb text #ffffff
+      node risk_engine at 950 145 size 265 130 fill #dc2626 text #fee2e2
+      node risk_stream at 1290 90 size 400 92 fill #334155 text #f8fafc
+      node case_manager at 1305 250 size 260 120 fill #7c3aed text #f5f3ff
+      node ledger_db at 950 405 size 220 104 fill #1e293b text #e2e8f0
+      node feature_store at 1290 430 size 230 104 fill #0f766e text #f0fdfa
+      node notification at 1605 410 size 245 104 fill #475569 text #f8fafc
+      node monitoring at 1695 180 size 230 110 fill #4338ca text #e0e7ff
+      node note_sla at 905 15 size 340 105 fill #fee2e2 text #7f1d1d
+      node note_feedback at 1260 555 size 360 105 fill #f3e8ff text #581c87
+      edge e_start_payment label 0.45 side left
+      edge e_authenticate label 0.5 side right
+      edge e_authorize label 0.5 side left
+      edge e_score label 0.5 side left
+      edge e_read_features label 0.55 side right
+      edge e_write_ledger label 0.48 side right
+      edge e_publish_risk label 0.48 side left
+      edge e_open_case label 0.5 side left
+      edge e_notify label 0.56 side right
+      edge e_ops_metric label 0.54 side left
+      edge e_case_feedback label 0.56 side right
+    }
+
+    view v_risk_components {
+      node grpc_adapter at 80 180 size 245 110 fill #334155 text #f8fafc
+      node score_use_case at 400 160 size 270 125 fill #dc2626 text #fee2e2
+      node rules at 760 60 size 240 110 fill #0f766e text #f0fdfa
+      node feature_port at 760 205 size 240 105 fill #1e293b text #e2e8f0
+      node ml_adapter at 760 345 size 240 105 fill #7c3aed text #f5f3ff
+      node event_port at 1090 205 size 240 105 fill #334155 text #f8fafc
+      node note_risk_components at 365 350 size 360 105 fill #fef3c7 text #78350f
+      edge e_adapter_use_case label 0.5 side left
+      edge e_use_case_rules label 0.48 side left
+      edge e_use_case_features label 0.48 side left
+      edge e_use_case_model label 0.48 side right
+      edge e_use_case_event label 0.56 side left
+    }
+  }
+}

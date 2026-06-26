@@ -21,24 +21,30 @@ Default playback/focus state:
 - Pan: drag empty canvas.
 - Zoom: mouse wheel.
 - Select: click node/edge.
-- Use the bottom-right minimap to understand large diagrams and jump the viewport by clicking the overview.
-- The bottom-left status strip shows current view, zoom, node count, edge count, and performance mode state.
+- Use the bottom-right minimap to understand large diagrams and jump the viewport by clicking the overview; hide it from its close button, the status bar, the command palette, or **View**.
+- The bottom status bar shows current view, zoom, entity counts, selection, active journey, active tool, playback mode, provider state, and quick actions for palette/tool/fit/grid/snap/minimap/performance/search.
 - Drag from an exact port hover in **Select** mode when the blue pulse cue appears to start a connection without leaving selection mode.
 - Multi-select: `Shift` or `Cmd/Ctrl` + click.
 - Delete selection: `Delete` / `Backspace`.
 - Duplicate selection: `Cmd/Ctrl + D`.
+- Press and hold editable node text, note text, or edge labels to open in-place editing; release before the hold delay to keep it as a normal click.
 
 ## Command Palette
 
 - Open with `Ctrl/Cmd + K`, `/`, the topbar **Search** control, or the mobile **Search** button.
 - Search commands, views, journeys, nodes, and edges from one place.
 - Selecting a node or edge opens its view, selects it, and centers the canvas around it.
-- Common actions include tool switching, auto arrange, fit view, theme/grid/snap toggles, panel opening, file commands, minimap toggle, and performance mode toggle.
+- Common actions include tool switching, auto arrange, fit view, theme/grid/snap toggles, panel opening, file commands, minimap toggle, status bar toggle, and performance mode toggle.
+
+## Palette
+
+- The palette uses a searchable component browser with category chips and drag-ready cards.
+- Filter by component name, preset id, or icon key, then drag a card into the canvas.
 
 ## Notes
 
 - Notes render as sticky notes with folded corner + pin.
-- Double-click note text for inline edit.
+- Press and hold note text for inline edit.
 - Note text supports multiple lines.
 - In inline multiline edit:
   - `Enter` adds a new line.
@@ -132,9 +138,11 @@ Default playback/focus state:
 ## Export Gallery
 
 - Open from **Help > Open Export Gallery**.
-- When signed in, it shows your private cloud-provider gallery (`PNG`, `GIF`, `MP4`) instead of static sample assets.
+- The gallery includes a bundled sample library with SJV Scripts and animated SVG exports for product demos.
+- When signed in, use `Seed Sample Library` to save those bundled scripts and animations into the active provider.
+- Your private cloud-provider gallery (`PNG`, `GIF`, `MP4`, and seeded samples) appears below the sample library.
 - Standard local `PNG`, `GIF`, and `MP4` exports now auto-upload to the active provider after the browser download finishes (when you are signed in).
-- Gallery actions focus on local upload and refresh for the private `gallery` bucket.
+- Gallery actions include sample seeding, local upload, and refresh for the private `gallery` bucket.
 - The top-right cloud badge gives quick access to sign-in, save/load, gallery refresh, and automatic-upload status.
 
 ## Preferences Window
@@ -144,6 +152,7 @@ Default playback/focus state:
   - Tooltip enable/disable.
   - Startup splash enable/disable.
   - Canvas minimap enable/disable.
+  - Status bar show/hide.
   - Performance mode enable/disable.
   - Node depth effects enable/disable.
   - Showcase language (`EN` / `PT`).

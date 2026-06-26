@@ -24,6 +24,8 @@ React UI components only (PascalCase files).
   - Reusable journey-side and timeline UI components.
 - `src/components/palette/`
   - Reusable node-preset palette components for drag-to-canvas workflows.
+- `src/components/text/`
+  - Reusable app text primitives for chrome copy, SVG canvas labels, and in-place text editors.
 - `src/components/windowing/`
   - Reusable window/dock UI shells (`FloatingWindow`, `DockHost`, etc.).
 - Future groups should follow the same pattern:
@@ -65,6 +67,7 @@ Managed window state, host layout helpers, and window UI configuration metadata.
 - `src/store/`: editor state and persistence integration
 - `src/model/`: core workspace model types and fixtures/defaults
 - `src/presets/`: node/technology/protocol preset catalogs and preset interaction contracts
+- `src/showcaseGallery/`: bundled gallery sample catalog and SJV Script examples used by the in-app export gallery
 - `src/export/`: static/animated export pipeline
 - `src/file/`: file import/export and recent files support
 - `src/integrations/`: external service adapters (for example Supabase browser auth/cloud persistence)

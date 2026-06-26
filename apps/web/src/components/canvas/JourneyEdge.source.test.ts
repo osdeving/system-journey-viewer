@@ -15,4 +15,12 @@ describe('JourneyEdge source regressions', () => {
     expect(journeyEdgeSource).toContain('aria-hidden="true"')
     expect(journeyEdgeSource).toContain('markerEnd="url(#edge-arrow)"')
   })
+
+  it('uses long-press, not double-click, for editable edge labels', () => {
+    expect(journeyEdgeSource).toContain('onEdgeLabelLongPress')
+    expect(journeyEdgeSource).toContain('onLongPress=')
+    expect(journeyEdgeSource).toContain('onPressMoveStart=')
+    expect(journeyEdgeSource).not.toContain('onEdgeLabelDoubleClick')
+    expect(journeyEdgeSource).not.toContain('onDoubleClick=')
+  })
 })

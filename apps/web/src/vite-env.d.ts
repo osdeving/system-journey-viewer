@@ -4,3 +4,8 @@
 
 declare const __SJV_SUPABASE_URL__: string
 declare const __SJV_SUPABASE_PUBLISHABLE_KEY__: string
+
+declare module '*.sjv?raw' {
+  const content: string
+  export default content
+}

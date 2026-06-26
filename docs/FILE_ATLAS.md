@@ -61,6 +61,8 @@ Managed window state, host layout helpers, and window UI configuration metadata.
 - `src/export/`: static/animated export pipeline
 - `src/file/`: file import/export and recent files support
 - `src/integrations/`: external service adapters (for example Supabase browser auth/cloud persistence)
+  - `src/integrations/cloud/`: provider-neutral cloud persistence contracts/configuration used by hosted and local adapters
+  - `src/integrations/localDb/`: local browser database adapters for standalone cloud-provider testing
 - `src/journeys/`: journey focus/player helpers
 - `src/engine/`: low-level geometry/curve engine primitives
 

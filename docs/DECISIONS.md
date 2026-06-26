@@ -1,5 +1,11 @@
 # Decisions
 
+## 2026-06-26 - Provider-Neutral Workspace Cloud Store
+
+- Context: Supabase account availability was blocking cloud-dependent feature testing, and the project needed a migration path that preserved the existing workspace/script/gallery contract.
+- Decision: extract cloud persistence into a provider-neutral `WorkspaceCloudStore`, keep Supabase as a hosted adapter, and add a functional local IndexedDB provider selected by `VITE_SJV_DB_URL=indexeddb://...`. When Supabase is not configured, the web app defaults to `indexeddb://sjv-local`.
+- Consequence: workspace cloud features can be developed and tested standalone, changing the local database only requires changing the database URL name, and future remote providers can preserve the same UI contract behind a backend/gateway instead of exposing raw database URLs in the browser.
+
 ## 2026-03-01 - Client-Side Supabase as the First Cloud Persistence Slice
 
 - Context: the web app needed a low-friction hosted option for personal/tester auth plus cloud storage of workspace snapshots without introducing a custom backend.

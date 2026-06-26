@@ -42,6 +42,10 @@ export type HexagonShape = {
   shellPath: string
 }
 
+export type BasicPolygonShape = {
+  shellPath: string
+}
+
 export const resolveQueueCylinderShape = (
   width: number,
   height: number,
@@ -86,5 +90,39 @@ export const resolveHexagonShape = (
 
   return {
     shellPath: `M ${leftInnerX} ${topY} L ${rightInnerX} ${topY} L ${rightX} ${centerY} L ${rightInnerX} ${bottomY} L ${leftInnerX} ${bottomY} L ${leftX} ${centerY} Z`,
+  }
+}
+
+export const resolveTriangleShape = (
+  width: number,
+  height: number,
+  inset = 0,
+): BasicPolygonShape => {
+  const safeWidth = Math.max(1, width)
+  const safeHeight = Math.max(1, height)
+  const clampedInset = clamp(inset, 0, Math.min(safeWidth, safeHeight) / 2 - 0.5)
+  const leftX = clampedInset
+  const rightX = safeWidth - clampedInset
+  const topY = clampedInset
+  const bottomY = safeHeight - clampedInset
+  return {
+    shellPath: `M ${safeWidth / 2} ${topY} L ${rightX} ${bottomY} L ${leftX} ${bottomY} Z`,
+  }
+}
+
+export const resolveDiamondShape = (
+  width: number,
+  height: number,
+  inset = 0,
+): BasicPolygonShape => {
+  const safeWidth = Math.max(1, width)
+  const safeHeight = Math.max(1, height)
+  const clampedInset = clamp(inset, 0, Math.min(safeWidth, safeHeight) / 2 - 0.5)
+  const leftX = clampedInset
+  const rightX = safeWidth - clampedInset
+  const topY = clampedInset
+  const bottomY = safeHeight - clampedInset
+  return {
+    shellPath: `M ${safeWidth / 2} ${topY} L ${rightX} ${safeHeight / 2} L ${safeWidth / 2} ${bottomY} L ${leftX} ${safeHeight / 2} Z`,
   }
 }

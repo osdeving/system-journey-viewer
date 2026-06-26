@@ -450,6 +450,30 @@
   - raster output dimensions are normalized into a default `1280x720` bounding box (aspect-preserving),
   - export SVG serialization now adds a fallback `viewBox` when absent so resized output dimensions scale content correctly instead of making it appear smaller.
 
+## UI Shell / Canvas State (2026-06-26)
+
+- Default workspace theme is dark. Missing/DSL-imported workspace theme now defaults to `dark`.
+- Switching into light theme is allowed but shows an in-app warning dialog because light theme remains under construction.
+- UI preferences persisted under `sjv-ui-preferences-v1` now include:
+  - `canvasBackgroundPresetId`
+  - `customCanvasBackground`
+  Existing payloads hydrate with `soft-grid` / `#eef1f5`.
+- Supabase no longer has a permanent topbar badge or status-bar provider item. Cloud access is available through:
+  - Preferences `Supabase Cloud`,
+  - `Settings > Open Supabase Cloud Panel`,
+  - Command Palette `Open Supabase Cloud Panel`.
+- Canvas right-click uses the custom context menu. The browser context menu is suppressed in the app shell.
+- Experimental freeform shapes exist as normal canvas nodes with ports/connectors:
+  - `shape-rectangle`
+  - `shape-circle`
+  - `shape-triangle`
+  - `shape-diamond`
+- Experimental shapes are intentionally outside SJV Script:
+  - `fullWorkspaceToLiteDsl` filters shape nodes and edges connected to shape nodes,
+  - UI-layout metadata export also filters them,
+  - `addEdgeToJourney` refuses edges connected to experimental shapes.
+- Edge labels render with black text and a light stroke in both light/dark canvas modes.
+
 ## Suggested Next Increments
 
 - Upgrade edge routing with stronger orthogonal controls.

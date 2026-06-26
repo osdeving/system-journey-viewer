@@ -196,6 +196,39 @@ describe('SJV Script parser and conversion', () => {
     expect(exported).toContain('note note_api on api "Requires OAuth scope orders:write"')
   })
 
+  it('excludes experimental basic shapes and their edges from exported SJV Script', () => {
+    const workspace = createDefaultWorkspace()
+    workspace.nodes.n_shape_test = {
+      id: 'n_shape_test',
+      presetId: 'shape-circle',
+      kind: 'shape-circle',
+      name: 'Loose Circle',
+      tags: ['experimental-shape'],
+      bounds: { x: 120, y: 120, w: 120, h: 120 },
+      ports: [],
+      children: [],
+    }
+    workspace.edges.e_shape_test = {
+      id: 'e_shape_test',
+      from: { nodeId: 'n_shape_test' },
+      to: { nodeId: 'n_api' },
+      protocolPresetId: 'http',
+      label: 'shape edge',
+      route: { kind: 'auto', points: [] },
+      style: { dashed: false, thickness: 2, arrow: true },
+    }
+    workspace.views.v_container.nodeIds.push('n_shape_test')
+    workspace.views.v_container.edgeIds.push('e_shape_test')
+    workspace.journeys.j_c_1.steps.push({ n: 99, edgeId: 'e_shape_test' })
+
+    const exported = fullWorkspaceToLiteDsl(workspace)
+
+    expect(exported).not.toContain('Loose Circle')
+    expect(exported).not.toContain('shape edge')
+    expect(exported).not.toContain('n_shape_test')
+    expect(exported).not.toContain('e_shape_test')
+  })
+
   it('parses and exports escaped multiline text values', () => {
     const ast = parseLiteDsl(escapedTextScript)
     const workspace = liteToFullWorkspace(ast)

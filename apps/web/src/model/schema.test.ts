@@ -24,7 +24,7 @@ describe('workspaceSchema', () => {
     expect(parsed.success).toBe(false)
   })
 
-  it('defaults theme to light when missing', () => {
+  it('defaults theme to dark when missing', () => {
     const workspace = createDefaultWorkspace()
     const parsed = workspaceSchema.safeParse({
       ...workspace,
@@ -36,7 +36,7 @@ describe('workspaceSchema', () => {
 
     expect(parsed.success).toBe(true)
     if (parsed.success) {
-      expect(parsed.data.settings.theme).toBe('light')
+      expect(parsed.data.settings.theme).toBe('dark')
       expect(parsed.data.settings.journeyFocus).toEqual({
         offscopeRenderMode: 'hide',
         layoutMode: 'preserve',
@@ -65,6 +65,31 @@ describe('workspaceSchema', () => {
     if (parsed.success) {
       expect(parsed.data.nodes.n_api.style?.fillColor).toBe('#22c55e')
       expect(parsed.data.nodes.n_api.style?.textColor).toBe('#f8fafc')
+    }
+  })
+
+  it('accepts experimental basic shape nodes in workspace snapshots', () => {
+    const workspace = createDefaultWorkspace()
+    const parsed = workspaceSchema.safeParse({
+      ...workspace,
+      nodes: {
+        ...workspace.nodes,
+        n_shape_test: {
+          id: 'n_shape_test',
+          presetId: 'shape-diamond',
+          kind: 'shape-diamond',
+          name: 'Loose Diamond',
+          tags: ['experimental-shape'],
+          bounds: { x: 10, y: 20, w: 136, h: 136 },
+          ports: [],
+          children: [],
+        },
+      },
+    })
+
+    expect(parsed.success).toBe(true)
+    if (parsed.success) {
+      expect(parsed.data.nodes.n_shape_test.kind).toBe('shape-diamond')
     }
   })
 

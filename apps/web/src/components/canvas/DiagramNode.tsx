@@ -7,12 +7,15 @@ import type {
 } from 'react'
 import { iconForKey } from '../../presets/iconPipeline'
 import type { NodeModel, ViewKind } from '../../model/types'
+import { isExperimentalShapeKind } from '../../model/experimentalShapes'
 import { resolveHexConnectorRole } from '../../diagram/nodes/hexConnectorRole'
 import { resolveNodePortClassName } from '../../diagram/nodes/nodePortClassName'
 import {
   resolveDbCylinderShape,
+  resolveDiamondShape,
   resolveHexagonShape,
   resolveQueueCylinderShape,
+  resolveTriangleShape,
 } from '../../diagram/nodes/nodeShapePaths'
 import {
   resolveNodeLabelLayout,
@@ -104,11 +107,14 @@ export const DiagramNode = ({
   onPortPointerLeave,
   onPortPointerDown,
 }: DiagramNodeProps) => {
+  const isBasicShape = isExperimentalShapeKind(node.kind)
   const isPendingConnection = node.id === pendingConnectionFrom
   const isConnectionTarget =
     hoveredConnectionTarget?.nodeId === node.id && Boolean(pendingConnectionFrom)
   const nodeClassName = [
     'node',
+    isBasicShape ? 'node-basic-shape' : '',
+    isBasicShape ? `node-basic-shape-${node.kind.replace('shape-', '')}` : '',
     node.kind === 'boundary' ? 'node-boundary' : '',
     node.kind === 'note' ? 'node-note' : '',
     isPendingConnection ? 'node-pending' : '',
@@ -135,6 +141,14 @@ export const DiagramNode = ({
   const hexagonBorderShape = shouldRenderHexagon
     ? resolveHexagonShape(node.bounds.w, node.bounds.h, 2.5)
     : null
+  const triangleShape =
+    node.kind === 'shape-triangle'
+      ? resolveTriangleShape(node.bounds.w, node.bounds.h)
+      : null
+  const diamondShape =
+    node.kind === 'shape-diamond'
+      ? resolveDiamondShape(node.bounds.w, node.bounds.h)
+      : null
   const stickyNoteShape =
     node.kind === 'note'
       ? resolveStickyNoteShape(node.bounds.w, node.bounds.h)
@@ -145,7 +159,7 @@ export const DiagramNode = ({
   const drilldownBadgeX = node.bounds.w - (connectorRole ? 56 : 26)
   const drilldownBadgeY = 8
   const nodeDepthEffectsActive =
-    nodeDepthEffectsEnabled && node.kind !== 'note' && node.kind !== 'boundary'
+    nodeDepthEffectsEnabled && node.kind !== 'note' && node.kind !== 'boundary' && !isBasicShape
   const labelLayout =
     node.kind === 'note'
       ? {
@@ -168,13 +182,14 @@ export const DiagramNode = ({
         )
       : truncateCanvasText(node.name, labelLayout.maxTitleWidth, 14)
   const nodeSubtitleText =
-    node.kind === 'note'
+    node.kind === 'note' || isBasicShape
       ? ''
       : truncateCanvasText(node.tech?.label ?? node.kind, labelLayout.maxSubtitleWidth, 12)
 
   return (
     <g
       className="node-group"
+      data-node-id={node.id}
       transform={`translate(${node.bounds.x}, ${node.bounds.y})`}
       onPointerDown={(event) => onNodePointerDown(event, node, 'move')}
       onPointerMove={onNodePointerMove}
@@ -182,7 +197,7 @@ export const DiagramNode = ({
       onPointerLeave={onNodePointerLeave}
       onDoubleClick={(event) => {
         const modifiersPressed = (event.ctrlKey || event.metaKey) && event.altKey
-        if (!presentationMode && modifiersPressed && node.kind !== 'note') {
+        if (!presentationMode && modifiersPressed && node.kind !== 'note' && !isBasicShape) {
           onCreateDrilldown(node.id)
           return
         }
@@ -191,7 +206,28 @@ export const DiagramNode = ({
         }
       }}
     >
-      {node.kind === 'note' && stickyNoteShape ? (
+      {node.kind === 'shape-circle' ? (
+        <ellipse
+          cx={node.bounds.w / 2}
+          cy={node.bounds.h / 2}
+          rx={node.bounds.w / 2}
+          ry={node.bounds.h / 2}
+          className={nodeClassName}
+          style={nodeFillColor ? { fill: nodeFillColor } : undefined}
+        />
+      ) : triangleShape ? (
+        <path
+          d={triangleShape.shellPath}
+          className={nodeClassName}
+          style={nodeFillColor ? { fill: nodeFillColor } : undefined}
+        />
+      ) : diamondShape ? (
+        <path
+          d={diamondShape.shellPath}
+          className={nodeClassName}
+          style={nodeFillColor ? { fill: nodeFillColor } : undefined}
+        />
+      ) : node.kind === 'note' && stickyNoteShape ? (
         <g>
           <path
             d={stickyNoteShape.shellPath}
@@ -342,7 +378,7 @@ export const DiagramNode = ({
           />
         )
       ) : null}
-      {node.drilldownRef && node.kind !== 'note' ? (
+      {node.drilldownRef && node.kind !== 'note' && !isBasicShape ? (
         <g className="node-drilldown-badge" aria-hidden="true">
           <rect
             x={drilldownBadgeX}
@@ -436,7 +472,7 @@ export const DiagramNode = ({
         }
         onPressMoveStart={presentationMode ? undefined : (event) => onNodePointerDown(event, node, 'move')}
       >
-        {node.kind === 'note' ? nodeTitleText : `${iconForKey(node.tech?.iconKey)} ${nodeTitleText}`}
+        {node.kind === 'note' || isBasicShape ? nodeTitleText : `${iconForKey(node.tech?.iconKey)} ${nodeTitleText}`}
       </Text.Svg>
       {nodeSubtitleText ? (
         <Text.Svg

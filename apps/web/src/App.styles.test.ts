@@ -136,14 +136,15 @@ describe('App boundary styles', () => {
       /\.app-layout-presentation\s+\.topbar-utility-strip\s*\{[^}]*display:\s*none;[^}]*\}/s,
     )
     expect(appCss).toContain('.topbar-cloud-shell')
+    expect(appCss).toContain('.topbar-cloud-shell-floating')
     expect(appCss).toContain('.topbar-utility-strip')
     expect(appCss).toContain('.command-palette-trigger')
     expect(appCss).toContain('.app-logo-button')
     expect(appCss).toContain('.command-palette-backdrop')
     expect(appCss).toContain('.command-palette-row-active')
-    expect(appCss).toContain('.topbar-cloud-badge')
     expect(appCss).not.toContain('.topbar-menu-restore-button')
     expect(appCss).toContain('.topbar-cloud-panel')
+    expect(appCss).toContain('.topbar-cloud-panel-header')
     expect(appCss).toContain('.topbar-cloud-field')
     expect(appCss).toContain('.topbar-cloud-command-grid')
     expect(appCss).toContain('.topbar-cloud-command-card')
@@ -160,6 +161,10 @@ describe('App boundary styles', () => {
     expect(appCss).toContain('.topbar-cloud-script-row-delete')
     expect(appCss).toContain('.topbar-cloud-script-row-active')
     expect(appCss).toContain('.topbar-cloud-script-row-badge')
+    expect(appCss).toContain('.canvas-context-menu')
+    expect(appCss).toContain('.theme-notice-dialog')
+    expect(appCss).toContain('.preferences-canvas-background-card')
+    expect(appCss).toContain('.node-basic-shape')
     expect(appCss).toContain('.help-gallery-sections')
     expect(appCss).toContain('.help-gallery-provider-status')
     expect(appCss).toContain('.help-gallery-section')
@@ -264,7 +269,7 @@ describe('App boundary styles', () => {
     expect(appCss).toMatch(/\.node-depth-fill\s*\{[^}]*opacity:\s*0\.18;[^}]*\}/s)
   })
 
-  it('supports polished chrome themes with UI font scale, custom colors, and light canvas', () => {
+  it('supports polished chrome themes with UI font scale, custom colors, and configurable canvas', () => {
     expect(appCss).toContain('--sjv-ui-font-scale')
     expect(appCss).toContain('--sjv-shell-control-text')
     expect(appCss).toMatch(/\.app-text-size-sm\s*\{[^}]*font-size:\s*var\(--sjv-ui-font-sm,\s*12px\);/s)
@@ -283,7 +288,7 @@ describe('App boundary styles', () => {
     expect(appCss).toContain('background: var(--sjv-shell-status-bg);')
     expect(appCss).toMatch(/\.dock-host-body\s*\{[^}]*scrollbar-width:\s*none;/s)
     expect(appCss).toMatch(/\.palette-category-overflow\s*\{[^}]*grid-template-columns:\s*14px minmax\(0,\s*1fr\) 14px;/s)
-    expect(appCss).toMatch(/:is\(\.app-chrome-theme-midnight,[^)]+\.app-chrome-theme-custom\)[\s\S]*\.canvas-panel[\s\S]*background:\s*#eef1f5;/)
+    expect(appCss).toMatch(/:is\(\.app-chrome-theme-midnight,[^)]+\.app-chrome-theme-custom\)[\s\S]*\.canvas-panel[\s\S]*background:\s*var\(--sjv-canvas-bg\);/)
   })
 
   it('styles the guided tutorial overlay and help guide actions', () => {

@@ -74,6 +74,7 @@ export const JourneyEdge = ({
   return (
     <g
       className="journey-edge-group"
+      data-edge-id={edge.id}
       onPointerDown={(event) => {
         event.preventDefault()
         event.stopPropagation()

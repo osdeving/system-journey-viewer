@@ -15,6 +15,7 @@ export type ToolbarSectionId = 'navigation' | 'editing' | 'viewport' | 'panels' 
 export type UiDensity = 'comfortable' | 'compact'
 export type UiFontScale = 'small' | 'normal' | 'large'
 export type ChromeThemeId = 'midnight' | 'graphite' | 'teal' | 'custom'
+export type CanvasBackgroundPresetId = 'soft-grid' | 'paper' | 'cool-gray' | 'warm-white' | 'custom'
 
 export type UiChromeCustomColors = {
   shellBackground: string
@@ -33,6 +34,12 @@ export type ChromeThemePreset = {
   colors: UiChromeCustomColors
 }
 
+export type CanvasBackgroundPreset = {
+  id: Exclude<CanvasBackgroundPresetId, 'custom'>
+  label: string
+  color: string
+}
+
 export type UiPreferences = {
   tooltipsEnabled: boolean
   splashEnabled: boolean
@@ -45,6 +52,8 @@ export type UiPreferences = {
   fontScale: UiFontScale
   chromeThemeId: ChromeThemeId
   customChromeColors: UiChromeCustomColors
+  canvasBackgroundPresetId: CanvasBackgroundPresetId
+  customCanvasBackground: string
   iconSet: AppIconSetId
   menuBarVisible: boolean
   toolbarInlineWithBrand: boolean
@@ -106,6 +115,15 @@ export const DEFAULT_CUSTOM_CHROME_COLORS: UiChromeCustomColors = {
   borderColor: '#2c3f50',
 }
 
+export const CANVAS_BACKGROUND_PRESETS: CanvasBackgroundPreset[] = [
+  { id: 'soft-grid', label: 'Soft Grid', color: '#eef1f5' },
+  { id: 'paper', label: 'Paper', color: '#f8fafc' },
+  { id: 'cool-gray', label: 'Cool Gray', color: '#e5e7eb' },
+  { id: 'warm-white', label: 'Warm White', color: '#f5f2ea' },
+]
+
+export const DEFAULT_CUSTOM_CANVAS_BACKGROUND = '#eef1f5'
+
 export const DEFAULT_UI_PREFERENCES: UiPreferences = {
   tooltipsEnabled: true,
   splashEnabled: true,
@@ -118,6 +136,8 @@ export const DEFAULT_UI_PREFERENCES: UiPreferences = {
   fontScale: 'normal',
   chromeThemeId: 'midnight',
   customChromeColors: DEFAULT_CUSTOM_CHROME_COLORS,
+  canvasBackgroundPresetId: 'soft-grid',
+  customCanvasBackground: DEFAULT_CUSTOM_CANVAS_BACKGROUND,
   iconSet: 'lucide',
   menuBarVisible: true,
   toolbarInlineWithBrand: false,
@@ -172,6 +192,19 @@ const parseChromeThemeId = (value: unknown): ChromeThemeId => {
   return DEFAULT_UI_PREFERENCES.chromeThemeId
 }
 
+const parseCanvasBackgroundPresetId = (value: unknown): CanvasBackgroundPresetId => {
+  if (
+    value === 'soft-grid' ||
+    value === 'paper' ||
+    value === 'cool-gray' ||
+    value === 'warm-white' ||
+    value === 'custom'
+  ) {
+    return value
+  }
+  return DEFAULT_UI_PREFERENCES.canvasBackgroundPresetId
+}
+
 const parseFontScale = (value: unknown): UiFontScale => {
   if (value === 'small' || value === 'normal' || value === 'large') {
     return value
@@ -224,6 +257,10 @@ export const parseUiPreferencesCandidate = (candidate: unknown): UiPreferences =
     fontScale: parseFontScale(candidate.fontScale),
     chromeThemeId: parseChromeThemeId(candidate.chromeThemeId),
     customChromeColors: parseCustomChromeColors(candidate.customChromeColors),
+    canvasBackgroundPresetId: parseCanvasBackgroundPresetId(candidate.canvasBackgroundPresetId),
+    customCanvasBackground: isHexColor(candidate.customCanvasBackground)
+      ? candidate.customCanvasBackground
+      : DEFAULT_UI_PREFERENCES.customCanvasBackground,
     iconSet: isAppIconSetId(candidate.iconSet) ? candidate.iconSet : DEFAULT_UI_PREFERENCES.iconSet,
     menuBarVisible:
       typeof candidate.menuBarVisible === 'boolean'
@@ -284,6 +321,14 @@ const resolveChromeColors = (preferences: UiPreferences): UiChromeCustomColors =
     CHROME_THEME_PRESETS[0].colors
 }
 
+const resolveCanvasBackgroundColor = (preferences: UiPreferences): string => {
+  if (preferences.canvasBackgroundPresetId === 'custom') {
+    return preferences.customCanvasBackground
+  }
+  return CANVAS_BACKGROUND_PRESETS.find((preset) => preset.id === preferences.canvasBackgroundPresetId)?.color ??
+    CANVAS_BACKGROUND_PRESETS[0].color
+}
+
 const shellMixFallback = (hexColor: string): string => `${hexColor}dd`
 
 export const resolveUiPreferenceCssVariables = (preferences: UiPreferences): CSSProperties => {
@@ -304,5 +349,6 @@ export const resolveUiPreferenceCssVariables = (preferences: UiPreferences): CSS
     '--sjv-shell-accent-border': `${colors.accentColor}73`,
     '--sjv-shell-status-bg': colors.shellBackground,
     '--sjv-shell-status-border': colors.borderColor,
+    '--sjv-canvas-bg': resolveCanvasBackgroundColor(preferences),
   } as CSSProperties
 }

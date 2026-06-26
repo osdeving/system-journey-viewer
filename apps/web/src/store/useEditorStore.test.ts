@@ -28,6 +28,31 @@ describe('useEditorStore', () => {
     expect(after.selectedNodeIds).toEqual([nodeId])
   })
 
+  it('adds experimental basic shapes without allowing their edges in journeys', () => {
+    const state = useEditorStore.getState()
+    const shapeId = state.addBasicShape('shape-circle', 40, 60)
+    let updated = useEditorStore.getState()
+    const shape = updated.workspace.nodes[shapeId]
+
+    expect(shape.kind).toBe('shape-circle')
+    expect(shape.tags).toContain('experimental-shape')
+    expect(shape.ports.length).toBeGreaterThan(0)
+    expect(updated.workspace.views[updated.currentViewId].nodeIds).toContain(shapeId)
+
+    updated.beginConnection(shapeId)
+    updated.connectPendingTo('n_api')
+    updated = useEditorStore.getState()
+    const shapeEdgeId = updated.selectedEdgeId
+    expect(shapeEdgeId).toBeTruthy()
+
+    const beforeSteps = updated.workspace.journeys.j_c_1.steps.length
+    if (shapeEdgeId) {
+      updated.addEdgeToJourney('j_c_1', shapeEdgeId)
+    }
+    updated = useEditorStore.getState()
+    expect(updated.workspace.journeys.j_c_1.steps.length).toBe(beforeSteps)
+  })
+
   it('supports additive multi-selection with toggle behavior', () => {
     const state = useEditorStore.getState()
 

@@ -76,7 +76,7 @@ Rules:
 
 Persistent user preferences, independent of workspace content.
 
-- Owner: `apps/web/src/App.tsx`
+- Owner: `apps/web/src/preferences/uiPreferences.ts` for parsing/defaults, with `apps/web/src/App.tsx` applying updates from the UI.
 - Storage key: `UI_PREFERENCES_STORAGE_KEY`
 
 Includes:
@@ -84,8 +84,14 @@ Includes:
 - tooltips enabled
 - splash enabled
 - node depth effects enabled
+- performance mode enabled
+- minimap enabled
+- status bar enabled
 - showcase locale
 - UI density
+- UI font scale
+- chrome theme preset/custom color tokens
+- icon set
 - toolbar section visibility
 
 ## 2) SJV Script synchronization model
@@ -137,4 +143,3 @@ metadata ui-layout {
 2. SJV sync (when enabled) can replace the workspace from text input.
 3. Non-DSL editor changes regenerate SJV text (while sync is enabled).
 4. Local per-workspace layout cache only overlays imported SJV workspaces when the script omits `metadata ui-layout`.
-

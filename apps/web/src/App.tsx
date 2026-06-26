@@ -8286,20 +8286,22 @@ function App() {
             </div>
             </nav>
           ) : null}
-          <div className="topbar-utility-strip">
-            <button
-              type="button"
-              className="command-palette-trigger"
-              onClick={() => openCommandPalette()}
-              title={withTooltip('Search commands, views, journeys, nodes, and edges')}
-              aria-label="Open command palette"
-            >
-              <Search size={15} />
-              <span>Search</span>
-              <kbd>Ctrl K</kbd>
-            </button>
-            {compactInlineTopbar ? null : cloudBadgeControl}
-          </div>
+          {!presentationMode ? (
+            <div className="topbar-utility-strip">
+              <button
+                type="button"
+                className="command-palette-trigger"
+                onClick={() => openCommandPalette()}
+                title={withTooltip('Search commands, views, journeys, nodes, and edges')}
+                aria-label="Open command palette"
+              >
+                <Search size={15} />
+                <span>Search</span>
+                <kbd>Ctrl K</kbd>
+              </button>
+              {compactInlineTopbar ? null : cloudBadgeControl}
+            </div>
+          ) : null}
           {!presentationMode ? (
             <div className="mode-indicators">
                 <span className={activeTool === 'connector' ? 'mode-pill mode-pill-active' : 'mode-pill'}>

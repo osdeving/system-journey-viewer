@@ -235,11 +235,14 @@
   grid-column: 1;
   grid-row: 1;
   display: grid;
-  grid-template-columns: auto auto;
+  grid-template-columns: auto;
   align-items: center;
-  gap: 0 10px;
   width: auto;
   min-width: auto;
+}
+
+.app-layout-presentation .topbar-utility-strip {
+  display: none;
 }
 
 .app-layout-presentation .topbar-actions {

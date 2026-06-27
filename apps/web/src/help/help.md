@@ -52,7 +52,7 @@ Default playback/focus state:
 
 ## Drilldown
 
-- Double-click a boundary-enabled node to open drilldown.
+- Double-click a node with a drilldown badge to open its child view.
 - `Ctrl/Cmd + Alt + double-click` creates a new drilldown view.
 - Use **Back** or the view selector to navigate hierarchy.
 

@@ -625,7 +625,7 @@ describe('useEditorStore', () => {
     expect(journey.steps.some((step) => (step.threads?.length ?? 0) > 0)).toBe(false)
   })
 
-  it('opens existing drilldown view and preserves boundary conversion behavior', () => {
+  it('opens existing drilldown view without changing the parent node type', () => {
     const state = useEditorStore.getState()
     expect(state.workspace.nodes.n_worker.drilldownRef).toBe('v_components_worker')
 
@@ -634,13 +634,36 @@ describe('useEditorStore', () => {
 
     expect(createdViewId).toBeTruthy()
     expect(updated.workspace.nodes.n_worker.drilldownRef).toBe(createdViewId)
-    expect(updated.workspace.nodes.n_worker.kind).toBe('boundary')
+    expect(updated.workspace.nodes.n_worker.kind).toBe('container')
     expect(updated.currentViewId).toBe(createdViewId)
     const createdView = createdViewId ? updated.workspace.views[createdViewId] : undefined
     expect(createdView).toBeDefined()
     expect(createdView?.kind).toBe('component')
     expect(createdView?.nodeIds.length).toBeGreaterThanOrEqual(1)
     expect(createdView?.nodeIds.includes('n_worker_comp_app')).toBe(true)
+  })
+
+  it('creates an empty drilldown view without inserting a boundary node', () => {
+    const state = useEditorStore.getState()
+    expect(state.workspace.nodes.n_kafka.kind).toBe('queue')
+    expect(state.workspace.nodes.n_kafka.drilldownRef).toBeUndefined()
+
+    const createdViewId = state.createDrilldownForNode('n_kafka')
+    const updated = useEditorStore.getState()
+    const createdView = createdViewId ? updated.workspace.views[createdViewId] : undefined
+
+    expect(createdViewId).toBeTruthy()
+    expect(updated.workspace.nodes.n_kafka.kind).toBe('queue')
+    expect(updated.workspace.nodes.n_kafka.presetId).toBe('queue')
+    expect(updated.workspace.nodes.n_kafka.drilldownRef).toBe(createdViewId)
+    expect(updated.currentViewId).toBe(createdViewId)
+    expect(createdView?.kind).toBe('component')
+    expect(createdView?.nodeIds).toEqual([])
+    expect(
+      Object.values(updated.workspace.nodes).some((node) =>
+        node.tags.includes('drilldown-root') || node.name === 'Kafka Boundary',
+      ),
+    ).toBe(false)
   })
 
   it('stops player and emits confetti when journey reaches end', () => {

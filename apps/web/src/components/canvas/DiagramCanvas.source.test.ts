@@ -11,7 +11,7 @@ const diagramCanvasSource = readFileSync(resolve(process.cwd(), 'src/components/
 const diagramNodeSource = readFileSync(resolve(process.cwd(), 'src/components/canvas/DiagramNode.tsx'), 'utf8')
 
 describe('DiagramCanvas source regressions', () => {
-  it('supports a drilldown hit-area for boundary nodes so newly-created drilldown parents remain double-clickable', () => {
+  it('supports a drilldown hit-area for boundary nodes that own child views', () => {
     expect(diagramCanvasSource).toContain('onCreateDrilldown={createDrilldownForNode}')
     expect(diagramNodeSource).toContain('node.kind === \'boundary\' && node.drilldownRef')
     expect(diagramNodeSource).toContain('className="node-drilldown-hitarea"')

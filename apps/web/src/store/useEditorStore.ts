@@ -803,48 +803,23 @@ export const useEditorStore = create<EditorState>()(
 
         if (!targetViewId) {
           const nextKind = nextViewKindForDrilldown(currentView.kind)
-          const baseViewId = resolveUniqueId(
+          targetViewId = resolveUniqueId(
             state.workspace.views,
             `v-${nextKind}-${sourceNode.name}`,
             `v-${nextKind}`,
           )
-          targetViewId = baseViewId
 
-          const boundaryNodeId = resolveUniqueId(
-            state.workspace.nodes,
-            `n-${targetViewId}-boundary`,
-            `n-${targetViewId}`,
-          )
-          const boundaryBounds = {
-            x: 80,
-            y: 80,
-            w: 980,
-            h: 620,
-          }
-
-          state.workspace.nodes[boundaryNodeId] = {
-            id: boundaryNodeId,
-            presetId: 'boundary',
-            kind: 'boundary',
-            name: `${sourceNode.name} Boundary`,
-              tags: ['drilldown-root'],
-              bounds: boundaryBounds,
-              ports: resolveNodePorts(boundaryBounds, 'boundary'),
-              children: [],
-            }
           state.workspace.views[targetViewId] = {
             id: targetViewId,
             kind: nextKind,
             name: `${sourceNode.name} Detail`,
-            nodeIds: [boundaryNodeId],
+            nodeIds: [],
             edgeIds: [],
             journeyIds: [],
           }
         }
 
         sourceNode.drilldownRef = targetViewId
-        sourceNode.kind = 'boundary'
-        sourceNode.presetId = 'boundary'
 
         const firstJourneyId = firstJourneyForView(state.workspace, targetViewId)
         state.viewHistory.push(state.currentViewId)

@@ -33,7 +33,7 @@ import { resolveNodePreset, resolveTechPreset } from '../presets/catalog'
 import { resolveTechIconDefinition } from '../icons/techIconCatalog'
 import {
   clampNodeTechIconPlacement,
-  resolveAnchoredNodeTechIconPlacement,
+  resolveDefaultNodeTechIconPlacementForNode,
   type NodeTechIconPlacement,
 } from '../diagram/nodes/nodeTechIconLayout'
 import { resolveViewHistoryForView } from '../viewHierarchy'
@@ -390,7 +390,6 @@ const createBasicShapeNode = (
 
 const applyNodeBounds = (node: NodeModel, bounds: NodeBounds): void => {
   const sizeChanged = node.bounds.w !== bounds.w || node.bounds.h !== bounds.h
-  const previousBounds = { ...node.bounds }
   const previousUiIcon = node.uiIcon ? { ...node.uiIcon } : null
   node.bounds = bounds
   if (sizeChanged) {
@@ -398,7 +397,7 @@ const applyNodeBounds = (node: NodeModel, bounds: NodeBounds): void => {
     if (previousUiIcon) {
       node.uiIcon = {
         iconId: previousUiIcon.iconId,
-        ...resolveAnchoredNodeTechIconPlacement(previousBounds, bounds, previousUiIcon),
+        ...resolveDefaultNodeTechIconPlacementForNode(node),
       }
     }
   }

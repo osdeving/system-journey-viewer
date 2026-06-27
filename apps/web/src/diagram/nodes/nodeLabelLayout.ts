@@ -78,7 +78,7 @@ export const resolveStickyNoteShape = (
 }
 
 export const resolveNodeLabelLayout = (
-  node: NodeModel,
+  node: Pick<NodeModel, 'kind' | 'bounds'>,
   shouldRenderHexagon: boolean,
 ): NodeLabelLayout => {
   if (shouldRenderHexagon) {

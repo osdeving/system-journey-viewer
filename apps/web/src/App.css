@@ -577,6 +577,161 @@
   font-size: 13px;
 }
 
+.confirmation-dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 680;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(2, 6, 23, 0.48);
+  backdrop-filter: blur(6px);
+}
+
+.confirmation-dialog {
+  width: min(440px, 100%);
+  overflow: hidden;
+  border: 1px solid rgba(148, 163, 184, 0.5);
+  border-radius: 8px;
+  background: rgba(248, 250, 252, 0.99);
+  color: #0f172a;
+  box-shadow: 0 28px 70px rgba(2, 6, 23, 0.42);
+}
+
+.confirmation-dialog-header {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 11px 12px 10px;
+  border-bottom: 1px solid #dbe4ef;
+  background: #f8fafc;
+}
+
+.confirmation-dialog-header strong {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #0f172a;
+  font-size: var(--sjv-ui-font-md, 13px);
+  font-weight: 650;
+}
+
+.confirmation-dialog-icon {
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #d7e0eb;
+  border-radius: 6px;
+  background: #ffffff;
+  color: #64748b;
+}
+
+.confirmation-dialog-danger .confirmation-dialog-icon {
+  border-color: #fdba74;
+  background: #fff7ed;
+  color: #c2410c;
+}
+
+.confirmation-dialog-close {
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #d7e0eb;
+  border-radius: 6px;
+  background: #ffffff;
+  color: #64748b;
+  font: inherit;
+  cursor: pointer;
+}
+
+.confirmation-dialog-close:hover {
+  border-color: #94a3b8;
+  color: #0f172a;
+}
+
+.confirmation-dialog-body {
+  display: grid;
+  gap: 10px;
+  padding: 16px 16px 4px;
+}
+
+.confirmation-dialog-body p {
+  margin: 0;
+  color: #1e293b;
+  font-size: var(--sjv-ui-font-md, 13px);
+  line-height: 1.45;
+}
+
+.confirmation-dialog-details {
+  display: grid;
+  gap: 5px;
+  margin: 0;
+  padding: 0 0 0 17px;
+  color: #64748b;
+  font-size: var(--sjv-ui-font-sm, 12px);
+  line-height: 1.4;
+}
+
+.confirmation-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 14px 16px 16px;
+}
+
+.confirmation-dialog-button {
+  min-width: 92px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  padding: 7px 12px;
+  background: #ffffff;
+  color: #334155;
+  font: inherit;
+  font-size: var(--sjv-ui-font-sm, 12px);
+  font-weight: 550;
+  cursor: pointer;
+}
+
+.confirmation-dialog-button:hover,
+.confirmation-dialog-button:focus-visible,
+.confirmation-dialog-close:focus-visible {
+  outline: 2px solid rgba(14, 165, 233, 0.34);
+  outline-offset: 1px;
+}
+
+.confirmation-dialog-button-secondary:hover {
+  border-color: #94a3b8;
+  background: #f8fafc;
+}
+
+.confirmation-dialog-button-primary {
+  border-color: #2563eb;
+  background: #2563eb;
+  color: #ffffff;
+}
+
+.confirmation-dialog-button-primary:hover {
+  border-color: #1d4ed8;
+  background: #1d4ed8;
+}
+
+.confirmation-dialog-danger .confirmation-dialog-button-primary {
+  border-color: #dc2626;
+  background: #dc2626;
+}
+
+.confirmation-dialog-danger .confirmation-dialog-button-primary:hover {
+  border-color: #b91c1c;
+  background: #b91c1c;
+}
+
 .desktop-menu-bar {
   display: flex;
   flex-wrap: wrap;
@@ -5759,6 +5914,59 @@ button.help-gallery-icon-button {
   color: #cbd5e1;
 }
 
+.theme-dark .confirmation-dialog {
+  border-color: #334155;
+  background: rgba(15, 23, 42, 0.98);
+  color: #e2e8f0;
+  box-shadow: 0 30px 72px rgba(0, 0, 0, 0.58);
+}
+
+.theme-dark .confirmation-dialog-header {
+  border-bottom-color: #334155;
+  background: #111827;
+}
+
+.theme-dark .confirmation-dialog-header strong,
+.theme-dark .confirmation-dialog-body p {
+  color: #e2e8f0;
+}
+
+.theme-dark .confirmation-dialog-details {
+  color: #94a3b8;
+}
+
+.theme-dark .confirmation-dialog-icon,
+.theme-dark .confirmation-dialog-close,
+.theme-dark .confirmation-dialog-button {
+  border-color: #334155;
+  background: #17212b;
+  color: #cbd5e1;
+}
+
+.theme-dark .confirmation-dialog-danger .confirmation-dialog-icon {
+  border-color: rgba(248, 113, 113, 0.46);
+  background: rgba(127, 29, 29, 0.32);
+  color: #fecaca;
+}
+
+.theme-dark .confirmation-dialog-close:hover,
+.theme-dark .confirmation-dialog-button-secondary:hover {
+  border-color: #475569;
+  background: #1f2937;
+  color: #f8fafc;
+}
+
+.theme-dark .confirmation-dialog-button-primary {
+  border-color: #2563eb;
+  background: #2563eb;
+  color: #ffffff;
+}
+
+.theme-dark .confirmation-dialog-danger .confirmation-dialog-button-primary {
+  border-color: #ef4444;
+  background: #dc2626;
+}
+
 .theme-dark .desktop-menu-bar {
   background: #0f172a;
   border-color: #334155;
@@ -6803,7 +7011,7 @@ button.help-gallery-icon-button {
 }
 
 :is(.app-chrome-theme-midnight, .app-chrome-theme-graphite, .app-chrome-theme-teal, .app-chrome-theme-custom)
-  :is(.desktop-menu-list, .topbar-cloud-panel, .command-palette, .floating-window, .floating-dock-window, .preferences-window) {
+  :is(.desktop-menu-list, .topbar-cloud-panel, .command-palette, .confirmation-dialog, .floating-window, .floating-dock-window, .preferences-window) {
   background: var(--sjv-shell-panel-bg);
   border-color: var(--sjv-shell-border);
   color: var(--sjv-shell-text);
@@ -6811,7 +7019,7 @@ button.help-gallery-icon-button {
 }
 
 :is(.app-chrome-theme-midnight, .app-chrome-theme-graphite, .app-chrome-theme-teal, .app-chrome-theme-custom)
-  :is(.floating-window-header, .floating-dock-header, .preferences-window .floating-window-header) {
+  :is(.floating-window-header, .floating-dock-header, .preferences-window .floating-window-header, .confirmation-dialog-header) {
   background: var(--sjv-shell-bg);
   border-bottom-color: var(--sjv-shell-border);
   color: var(--sjv-shell-text);
@@ -6836,6 +7044,8 @@ button.help-gallery-icon-button {
     .topbar-actions button,
     .topbar-cloud-badge,
     .topbar-cloud-panel button,
+    .confirmation-dialog-close,
+    .confirmation-dialog-button-secondary,
     .dock-host-scroll-controls button,
     .dock-tab,
     .dock-placement,
@@ -6890,12 +7100,12 @@ button.help-gallery-icon-button {
 }
 
 :is(.app-chrome-theme-midnight, .app-chrome-theme-graphite, .app-chrome-theme-teal, .app-chrome-theme-custom)
-  :is(.app-text-tone-muted, .palette-browser-description, .preferences-status, .topbar p, .player-step-info, .command-palette-copy span, .command-palette-meta, .topbar-cloud-hint, .topbar-cloud-status) {
+  :is(.app-text-tone-muted, .palette-browser-description, .preferences-status, .topbar p, .player-step-info, .command-palette-copy span, .command-palette-meta, .confirmation-dialog-details, .topbar-cloud-hint, .topbar-cloud-status) {
   color: var(--sjv-shell-muted);
 }
 
 :is(.app-chrome-theme-midnight, .app-chrome-theme-graphite, .app-chrome-theme-teal, .app-chrome-theme-custom)
-  :is(.app-text-tone-strong, .palette-browser-title, .palette-section-title, .toolbox-item-label, .floating-window-header strong, .panel-group-title, .preferences-toggle, .preferences-select, .preferences-fieldset legend, .inspector-form label, .journey-side-group h3, .topbar-cloud-command-label, .topbar-cloud-section-title) {
+  :is(.app-text-tone-strong, .palette-browser-title, .palette-section-title, .toolbox-item-label, .floating-window-header strong, .confirmation-dialog-header strong, .confirmation-dialog-body p, .panel-group-title, .preferences-toggle, .preferences-select, .preferences-fieldset legend, .inspector-form label, .journey-side-group h3, .topbar-cloud-command-label, .topbar-cloud-section-title) {
   color: color-mix(in srgb, var(--sjv-shell-muted) 70%, var(--sjv-shell-control-text));
 }
 

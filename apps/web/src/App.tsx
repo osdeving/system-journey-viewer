@@ -65,6 +65,7 @@ import {
 import './App.css'
 import type { CommandPaletteItem } from './commandPalette/commandPalette'
 import { CommandPalette } from './components/chrome/CommandPalette'
+import { ConfirmationDialog, type ConfirmationDialogTone } from './components/chrome/ConfirmationDialog'
 import { StatusBar, type StatusBarAction, type StatusBarItem } from './components/chrome/StatusBar'
 import { PanelGroup } from './components/chrome/PanelGroup'
 import { SequenceDiagramView } from './components/sequence/SequenceDiagramView'
@@ -308,6 +309,15 @@ type CanvasContextMenuState = {
   edgeId?: string
 }
 
+type ConfirmationDialogState = {
+  title: string
+  message: string
+  details?: string[]
+  confirmLabel?: string
+  cancelLabel?: string
+  tone?: ConfirmationDialogTone
+}
+
 const MonacoEditor = lazy(() => import('@monaco-editor/react'))
 const NODE_PALETTE_CATEGORIES = Object.entries(nodePresetsByCategory).map(
   ([category, presets]) => ({
@@ -348,6 +358,7 @@ type PlayerAnimationPreset = 'cinematic' | 'orb' | 'minimal'
 type PresentationSurface = 'journey' | 'sequence'
 type FileWriteMode = 'prompt' | 'reuse'
 type StepDragState = { journeyId: string; edgeId: string }
+type AppActionResult = void | boolean | Promise<void | boolean>
 type HelpSection = 'guide' | 'gallery' | 'about'
 type SupabaseAuthDraft = {
   email: string
@@ -871,6 +882,7 @@ function App() {
   const [commandPaletteQuery, setCommandPaletteQuery] = useState('')
   const [canvasContextMenu, setCanvasContextMenu] = useState<CanvasContextMenuState | null>(null)
   const [lightThemeNoticeOpen, setLightThemeNoticeOpen] = useState(false)
+  const [confirmationDialog, setConfirmationDialog] = useState<ConfirmationDialogState | null>(null)
   const [guidedTutorialStepIndex, setGuidedTutorialStepIndex] = useState<number | null>(null)
   const [guidedTutorialEventCounts, setGuidedTutorialEventCounts] = useState<Record<string, number>>({})
   const [canUndo, setCanUndo] = useState(false)
@@ -888,6 +900,7 @@ function App() {
   const lastGuidedTutorialSelectedNodeIdRef = useRef<string | null>(selectedNodeId)
   const lastGuidedTutorialSelectedEdgeIdRef = useRef<string | null>(selectedEdgeId)
   const topbarCloudShellRef = useRef<HTMLDivElement | null>(null)
+  const confirmationDialogResolverRef = useRef<((confirmed: boolean) => void) | null>(null)
 
   const selectedNode = selectedNodeId ? workspace.nodes[selectedNodeId] : undefined
   const selectedEdge = selectedEdgeId ? workspace.edges[selectedEdgeId] : undefined
@@ -1567,7 +1580,7 @@ function App() {
     setOpenDesktopMenu((current) => (current === menuId ? null : menuId))
   }
 
-  const runDesktopMenuAction = (action: () => void) => {
+  const runDesktopMenuAction = (action: () => AppActionResult) => {
     action()
     setOpenDesktopMenu(null)
   }
@@ -1868,6 +1881,29 @@ function App() {
     setExportStatus(message)
     window.setTimeout(() => setExportStatus(null), timeoutMs)
   }, [])
+
+  const requestConfirmation = useCallback((dialog: ConfirmationDialogState): Promise<boolean> => {
+    confirmationDialogResolverRef.current?.(false)
+    return new Promise((resolve) => {
+      confirmationDialogResolverRef.current = resolve
+      setConfirmationDialog(dialog)
+    })
+  }, [])
+
+  const resolveCurrentConfirmationDialog = useCallback((confirmed: boolean) => {
+    const resolve = confirmationDialogResolverRef.current
+    confirmationDialogResolverRef.current = null
+    setConfirmationDialog(null)
+    resolve?.(confirmed)
+  }, [])
+
+  useEffect(
+    () => () => {
+      confirmationDialogResolverRef.current?.(false)
+      confirmationDialogResolverRef.current = null
+    },
+    [],
+  )
 
   const addExperimentalShapeToCanvas = useCallback(
     (shapeKind: BasicShapeKind, worldPoint?: { x: number; y: number }) => {
@@ -2619,7 +2655,14 @@ function App() {
         setSupabaseCloudPanelOpen(true)
         return
       }
-      if (typeof window !== 'undefined' && !window.confirm(`Delete the cloud script "${script.title}"?`)) {
+      const confirmed = await requestConfirmation({
+        title: 'Delete cloud script?',
+        message: `Delete "${script.title}" from ${CLOUD_STATUS_LABEL}?`,
+        details: ['This saved SJV Script will be removed from your cloud library.', 'This action cannot be undone.'],
+        confirmLabel: 'Delete script',
+        tone: 'danger',
+      })
+      if (!confirmed) {
         return
       }
 
@@ -2640,7 +2683,7 @@ function App() {
         setSupabaseCloudBusy(false)
       }
     },
-    [activeSupabaseScriptWorkspaceId, setTransientStatus],
+    [activeSupabaseScriptWorkspaceId, requestConfirmation, setTransientStatus],
   )
 
   const deleteSupabaseGalleryAsset = useCallback(
@@ -2649,7 +2692,14 @@ function App() {
         setSupabaseCloudStatus(CLOUD_NOT_CONFIGURED_STATUS)
         return
       }
-      if (typeof window !== 'undefined' && !window.confirm(`Delete the gallery asset "${asset.title}"?`)) {
+      const confirmed = await requestConfirmation({
+        title: 'Delete gallery asset?',
+        message: `Delete "${asset.title}" from ${CLOUD_STATUS_LABEL}?`,
+        details: ['The exported media file and its saved metadata will be removed.', 'This action cannot be undone.'],
+        confirmLabel: 'Delete asset',
+        tone: 'danger',
+      })
+      if (!confirmed) {
         return
       }
 
@@ -2675,7 +2725,7 @@ function App() {
         setSupabaseCloudBusy(false)
       }
     },
-    [setTransientStatus],
+    [requestConfirmation, setTransientStatus],
   )
 
   const onSupabaseGalleryFileInputChange = useCallback(
@@ -2770,11 +2820,14 @@ function App() {
     [buildEditorSnapshot, setTransientStatus],
   )
 
-  const createNewWorkspaceFile = useCallback(() => {
-    const shouldCreate = window.confirm(
-      'Create a new workspace? The current canvas state will be replaced in the editor.',
-    )
-    if (!shouldCreate) {
+  const createNewWorkspaceFile = useCallback(async () => {
+    const confirmed = await requestConfirmation({
+      title: 'Create new workspace?',
+      message: 'The current canvas state will be replaced in the editor.',
+      details: ['Save your current workspace first if you need to keep it.'],
+      confirmLabel: 'Create workspace',
+    })
+    if (!confirmed) {
       return
     }
     const nextWorkspace = createBlankWorkspace()
@@ -2786,7 +2839,7 @@ function App() {
     setActiveSupabaseScriptWorkspaceId(null)
     setExportError(null)
     setTransientStatus('New workspace created.')
-  }, [replaceWorkspace, setTransientStatus, setViewport])
+  }, [replaceWorkspace, requestConfirmation, setTransientStatus, setViewport])
 
   const loadWorkspacePayload = useCallback(
     (payload: string, options?: { fileName?: string; fileHandle?: WorkspaceFileHandle | null }) => {
@@ -3017,7 +3070,7 @@ function App() {
     reorderJourneyStep(journeyId, draggedStep.edgeId, targetEdgeId)
   }
 
-  const removeSelectedNodesWithConfirmation = useCallback(() => {
+  const removeSelectedNodesWithConfirmation = useCallback(async () => {
     if (!selectedNodes.length) {
       return false
     }
@@ -3043,22 +3096,26 @@ function App() {
     }
 
     const firstSelected = selectedNodes[0]
-    const messageParts = [
+    const message =
       selectedNodes.length === 1
         ? `Remove "${firstSelected.name}" from canvas?`
-        : `Remove ${selectedNodes.length} selected nodes from canvas?`,
-    ]
+        : `Remove ${selectedNodes.length} selected nodes from canvas?`
+    const details: string[] = []
     if (connectedEdgeIds.length > 0) {
-      messageParts.push(`This will also remove ${connectedEdgeIds.length} connected edge(s).`)
+      details.push(`This will also remove ${connectedEdgeIds.length} connected edge(s).`)
     }
     if (affectedJourneyNames.length > 0) {
-      messageParts.push(
-        `The journeys below will be affected:\n- ${affectedJourneyNames.join('\n- ')}`,
-      )
+      details.push(`Affected journeys: ${affectedJourneyNames.join(', ')}`)
     }
-    messageParts.push('Continue?')
 
-    if (!window.confirm(messageParts.join('\n\n'))) {
+    const confirmed = await requestConfirmation({
+      title: selectedNodes.length === 1 ? 'Delete node?' : 'Delete selected nodes?',
+      message,
+      details: [...details, 'This action cannot be undone.'],
+      confirmLabel: selectedNodes.length === 1 ? 'Delete node' : 'Delete nodes',
+      tone: 'danger',
+    })
+    if (!confirmed) {
       return false
     }
 
@@ -3067,9 +3124,18 @@ function App() {
       selectedNodes.length === 1 ? 'Node removed.' : `${selectedNodes.length} nodes removed.`,
     )
     return true
-  }, [currentView.edgeIds, currentView.journeyIds, removeNode, selectedNodes, setTransientStatus, workspace.edges, workspace.journeys])
+  }, [
+    currentView.edgeIds,
+    currentView.journeyIds,
+    removeNode,
+    requestConfirmation,
+    selectedNodes,
+    setTransientStatus,
+    workspace.edges,
+    workspace.journeys,
+  ])
 
-  const removeSelectedEdgeWithConfirmation = useCallback(() => {
+  const removeSelectedEdgeWithConfirmation = useCallback(async () => {
     if (!selectedEdge) {
       return false
     }
@@ -3083,24 +3149,28 @@ function App() {
         affectedJourneyNames.push(journey.name)
       }
     }
-    const messageParts = [`Remove edge "${selectedEdge.label || selectedEdge.id}"?`]
+    const details: string[] = []
     if (affectedJourneyNames.length > 0) {
-      messageParts.push(
-        `The journeys below will have this step removed:\n- ${affectedJourneyNames.join('\n- ')}`,
-      )
+      details.push(`Journeys that will lose this step: ${affectedJourneyNames.join(', ')}`)
     }
-    messageParts.push('Continue?')
 
-    if (!window.confirm(messageParts.join('\n\n'))) {
+    const confirmed = await requestConfirmation({
+      title: 'Delete edge?',
+      message: `Remove edge "${selectedEdge.label || selectedEdge.id}"?`,
+      details: [...details, 'This action cannot be undone.'],
+      confirmLabel: 'Delete edge',
+      tone: 'danger',
+    })
+    if (!confirmed) {
       return false
     }
 
     removeEdge(selectedEdge.id)
     setTransientStatus('Edge removed.')
     return true
-  }, [currentView.journeyIds, removeEdge, selectedEdge, setTransientStatus, workspace.journeys])
+  }, [currentView.journeyIds, removeEdge, requestConfirmation, selectedEdge, setTransientStatus, workspace.journeys])
 
-  const deleteCurrentSelection = useCallback(() => {
+  const deleteCurrentSelection = useCallback(async () => {
     if (selectedNodes.length > 0) {
       return removeSelectedNodesWithConfirmation()
     }
@@ -3189,7 +3259,7 @@ function App() {
   )
 
   const runCanvasContextAction = useCallback(
-    (action: () => void) => {
+    (action: () => AppActionResult) => {
       action()
       closeCanvasContextMenu()
     },
@@ -4098,7 +4168,7 @@ function App() {
 
       if (key === 'n') {
         event.preventDefault()
-        createNewWorkspaceFile()
+        void createNewWorkspaceFile()
         return
       }
       if (key === 'o') {
@@ -4282,7 +4352,7 @@ function App() {
 
       if ((event.key === 'Delete' || event.key === 'Backspace') && !hasCommand) {
         event.preventDefault()
-        deleteCurrentSelection()
+        void deleteCurrentSelection()
         return
       }
 
@@ -6975,6 +7045,19 @@ function App() {
       </section>
     </div>
   ) : null
+  const confirmationDialogControl = (
+    <ConfirmationDialog
+      open={confirmationDialog !== null}
+      title={confirmationDialog?.title ?? ''}
+      message={confirmationDialog?.message ?? ''}
+      details={confirmationDialog?.details}
+      confirmLabel={confirmationDialog?.confirmLabel}
+      cancelLabel={confirmationDialog?.cancelLabel}
+      tone={confirmationDialog?.tone}
+      onConfirm={() => resolveCurrentConfirmationDialog(true)}
+      onCancel={() => resolveCurrentConfirmationDialog(false)}
+    />
+  )
 
   if (isSharedSupabaseAssetRoute) {
     return (
@@ -7087,6 +7170,7 @@ function App() {
         {!presentationMode ? cloudPanelControl : null}
         {canvasContextMenuContent}
         {lightThemeNoticeDialog}
+        {confirmationDialogControl}
         <div ref={layoutRef} className="mobile-shell-frame">
           <header ref={topbarRef} className="mobile-topbar">
             <div className="mobile-topbar-row">
@@ -7309,6 +7393,7 @@ function App() {
       {!presentationMode ? cloudPanelControl : null}
       {canvasContextMenuContent}
       {lightThemeNoticeDialog}
+      {confirmationDialogControl}
       <header ref={topbarRef} className="topbar">
         <div className="topbar-meta">
           <div className="topbar-brand-row">

@@ -38,6 +38,7 @@
 - Latest cylinder preset hotfix (2026-06-26) lets `db` and `queue`/Kafka cylinder nodes keep arbitrary user-controlled widths while queue/Kafka rendering keeps the right-side cylinder face visually stable instead of scaling it with node width.
 - Latest componentization refactor (2026-06-26) extracts reusable `DiagramNode`, `PalettePanel`, `InspectorPanel`, and `JourneyTimelinePanel` components plus pure node label helpers, reducing direct rendering weight in `App.tsx` and `DiagramCanvas.tsx` without changing behavior.
 - Latest shell alignment follow-up (2026-06-26) reduces the app logo/control height mismatch, removes duplicate dock shortcut tabs from the main actionbar, aligns palette search/category chips to a full-width outlined layout, moves palette vertical scroll arrows out of card hit areas, and changes experimental shapes into drag-drawn active canvas tools with SVG preview.
+- Latest app-dialog follow-up (2026-06-26) replaces browser confirmation alerts with a reusable `ConfirmationDialog` for node/edge deletion, cloud library deletion, gallery asset deletion, and new-workspace replacement.
 - Latest export hotfix (2026-03-01, night pass) aligns animated export theme backgrounds to the SVG `viewBox`/source frame and pre-fills raster composition frames so wide MP4 exports no longer reveal black transparent regions.
 - Latest canvas affordance hotfix (2026-03-01, late-night pass) adds a pulsing blue hover cue on exact node ports and lets `Select` mode start a connection directly from that hover without leaving selection mode.
 - Latest edge targeting hotfix (2026-03-01, final pass) widens the invisible pointer hit area for dashed edges so selection no longer requires near-pixel-perfect clicks, while automatic curve routing remains unchanged.
@@ -94,7 +95,7 @@
   - drag/release an edge into a journey to append it as the next step;
   - drag-and-drop timeline steps to reorder with automatic renumbering.
 - Selection lifecycle operations:
-  - delete selected nodes or selected edge (`Delete/Backspace`);
+  - delete selected nodes or selected edge (`Delete/Backspace`) after an app-native confirmation dialog;
   - duplicate selected node set or selected edge (`Ctrl/Cmd+D`);
   - `Alt+drag` marquee-selects multiple nodes on the canvas (with additive extension via `Alt+Shift/Cmd+drag`);
   - same actions available in `Edit` menu and `Inspector`.

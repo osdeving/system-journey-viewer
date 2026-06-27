@@ -5209,6 +5209,13 @@ button.topbar-cloud-script-row-delete {
   color: color-mix(in srgb, var(--sjv-shell-muted, #aebdca) 58%, var(--sjv-shell-control-text, #fff));
 }
 
+.journey-step-context-menu button span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .help-panel {
   border: 1px solid #d5deeb;
   border-radius: 12px;

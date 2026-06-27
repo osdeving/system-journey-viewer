@@ -179,6 +179,53 @@ describe('JourneyTimelinePanel', () => {
     expect(props.onIndentStep).toHaveBeenCalledWith('journey-login', 'e1', 'e3')
   })
 
+  it('keeps the step context menu inside the viewport edge', () => {
+    const originalInnerWidth = window.innerWidth
+    const originalInnerHeight = window.innerHeight
+    Object.defineProperty(window, 'innerWidth', { configurable: true, value: 260 })
+    Object.defineProperty(window, 'innerHeight', { configurable: true, value: 140 })
+
+    try {
+      renderPanel({
+        activeJourney: {
+          ...activeJourney,
+          steps: [
+            { n: 1, edgeId: 'e0' },
+            { n: 2, edgeId: 'e1' },
+            { n: 3, edgeId: 'e3' },
+          ],
+        },
+        rows: [
+          {
+            key: '1:main:e1',
+            tickIndex: 1,
+            tickStepCount: 1,
+            showTickBadge: true,
+            laneKind: 'main',
+            laneStepNumber: 2,
+            edgeId: 'e1',
+            accentColor: '#2563eb',
+          },
+        ],
+      })
+      const row = activeContainer?.querySelector<HTMLLIElement>('.journey-step-item-main')
+
+      act(() => {
+        row?.dispatchEvent(
+          new MouseEvent('contextmenu', { bubbles: true, clientX: 252, clientY: 132 }),
+        )
+      })
+
+      const menu = document.querySelector<HTMLElement>('.journey-step-context-menu')
+      expect(menu).not.toBeNull()
+      expect(Number.parseFloat(menu?.style.left ?? '0')).toBe(32)
+      expect(Number.parseFloat(menu?.style.top ?? '0')).toBe(8)
+    } finally {
+      Object.defineProperty(window, 'innerWidth', { configurable: true, value: originalInnerWidth })
+      Object.defineProperty(window, 'innerHeight', { configurable: true, value: originalInnerHeight })
+    }
+  })
+
   it('supports Tab indent and Shift+Tab outdent from focused rows', () => {
     const props = renderPanel({
       activeJourney: {

@@ -2,6 +2,31 @@
 
 Chronological engineering log. Entries are kept concise and focused on behavior and validation.
 
+## 2026-06-27 - Command palette chrome and larger rectangle tech-icon fit
+
+### Scope
+
+- Removed command palette active-row gradients/visible scrollbars and made rectangle-node technology icons use more of the real text-free node area.
+
+### Changes
+
+- `apps/web/src/diagram/nodes/nodeTechIconLayout.ts`
+  - rectangle nodes now size dropped technology icons from exact measured horizontal text width plus title/technology vertical stack height, without the previous preferred-size cap,
+  - icons remain anchored bottom-right when the corner has enough room,
+  - very constrained label corners fall back to a centered-below-text placement instead of leaving a tiny icon.
+- `apps/web/src/components/chrome/CommandPalette.tsx`, `apps/web/src/App.css`
+  - command palette active rows now use solid fills instead of gradients,
+  - result list scrollbars are hidden while top/bottom overflow cues are shown only when more content exists.
+
+### Validation
+
+- `npm --workspace @sjv/web run test:run -- src/diagram/nodes/nodeTechIconLayout.test.ts src/components/chrome/CommandPalette.test.tsx src/App.styles.test.ts`
+- `npm --workspace @sjv/web run lint`
+- `npm --workspace @sjv/web run test:run`
+- `npm --workspace @sjv/web run build`
+- `git diff --check`
+- Playwright smoke against `http://127.0.0.1:5173/`: verified Spring Boot drop on a `320x220` rectangle uses `translate(144, 44) scale(7.1667)` (`172px` icon), and command palette active rows report `backgroundImage: none`, hidden scrollbar width, and overflow cue class.
+
 ## 2026-06-27 - Technology icon direct-fit sizing and deletion
 
 ### Scope

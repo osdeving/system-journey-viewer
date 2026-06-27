@@ -43,7 +43,20 @@ describe('nodeTechIconLayout', () => {
     expect(placement.y).toBe(44)
   })
 
-  it('shrinks normal-node icons when long labels leave narrow horizontal room', () => {
+  it('uses the full measured free space for larger normal nodes', () => {
+    const placement = resolveDefaultNodeTechIconPlacement(
+      { w: 320, h: 220 },
+      labelLayout,
+      'Spring Boot',
+      { title: 'Component 28' },
+    )
+
+    expect(placement.size).toBe(172)
+    expect(placement.x + placement.size).toBe(316)
+    expect(placement.y + placement.size).toBe(216)
+  })
+
+  it('centers normal-node icons below text when long labels leave a tiny corner', () => {
     const constrainedLabelLayout: NodeLabelLayout = {
       ...labelLayout,
       maxSubtitleWidth: 150,
@@ -56,8 +69,9 @@ describe('nodeTechIconLayout', () => {
       { title: 'Component' },
     )
 
-    expect(placement.size).toBe(27)
-    expect(placement.x + placement.size).toBe(176)
+    expect(placement.size).toBe(48)
+    expect(placement.x).toBe(66)
+    expect(placement.y).toBe(68)
     expect(placement.y + placement.size).toBe(116)
   })
 

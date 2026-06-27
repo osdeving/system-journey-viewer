@@ -43,14 +43,12 @@ import { DiagramNode, type DiagramNodeTechIconResizeHandle } from './DiagramNode
 import { Text } from '../text/Text'
 import {
   estimateCanvasTextWidth,
-  resolveNodeLabelLayout,
   type NodeLabelLayout,
 } from '../../diagram/nodes/nodeLabelLayout'
 import {
   clampNodeTechIconPlacement,
-  resolveDefaultNodeTechIconPlacement,
+  resolveDefaultNodeTechIconPlacementForNode,
   resolveResizedNodeTechIconPlacement,
-  type NodeTechIconDefaultShapeKind,
   type NodeTechIconPlacement,
 } from '../../diagram/nodes/nodeTechIconLayout'
 import {
@@ -786,24 +784,7 @@ export const DiagramCanvas = ({
     nodeTechIconInteractionRef.current = null
   }, [])
   const resolveDefaultTechIconPlacementForNode = useCallback((node: NodeModel): NodeTechIconPlacement => {
-    const shouldRenderHexagon =
-      node.kind === 'gateway' ||
-      node.kind === 'security' ||
-      node.kind === 'load-balancer'
-    const iconShapeKind: NodeTechIconDefaultShapeKind = shouldRenderHexagon
-      ? 'hexagon'
-      : node.kind === 'queue'
-        ? 'queue-cylinder'
-        : node.kind === 'db'
-          ? 'db-cylinder'
-          : 'rectangle'
-    const labelLayout = resolveNodeLabelLayout(node, shouldRenderHexagon)
-    return resolveDefaultNodeTechIconPlacement(
-      node.bounds,
-      labelLayout,
-      node.tech?.label ?? node.kind,
-      { shapeKind: iconShapeKind, title: node.name },
-    )
+    return resolveDefaultNodeTechIconPlacementForNode(node)
   }, [])
   const resolvedActiveNodeIconEditId =
     activeNodeIconEditId && workspace.nodes[activeNodeIconEditId]?.uiIcon

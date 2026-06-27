@@ -7,7 +7,6 @@ import {
   clampNodeTechIconPlacement,
   DEFAULT_NODE_TECH_ICON_SIZE,
   MIN_NODE_TECH_ICON_SIZE,
-  resolveAnchoredNodeTechIconPlacement,
   resolveDefaultNodeTechIconPlacement,
   resolveNodeTechIconMaxSize,
   resolveResizedNodeTechIconPlacement,
@@ -37,11 +36,11 @@ describe('nodeTechIconLayout', () => {
       { title: 'Component 19' },
     )
 
-    expect(placement.size).toBe(72)
+    expect(placement.size).toBe(95)
     expect(placement.x + placement.size).toBe(216)
     expect(placement.y + placement.size).toBe(116)
-    expect(placement.x).toBe(144)
-    expect(placement.y).toBe(44)
+    expect(placement.x).toBe(121)
+    expect(placement.y).toBe(21)
   })
 
   it('uses the full measured free space for larger normal nodes', () => {
@@ -52,9 +51,41 @@ describe('nodeTechIconLayout', () => {
       { title: 'Component 28' },
     )
 
-    expect(placement.size).toBe(172)
+    expect(placement.size).toBe(195)
     expect(placement.x + placement.size).toBe(316)
     expect(placement.y + placement.size).toBe(216)
+  })
+
+  it('recomputes the largest anchored square when a single node axis changes', () => {
+    const widthLimited = resolveDefaultNodeTechIconPlacement(
+      { w: 220, h: 120 },
+      labelLayout,
+      'Component',
+      { title: 'Component 19' },
+    )
+    const wider = resolveDefaultNodeTechIconPlacement(
+      { w: 440, h: 120 },
+      { ...labelLayout, maxTitleWidth: 410, maxSubtitleWidth: 410 },
+      'Component',
+      { title: 'Component 19' },
+    )
+    const heightLimited = resolveDefaultNodeTechIconPlacement(
+      { w: 220, h: 120 },
+      labelLayout,
+      'Go',
+      { title: 'API' },
+    )
+    const taller = resolveDefaultNodeTechIconPlacement(
+      { w: 220, h: 240 },
+      labelLayout,
+      'Go',
+      { title: 'API' },
+    )
+
+    expect(wider.size).toBeGreaterThan(widthLimited.size)
+    expect(wider.x + wider.size).toBe(436)
+    expect(taller.size).toBeGreaterThan(heightLimited.size)
+    expect(taller.y + taller.size).toBe(236)
   })
 
   it('centers normal-node icons below text when long labels leave a tiny corner', () => {
@@ -154,18 +185,6 @@ describe('nodeTechIconLayout', () => {
         { x: 90, y: -20, size: 300 },
       ),
     ).toEqual({ x: 24, y: 4, size: 72 })
-  })
-
-  it('keeps technology icons anchored and proportionally sized when nodes resize', () => {
-    const placement = resolveAnchoredNodeTechIconPlacement(
-      { w: 220, h: 120 },
-      { w: 440, h: 240 },
-      { x: 144, y: 44, size: 72 },
-    )
-
-    expect(placement.size).toBe(144)
-    expect(placement.x + placement.size).toBe(432)
-    expect(placement.y + placement.size).toBe(232)
   })
 
   it('resizes from corner grips while preserving the opposite corner', () => {

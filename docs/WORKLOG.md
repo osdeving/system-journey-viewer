@@ -2,6 +2,30 @@
 
 Chronological engineering log. Entries are kept concise and focused on behavior and validation.
 
+## 2026-06-27 - Max-fit technology icons during node resize
+
+### Scope
+
+- Corrected node-resize behavior for UI-only technology icons so resize uses the same max-fit rectangular formula as initial drop.
+
+### Changes
+
+- `apps/web/src/diagram/nodes/nodeTechIconLayout.ts`
+  - rectangle icon placement now searches for the largest bottom-right anchored square that fits inside the current node and avoids measured title/technology text,
+  - long-label cases still fall back to centered-below-text placement when the corner fit is too small,
+  - shared `resolveDefaultNodeTechIconPlacementForNode` now encapsulates node-kind shape selection plus label layout.
+- `apps/web/src/store/useEditorStore.ts`, `apps/web/src/components/canvas/DiagramCanvas.tsx`
+  - node resize now preserves the icon id but recomputes placement/size with the current node bounds instead of scaling the previous icon placement,
+  - palette drop and node resize now use the same default icon placement helper.
+
+### Validation
+
+- `npm --workspace @sjv/web run test:run -- src/diagram/nodes/nodeTechIconLayout.test.ts src/store/useEditorStore.test.ts src/components/canvas/DiagramCanvas.source.test.ts src/App.styles.test.ts`
+- `npm --workspace @sjv/web run lint`
+- `npm --workspace @sjv/web run test:run`
+- `npm --workspace @sjv/web run build`
+- `git diff --check`
+
 ## 2026-06-27 - Proportional technology icon anchors and command palette font weight
 
 ### Scope

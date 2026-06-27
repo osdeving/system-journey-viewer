@@ -2,6 +2,30 @@
 
 Chronological engineering log. Entries are kept concise and focused on behavior and validation.
 
+## 2026-06-27 - Drilldown creation keeps parent node shape
+
+### Scope
+
+- Fixed UI-created drilldowns so the parent node keeps its current type/shape and the child view opens empty instead of inserting an automatic boundary.
+
+### Changes
+
+- `apps/web/src/store/useEditorStore.ts`
+  - removed automatic parent-node conversion to `boundary` in `createDrilldownForNode`,
+  - removed automatic child-view boundary insertion; users can add boundaries manually when needed.
+- `apps/web/src/store/useEditorStore.test.ts`, `apps/web/src/dsl-lite/journeyDslSync.test.ts`
+  - updated drilldown behavior and SJV roundtrip expectations to preserve the original node kind and empty child views.
+- `apps/web/src/components/canvas/DiagramCanvas.source.test.ts`, `apps/web/src/help/help.md`, `docs/AI_STATE.md`
+  - aligned source/help/session notes with the new non-mutating drilldown behavior.
+
+### Validation
+
+- `npm --workspace @sjv/web run test:run -- src/store/useEditorStore.test.ts src/dsl-lite/journeyDslSync.test.ts src/components/canvas/DiagramCanvas.source.test.ts`
+- `npm --workspace @sjv/web run lint`
+- `npm --workspace @sjv/web run test:run`
+- `npm --workspace @sjv/web run build`
+- `git diff --check`
+
 ## 2026-06-27 - Node drilldown UI actions
 
 ### Scope

@@ -38,7 +38,7 @@ describe('journey and drilldown DSL sync', () => {
     expect(stepLabels).toEqual(['GET /orders/{id}', 'select order'])
   })
 
-  it('keeps ctrl+alt drilldown creation synchronized with DSL roundtrip', () => {
+  it('keeps UI-created drilldown views synchronized with DSL roundtrip', () => {
     const state = useEditorStore.getState()
     state.createDrilldownForNode('n_kafka')
 
@@ -50,15 +50,11 @@ describe('journey and drilldown DSL sync', () => {
     )
 
     expect(kafkaNode).toBeDefined()
-    expect(kafkaNode?.kind).toBe('boundary')
+    expect(kafkaNode?.kind).toBe('queue')
     expect(kafkaNode?.drilldownRef).toBeTruthy()
     const detailViewId = kafkaNode?.drilldownRef ?? ''
     const detailView = roundtrip.views[detailViewId]
     expect(detailView).toBeDefined()
-    expect(detailView?.nodeIds.length).toBeGreaterThan(0)
-    const boundaryCount = detailView
-      ? detailView.nodeIds.filter((nodeId) => roundtrip.nodes[nodeId]?.kind === 'boundary').length
-      : 0
-    expect(boundaryCount).toBeGreaterThan(0)
+    expect(detailView?.nodeIds).toEqual([])
   })
 })

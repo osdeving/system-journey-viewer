@@ -42,6 +42,7 @@
 - Latest journey-thread editing follow-up (2026-06-26) lets the timeline select a step, open step actions by context menu/action button, indent main steps into generated top-level SJV `thread` blocks with previous/next anchors, and outdent thread steps back to the main lane with `Shift+Tab`.
 - Latest timeline context-menu hotfix (2026-06-27) clamps timeline step action menus against the viewport edge when opened near the right or bottom side of the screen, including a rendered-size recheck after mount.
 - Latest drilldown UI follow-up (2026-06-27) exposes `Create Drilldown` / `Open Drilldown` from node context menus and the Inspector node details panel, reusing the existing store action that creates a child view and keeps SJV parent/drilldown export coherent.
+- Latest drilldown behavior hotfix (2026-06-27) keeps the parent node's existing kind/preset when creating a drilldown and opens a blank child view without auto-inserting a boundary node.
 - Latest export hotfix (2026-03-01, night pass) aligns animated export theme backgrounds to the SVG `viewBox`/source frame and pre-fills raster composition frames so wide MP4 exports no longer reveal black transparent regions.
 - Latest canvas affordance hotfix (2026-03-01, late-night pass) adds a pulsing blue hover cue on exact node ports and lets `Select` mode start a connection directly from that hover without leaving selection mode.
 - Latest edge targeting hotfix (2026-03-01, final pass) widens the invisible pointer hit area for dashed edges so selection no longer requires near-pixel-perfect clicks, while automatic curve routing remains unchanged.
@@ -108,7 +109,7 @@
   - multi-select dragging excludes the dragged group itself from snap targets.
 - Drill-down navigation (`Container -> Component -> Hex`) with breadcrumb.
 - Shortcut-assisted drilldown modeling:
-  - `Ctrl/Cmd+Alt+double-click` converts a node into a drilldown boundary entry and opens its new detail view.
+  - `Ctrl/Cmd+Alt+double-click` creates or opens a node drilldown view without changing the parent node type; add a boundary manually inside the child view when needed.
 - SJV Script <-> FULL conversion with auto-layout.
 - SJV Script v2 modeling semantics:
   - runtime edges are declared as `<edgeId>: <from> -> <to> ...`,

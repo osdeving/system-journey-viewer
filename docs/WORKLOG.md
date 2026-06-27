@@ -2,6 +2,28 @@
 
 Chronological engineering log. Entries are kept concise and focused on behavior and validation.
 
+## 2026-06-27 - Relax single-tab dock minimum
+
+### Scope
+
+- Reduced the single-tab managed dock minimum so side docks can close further while keeping overflow arrows hidden for one-tab headers.
+
+### Changes
+
+- `apps/web/src/layout/dockSizing.ts`, `apps/web/src/layout/dockSizing.test.ts`
+  - lowered the shared single-tab dock host minimum from `320px` to `260px`,
+  - added coverage that the compact value is used and larger host-specific minimums are still preserved.
+- `docs/AI_STATE.md`
+  - updated the session note for the compact single-tab dock minimum.
+
+### Validation
+
+- `npm --workspace @sjv/web run test:run -- src/layout/dockSizing.test.ts src/components/windowing/DockHost.test.tsx src/components/chrome/OverflowStrip.test.tsx`
+- `npm --workspace @sjv/web run lint`
+- `npm --workspace @sjv/web run test:run`
+- `npm --workspace @sjv/web run build`
+- `git diff --check`
+
 ## 2026-06-27 - Single-tab dock host overflow guard
 
 ### Scope

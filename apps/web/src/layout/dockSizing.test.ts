@@ -48,7 +48,12 @@ describe('dockSizing', () => {
   })
 
   it('raises side dock host minimum width when a host has one tab', () => {
+    expect(MIN_SINGLE_TAB_DOCK_HOST_WIDTH).toBe(260)
     expect(resolveDockHostMinWidth(1, 240)).toBe(MIN_SINGLE_TAB_DOCK_HOST_WIDTH)
+  })
+
+  it('keeps a larger host-specific minimum when a single-tab host needs it', () => {
+    expect(resolveDockHostMinWidth(1, 300)).toBe(300)
   })
 
   it('preserves the compact side dock minimum when a host has multiple tabs', () => {

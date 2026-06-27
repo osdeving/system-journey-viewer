@@ -20,6 +20,7 @@ import {
 } from '../model/showcaseWorkspace'
 import {
   isExperimentalShapeNode,
+  isExperimentalShapeKind,
   resolveBasicShapeDefinition,
 } from '../model/experimentalShapes'
 import { normalizeWorkspaceNodePorts, resolveNodePorts } from '../model/nodePorts'
@@ -28,6 +29,7 @@ import { resolveViewHistoryForView } from '../viewHierarchy'
 import type {
   EdgeEndpoint,
   EditorSnapshot,
+  EditorActiveTool,
   JourneyFilterAutoLayoutMode,
   JourneyFilterLayoutMode,
   JourneyFilterOffscopeRenderMode,
@@ -50,7 +52,7 @@ const DEFAULT_PLAYER_SPEED_MS = 1800
 const DEFAULT_PLAYER_HIGHLIGHT_NODES = true
 const DEFAULT_PLAYER_TRAIL_ENABLED = false
 
-export type ActiveTool = 'select' | 'connector'
+export type ActiveTool = EditorActiveTool
 type SelectOptions = { additive?: boolean }
 type EdgeEndpointKey = 'from' | 'to'
 
@@ -91,7 +93,7 @@ interface EditorState {
   setViewport: (viewport: ViewportState) => void
   zoomByFactor: (factor: number) => void
   addNode: (presetId: string, x: number, y: number) => string
-  addBasicShape: (shapeKind: BasicShapeKind, x: number, y: number) => string
+  addBasicShape: (shapeKind: BasicShapeKind, bounds: NodeBounds) => string
   removeNode: (nodeId: string) => void
   removeEdge: (edgeId: string) => void
   setNodeBounds: (nodeId: string, bounds: NodeBounds) => void
@@ -257,7 +259,7 @@ const getDefaultState = (): Pick<
     selectedNodeIds,
     selectedEdgeId:
       snapshot.selectedEdgeId && currentViewEdgeIds.has(snapshot.selectedEdgeId) ? snapshot.selectedEdgeId : null,
-    activeTool: snapshot.activeTool === 'connector' ? 'connector' : 'select',
+    activeTool: resolveSnapshotActiveTool(snapshot.activeTool),
     pendingConnectionFrom,
     pendingConnectionPortId: pendingConnectionFrom ? snapshot.pendingConnectionPortId ?? null : null,
     activeJourneyId,
@@ -300,6 +302,13 @@ const toSnapshot = (state: EditorState): EditorSnapshot => ({
 })
 
 const clampZoom = (zoom: number): number => Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, zoom))
+
+const resolveSnapshotActiveTool = (activeTool: EditorSnapshot['activeTool']): ActiveTool => {
+  if (activeTool === 'connector' || activeTool === 'select') {
+    return activeTool
+  }
+  return activeTool && isExperimentalShapeKind(activeTool) ? activeTool : 'select'
+}
 
 const nextNumericId = (
   collection: Record<string, unknown>,
@@ -344,16 +353,9 @@ const createNode = (id: string, presetId: string, x: number, y: number): NodeMod
 const createBasicShapeNode = (
   id: string,
   shapeKind: BasicShapeKind,
-  x: number,
-  y: number,
+  bounds: NodeBounds,
 ): NodeModel => {
   const definition = resolveBasicShapeDefinition(shapeKind)
-  const bounds = {
-    x,
-    y,
-    w: definition.defaultWidth,
-    h: definition.defaultHeight,
-  }
   return {
     id,
     presetId: definition.kind,
@@ -961,14 +963,14 @@ export const useEditorStore = create<EditorState>()(
       })
       return nodeId
     },
-    addBasicShape: (shapeKind, x, y) => {
+    addBasicShape: (shapeKind, bounds) => {
       const nodeId = nextNumericId(get().workspace.nodes, 'n')
       set((state) => {
         const view = state.workspace.views[state.currentViewId]
         if (!view) {
           return
         }
-        state.workspace.nodes[nodeId] = createBasicShapeNode(nodeId, shapeKind, x, y)
+        state.workspace.nodes[nodeId] = createBasicShapeNode(nodeId, shapeKind, bounds)
         view.nodeIds.push(nodeId)
         state.selectedNodeId = nodeId
         state.selectedNodeIds = [nodeId]

@@ -341,8 +341,8 @@
 }
 
 .app-logo-badge {
-  width: 44px;
-  height: 44px;
+  width: 34px;
+  height: 34px;
   border-radius: 6px;
   display: grid;
   place-items: center;
@@ -353,8 +353,8 @@
 }
 
 .app-logo-badge svg {
-  width: 30px;
-  height: 30px;
+  width: 23px;
+  height: 23px;
   display: block;
 }
 
@@ -1325,8 +1325,8 @@ button.topbar-cloud-script-row-delete {
 }
 
 .toolbar-group + .toolbar-group {
-  margin-left: 10px;
-  padding-left: 12px;
+  margin-left: 8px;
+  padding-left: 10px;
 }
 
 .toolbar-group + .toolbar-group::before {
@@ -1335,7 +1335,7 @@ button.topbar-cloud-script-row-delete {
   left: 0;
   top: 50%;
   width: 1px;
-  height: 22px;
+  height: 18px;
   background: #cbd5e1;
   transform: translateY(-50%);
 }
@@ -2226,7 +2226,7 @@ button.topbar-cloud-script-row-delete {
   background: linear-gradient(180deg, #ffffff, #f8fafc);
   color: #334155;
   font-size: var(--sjv-density-control-font);
-  font-weight: 700;
+  font-weight: 500;
 }
 
 .view-hierarchy-select {
@@ -2303,7 +2303,7 @@ button.topbar-cloud-script-row-delete {
   border-radius: var(--sjv-density-toolbar-button-radius);
   padding: var(--sjv-density-toolbar-button-py) var(--sjv-density-toolbar-button-px);
   cursor: pointer;
-  font-weight: 600;
+  font-weight: 500;
   font-size: var(--sjv-density-control-font);
   box-shadow: none;
   transition: background-color 0.12s ease, border-color 0.12s ease, color 0.12s ease;
@@ -2322,7 +2322,7 @@ button.topbar-cloud-script-row-delete {
   border-color: #0ea5e9;
   color: #0c4a6e;
   background: #e0f2fe;
-  font-weight: 600;
+  font-weight: 500;
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -2368,7 +2368,7 @@ button.topbar-cloud-script-row-delete {
   color: #64748b;
   font: inherit;
   font-size: 10px;
-  font-weight: 700;
+  font-weight: 500;
 }
 
 .icon-toggle-button {
@@ -2456,7 +2456,7 @@ button.topbar-cloud-script-row-delete {
 
 .managed-host-sidebar-left .dock-host {
   gap: 10px;
-  padding: 10px 6px 10px;
+  padding: 10px;
   background: #17212b;
   color: #d7e0ea;
 }
@@ -2495,7 +2495,12 @@ button.topbar-cloud-script-row-delete {
 }
 
 .managed-host-sidebar-left .dock-host-body {
-  padding: 0 4px 10px;
+  padding: 0 10px 34px;
+}
+
+.managed-host-sidebar .dock-panel {
+  border-radius: 0;
+  box-shadow: none;
 }
 
 .managed-host-sidebar-left .dock-placement {
@@ -2539,8 +2544,8 @@ button.topbar-cloud-script-row-delete {
 
 .managed-host-sidebar-left .palette-search {
   border-color: #314253;
-  border-radius: 7px;
-  background: #101923;
+  border-radius: 5px;
+  background: transparent;
   color: #8293a4;
   box-shadow: none;
 }
@@ -2771,6 +2776,14 @@ button.topbar-cloud-script-row-delete {
   overflow: visible;
 }
 
+.topbar-dock-placement-strip {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 0 0 10px;
+  overflow: visible;
+}
+
 .topbar-dock-strip .dock-tab {
   width: 30px;
   height: 30px;
@@ -2973,8 +2986,8 @@ button.topbar-cloud-script-row-delete {
 .dock-host-scroll-controls {
   position: absolute;
   top: 48px;
-  right: 5px;
-  bottom: 8px;
+  right: 8px;
+  bottom: 12px;
   z-index: 6;
   display: grid;
   grid-template-rows: auto auto;
@@ -2987,8 +3000,8 @@ button.topbar-cloud-script-row-delete {
 }
 
 .dock-host-scroll-controls button {
-  width: 18px;
-  height: 18px;
+  width: 16px;
+  height: 16px;
   border: 0;
   border-radius: 4px;
   padding: 0;
@@ -2999,6 +3012,10 @@ button.topbar-cloud-script-row-delete {
   color: #475569;
   cursor: pointer;
   pointer-events: auto;
+}
+
+.managed-host-sidebar-left .dock-host-scroll-controls {
+  right: -7px;
 }
 
 .dock-host-scroll-controls button:disabled {
@@ -3142,14 +3159,16 @@ button.topbar-cloud-script-row-delete {
 
 .palette-search {
   min-width: 0;
+  width: 100%;
+  box-sizing: border-box;
   display: grid;
   grid-template-columns: auto 1fr;
   align-items: center;
   gap: 7px;
   border: 1px solid rgba(148, 163, 184, 0.42);
-  border-radius: 8px;
+  border-radius: 5px;
   padding: 6px 8px;
-  background: rgba(255, 255, 255, 0.82);
+  background: transparent;
   color: #64748b;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.72);
 }
@@ -3166,8 +3185,13 @@ button.topbar-cloud-script-row-delete {
 }
 
 .palette-category-overflow {
+  width: 100%;
   grid-template-columns: 14px minmax(0, 1fr) 14px;
   gap: 3px;
+}
+
+.palette-category-overflow.overflow-strip-navs-collapsed {
+  grid-template-columns: minmax(0, 1fr);
 }
 
 .palette-category-overflow .overflow-strip-nav {
@@ -3200,15 +3224,19 @@ button.topbar-cloud-script-row-delete {
 }
 
 .palette-category-strip {
-  display: flex;
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(58px, 1fr);
   gap: 6px;
   padding: 1px 0;
+  width: 100%;
 }
 
 .palette-category-chip {
-  flex: 0 0 auto;
+  min-width: 0;
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 6px;
   border: 1px solid rgba(148, 163, 184, 0.42);
   border-radius: 6px;
@@ -3624,6 +3652,14 @@ button.topbar-cloud-script-row-delete {
   border-color: #54708a;
   background: #354657;
   color: #ffffff;
+}
+
+.freeform-shape-preview :is(rect, ellipse, path) {
+  fill: rgba(56, 189, 248, 0.12);
+  stroke: rgba(14, 165, 233, 0.95);
+  stroke-width: 1.6;
+  stroke-dasharray: 6 4;
+  vector-effect: non-scaling-stroke;
 }
 
 .canvas-tool-divider {
@@ -5515,8 +5551,8 @@ button.help-gallery-icon-button {
   }
 
   .app-logo-badge {
-    width: 40px;
-    height: 40px;
+    width: 34px;
+    height: 34px;
   }
 
   .app-brand-copy h1 {
@@ -6888,7 +6924,7 @@ button.help-gallery-icon-button {
 :is(.app-chrome-theme-midnight, .app-chrome-theme-graphite, .app-chrome-theme-teal, .app-chrome-theme-custom)
   :is(.desktop-menu-trigger, .view-hierarchy-control, .view-hierarchy-select, .presentation-select, .toolbar-command-button, .toolbar-icon-button, .icon-toggle-button, .focus-toggle-button, .command-palette-trigger, .app-logo-button, .topbar-cloud-badge) {
   border-radius: 5px;
-  font-weight: 600;
+  font-weight: 500;
 }
 
 :is(.app-chrome-theme-midnight, .app-chrome-theme-graphite, .app-chrome-theme-teal, .app-chrome-theme-custom)
@@ -6937,9 +6973,14 @@ button.help-gallery-icon-button {
 :is(.app-chrome-theme-midnight, .app-chrome-theme-graphite, .app-chrome-theme-teal, .app-chrome-theme-custom)
   .palette-search {
   border-color: var(--sjv-shell-border);
-  background: var(--sjv-shell-bg);
+  background: transparent;
   color: var(--sjv-shell-muted);
   box-shadow: none;
+}
+
+:is(.app-chrome-theme-midnight, .app-chrome-theme-graphite, .app-chrome-theme-teal, .app-chrome-theme-custom)
+  .managed-host-sidebar-left .palette-search {
+  background: transparent;
 }
 
 :is(.app-chrome-theme-midnight, .app-chrome-theme-graphite, .app-chrome-theme-teal, .app-chrome-theme-custom)

@@ -30,11 +30,12 @@ describe('useEditorStore', () => {
 
   it('adds experimental basic shapes without allowing their edges in journeys', () => {
     const state = useEditorStore.getState()
-    const shapeId = state.addBasicShape('shape-circle', 40, 60)
+    const shapeId = state.addBasicShape('shape-circle', { x: 40, y: 60, w: 132, h: 132 })
     let updated = useEditorStore.getState()
     const shape = updated.workspace.nodes[shapeId]
 
     expect(shape.kind).toBe('shape-circle')
+    expect(shape.bounds).toEqual({ x: 40, y: 60, w: 132, h: 132 })
     expect(shape.tags).toContain('experimental-shape')
     expect(shape.ports.length).toBeGreaterThan(0)
     expect(updated.workspace.views[updated.currentViewId].nodeIds).toContain(shapeId)
@@ -224,6 +225,18 @@ describe('useEditorStore', () => {
     expect(updated.activeTool).toBe('select')
     expect(updated.pendingConnectionFrom).toBe('n_api')
     expect(updated.pendingConnectionPortId).toBe('east')
+  })
+
+  it('hydrates a persisted experimental shape tool', () => {
+    const state = useEditorStore.getState()
+    state.setActiveTool('shape-triangle')
+    state.persist()
+
+    state.setActiveTool('select')
+    state.hydrate()
+    const updated = useEditorStore.getState()
+
+    expect(updated.activeTool).toBe('shape-triangle')
   })
 
   it('reconnects selected edge endpoint to another node and port', () => {

@@ -88,6 +88,7 @@ export const PalettePanel = ({
         contentClassName="palette-category-strip"
         contentProps={{ role: 'tablist', 'aria-label': 'Palette categories' }}
         navAriaLabel="palette categories"
+        collapseNavWhenHidden
         scrollStepPx={92}
       >
         <button

@@ -6,7 +6,7 @@ import type {
   PointerEvent as ReactPointerEvent,
 } from 'react'
 import { iconForKey } from '../../presets/iconPipeline'
-import type { NodeModel, ViewKind } from '../../model/types'
+import type { EditorActiveTool, NodeModel, ViewKind } from '../../model/types'
 import { isExperimentalShapeKind } from '../../model/experimentalShapes'
 import { resolveHexConnectorRole } from '../../diagram/nodes/hexConnectorRole'
 import { resolveNodePortClassName } from '../../diagram/nodes/nodePortClassName'
@@ -37,7 +37,7 @@ export interface DiagramNodeProps {
   node: NodeModel
   viewKind: ViewKind
   presentationMode: boolean
-  activeTool: 'select' | 'connector'
+  activeTool: EditorActiveTool
   isConnectorMode: boolean
   pendingConnectionFrom: string | null
   hoveredConnectionTarget: DiagramNodeConnectionTarget | null

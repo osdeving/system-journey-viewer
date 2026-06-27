@@ -75,4 +75,13 @@ describe('DiagramCanvas source regressions', () => {
     expect(diagramCanvasSource).toContain('}, [inlineTextEditFocusIsMultiline, inlineTextEditFocusKey])')
     expect(diagramCanvasSource).not.toContain('}, [inlineTextEdit])')
   })
+
+  it('supports drag-drawn experimental freeform shape tools', () => {
+    expect(diagramCanvasSource).toContain('isFreeformShapeTool(activeTool)')
+    expect(diagramCanvasSource).toContain('freeformShapeDrawingRef')
+    expect(diagramCanvasSource).toContain('resolveFreeformShapeBounds(')
+    expect(diagramCanvasSource).toContain('hasDraggedFreeformShape(')
+    expect(diagramCanvasSource).toContain('addBasicShape(')
+    expect(diagramCanvasSource).toContain('className="freeform-shape-preview"')
+  })
 })

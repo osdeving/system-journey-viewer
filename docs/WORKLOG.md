@@ -2,6 +2,32 @@
 
 Chronological engineering log. Entries are kept concise and focused on behavior and validation.
 
+## 2026-06-26 - Shell alignment and drag-drawn shape tools
+
+### Scope
+
+- Tightened desktop shell/palette alignment and changed experimental shape tools from instant insertion to drag-drawn canvas tools.
+
+### Changes
+
+- `apps/web/src/App.tsx`, `apps/web/src/App.css`, `apps/web/src/App.source.test.ts`, `apps/web/src/App.styles.test.ts`
+  - reduced app-logo proportions, lightened toolbar control font weight, removed duplicate dock shortcut tabs from the main actionbar, and kept dock placement controls grouped,
+  - made palette search outlined/transparent and full width, aligned category chips to the same width, removed sidebar dock-panel rounding, and moved vertical scroll arrows outside palette cards.
+- `apps/web/src/components/canvas/DiagramCanvas.tsx`, `apps/web/src/diagram/canvas/freeformShapeDrawing.ts`
+  - added drag-drawn rectangle/circle/triangle/diamond tools with SVG preview during drag,
+  - keeps experimental shape tools as active tools until the user switches away, while created shapes still behave as normal selectable/connectable canvas nodes.
+- `apps/web/src/store/useEditorStore.ts`, `apps/web/src/model/types.ts`, `apps/web/src/model/schema.ts`
+  - allowed persisted `activeTool` to hold known experimental `shape-*` tools with backward-safe hydration.
+- Tests added/updated for shape drawing bounds, active-tool hydration/schema, source contracts, and deterministic CSS layout contracts.
+
+### Validation
+
+- `npm --workspace @sjv/web run lint`
+- `npm --workspace @sjv/web run test:run`
+- `npm --workspace @sjv/web run build`
+- `git diff --check`
+- Playwright visual smoke against `http://127.0.0.1:5173/`: verified palette search/category widths match, palette scroll arrows no longer overlap cards, toolbar weight is 500, duplicate topbar dock tabs are absent, and drag-drawn shape preview creates an experimental shape.
+
 ## 2026-06-26 - Canvas theming, context menu, and experimental freeform shapes
 
 ### Scope

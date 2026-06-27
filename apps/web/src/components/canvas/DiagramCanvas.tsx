@@ -617,6 +617,7 @@ export const DiagramCanvas = ({
   const setNodeTech = useEditorStore((state) => state.setNodeTech)
   const setNodeTechIcon = useEditorStore((state) => state.setNodeTechIcon)
   const setNodeTechIconPlacement = useEditorStore((state) => state.setNodeTechIconPlacement)
+  const removeNodeTechIcon = useEditorStore((state) => state.removeNodeTechIcon)
   const addNode = useEditorStore((state) => state.addNode)
   const addBasicShape = useEditorStore((state) => state.addBasicShape)
   const beginConnection = useEditorStore((state) => state.beginConnection)
@@ -1089,7 +1090,6 @@ export const DiagramCanvas = ({
       if (
         presentationMode ||
         inlineTextEdit ||
-        event.key !== 'Tab' ||
         event.ctrlKey ||
         event.metaKey ||
         event.altKey ||
@@ -1106,6 +1106,20 @@ export const DiagramCanvas = ({
         activeElement === null ||
         Boolean(activeElement && canvasElement?.contains(activeElement))
       if (!eventStartedInCanvas && !focusIsCanvasNeutral) {
+        return
+      }
+      if (
+        (event.key === 'Delete' || event.key === 'Backspace') &&
+        resolvedActiveNodeIconEditId
+      ) {
+        event.preventDefault()
+        event.stopImmediatePropagation()
+        removeNodeTechIcon(resolvedActiveNodeIconEditId)
+        setActiveNodeIconEditId(null)
+        clearNodeTechIconInteraction()
+        return
+      }
+      if (event.key !== 'Tab') {
         return
       }
       if (!selectedEdgeId) {
@@ -1136,9 +1150,12 @@ export const DiagramCanvas = ({
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [
+    clearNodeTechIconInteraction,
     edgeCurveById,
     inlineTextEdit,
     presentationMode,
+    removeNodeTechIcon,
+    resolvedActiveNodeIconEditId,
     selectedEdgeId,
     setEdgeLabelAngle,
     workspace.edges,

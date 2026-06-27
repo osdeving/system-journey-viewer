@@ -47,6 +47,11 @@ const HEX_NODE_TECH_ICON_TEXT_GAP = 3
 const HEX_NODE_TECH_ICON_TEXT_CLEARANCE = 1
 const NODE_TECH_ICON_SEARCH_STEP = 1
 const NODE_TECH_ICON_CENTER_FALLBACK_RATIO = 0.7
+const NODE_TECH_ICON_RECT_TEXT_GAP_X = 10
+const NODE_TECH_ICON_RECT_TEXT_GAP_Y = 10
+const NODE_TECH_ICON_RECT_TITLE_FONT_SIZE = 14
+const NODE_TECH_ICON_RECT_SUBTITLE_FONT_SIZE = 12
+const NODE_TECH_ICON_RECT_TITLE_SUBTITLE_GAP = 4
 
 export const resolveNodeTechIconMaxSize = (bounds: Pick<NodeBounds, 'w' | 'h'>): number =>
   Math.max(
@@ -149,6 +154,62 @@ const resolveDefaultSizeLimit = (
     safeRectHeight(safeRect),
     Math.max(DEFAULT_NODE_TECH_ICON_SIZE, bounds.h * NODE_TECH_ICON_HEIGHT_RATIO),
   )
+
+const resolveTextBlockRect = (
+  labelLayout: NodeLabelLayout,
+  subtitle: string,
+  title?: string,
+): IconSafeRect => {
+  const textBoxes = resolveTextCollisionBoxes(labelLayout, subtitle, title)
+  if (!textBoxes.length) {
+    return {
+      left: labelLayout.titleX,
+      top: labelLayout.titleY,
+      right: labelLayout.titleX,
+      bottom: labelLayout.titleY,
+    }
+  }
+  return {
+    left: Math.min(...textBoxes.map((box) => box.left)),
+    top: Math.min(...textBoxes.map((box) => box.top)),
+    right: Math.max(...textBoxes.map((box) => box.right)),
+    bottom: Math.max(...textBoxes.map((box) => box.bottom)),
+  }
+}
+
+const resolveRectanglePlacementFromTextBlock = (
+  bounds: Pick<NodeBounds, 'w' | 'h'>,
+  labelLayout: NodeLabelLayout,
+  subtitle: string,
+  title?: string,
+): NodeTechIconPlacement => {
+  const textBlock = resolveTextBlockRect(labelLayout, subtitle, title)
+  const safeRight = bounds.w - NODE_TECH_ICON_PADDING
+  const safeBottom = bounds.h - NODE_TECH_ICON_PADDING
+  const availableWidth = safeRight - (textBlock.right + NODE_TECH_ICON_RECT_TEXT_GAP_X)
+  const textReservedBottom =
+    NODE_TECH_ICON_PADDING +
+    NODE_TECH_ICON_RECT_TITLE_FONT_SIZE +
+    NODE_TECH_ICON_RECT_TITLE_SUBTITLE_GAP +
+    NODE_TECH_ICON_RECT_SUBTITLE_FONT_SIZE +
+    NODE_TECH_ICON_RECT_TEXT_GAP_Y
+  const availableHeight = safeBottom - textReservedBottom
+  const preferredSize = Math.min(
+    PREFERRED_NODE_TECH_ICON_SIZE,
+    resolveNodeTechIconMaxSize(bounds),
+    Math.max(DEFAULT_NODE_TECH_ICON_SIZE, bounds.h * NODE_TECH_ICON_HEIGHT_RATIO),
+  )
+  const size = Math.max(
+    MIN_NODE_TECH_ICON_SIZE,
+    Math.min(preferredSize, availableWidth, availableHeight),
+  )
+
+  return clampNodeTechIconPlacement(bounds, {
+    x: safeRight - size,
+    y: safeBottom - size,
+    size,
+  })
+}
 
 const resolveShapeSafeRect = (
   bounds: Pick<NodeBounds, 'w' | 'h'>,
@@ -315,6 +376,14 @@ export const resolveDefaultNodeTechIconPlacement = (
   } = {},
 ): NodeTechIconPlacement => {
   const shapeKind = options.shapeKind ?? 'rectangle'
+  if (shapeKind === 'rectangle') {
+    return resolveRectanglePlacementFromTextBlock(
+      bounds,
+      labelLayout,
+      subtitle,
+      options.title,
+    )
+  }
   const textBoxes = resolveTextCollisionBoxes(labelLayout, subtitle, options.title)
   if (shapeKind === 'hexagon') {
     return resolveHexagonPlacement(bounds, labelLayout, textBoxes)
@@ -323,7 +392,7 @@ export const resolveDefaultNodeTechIconPlacement = (
     bounds,
     resolveShapeSafeRect(bounds, shapeKind),
     textBoxes,
-    shapeKind === 'rectangle',
+    false,
   )
 }
 

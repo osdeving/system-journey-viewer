@@ -114,6 +114,7 @@ interface EditorState {
   setNodeTech: (nodeId: string, techLabel: string) => void
   setNodeTechIcon: (nodeId: string, iconId: string, placement: NodeTechIconPlacement) => void
   setNodeTechIconPlacement: (nodeId: string, placement: NodeTechIconPlacement) => void
+  removeNodeTechIcon: (nodeId: string) => void
   setNodeColor: (nodeId: string, fillColor: string) => void
   setNodeTextColor: (nodeId: string, textColor: string) => void
   beginConnection: (nodeId: string, portId?: string) => void
@@ -1148,6 +1149,15 @@ export const useEditorStore = create<EditorState>()(
           ...node.uiIcon,
           ...clampedPlacement,
         }
+      })
+    },
+    removeNodeTechIcon: (nodeId) => {
+      set((state) => {
+        const node = state.workspace.nodes[nodeId]
+        if (!node?.uiIcon) {
+          return
+        }
+        delete node.uiIcon
       })
     },
     setNodeColor: (nodeId, fillColor) => {

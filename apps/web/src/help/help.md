@@ -42,6 +42,7 @@ Default playback/focus state:
 - Filter by component name, preset id, or icon key, then drag a card into the canvas.
 - Technology icon cards can be dropped onto an existing node or boundary; they are saved in the UI workspace snapshot and are not emitted to SJV Script.
 - Press and hold a node technology icon to show resize grips, then drag it inside the node or resize it within the node bounds.
+- Press `Delete` / `Backspace` while the technology icon grips are active to remove only that icon.
 
 ## Notes
 

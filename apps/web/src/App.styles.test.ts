@@ -284,6 +284,9 @@ describe('App boundary styles', () => {
   it('supports polished chrome themes with UI font scale, custom colors, and configurable canvas', () => {
     expect(appCss).toContain('--sjv-ui-font-scale')
     expect(appCss).toContain('--sjv-shell-control-text')
+    expect(appCss).toContain('--sjv-canvas-control-color')
+    expect(appCss).toContain('--sjv-canvas-control-hover-color')
+    expect(appCss).toContain('--sjv-canvas-control-shadow')
     expect(appCss).toMatch(/\.app-text-size-sm\s*\{[^}]*font-size:\s*var\(--sjv-ui-font-sm,\s*12px\);/s)
     expect(appCss).toContain('.app-toolbar-inline.app-menu-hidden .topbar')
     expect(appCss).toContain('.preferences-theme-grid')
@@ -301,6 +304,8 @@ describe('App boundary styles', () => {
     expect(appCss).toMatch(/\.dock-host-body\s*\{[^}]*scrollbar-width:\s*none;/s)
     expect(appCss).toMatch(/\.palette-category-overflow\s*\{[^}]*grid-template-columns:\s*14px minmax\(0,\s*1fr\) 14px;/s)
     expect(appCss).toMatch(/:is\(\.app-chrome-theme-midnight,[^)]+\.app-chrome-theme-custom\)[\s\S]*\.canvas-panel[\s\S]*background:\s*var\(--sjv-canvas-bg\);/)
+    expect(appCss).toMatch(/\.canvas-back-arrow\s*\{[^}]*color:\s*var\(--sjv-canvas-control-color\);[^}]*filter:\s*drop-shadow\(0 1px 2px var\(--sjv-canvas-control-shadow\)\);/s)
+    expect(appCss).toMatch(/\.canvas-back-arrow:hover\s*\{[^}]*color:\s*var\(--sjv-canvas-control-hover-color\);/s)
   })
 
   it('styles the guided tutorial overlay and help guide actions', () => {

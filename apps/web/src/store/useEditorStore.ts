@@ -395,11 +395,18 @@ const applyNodeBounds = (node: NodeModel, bounds: NodeBounds): void => {
   if (sizeChanged) {
     node.ports = resolveNodePorts(bounds, node.kind)
     if (previousUiIcon) {
-      node.uiIcon = {
-        iconId: previousUiIcon.iconId,
-        ...resolveDefaultNodeTechIconPlacementForNode(node),
-      }
+      applyNodeTechIconDefaultPlacement(node, previousUiIcon.iconId)
     }
+  }
+}
+
+const applyNodeTechIconDefaultPlacement = (node: NodeModel, iconId: string): void => {
+  if (node.kind === 'note' || isExperimentalShapeNode(node)) {
+    return
+  }
+  node.uiIcon = {
+    iconId,
+    ...resolveDefaultNodeTechIconPlacementForNode(node),
   }
 }
 
@@ -1110,6 +1117,9 @@ export const useEditorStore = create<EditorState>()(
           return
         }
         node.name = name
+        if (node.uiIcon) {
+          applyNodeTechIconDefaultPlacement(node, node.uiIcon.iconId)
+        }
       })
     },
     setNodeTech: (nodeId, techLabel) => {
@@ -1121,6 +1131,9 @@ export const useEditorStore = create<EditorState>()(
         node.tech = {
           id: techLabel.toLowerCase().replace(/\s+/g, '-'),
           label: techLabel,
+        }
+        if (node.uiIcon) {
+          applyNodeTechIconDefaultPlacement(node, node.uiIcon.iconId)
         }
       })
     },

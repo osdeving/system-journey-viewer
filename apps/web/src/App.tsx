@@ -816,6 +816,8 @@ function App() {
   const addEdgeToJourney = useEditorStore((state) => state.addEdgeToJourney)
   const removeEdgeFromJourney = useEditorStore((state) => state.removeEdgeFromJourney)
   const reorderJourneyStep = useEditorStore((state) => state.reorderJourneyStep)
+  const indentJourneyStepToThread = useEditorStore((state) => state.indentJourneyStepToThread)
+  const outdentJourneyThreadStep = useEditorStore((state) => state.outdentJourneyThreadStep)
   const navigateBack = useEditorStore((state) => state.navigateBack)
   const setPlayerJourney = useEditorStore((state) => state.setPlayerJourney)
   const setPlayerRunning = useEditorStore((state) => state.setPlayerRunning)
@@ -3070,6 +3072,22 @@ function App() {
     reorderJourneyStep(journeyId, draggedStep.edgeId, targetEdgeId)
   }
 
+  const onJourneyStepIndent = useCallback(
+    (journeyId: string, edgeId: string, anchorEdgeId?: string) => {
+      const changed = indentJourneyStepToThread(journeyId, edgeId, anchorEdgeId)
+      setTransientStatus(changed ? 'Journey step indented as a thread.' : 'No valid thread anchor for that step.')
+    },
+    [indentJourneyStepToThread, setTransientStatus],
+  )
+
+  const onJourneyThreadStepOutdent = useCallback(
+    (journeyId: string, threadId: string, edgeId: string) => {
+      const changed = outdentJourneyThreadStep(journeyId, threadId, edgeId)
+      setTransientStatus(changed ? 'Thread step moved back to the main lane.' : 'Thread step could not be moved.')
+    },
+    [outdentJourneyThreadStep, setTransientStatus],
+  )
+
   const removeSelectedNodesWithConfirmation = useCallback(async () => {
     if (!selectedNodes.length) {
       return false
@@ -4772,6 +4790,8 @@ function App() {
         journeyStepDragRef.current = null
       }}
       onRemoveStep={removeEdgeFromJourney}
+      onIndentStep={onJourneyStepIndent}
+      onOutdentStep={onJourneyThreadStepOutdent}
     />
   )
 

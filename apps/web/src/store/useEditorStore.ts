@@ -11,6 +11,11 @@ import {
   resolveJourneyPlaybackTick,
   resolveJourneyPrimaryTickStep,
 } from '../journeys/playbackPlan'
+import {
+  indentJourneyStepToThreadSteps,
+  outdentJourneyThreadStepToMainSteps,
+  removeEdgeFromJourneySteps,
+} from '../journeys/threadEditing'
 import { autoArrangeView } from '../layout/autoArrange'
 import { createDefaultWorkspace } from '../model/defaultWorkspace'
 import {
@@ -33,7 +38,6 @@ import type {
   JourneyFilterAutoLayoutMode,
   JourneyFilterLayoutMode,
   JourneyFilterOffscopeRenderMode,
-  JourneyStep,
   BasicShapeKind,
   NodeBounds,
   NodeModel,
@@ -144,6 +148,8 @@ interface EditorState {
   addEdgeToJourney: (journeyId: string, edgeId: string) => void
   removeEdgeFromJourney: (journeyId: string, edgeId: string) => void
   reorderJourneyStep: (journeyId: string, edgeId: string, targetEdgeId: string) => void
+  indentJourneyStepToThread: (journeyId: string, edgeId: string, anchorEdgeId?: string) => boolean
+  outdentJourneyThreadStep: (journeyId: string, threadId: string, edgeId: string) => boolean
   setPlayerJourney: (journeyId: string | null) => void
   setPlayerRunning: (running: boolean) => void
   setPlayerLoop: (loop: boolean) => void
@@ -596,39 +602,11 @@ const removeEdgeFromWorkspaceState = (
   }
 
   for (const journey of Object.values(state.workspace.journeys)) {
-    const removeFromThreadSteps = (threadSteps: JourneyStep[]): JourneyStep[] =>
-      normalizeJourneySteps(
-        threadSteps
-          .slice()
-          .sort((left, right) => left.n - right.n)
-          .filter((step) => step.edgeId !== edgeId),
-      )
-
-    const hasEdgeInJourney =
-      journey.steps.some((step) => step.edgeId === edgeId) ||
-      journey.steps.some((step) => (step.threads ?? []).some((thread) => thread.steps.some((threadStep) => threadStep.edgeId === edgeId)))
-    if (!hasEdgeInJourney) {
+    const nextSteps = removeEdgeFromJourneySteps(journey, edgeId)
+    if (!nextSteps) {
       continue
     }
-    const ordered = journey.steps
-      .slice()
-      .sort((left, right) => left.n - right.n)
-      .filter((step) => step.edgeId !== edgeId)
-      .map((step) => {
-        const filteredThreads = (step.threads ?? [])
-          .map((thread) => ({
-            ...thread,
-            steps: removeFromThreadSteps(thread.steps),
-          }))
-          .filter((thread) => thread.steps.length > 0)
-        if (filteredThreads.length) {
-          return { ...step, threads: filteredThreads }
-        }
-        const stepWithoutThreads = { ...step }
-        delete stepWithoutThreads.threads
-        return stepWithoutThreads
-      })
-    journey.steps = normalizeJourneySteps(ordered)
+    journey.steps = nextSteps
   }
 
   if (state.selectedEdgeId === edgeId) {
@@ -1665,15 +1643,12 @@ export const useEditorStore = create<EditorState>()(
         if (!journey) {
           return
         }
-        const ordered = journey.steps
-          .slice()
-          .sort((left, right) => left.n - right.n)
-          .filter((step) => step.edgeId !== edgeId)
-        journey.steps = normalizeJourneySteps(ordered)
-        if (state.playerJourneyId === journeyId && state.playerStepIndex >= ordered.length) {
-          state.playerStepIndex = Math.max(0, ordered.length - 1)
-          state.playerIsRunning = false
+        const nextSteps = removeEdgeFromJourneySteps(journey, edgeId)
+        if (!nextSteps) {
+          return
         }
+        journey.steps = nextSteps
+        syncPlayerForJourneySteps(state)
       })
     },
     reorderJourneyStep: (journeyId, edgeId, targetEdgeId) => {
@@ -1696,7 +1671,36 @@ export const useEditorStore = create<EditorState>()(
         const [moved] = ordered.splice(sourceIndex, 1)
         ordered.splice(targetIndex, 0, moved)
         journey.steps = normalizeJourneySteps(ordered)
+        syncPlayerForJourneySteps(state)
       })
+    },
+    indentJourneyStepToThread: (journeyId, edgeId, anchorEdgeId) => {
+      let changed = false
+      set((state) => {
+        const journey = state.workspace.journeys[journeyId]
+        const nextSteps = indentJourneyStepToThreadSteps(journey, edgeId, anchorEdgeId)
+        if (!journey || !nextSteps) {
+          return
+        }
+        journey.steps = nextSteps
+        changed = true
+        syncPlayerForJourneySteps(state)
+      })
+      return changed
+    },
+    outdentJourneyThreadStep: (journeyId, threadId, edgeId) => {
+      let changed = false
+      set((state) => {
+        const journey = state.workspace.journeys[journeyId]
+        const nextSteps = outdentJourneyThreadStepToMainSteps(journey, threadId, edgeId)
+        if (!journey || !nextSteps) {
+          return
+        }
+        journey.steps = nextSteps
+        changed = true
+        syncPlayerForJourneySteps(state)
+      })
+      return changed
     },
     setPlayerJourney: (journeyId) => {
       set((state) => {

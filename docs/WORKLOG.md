@@ -2,6 +2,34 @@
 
 Chronological engineering log. Entries are kept concise and focused on behavior and validation.
 
+## 2026-06-27 - Technology icon default placement tuning
+
+### Scope
+
+- Tuned the default placement/size used when dropping technology icons onto nodes.
+
+### Changes
+
+- `apps/web/src/diagram/nodes/nodeTechIconLayout.ts`
+  - computes a larger default icon size from node height and available side room instead of always using `24px`,
+  - places normal-node icons below the node name and to the right of the technology label, so longer labels push the icon right,
+  - falls back to a centered-below placement when the technology label would force a tiny side icon,
+  - keeps hexagonal components centered below the technology label by default.
+- `apps/web/src/components/canvas/DiagramCanvas.tsx`
+  - passes the hexagonal-node hint into default icon placement.
+- `apps/web/src/diagram/nodes/nodeTechIconLayout.test.ts`
+  - added coverage for large short-label icons, database-label sizing, long-label fallback, and hex-centered placement.
+
+### Validation
+
+- `npm --workspace @sjv/web run test:run -- src/diagram/nodes/nodeTechIconLayout.test.ts`
+- `npm --workspace @sjv/web run test:run -- src/diagram/nodes/nodeTechIconLayout.test.ts src/store/useEditorStore.test.ts src/components/canvas/DiagramCanvas.source.test.ts src/components/canvas/DiagramNode.test.tsx`
+- `npm --workspace @sjv/web run lint`
+- `npm --workspace @sjv/web run test:run`
+- `npm --workspace @sjv/web run build`
+- `git diff --check`
+- Playwright smoke against `http://127.0.0.1:5173/`: verified TypeScript drops at `72px` on a normal node and NGINX drops centered below on a gateway hex node.
+
 ## 2026-06-27 - Edge label global rotation and UI-only tech icons
 
 ### Scope

@@ -793,6 +793,7 @@ export const DiagramCanvas = ({
       node.bounds,
       labelLayout,
       node.tech?.label ?? node.kind,
+      { preferCentered: shouldRenderHexagon },
     )
   }, [])
   const resolvedActiveNodeIconEditId =

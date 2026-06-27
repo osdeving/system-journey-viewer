@@ -46,6 +46,7 @@
 - Latest dock host overflow hotfix (2026-06-27) disables tab overflow navigation for single-tab dock hosts and enforces a compact shared `260px` minimum width for single-tab managed dock windows, including restored/persisted side hosts and small floating managed windows.
 - Latest canvas contrast hotfix (2026-06-27) derives canvas control foreground/hover/shadow tokens from the configured canvas background so the drilldown Back arrow remains visible on light or dark custom canvas colors.
 - Latest edge-label/icon editing increment (2026-06-27) adds global-axis `Tab` / `Shift+Tab` rotation for selected edge labels and a UI-only technology icon palette backed by Simple Icons plus internal generic vectors; dropped icons persist as `NodeModel.uiIcon` snapshot data for nodes/boundaries and are intentionally excluded from SJV Script export.
+- Latest technology-icon layout follow-up (2026-06-27) makes newly dropped normal-node icons size from available node space beside the technology label, fallback to centered-below when the label is too long, and default hexagonal components to centered-below placement.
 - Latest export hotfix (2026-03-01, night pass) aligns animated export theme backgrounds to the SVG `viewBox`/source frame and pre-fills raster composition frames so wide MP4 exports no longer reveal black transparent regions.
 - Latest canvas affordance hotfix (2026-03-01, late-night pass) adds a pulsing blue hover cue on exact node ports and lets `Select` mode start a connection directly from that hover without leaving selection mode.
 - Latest edge targeting hotfix (2026-03-01, final pass) widens the invisible pointer hit area for dashed edges so selection no longer requires near-pixel-perfect clicks, while automatic curve routing remains unchanged.
@@ -95,6 +96,7 @@
 - Technology icon palette for UI-only node/boundary annotation:
   - catalog entries come from Simple Icons where available plus internal generic vectors for architecture concepts such as container, component, boundary, service, database, and queue,
   - dragging a technology icon onto a normal node or boundary attaches it beside the node technology label,
+  - default placement uses a larger icon when there is room beside the technology label, falls back to centered-below for long labels, and keeps hexagonal components centered below,
   - icons persist in workspace snapshots as `NodeModel.uiIcon` and are not exported to SJV Script,
   - press-and-hold on an icon opens resize/reposition grips; movement and resizing are clamped inside the owning node and cannot exceed that node's bounds.
 - Theme persistence (`light` / `dark`) in workspace settings.

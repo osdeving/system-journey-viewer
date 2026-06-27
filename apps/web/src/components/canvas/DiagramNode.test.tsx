@@ -31,6 +31,7 @@ const makeQueueNode = (): NodeModel => ({
   name: 'Kafka',
   tags: [],
   tech: { id: 'kafka', label: 'Kafka', iconKey: 'kafka' },
+  uiIcon: { iconId: 'kafka', x: 82, y: 36, size: 24 },
   bounds: { x: 940, y: 100, w: 520, h: 80 },
   ports: [
     { id: 'north', x: 0.5, y: 0 },
@@ -57,6 +58,7 @@ const renderNode = (node = makeQueueNode()): void => {
           hoveredConnectionTarget={null}
           hoveredPortKey="n_kafka:east"
           isSelected
+          activeNodeIconEditId={null}
           isPlayerHighlighted={false}
           isDimmedByJourney={false}
           nodeDepthEffectsEnabled
@@ -64,6 +66,8 @@ const renderNode = (node = makeQueueNode()): void => {
           onNodePointerMove={() => undefined}
           onNodePointerUp={() => undefined}
           onNodePointerLeave={() => undefined}
+          onNodeTechIconPointerDown={() => undefined}
+          onNodeTechIconResizePointerDown={() => undefined}
           onCreateDrilldown={() => undefined}
           onOpenDrilldown={() => undefined}
           onNodeBorderPointerDown={() => undefined}
@@ -120,6 +124,7 @@ describe('DiagramNode', () => {
             hoveredConnectionTarget={null}
             hoveredPortKey={null}
             isSelected={false}
+            activeNodeIconEditId={null}
             isPlayerHighlighted={false}
             isDimmedByJourney={false}
             nodeDepthEffectsEnabled={false}
@@ -127,6 +132,8 @@ describe('DiagramNode', () => {
             onNodePointerMove={() => undefined}
             onNodePointerUp={() => undefined}
             onNodePointerLeave={() => undefined}
+            onNodeTechIconPointerDown={() => undefined}
+            onNodeTechIconResizePointerDown={() => undefined}
             onCreateDrilldown={() => undefined}
             onOpenDrilldown={onOpenDrilldown}
             onNodeBorderPointerDown={() => undefined}
@@ -147,5 +154,51 @@ describe('DiagramNode', () => {
     })
 
     expect(onOpenDrilldown).toHaveBeenCalledWith('n_kafka')
+  })
+
+  it('renders UI-only technology icons with resize grips while editing', () => {
+    renderNode()
+    expect(activeContainer?.querySelector('.node-tech-icon-glyph')).not.toBeNull()
+    expect(activeContainer?.textContent).not.toContain('≋ Kafka')
+
+    act(() => {
+      activeRoot?.render(
+        <svg>
+          <DiagramNode
+            node={makeQueueNode()}
+            viewKind="container"
+            presentationMode={false}
+            activeTool="select"
+            isConnectorMode={false}
+            pendingConnectionFrom={null}
+            hoveredConnectionTarget={null}
+            hoveredPortKey={null}
+            isSelected
+            activeNodeIconEditId="n_kafka"
+            isPlayerHighlighted={false}
+            isDimmedByJourney={false}
+            nodeDepthEffectsEnabled={false}
+            onNodePointerDown={() => undefined}
+            onNodePointerMove={() => undefined}
+            onNodePointerUp={() => undefined}
+            onNodePointerLeave={() => undefined}
+            onNodeTechIconPointerDown={() => undefined}
+            onNodeTechIconResizePointerDown={() => undefined}
+            onCreateDrilldown={() => undefined}
+            onOpenDrilldown={() => undefined}
+            onNodeBorderPointerDown={() => undefined}
+            onNodeBorderPointerMove={() => undefined}
+            onNodeBorderPointerLeave={() => undefined}
+            onStartInlineEdit={() => undefined}
+            onPortPointerEnter={() => undefined}
+            onPortPointerLeave={() => undefined}
+            onPortPointerDown={() => undefined}
+          />
+        </svg>,
+      )
+    })
+
+    expect(activeContainer?.querySelector('.node-tech-icon-edit-frame')).not.toBeNull()
+    expect(activeContainer?.querySelectorAll('.node-tech-icon-resize')).toHaveLength(4)
   })
 })

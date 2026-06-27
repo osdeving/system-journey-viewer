@@ -3506,6 +3506,12 @@ button.topbar-cloud-script-row-delete {
   line-height: 1;
 }
 
+.palette-tech-icon-glyph {
+  width: 18px;
+  height: 18px;
+  display: block;
+}
+
 .palette-preset-copy {
   min-width: 0;
   display: grid;
@@ -4283,6 +4289,45 @@ button.topbar-cloud-script-row-delete {
   fill: #475569;
   font-size: 12px;
   pointer-events: none;
+}
+
+.node-tech-icon {
+  pointer-events: auto;
+}
+
+.node-tech-icon-glyph {
+  cursor: grab;
+  overflow: visible;
+  filter: drop-shadow(0 1px 2px rgba(15, 23, 42, 0.24));
+}
+
+.node-tech-icon-glyph:active {
+  cursor: grabbing;
+}
+
+.node-tech-icon-edit-frame {
+  fill: rgba(14, 165, 233, 0.1);
+  stroke: rgba(14, 165, 233, 0.95);
+  stroke-width: 1.2;
+  stroke-dasharray: 3 2;
+  pointer-events: none;
+}
+
+.node-tech-icon-resize {
+  fill: #ffffff;
+  stroke: #0ea5e9;
+  stroke-width: 1.2;
+  pointer-events: auto;
+}
+
+.node-tech-icon-resize-nw,
+.node-tech-icon-resize-se {
+  cursor: nwse-resize;
+}
+
+.node-tech-icon-resize-ne,
+.node-tech-icon-resize-sw {
+  cursor: nesw-resize;
 }
 
 .node-title-hex,
@@ -7004,6 +7049,20 @@ button.help-gallery-icon-button {
 
 .theme-dark .node-subtitle {
   fill: #cbd5e1;
+}
+
+.theme-dark .node-tech-icon-glyph {
+  filter: drop-shadow(0 1px 3px rgba(2, 6, 23, 0.7));
+}
+
+.theme-dark .node-tech-icon-edit-frame {
+  fill: rgba(56, 189, 248, 0.12);
+  stroke: rgba(125, 211, 252, 0.95);
+}
+
+.theme-dark .node-tech-icon-resize {
+  fill: #0f172a;
+  stroke: #7dd3fc;
 }
 
 .theme-dark .node-port {

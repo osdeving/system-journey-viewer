@@ -12,6 +12,8 @@ export interface PalettePanelPreset {
   id: string
   label: string
   iconKey: string
+  dragMimeType?: string
+  searchText?: string
 }
 
 export interface PalettePanelCategory {
@@ -52,7 +54,7 @@ export const PalettePanel = ({
           ...category,
           presets: normalizedQuery
             ? category.presets.filter((preset) =>
-                `${preset.label} ${preset.id} ${preset.iconKey}`.toLowerCase().includes(normalizedQuery),
+                `${preset.label} ${preset.id} ${preset.iconKey} ${preset.searchText ?? ''}`.toLowerCase().includes(normalizedQuery),
               )
             : category.presets,
         }))
@@ -133,7 +135,7 @@ export const PalettePanel = ({
                   className="palette-preset-card"
                   draggable
                   onDragStart={(event) => {
-                    event.dataTransfer.setData(dragMimeType, preset.id)
+                    event.dataTransfer.setData(preset.dragMimeType ?? dragMimeType, preset.id)
                     onPresetDragStart?.(preset, event)
                   }}
                 >

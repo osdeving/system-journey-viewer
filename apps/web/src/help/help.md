@@ -40,6 +40,8 @@ Default playback/focus state:
 
 - The palette uses a searchable component browser with category chips and drag-ready cards.
 - Filter by component name, preset id, or icon key, then drag a card into the canvas.
+- Technology icon cards can be dropped onto an existing node or boundary; they are saved in the UI workspace snapshot and are not emitted to SJV Script.
+- Press and hold a node technology icon to show resize grips, then drag it inside the node or resize it within the node bounds.
 
 ## Notes
 
@@ -61,6 +63,7 @@ Default playback/focus state:
 - Double-click edge label for inline edit.
 - Click-hold label + scroll: change label font size.
 - Click-hold label + `Alt` + scroll: rotate label angle.
+- Select an edge label and press `Tab` to snap it to the nearest global 90 degree axis; press `Tab` again to rotate to the next global axis, or `Shift + Tab` to go back.
 - Rotation step is intentionally faster for quicker horizontal/vertical orientation changes.
 - Drag label to move along edge and switch side.
 - Edge endpoint drag handles were enlarged and made more visible for easier reconnect by port.

@@ -81,6 +81,13 @@ import { InspectorPanel } from './components/inspector/InspectorPanel'
 import { AppIcon, PresetIcon } from './icons/IconRegistry'
 import type { AppIconId } from './icons/iconRegistryData'
 import { APP_ICON_SET_OPTIONS } from './icons/iconSets'
+import { TechIconGlyph } from './icons/TechIconGlyph'
+import {
+  TECH_ICON_CATEGORY_LABELS,
+  TECH_ICON_CATEGORY_ORDER,
+  TECH_ICON_DRAG_MIME_TYPE,
+  techIconDefinitions,
+} from './icons/techIconCatalog'
 import {
   buildNodeConfettiBursts,
   resolveNodeConfettiAnchor,
@@ -328,6 +335,23 @@ const NODE_PALETTE_CATEGORIES = Object.entries(nodePresetsByCategory).map(
     presets,
   }),
 ) satisfies PalettePanelCategory[]
+const TECH_ICON_PALETTE_CATEGORIES = TECH_ICON_CATEGORY_ORDER.map((categoryId) => ({
+  id: `tech-${categoryId}`,
+  title: TECH_ICON_CATEGORY_LABELS[categoryId],
+  presets: techIconDefinitions
+    .filter((icon) => icon.category === categoryId)
+    .map((icon) => ({
+      id: icon.id,
+      label: icon.label,
+      iconKey: icon.source === 'simple-icons' ? 'brand svg' : 'ui stencil',
+      dragMimeType: TECH_ICON_DRAG_MIME_TYPE,
+      searchText: icon.aliases.join(' '),
+    })),
+})) satisfies PalettePanelCategory[]
+const MIXED_PALETTE_CATEGORIES = [
+  ...NODE_PALETTE_CATEGORIES,
+  ...TECH_ICON_PALETTE_CATEGORIES,
+] satisfies PalettePanelCategory[]
 
 const formatBytesLabel = (bytes: number): string => {
   if (!Number.isFinite(bytes) || bytes < 0) {
@@ -5682,10 +5706,15 @@ function App() {
 
   const palettePanelContent = (
     <PalettePanel
-      categories={NODE_PALETTE_CATEGORIES}
-      renderPresetIcon={(preset) => (
-        <PresetIcon iconKey={preset.iconKey} iconSet={uiPreferences.iconSet} size={16} />
-      )}
+      categories={MIXED_PALETTE_CATEGORIES}
+      description="Drag components into the canvas or drop technology icons onto nodes."
+      renderPresetIcon={(preset) =>
+        preset.dragMimeType === TECH_ICON_DRAG_MIME_TYPE ? (
+          <TechIconGlyph iconId={preset.id} size={18} className="palette-tech-icon-glyph" />
+        ) : (
+          <PresetIcon iconKey={preset.iconKey} iconSet={uiPreferences.iconSet} size={16} />
+        )
+      }
     />
   )
 

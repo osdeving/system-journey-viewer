@@ -84,4 +84,21 @@ describe('DiagramCanvas source regressions', () => {
     expect(diagramCanvasSource).toContain('addBasicShape(')
     expect(diagramCanvasSource).toContain('className="freeform-shape-preview"')
   })
+
+  it('supports UI-only technology icon drops and node-local icon editing', () => {
+    expect(diagramCanvasSource).toContain('TECH_ICON_DRAG_MIME_TYPE')
+    expect(diagramCanvasSource).toContain('setNodeTechIcon(')
+    expect(diagramCanvasSource).toContain('resolveDefaultTechIconPlacementForNode')
+    expect(diagramCanvasSource).toContain('nodeTechIconInteractionRef')
+    expect(diagramCanvasSource).toContain('NODE_TECH_ICON_HOLD_DELAY_MS')
+    expect(diagramCanvasSource).toContain('resolveResizedNodeTechIconPlacement(')
+    expect(diagramNodeSource).toContain('node-tech-icon-glyph')
+    expect(diagramNodeSource).toContain('node-tech-icon-resize')
+  })
+
+  it('supports Tab snapping selected edge labels to global 90 degree axes', () => {
+    expect(diagramCanvasSource).toContain("event.key !== 'Tab'")
+    expect(diagramCanvasSource).toContain('resolveNextGlobalEdgeLabelRotationAngle(')
+    expect(diagramCanvasSource).toContain('setEdgeLabelAngle(')
+  })
 })

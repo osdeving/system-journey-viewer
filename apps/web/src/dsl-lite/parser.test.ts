@@ -196,6 +196,22 @@ describe('SJV Script parser and conversion', () => {
     expect(exported).toContain('note note_api on api "Requires OAuth scope orders:write"')
   })
 
+  it('keeps UI-only technology icons out of exported SJV Script', () => {
+    const workspace = createDefaultWorkspace()
+    workspace.nodes.n_api.uiIcon = {
+      iconId: 'spring-boot',
+      x: 88,
+      y: 36,
+      size: 24,
+    }
+
+    const exported = fullWorkspaceToLiteDsl(workspace)
+
+    expect(exported).not.toContain('uiIcon')
+    expect(exported).not.toContain('spring-boot icon')
+    expect(exported).not.toContain('size 24 icon')
+  })
+
   it('excludes experimental basic shapes and their edges from exported SJV Script', () => {
     const workspace = createDefaultWorkspace()
     workspace.nodes.n_shape_test = {

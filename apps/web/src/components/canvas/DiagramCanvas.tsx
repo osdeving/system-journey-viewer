@@ -2,7 +2,7 @@
  * Purpose: Provide React canvas rendering components for nodes, edges, labels, and interactive diagram visuals.
  */
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type {
   KeyboardEvent as ReactKeyboardEvent,
   DragEvent,
@@ -31,6 +31,7 @@ import {
 import { deriveThreadTimelineColor } from '../../journeys/timelineRows'
 import { protocolPresets } from '../../presets/catalog'
 import { NODE_PRESET_DRAG_MIME_TYPE } from '../../presets/presetDragData'
+import { TECH_ICON_DRAG_MIME_TYPE } from '../../icons/techIconCatalog'
 import { useEditorStore } from '../../store/useEditorStore'
 import {
   resolveEdgeJourneyBadge,
@@ -38,12 +39,19 @@ import {
   type EdgeJourneyMarker,
 } from '../../diagram/edges/edgeJourneyBadge'
 import { JourneyEdge } from './JourneyEdge'
-import { DiagramNode } from './DiagramNode'
+import { DiagramNode, type DiagramNodeTechIconResizeHandle } from './DiagramNode'
 import { Text } from '../text/Text'
 import {
   estimateCanvasTextWidth,
+  resolveNodeLabelLayout,
   type NodeLabelLayout,
 } from '../../diagram/nodes/nodeLabelLayout'
+import {
+  clampNodeTechIconPlacement,
+  resolveDefaultNodeTechIconPlacement,
+  resolveResizedNodeTechIconPlacement,
+  type NodeTechIconPlacement,
+} from '../../diagram/nodes/nodeTechIconLayout'
 import {
   resolveDiamondShape,
   resolveTriangleShape,
@@ -60,7 +68,10 @@ import {
   resolveTravelProgress,
   STEP_ARRIVAL_HOLD_MS,
 } from '../../diagram/player/playerStepTimeline'
-import { resolveNextEdgeLabelRotationAngle } from '../../diagram/edges/edgeLabelWheel'
+import {
+  resolveNextEdgeLabelRotationAngle,
+  resolveNextGlobalEdgeLabelRotationAngle,
+} from '../../diagram/edges/edgeLabelWheel'
 import {
   buildTrailPoints,
   compactPositiveAlphaInPlace,
@@ -80,6 +91,7 @@ import {
   isFreeformShapeTool,
   resolveFreeformShapeBounds,
 } from '../../diagram/canvas/freeformShapeDrawing'
+import { isExperimentalShapeKind } from '../../model/experimentalShapes'
 
 type PanState = {
   pointerId: number
@@ -109,6 +121,17 @@ type ConnectionDragState = {
 type EdgeLabelDragState = {
   pointerId: number
   edgeId: string
+}
+
+type NodeTechIconInteractionState = {
+  pointerId: number
+  nodeId: string
+  mode: 'press' | 'move' | 'resize'
+  resizeHandle?: DiagramNodeTechIconResizeHandle
+  startClientX: number
+  startClientY: number
+  originPlacement: NodeTechIconPlacement
+  holdTimerId?: number
 }
 
 type PinchGestureState = {
@@ -227,6 +250,8 @@ const FINAL_STEP_ARRIVAL_HOLD_MS = 220
 const MIN_EDGE_LABEL_FONT_SIZE = 9
 const MAX_EDGE_LABEL_FONT_SIZE = 28
 const DEFAULT_EDGE_LABEL_FONT_SIZE = 11
+const NODE_TECH_ICON_HOLD_DELAY_MS = 360
+const NODE_TECH_ICON_PRESS_MOVE_CANCEL_PX = 4
 
 interface DiagramCanvasProps {
   presentationMode?: boolean
@@ -323,6 +348,17 @@ const resolveResizeHandleFromLocalPoint = (
     return 'e'
   }
   return null
+}
+
+const isEditableKeyboardTarget = (target: EventTarget | null): boolean => {
+  if (
+    target instanceof HTMLInputElement ||
+    target instanceof HTMLTextAreaElement ||
+    target instanceof HTMLSelectElement
+  ) {
+    return true
+  }
+  return target instanceof HTMLElement && target.isContentEditable
 }
 
 const distancePointToCurve = (
@@ -507,6 +543,7 @@ export const DiagramCanvas = ({
   const connectionDragRef = useRef<ConnectionDragState | null>(null)
   const edgeReconnectRef = useRef<EdgeReconnectState | null>(null)
   const edgeLabelDragRef = useRef<EdgeLabelDragState | null>(null)
+  const nodeTechIconInteractionRef = useRef<NodeTechIconInteractionState | null>(null)
   const edgeAnchorCycleRef = useRef(new Map<string, number>())
   const pinchGestureRef = useRef<PinchGestureState | null>(null)
   const marqueeSelectionRef = useRef<MarqueeSelectionState | null>(null)
@@ -537,6 +574,7 @@ export const DiagramCanvas = ({
   const [hoveredPortKey, setHoveredPortKey] = useState<string | null>(null)
   const [playerStepArrivedForUi, setPlayerStepArrivedForUi] = useState(false)
   const [inlineTextEdit, setInlineTextEdit] = useState<InlineTextEditState | null>(null)
+  const [activeNodeIconEditId, setActiveNodeIconEditId] = useState<string | null>(null)
   const inlineTextEditFocusKey = inlineTextEdit
     ? `${inlineTextEdit.mode}:${inlineTextEdit.targetId}:${inlineTextEdit.multiline ? 'multi' : 'single'}`
     : null
@@ -576,6 +614,8 @@ export const DiagramCanvas = ({
   const attachNoteToNode = useEditorStore((state) => state.attachNoteToNode)
   const setNodeName = useEditorStore((state) => state.setNodeName)
   const setNodeTech = useEditorStore((state) => state.setNodeTech)
+  const setNodeTechIcon = useEditorStore((state) => state.setNodeTechIcon)
+  const setNodeTechIconPlacement = useEditorStore((state) => state.setNodeTechIconPlacement)
   const addNode = useEditorStore((state) => state.addNode)
   const addBasicShape = useEditorStore((state) => state.addBasicShape)
   const beginConnection = useEditorStore((state) => state.beginConnection)
@@ -736,6 +776,30 @@ export const DiagramCanvas = ({
     [visibleNodes, workspace.nodes],
   )
   const selectedNodeIdSet = useMemo(() => new Set(selectedNodeIds), [selectedNodeIds])
+  const clearNodeTechIconInteraction = useCallback((): void => {
+    const interaction = nodeTechIconInteractionRef.current
+    if (interaction?.holdTimerId) {
+      window.clearTimeout(interaction.holdTimerId)
+    }
+    nodeTechIconInteractionRef.current = null
+  }, [])
+  const resolveDefaultTechIconPlacementForNode = useCallback((node: NodeModel): NodeTechIconPlacement => {
+    const shouldRenderHexagon =
+      node.kind === 'gateway' ||
+      node.kind === 'security' ||
+      node.kind === 'load-balancer'
+    const labelLayout = resolveNodeLabelLayout(node, shouldRenderHexagon)
+    return resolveDefaultNodeTechIconPlacement(
+      node.bounds,
+      labelLayout,
+      node.tech?.label ?? node.kind,
+    )
+  }, [])
+  const resolvedActiveNodeIconEditId =
+    activeNodeIconEditId && workspace.nodes[activeNodeIconEditId]?.uiIcon
+      ? activeNodeIconEditId
+      : null
+
   const edgeRenderItems = useMemo(
     () =>
       visibleEdges
@@ -933,6 +997,7 @@ export const DiagramCanvas = ({
     edgeReconnectRef.current = null
     edgeLabelDragRef.current = null
     edgeLabelZoomRef.current = null
+    clearNodeTechIconInteraction()
     let resetPreviewFrame = window.requestAnimationFrame(() => {
       setConnectionPreview(null)
       setHoveredConnectionTarget(null)
@@ -949,7 +1014,7 @@ export const DiagramCanvas = ({
       window.cancelAnimationFrame(resetCursorFrame)
       resetCursorFrame = 0
     }
-  }, [cancelPendingConnection, isConnectorMode])
+  }, [cancelPendingConnection, clearNodeTechIconInteraction, isConnectorMode])
 
   useEffect(() => {
     trailsRef.current = []
@@ -964,6 +1029,7 @@ export const DiagramCanvas = ({
     edgeReconnectRef.current = null
     edgeLabelDragRef.current = null
     edgeLabelZoomRef.current = null
+    clearNodeTechIconInteraction()
     let resetPreviewFrame = window.requestAnimationFrame(() => {
       setConnectionPreview(null)
     })
@@ -975,6 +1041,7 @@ export const DiagramCanvas = ({
       setDragCursor(null)
       setHoveredConnectionTarget(null)
       setHoveredAnchorKey(null)
+      setActiveNodeIconEditId(null)
       setInlineTextEdit(null)
     })
     const trailCanvas = trailCanvasRef.current
@@ -990,7 +1057,7 @@ export const DiagramCanvas = ({
       window.cancelAnimationFrame(resetCursorFrame)
       resetCursorFrame = 0
     }
-  }, [viewId])
+  }, [clearNodeTechIconInteraction, viewId])
 
   useEffect(() => {
     if (!inlineTextEditFocusKey) {
@@ -1007,6 +1074,66 @@ export const DiagramCanvas = ({
       window.cancelAnimationFrame(frameId)
     }
   }, [inlineTextEditFocusIsMultiline, inlineTextEditFocusKey])
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (
+        presentationMode ||
+        inlineTextEdit ||
+        event.key !== 'Tab' ||
+        event.ctrlKey ||
+        event.metaKey ||
+        event.altKey ||
+        isEditableKeyboardTarget(event.target)
+      ) {
+        return
+      }
+      const canvasElement = canvasRef.current
+      const activeElement = document.activeElement
+      const eventTarget = event.target instanceof Node ? event.target : null
+      const eventStartedInCanvas = Boolean(eventTarget && canvasElement?.contains(eventTarget))
+      const focusIsCanvasNeutral =
+        activeElement === document.body ||
+        activeElement === null ||
+        Boolean(activeElement && canvasElement?.contains(activeElement))
+      if (!eventStartedInCanvas && !focusIsCanvasNeutral) {
+        return
+      }
+      if (!selectedEdgeId) {
+        return
+      }
+      const edge = workspace.edges[selectedEdgeId]
+      const curve = edgeCurveById.get(selectedEdgeId)
+      if (!edge || !curve) {
+        return
+      }
+      event.preventDefault()
+      const labelPlacement = resolveEdgeLabelPlacement(
+        curve,
+        edge.style.labelPosition ?? 0.5,
+        edge.style.labelSide === 'right' ? 'right' : 'left',
+        14,
+      )
+      setEdgeLabelAngle(
+        edge.id,
+        resolveNextGlobalEdgeLabelRotationAngle(
+          labelPlacement.angleDeg,
+          edge.style.labelAngle ?? 0,
+          event.shiftKey ? -1 : 1,
+        ),
+      )
+    }
+
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [
+    edgeCurveById,
+    inlineTextEdit,
+    presentationMode,
+    selectedEdgeId,
+    setEdgeLabelAngle,
+    workspace.edges,
+  ])
 
   useEffect(() => {
     if (playerTrailEnabled) {
@@ -1381,12 +1508,14 @@ export const DiagramCanvas = ({
     edgeReconnectRef.current = null
     edgeLabelDragRef.current = null
     edgeLabelZoomRef.current = null
+    clearNodeTechIconInteraction()
     setConnectionPreview(null)
     setMarqueeSelectionRect(null)
     setAlignmentGuides([])
     setHoveredConnectionTarget(null)
     setHoveredAnchorKey(null)
     setHoveredPortKey(null)
+    setActiveNodeIconEditId(null)
     setDragCursor(null)
     setHoverCursor(null)
   }
@@ -1626,10 +1755,22 @@ export const DiagramCanvas = ({
     if (event.button !== 0) {
       return
     }
+    const pointerTarget = event.target instanceof Element ? event.target : null
+    if (pointerTarget?.closest('.node-tech-icon')) {
+      const nodeElement = pointerTarget.closest<SVGGElement>('.node-group')
+      const nodeId = nodeElement?.dataset.nodeId
+      const node = nodeId ? workspace.nodes[nodeId] : undefined
+      if (node?.uiIcon) {
+        onNodeTechIconPointerDown(event, node)
+        return
+      }
+    }
     event.preventDefault()
     if (inlineTextEdit) {
       closeInlineTextEditor(true)
     }
+    setActiveNodeIconEditId(null)
+    clearNodeTechIconInteraction()
     if (!presentationMode && activeShapeTool) {
       const startWorld = clientToWorld(event.clientX, event.clientY)
       if (!startWorld) {
@@ -1691,6 +1832,41 @@ export const DiagramCanvas = ({
     if (pinchGestureRef.current && event.pointerType === 'touch') {
       return
     }
+    const nodeTechIconInteraction = nodeTechIconInteractionRef.current
+    if (nodeTechIconInteraction && nodeTechIconInteraction.pointerId === event.pointerId) {
+      const dx = (event.clientX - nodeTechIconInteraction.startClientX) / viewport.zoom
+      const dy = (event.clientY - nodeTechIconInteraction.startClientY) / viewport.zoom
+      if (nodeTechIconInteraction.mode === 'press') {
+        if (Math.hypot(event.clientX - nodeTechIconInteraction.startClientX, event.clientY - nodeTechIconInteraction.startClientY) > NODE_TECH_ICON_PRESS_MOVE_CANCEL_PX) {
+          if (nodeTechIconInteraction.holdTimerId) {
+            window.clearTimeout(nodeTechIconInteraction.holdTimerId)
+            nodeTechIconInteraction.holdTimerId = undefined
+          }
+        }
+        return
+      }
+      const node = workspace.nodes[nodeTechIconInteraction.nodeId]
+      if (!node?.uiIcon) {
+        return
+      }
+      const nextPlacement =
+        nodeTechIconInteraction.mode === 'resize' && nodeTechIconInteraction.resizeHandle
+          ? resolveResizedNodeTechIconPlacement(
+              node.bounds,
+              nodeTechIconInteraction.originPlacement,
+              nodeTechIconInteraction.resizeHandle,
+              dx,
+              dy,
+            )
+          : clampNodeTechIconPlacement(node.bounds, {
+              ...nodeTechIconInteraction.originPlacement,
+              x: nodeTechIconInteraction.originPlacement.x + dx,
+              y: nodeTechIconInteraction.originPlacement.y + dy,
+            })
+      setNodeTechIconPlacement(node.id, nextPlacement)
+      return
+    }
+
     const labelDrag = edgeLabelDragRef.current
     if (labelDrag && labelDrag.pointerId === event.pointerId) {
       const currentWorld = clientToWorld(event.clientX, event.clientY)
@@ -1790,6 +1966,29 @@ export const DiagramCanvas = ({
   }
 
   const onBackgroundPointerUp = (event: ReactPointerEvent<SVGSVGElement>): void => {
+    const nodeTechIconInteraction = nodeTechIconInteractionRef.current
+    if (nodeTechIconInteraction?.pointerId === event.pointerId) {
+      const node = workspace.nodes[nodeTechIconInteraction.nodeId]
+      const world = clientToWorld(event.clientX, event.clientY)
+      if (
+        node?.uiIcon &&
+        world &&
+        nodeTechIconInteraction.mode !== 'press' &&
+        (world.x < node.bounds.x ||
+          world.x > node.bounds.x + node.bounds.w ||
+          world.y < node.bounds.y ||
+          world.y > node.bounds.y + node.bounds.h)
+      ) {
+        setNodeTechIconPlacement(node.id, nodeTechIconInteraction.originPlacement)
+      }
+      clearNodeTechIconInteraction()
+      setDragCursor(null)
+      if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+        event.currentTarget.releasePointerCapture(event.pointerId)
+      }
+      return
+    }
+
     const freeformShapeDrawing = freeformShapeDrawingRef.current
     if (freeformShapeDrawing?.pointerId === event.pointerId) {
       const currentWorld =
@@ -1921,8 +2120,16 @@ export const DiagramCanvas = ({
     if (presentationMode) {
       return
     }
+    const pointerTarget = event.target instanceof Element ? event.target : null
+    if (pointerTarget?.closest('.node-tech-icon')) {
+      return
+    }
     if (inlineTextEdit) {
       closeInlineTextEditor(true)
+    }
+    if (resolvedActiveNodeIconEditId) {
+      setActiveNodeIconEditId(null)
+      clearNodeTechIconInteraction()
     }
     if (event.button !== 0) {
       return
@@ -2244,6 +2451,86 @@ export const DiagramCanvas = ({
     }
   }
 
+  const onNodeTechIconPointerDown = (
+    event: ReactPointerEvent<SVGElement>,
+    node: NodeModel,
+  ): void => {
+    if (pinchGestureRef.current && event.pointerType === 'touch') {
+      return
+    }
+    event.preventDefault()
+    event.stopPropagation()
+    if (presentationMode || activeTool !== 'select' || isConnectorMode || event.button !== 0 || !node.uiIcon) {
+      return
+    }
+    closeInlineTextEditor(true)
+    selectNode(node.id)
+    selectEdge(null)
+    const originPlacement = clampNodeTechIconPlacement(node.bounds, node.uiIcon)
+    const isAlreadyEditing = resolvedActiveNodeIconEditId === node.id
+    setActiveNodeIconEditId(isAlreadyEditing ? node.id : null)
+    const interaction: NodeTechIconInteractionState = {
+      pointerId: event.pointerId,
+      nodeId: node.id,
+      mode: isAlreadyEditing ? 'move' : 'press',
+      startClientX: event.clientX,
+      startClientY: event.clientY,
+      originPlacement,
+    }
+    if (!isAlreadyEditing) {
+      interaction.holdTimerId = window.setTimeout(() => {
+        const current = nodeTechIconInteractionRef.current
+        if (!current || current.pointerId !== event.pointerId || current.nodeId !== node.id) {
+          return
+        }
+        current.mode = 'move'
+        current.holdTimerId = undefined
+        setActiveNodeIconEditId(node.id)
+        setDragCursor('move')
+      }, NODE_TECH_ICON_HOLD_DELAY_MS)
+    } else {
+      setDragCursor('move')
+    }
+    clearNodeTechIconInteraction()
+    nodeTechIconInteractionRef.current = interaction
+    const captureElement =
+      event.currentTarget instanceof SVGSVGElement
+        ? event.currentTarget
+        : event.currentTarget.ownerSVGElement
+    captureElement?.setPointerCapture(event.pointerId)
+  }
+
+  const onNodeTechIconResizePointerDown = (
+    event: ReactPointerEvent<SVGRectElement>,
+    node: NodeModel,
+    handle: DiagramNodeTechIconResizeHandle,
+  ): void => {
+    if (pinchGestureRef.current && event.pointerType === 'touch') {
+      return
+    }
+    if (presentationMode || activeTool !== 'select' || isConnectorMode || event.button !== 0 || !node.uiIcon) {
+      return
+    }
+    event.preventDefault()
+    event.stopPropagation()
+    closeInlineTextEditor(true)
+    selectNode(node.id)
+    selectEdge(null)
+    setActiveNodeIconEditId(node.id)
+    clearNodeTechIconInteraction()
+    nodeTechIconInteractionRef.current = {
+      pointerId: event.pointerId,
+      nodeId: node.id,
+      mode: 'resize',
+      resizeHandle: handle,
+      startClientX: event.clientX,
+      startClientY: event.clientY,
+      originPlacement: clampNodeTechIconPlacement(node.bounds, node.uiIcon),
+    }
+    setDragCursor(handle === 'nw' || handle === 'se' ? 'nwse-resize' : 'nesw-resize')
+    event.currentTarget.ownerSVGElement?.setPointerCapture(event.pointerId)
+  }
+
   const onEdgeLabelPointerDown = (
     edgeId: string,
     event: ReactPointerEvent<SVGTextElement>,
@@ -2476,8 +2763,9 @@ export const DiagramCanvas = ({
     if (presentationMode) {
       return
     }
+    const droppedTechIconId = event.dataTransfer.getData(TECH_ICON_DRAG_MIME_TYPE)
     const presetId = event.dataTransfer.getData(NODE_PRESET_DRAG_MIME_TYPE)
-    if (!presetId) {
+    if (!presetId && !droppedTechIconId) {
       return
     }
     const container = canvasRef.current
@@ -2490,6 +2778,20 @@ export const DiagramCanvas = ({
     const worldPoint = {
       x: (px - viewport.x) / viewport.zoom,
       y: (py - viewport.y) / viewport.zoom,
+    }
+    if (droppedTechIconId) {
+      const targetNode = resolveNodeAtPoint(worldPoint, { includeNotes: false })
+      if (targetNode && !isExperimentalShapeKind(targetNode.kind)) {
+        setNodeTechIcon(
+          targetNode.id,
+          droppedTechIconId,
+          resolveDefaultTechIconPlacementForNode(targetNode),
+        )
+        selectNode(targetNode.id)
+        selectEdge(null)
+        setActiveNodeIconEditId(targetNode.id)
+      }
+      return
     }
     if (presetId === 'note') {
       const targetNode = resolveNodeAtPoint(worldPoint, { includeNotes: false })
@@ -2766,6 +3068,7 @@ export const DiagramCanvas = ({
                 hoveredConnectionTarget={hoveredConnectionTarget}
                 hoveredPortKey={hoveredPortKey}
                 isSelected={selectedNodeIdSet.has(node.id)}
+                activeNodeIconEditId={resolvedActiveNodeIconEditId}
                 isPlayerHighlighted={highlightedNodeIds.has(node.id)}
                 isDimmedByJourney={isDimmedByJourney}
                 nodeDepthEffectsEnabled={nodeDepthEffectsEnabled}
@@ -2777,6 +3080,8 @@ export const DiagramCanvas = ({
                     setHoverCursor(null)
                   }
                 }}
+                onNodeTechIconPointerDown={onNodeTechIconPointerDown}
+                onNodeTechIconResizePointerDown={onNodeTechIconResizePointerDown}
                 onCreateDrilldown={createDrilldownForNode}
                 onOpenDrilldown={openDrilldown}
                 onNodeBorderPointerDown={onNodeBorderPointerDown}

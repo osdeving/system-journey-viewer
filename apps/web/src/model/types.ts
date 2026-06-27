@@ -51,6 +51,13 @@ export interface NodeStyle {
   textColor?: string
 }
 
+export interface NodeUiIcon {
+  iconId: string
+  x: number
+  y: number
+  size: number
+}
+
 export interface PortModel {
   id: string
   x: number
@@ -66,6 +73,7 @@ export interface NodeModel {
   tags: string[]
   tech?: NodeTech
   style?: NodeStyle
+  uiIcon?: NodeUiIcon
   bounds: NodeBounds
   ports: PortModel[]
   children: string[]

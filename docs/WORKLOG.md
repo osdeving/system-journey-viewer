@@ -2,6 +2,30 @@
 
 Chronological engineering log. Entries are kept concise and focused on behavior and validation.
 
+## 2026-06-27 - Proportional technology icon anchors and command palette font weight
+
+### Scope
+
+- Kept technology icons anchored/proportional during node resize and normalized command palette typography to regular menu-like weights.
+
+### Changes
+
+- `apps/web/src/diagram/nodes/nodeTechIconLayout.ts`, `apps/web/src/store/useEditorStore.ts`
+  - added an anchored resize helper for UI-only technology icons,
+  - node resize now scales icon size by the node resize ratio and preserves the nearest horizontal/vertical anchor instead of only clamping the old absolute placement.
+- `apps/web/src/App.css`
+  - command palette section labels, result titles, and shortcut chips now use regular `400` weight,
+  - command palette shortcut chips use the same mono family as desktop menu shortcuts.
+
+### Validation
+
+- `npm --workspace @sjv/web run test:run -- src/diagram/nodes/nodeTechIconLayout.test.ts src/store/useEditorStore.test.ts src/App.styles.test.ts`
+- `npm --workspace @sjv/web run lint`
+- `npm --workspace @sjv/web run test:run`
+- `npm --workspace @sjv/web run build`
+- `git diff --check`
+- Playwright smoke against `http://127.0.0.1:5173/`: verified command palette section/title/shortcut computed font weights are `400`.
+
 ## 2026-06-27 - Command palette chrome and larger rectangle tech-icon fit
 
 ### Scope

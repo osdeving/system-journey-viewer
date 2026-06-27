@@ -48,6 +48,7 @@
 - Latest edge-label/icon editing increment (2026-06-27) adds global-axis `Tab` / `Shift+Tab` rotation for selected edge labels and a UI-only technology icon palette backed by Simple Icons plus internal generic vectors; dropped icons persist as `NodeModel.uiIcon` snapshot data for nodes/boundaries and are intentionally excluded from SJV Script export.
 - Latest technology-icon layout follow-up (2026-06-27) sizes newly dropped rectangle-node icons directly from measured node/text dimensions, anchors them bottom-right with breathing room, keeps shape-aware safe regions for queue cylinders/database cylinders/hexagons, and lets `Delete` / `Backspace` remove the active UI-only technology icon without deleting the node.
 - Latest command-palette/icon-fit follow-up (2026-06-27) removes command palette active-row gradients, hides the results scrollbar behind conditional top/bottom overflow cues, and removes the rectangle technology-icon preferred-size cap so large normal nodes use the real measured text-free area.
+- Latest icon-anchor/command-font follow-up (2026-06-27) keeps UI-only technology icons anchored and proportionally scaled when their owning node is resized, and normalizes command palette section/title/shortcut text to regular menu-like font weights.
 - Latest export hotfix (2026-03-01, night pass) aligns animated export theme backgrounds to the SVG `viewBox`/source frame and pre-fills raster composition frames so wide MP4 exports no longer reveal black transparent regions.
 - Latest canvas affordance hotfix (2026-03-01, late-night pass) adds a pulsing blue hover cue on exact node ports and lets `Select` mode start a connection directly from that hover without leaving selection mode.
 - Latest edge targeting hotfix (2026-03-01, final pass) widens the invisible pointer hit area for dashed edges so selection no longer requires near-pixel-perfect clicks, while automatic curve routing remains unchanged.
@@ -72,7 +73,7 @@
   - opens via `Ctrl/Cmd+K`, `/`, desktop topbar Search, or mobile Search,
   - indexes commands, views, journeys, nodes, and edges,
   - node/edge results select the target and center the canvas on it,
-  - result rows use solid active states and the scrollable results list hides native scrollbars while exposing subtle top/bottom overflow cues.
+  - result rows use solid active states and regular menu-like font weights, and the scrollable results list hides native scrollbars while exposing subtle top/bottom overflow cues.
 - Canvas minimap/status:
   - bottom-right minimap renders a lightweight SVG overview of current-view nodes and viewport,
   - minimap clicks recenter the canvas without changing the diagram model,
@@ -101,7 +102,8 @@
   - default placement sizes rectangle-node icons from the measured title/technology text-free width and height without the preferred-size cap, anchors them bottom-right with breathing room, falls back centered below text when the corner would be tiny, keeps queue icons out of the front cap, keeps database icons between caps, and fits hex icons inside the lower polygon,
   - icons persist in workspace snapshots as `NodeModel.uiIcon` and are not exported to SJV Script,
   - pressing `Delete` / `Backspace` while an icon's grips are active removes only that icon,
-  - press-and-hold on an icon opens resize/reposition grips; movement and resizing are clamped inside the owning node and cannot exceed that node's bounds.
+  - press-and-hold on an icon opens resize/reposition grips; movement and resizing are clamped inside the owning node and cannot exceed that node's bounds,
+  - resizing a node with a technology icon preserves the icon's nearest anchor and scales the icon proportionally with the node size change.
 - Theme persistence (`light` / `dark`) in workspace settings.
 - Journey creation, filtering, playback, and timeline editing controls.
 - Global undo/redo history for workspace and major UI layout state (`Ctrl/Cmd+Z`, `Ctrl/Cmd+Shift+Z`, `Ctrl/Cmd+Y`).

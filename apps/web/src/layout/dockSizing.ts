@@ -8,7 +8,7 @@ export type DockSide = 'left' | 'right'
 
 export type FloatingDockResizeHandle = 'n' | 's' | 'e' | 'w' | 'ne' | 'nw' | 'se' | 'sw'
 
-export const MIN_SINGLE_TAB_DOCK_HOST_WIDTH = 320
+export const MIN_SINGLE_TAB_DOCK_HOST_WIDTH = 260
 
 type ResolveDockSideWidthInput = {
   side: DockSide

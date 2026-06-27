@@ -156,6 +156,54 @@ const isRecordLike = (value: unknown): value is Record<string, unknown> =>
 const isHexColor = (value: unknown): value is string =>
   typeof value === 'string' && /^#[\da-fA-F]{6}$/.test(value)
 
+type RgbColor = {
+  red: number
+  green: number
+  blue: number
+}
+
+const hexToRgbColor = (hexColor: string): RgbColor => ({
+  red: Number.parseInt(hexColor.slice(1, 3), 16),
+  green: Number.parseInt(hexColor.slice(3, 5), 16),
+  blue: Number.parseInt(hexColor.slice(5, 7), 16),
+})
+
+const resolveColorChannelLuminance = (channel: number): number => {
+  const normalized = channel / 255
+  return normalized <= 0.03928 ? normalized / 12.92 : ((normalized + 0.055) / 1.055) ** 2.4
+}
+
+const resolveRelativeLuminance = (color: RgbColor): number =>
+  0.2126 * resolveColorChannelLuminance(color.red) +
+  0.7152 * resolveColorChannelLuminance(color.green) +
+  0.0722 * resolveColorChannelLuminance(color.blue)
+
+const resolveContrastRatio = (firstLuminance: number, secondLuminance: number): number => {
+  const lighter = Math.max(firstLuminance, secondLuminance)
+  const darker = Math.min(firstLuminance, secondLuminance)
+  return (lighter + 0.05) / (darker + 0.05)
+}
+
+const CANVAS_DARK_CONTROL_COLOR = '#0f172a'
+const CANVAS_DARK_CONTROL_HOVER_COLOR = '#020617'
+const CANVAS_LIGHT_CONTROL_COLOR = '#f8fafc'
+const CANVAS_LIGHT_CONTROL_HOVER_COLOR = '#ffffff'
+
+const resolveCanvasControlColors = (canvasBackgroundColor: string) => {
+  const backgroundLuminance = resolveRelativeLuminance(hexToRgbColor(canvasBackgroundColor))
+  const darkControlLuminance = resolveRelativeLuminance(hexToRgbColor(CANVAS_DARK_CONTROL_COLOR))
+  const lightControlLuminance = resolveRelativeLuminance(hexToRgbColor(CANVAS_LIGHT_CONTROL_COLOR))
+  const darkContrast = resolveContrastRatio(backgroundLuminance, darkControlLuminance)
+  const lightContrast = resolveContrastRatio(backgroundLuminance, lightControlLuminance)
+  const useDarkControl = darkContrast >= lightContrast
+
+  return {
+    color: useDarkControl ? CANVAS_DARK_CONTROL_COLOR : CANVAS_LIGHT_CONTROL_COLOR,
+    hoverColor: useDarkControl ? CANVAS_DARK_CONTROL_HOVER_COLOR : CANVAS_LIGHT_CONTROL_HOVER_COLOR,
+    shadowColor: useDarkControl ? 'rgba(255, 255, 255, 0.76)' : 'rgba(2, 6, 23, 0.62)',
+  }
+}
+
 const parseCustomChromeColors = (candidate: unknown): UiChromeCustomColors => {
   if (!isRecordLike(candidate)) {
     return DEFAULT_CUSTOM_CHROME_COLORS
@@ -333,6 +381,8 @@ const shellMixFallback = (hexColor: string): string => `${hexColor}dd`
 
 export const resolveUiPreferenceCssVariables = (preferences: UiPreferences): CSSProperties => {
   const colors = resolveChromeColors(preferences)
+  const canvasBackgroundColor = resolveCanvasBackgroundColor(preferences)
+  const canvasControlColors = resolveCanvasControlColors(canvasBackgroundColor)
   return {
     '--sjv-ui-font-scale': String(FONT_SCALE_VALUES[preferences.fontScale]),
     '--sjv-shell-bg': colors.shellBackground,
@@ -349,6 +399,9 @@ export const resolveUiPreferenceCssVariables = (preferences: UiPreferences): CSS
     '--sjv-shell-accent-border': `${colors.accentColor}73`,
     '--sjv-shell-status-bg': colors.shellBackground,
     '--sjv-shell-status-border': colors.borderColor,
-    '--sjv-canvas-bg': resolveCanvasBackgroundColor(preferences),
+    '--sjv-canvas-bg': canvasBackgroundColor,
+    '--sjv-canvas-control-color': canvasControlColors.color,
+    '--sjv-canvas-control-hover-color': canvasControlColors.hoverColor,
+    '--sjv-canvas-control-shadow': canvasControlColors.shadowColor,
   } as CSSProperties
 }

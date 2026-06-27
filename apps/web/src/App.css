@@ -11,6 +11,9 @@
 :root {
   --sjv-panel-bg: #f4f6f9;
   --sjv-canvas-bg: #eef1f5;
+  --sjv-canvas-control-color: #0f172a;
+  --sjv-canvas-control-hover-color: #020617;
+  --sjv-canvas-control-shadow: rgba(255, 255, 255, 0.76);
   --sjv-grid-line: rgba(100, 116, 139, 0.16);
   --sjv-node-fill: #ffffff;
   --sjv-node-stroke: #64748b;
@@ -3655,18 +3658,20 @@ button.topbar-cloud-script-row-delete {
   padding: 0;
   border: 0;
   background: transparent;
-  color: rgba(226, 232, 240, 0.78);
+  color: var(--sjv-canvas-control-color);
   display: inline-flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  opacity: 0.75;
-  transition: opacity 0.14s ease, color 0.14s ease, transform 0.14s ease;
+  opacity: 0.86;
+  filter: drop-shadow(0 1px 2px var(--sjv-canvas-control-shadow));
+  transition: opacity 0.14s ease, color 0.14s ease, transform 0.14s ease, filter 0.14s ease;
 }
 
 .canvas-back-arrow:hover {
   opacity: 1;
-  color: rgba(248, 250, 252, 0.98);
+  color: var(--sjv-canvas-control-hover-color);
+  filter: drop-shadow(0 1px 3px var(--sjv-canvas-control-shadow));
   transform: translateX(-1px);
 }
 
@@ -5869,6 +5874,9 @@ button.help-gallery-icon-button {
   color: #e2e8f0;
   background: #0b1220;
   --sjv-canvas-bg: #111827;
+  --sjv-canvas-control-color: #f8fafc;
+  --sjv-canvas-control-hover-color: #ffffff;
+  --sjv-canvas-control-shadow: rgba(2, 6, 23, 0.62);
   --sjv-grid-line: rgba(226, 232, 240, 0.045);
   --sjv-node-fill: #111824;
   --sjv-node-stroke: #2a3648;

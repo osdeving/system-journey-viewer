@@ -2,6 +2,31 @@
 
 Chronological engineering log. Entries are kept concise and focused on behavior and validation.
 
+## 2026-06-27 - Canvas-aware drilldown back contrast
+
+### Scope
+
+- Made the drilldown Back arrow stay visible against custom canvas background colors.
+
+### Changes
+
+- `apps/web/src/preferences/uiPreferences.ts`
+  - derives canvas control foreground, hover, and shadow CSS variables from the selected canvas background using luminance/contrast.
+- `apps/web/src/App.css`
+  - updates `.canvas-back-arrow` to consume canvas contrast variables instead of fixed light text.
+- `apps/web/src/preferences/uiPreferences.test.ts`, `apps/web/src/App.styles.test.ts`
+  - added coverage for light/dark canvas contrast variables and the Back arrow token contract.
+- `docs/AI_STATE.md`
+  - recorded the contrast-aware canvas control behavior.
+
+### Validation
+
+- `npm --workspace @sjv/web run test:run -- src/preferences/uiPreferences.test.ts src/App.styles.test.ts`
+- `npm --workspace @sjv/web run lint`
+- `npm --workspace @sjv/web run test:run`
+- `npm --workspace @sjv/web run build`
+- `git diff --check`
+
 ## 2026-06-27 - Relax single-tab dock minimum
 
 ### Scope

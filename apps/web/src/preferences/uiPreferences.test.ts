@@ -85,6 +85,31 @@ describe('uiPreferences', () => {
       '--sjv-shell-control-text': '#eeeeee',
       '--sjv-shell-accent': '#44aaee',
       '--sjv-canvas-bg': '#ddeeff',
+      '--sjv-canvas-control-color': '#0f172a',
+      '--sjv-canvas-control-hover-color': '#020617',
+    })
+  })
+
+  it('resolves canvas control colors from the selected canvas background contrast', () => {
+    const darkCanvasPreferences = parseUiPreferencesCandidate({
+      canvasBackgroundPresetId: 'custom',
+      customCanvasBackground: '#111827',
+    })
+    const lightCanvasPreferences = parseUiPreferencesCandidate({
+      canvasBackgroundPresetId: 'paper',
+    })
+
+    expect(resolveUiPreferenceCssVariables(darkCanvasPreferences)).toMatchObject({
+      '--sjv-canvas-bg': '#111827',
+      '--sjv-canvas-control-color': '#f8fafc',
+      '--sjv-canvas-control-hover-color': '#ffffff',
+      '--sjv-canvas-control-shadow': 'rgba(2, 6, 23, 0.62)',
+    })
+    expect(resolveUiPreferenceCssVariables(lightCanvasPreferences)).toMatchObject({
+      '--sjv-canvas-bg': '#f8fafc',
+      '--sjv-canvas-control-color': '#0f172a',
+      '--sjv-canvas-control-hover-color': '#020617',
+      '--sjv-canvas-control-shadow': 'rgba(255, 255, 255, 0.76)',
     })
   })
 })

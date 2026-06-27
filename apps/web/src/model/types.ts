@@ -31,6 +31,7 @@ export type NodeKind =
   | 'shape-diamond'
 
 export type BasicShapeKind = Extract<NodeKind, `shape-${string}`>
+export type EditorActiveTool = 'select' | 'connector' | BasicShapeKind
 
 export interface NodeBounds {
   x: number
@@ -174,7 +175,7 @@ export interface EditorSnapshot {
   selectedNodeId?: string | null
   selectedNodeIds?: string[]
   selectedEdgeId?: string | null
-  activeTool?: 'select' | 'connector'
+  activeTool?: EditorActiveTool
   pendingConnectionFrom?: string | null
   pendingConnectionPortId?: string | null
   activeJourneyId?: string | null

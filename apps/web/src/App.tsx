@@ -166,7 +166,7 @@ import {
 } from './layout/mobileShellRoute'
 import { resolveTopbarHeight } from './layout/topbarSizing'
 import { BLANK_WORKSPACE_VIEW_ID, createBlankWorkspace } from './model/blankWorkspace'
-import type { BasicShapeKind, EditorSnapshot, JourneyModel, ViewportState, WorkspaceModel } from './model/types'
+import type { BasicShapeKind, EditorActiveTool, EditorSnapshot, JourneyModel, ViewportState, WorkspaceModel } from './model/types'
 import { nodePresetsByCategory, protocolPresets, resolveNodePreset } from './presets/catalog'
 import {
   CANVAS_BACKGROUND_PRESETS,
@@ -203,6 +203,7 @@ import {
   BASIC_SHAPE_DEFINITIONS,
   resolveBasicShapeDefinition,
 } from './model/experimentalShapes'
+import { isFreeformShapeTool } from './diagram/canvas/freeformShapeDrawing'
 import {
   clampGuidedTutorialStepIndex,
   GUIDED_UI_TUTORIAL_STEPS,
@@ -370,6 +371,16 @@ const renderBasicShapeToolbarIcon = (kind: BasicShapeKind, size = 16): ReactNode
   }
 }
 
+const resolveActiveToolLabel = (activeTool: EditorActiveTool): string => {
+  if (activeTool === 'connector') {
+    return 'Connector'
+  }
+  if (activeTool === 'select') {
+    return 'Select'
+  }
+  return resolveBasicShapeDefinition(activeTool).label
+}
+
 const resolveInitialAppShellMode = (): AppShellMode => {
   if (typeof window === 'undefined') {
     return 'desktop'
@@ -399,7 +410,7 @@ type HistoryStoreSnapshot = {
   selectedNodeId: string | null
   selectedNodeIds: string[]
   selectedEdgeId: string | null
-  activeTool: 'select' | 'connector'
+  activeTool: EditorActiveTool
   pendingConnectionFrom: string | null
   pendingConnectionPortId: string | null
   activeJourneyId: string | null
@@ -682,7 +693,6 @@ function App() {
   const canvasPanelRef = useRef<HTMLElement | null>(null)
   const dslRestoreHeightRef = useRef<number | null>(null)
   const previousViewIdRef = useRef<string | null>(null)
-  const dockTabDragRef = useRef<DockTab | null>(null)
   const journeyDragRef = useRef<string | null>(null)
   const journeyStepDragRef = useRef<StepDragState | null>(null)
   const workspaceFileHandleRef = useRef<WorkspaceFileHandle | null>(null)
@@ -1870,11 +1880,12 @@ function App() {
           x: ((rect?.width ?? canvasPanelSize.width) / 2 - viewport.x) / viewport.zoom,
           y: ((rect?.height ?? canvasPanelSize.height) / 2 - viewport.y) / viewport.zoom,
         }
-      addBasicShape(
-        shapeKind,
-        centerWorldPoint.x - definition.defaultWidth / 2,
-        centerWorldPoint.y - definition.defaultHeight / 2,
-      )
+      addBasicShape(shapeKind, {
+        x: centerWorldPoint.x - definition.defaultWidth / 2,
+        y: centerWorldPoint.y - definition.defaultHeight / 2,
+        w: definition.defaultWidth,
+        h: definition.defaultHeight,
+      })
       setActiveTool('select')
       setTransientStatus(`${definition.label} shape added. Experimental shapes stay out of SJV Script and journeys.`)
     },
@@ -2966,29 +2977,6 @@ function App() {
       startRect: floatingDockRect,
     }
     event.currentTarget.setPointerCapture(event.pointerId)
-  }
-
-  const handleDockTabDragStart = (tab: DockTab) => {
-    dockTabDragRef.current = tab
-  }
-
-  const handleDockTabDrop = (targetTab: DockTab) => {
-    const sourceTab = dockTabDragRef.current
-    dockTabDragRef.current = null
-    if (!sourceTab || sourceTab === targetTab) {
-      return
-    }
-    setDockTabOrder((current) => {
-      const sourceIndex = current.indexOf(sourceTab)
-      const targetIndex = current.indexOf(targetTab)
-      if (sourceIndex < 0 || targetIndex < 0) {
-        return current
-      }
-      const next = current.slice()
-      next.splice(sourceIndex, 1)
-      next.splice(targetIndex, 0, sourceTab)
-      return next
-    })
   }
 
   const onJourneyDragStart = (journeyId: string) => {
@@ -4174,7 +4162,7 @@ function App() {
   }, [])
 
   useEffect(() => {
-    if (activeTool === 'connector' || pendingConnectionFrom) {
+    if (activeTool !== 'select' || pendingConnectionFrom) {
       setDraggedEdgeId(null)
     }
   }, [activeTool, pendingConnectionFrom])
@@ -5848,76 +5836,48 @@ function App() {
     </div>
   )
 
-  const dockHeaderBar = (
-    <div className="topbar-dock-strip dock-tab-strip" data-tutorial-id="panel-shortcuts-strip">
-      {dockTabOrder.map((tab) => (
-        <button
-          key={tab}
-          type="button"
-          draggable
-          className={resolvedActiveDockTab === tab ? 'dock-tab dock-tab-active' : 'dock-tab'}
-          onClick={() => {
-            recordGuidedTutorialEvent('panel-shortcut-click')
-            openManagedDockedWindowFromDockTab(tab)
-          }}
-          title={withTooltip(`Open ${dockLabelByTab[tab]} window (drag to reorder shortcuts)`)}
-          aria-label={dockLabelByTab[tab]}
-          onDragStart={() => handleDockTabDragStart(tab)}
-          onDragOver={(event) => event.preventDefault()}
-          onDrop={() => handleDockTabDrop(tab)}
-          onDragEnd={() => {
-            dockTabDragRef.current = null
-          }}
-        >
-          <span className="dock-tab-icon" aria-hidden="true">
-            {dockIconByTab[tab]}
-          </span>
-          <span className="dock-tab-label">{dockLabelByTab[tab]}</span>
-        </button>
-      ))}
-      <span className="dock-tab-spacer" />
-      {legacyDockShellAvailable ? (
-        <div className="dock-placement-actions">
+  const dockHeaderBar = legacyDockShellAvailable ? (
+    <div className="topbar-dock-strip topbar-dock-placement-strip" data-tutorial-id="panel-shortcuts-strip">
+      <div className="dock-placement-actions">
         <button
           type="button"
           className={dockPosition === 'left' ? 'dock-placement dock-placement-active' : 'dock-placement'}
-            onClick={() => moveDockToLeft()}
-            title={withTooltip('Dock left')}
+          onClick={() => moveDockToLeft()}
+          title={withTooltip('Dock left')}
           aria-label="Dock left"
         >
-            {renderAppIcon('panel-left-open', 14)}
-          </button>
-          <button
-            type="button"
-            className={dockPosition === 'right' ? 'dock-placement dock-placement-active' : 'dock-placement'}
-            onClick={() => moveDockToRight()}
-            title={withTooltip('Dock right')}
-            aria-label="Dock right"
-          >
-            {renderAppIcon('panel-right-open', 14)}
-          </button>
-          <button
-            type="button"
-            className={dockPosition === 'bottom' ? 'dock-placement dock-placement-active' : 'dock-placement'}
-            onClick={() => moveDockToBottom()}
-            title={withTooltip('Dock bottom')}
-            aria-label="Dock bottom"
-          >
-            {renderAppIcon('panel-bottom-open', 14)}
-          </button>
-          <button
-            type="button"
-            className={dockPosition === 'floating' ? 'dock-placement dock-placement-active' : 'dock-placement'}
-            onClick={() => moveDockToFloating()}
-            title={withTooltip('Floating dock')}
-            aria-label="Floating dock"
-          >
-            {renderAppIcon('dock', 14)}
-          </button>
-        </div>
-      ) : null}
+          {renderAppIcon('panel-left-open', 14)}
+        </button>
+        <button
+          type="button"
+          className={dockPosition === 'right' ? 'dock-placement dock-placement-active' : 'dock-placement'}
+          onClick={() => moveDockToRight()}
+          title={withTooltip('Dock right')}
+          aria-label="Dock right"
+        >
+          {renderAppIcon('panel-right-open', 14)}
+        </button>
+        <button
+          type="button"
+          className={dockPosition === 'bottom' ? 'dock-placement dock-placement-active' : 'dock-placement'}
+          onClick={() => moveDockToBottom()}
+          title={withTooltip('Dock bottom')}
+          aria-label="Dock bottom"
+        >
+          {renderAppIcon('panel-bottom-open', 14)}
+        </button>
+        <button
+          type="button"
+          className={dockPosition === 'floating' ? 'dock-placement dock-placement-active' : 'dock-placement'}
+          onClick={() => moveDockToFloating()}
+          title={withTooltip('Floating dock')}
+          aria-label="Floating dock"
+        >
+          {renderAppIcon('dock', 14)}
+        </button>
+      </div>
     </div>
-  )
+  ) : null
 
   const currentManagedDockHostId: ManagedWindowDockHostId | null =
     legacyDockShellAvailable && (dockPosition === 'left' || dockPosition === 'right' || dockPosition === 'bottom')
@@ -6170,7 +6130,7 @@ function App() {
       event.ctrlKey ||
       event.metaKey ||
       event.altKey ||
-      activeTool === 'connector' ||
+      activeTool !== 'select' ||
       Boolean(pendingConnectionFrom)
     ) {
       setDraggedEdgeId(null)
@@ -6186,6 +6146,7 @@ function App() {
       : selectedNode
         ? `Node: ${selectedNode.name}`
         : 'Ready'
+  const activeToolLabel = resolveActiveToolLabel(activeTool)
   const statusBarItems: StatusBarItem[] = [
     {
       id: 'view',
@@ -6222,7 +6183,7 @@ function App() {
       : []),
     {
       id: 'tool',
-      label: `Tool: ${activeTool === 'connector' ? 'Connector' : 'Select'}`,
+      label: `Tool: ${activeToolLabel}`,
     },
     {
       id: 'player',
@@ -6240,11 +6201,15 @@ function App() {
     },
     {
       id: 'tool',
-      label: activeTool === 'connector' ? 'Connector' : 'Select',
-      icon: activeTool === 'connector' ? renderAppIcon('link', 12) : renderAppIcon('pointer', 12),
-      active: activeTool === 'connector',
-      title: withTooltip(activeTool === 'connector' ? 'Switch to select tool' : 'Switch to connector tool'),
-      onClick: () => setActiveTool(activeTool === 'connector' ? 'select' : 'connector'),
+      label: activeToolLabel,
+      icon: isFreeformShapeTool(activeTool)
+        ? renderBasicShapeToolbarIcon(activeTool, 12)
+        : activeTool === 'connector'
+          ? renderAppIcon('link', 12)
+          : renderAppIcon('pointer', 12),
+      active: activeTool !== 'select',
+      title: withTooltip(activeTool === 'select' ? 'Switch to connector tool' : 'Switch to select tool'),
+      onClick: () => setActiveTool(activeTool === 'select' ? 'connector' : 'select'),
     },
     {
       id: 'fit',
@@ -7132,7 +7097,7 @@ function App() {
             </div>
             <div className="mobile-topbar-meta">
               <span className="mobile-meta-pill">{`View ${currentViewModeLabel}`}</span>
-              <span className="mobile-meta-pill">{activeTool === 'connector' ? 'Connector' : 'Select'}</span>
+              <span className="mobile-meta-pill">{activeToolLabel}</span>
               {playerJourney ? <span className="mobile-meta-pill">{`Journey ${playerJourney.name}`}</span> : null}
             </div>
             <div className="mobile-toolbar" role="toolbar" aria-label="Mobile canvas tools">
@@ -8638,8 +8603,8 @@ function App() {
           ) : null}
           {!presentationMode ? (
             <div className="mode-indicators">
-                <span className={activeTool === 'connector' ? 'mode-pill mode-pill-active' : 'mode-pill'}>
-                {activeTool === 'connector' ? 'Mode: Connector' : 'Mode: Select'}
+              <span className={activeTool !== 'select' ? 'mode-pill mode-pill-active' : 'mode-pill'}>
+                {`Mode: ${activeToolLabel}`}
               </span>
               <span className="mode-pill">Layer: {currentViewModeLabel}</span>
               <span className={immersiveMode ? 'mode-pill mode-pill-active' : 'mode-pill'}>
@@ -9143,10 +9108,13 @@ function App() {
               <button
                 key={shape.kind}
                 type="button"
-                className="canvas-tool-button"
-                onClick={() => addExperimentalShapeToCanvas(shape.kind)}
-                title={withTooltip(`Add ${shape.label.toLowerCase()} shape (experimental)`)}
-                aria-label={`Add ${shape.label} shape`}
+                className={activeTool === shape.kind ? 'canvas-tool-button canvas-tool-button-active' : 'canvas-tool-button'}
+                onClick={() => {
+                  setActiveTool(shape.kind)
+                  setTransientStatus(`Drag on the canvas to draw a ${shape.label.toLowerCase()} shape.`)
+                }}
+                title={withTooltip(`Draw ${shape.label.toLowerCase()} shape (experimental)`)}
+                aria-label={`Draw ${shape.label} shape`}
               >
                 {renderBasicShapeToolbarIcon(shape.kind, 16)}
               </button>

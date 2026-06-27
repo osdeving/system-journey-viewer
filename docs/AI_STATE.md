@@ -37,6 +37,7 @@
 - Latest cloud-provider decoupling increment (2026-06-26) extracts workspace/script/gallery cloud persistence into a provider-neutral `WorkspaceCloudStore`, keeps Supabase as a hosted adapter, and adds a functional local IndexedDB provider selected by `VITE_SJV_DB_URL=indexeddb://...` with automatic `indexeddb://sjv-local` fallback when Supabase env vars are absent.
 - Latest cylinder preset hotfix (2026-06-26) lets `db` and `queue`/Kafka cylinder nodes keep arbitrary user-controlled widths while queue/Kafka rendering keeps the right-side cylinder face visually stable instead of scaling it with node width.
 - Latest componentization refactor (2026-06-26) extracts reusable `DiagramNode`, `PalettePanel`, `InspectorPanel`, and `JourneyTimelinePanel` components plus pure node label helpers, reducing direct rendering weight in `App.tsx` and `DiagramCanvas.tsx` without changing behavior.
+- Latest shell alignment follow-up (2026-06-26) reduces the app logo/control height mismatch, removes duplicate dock shortcut tabs from the main actionbar, aligns palette search/category chips to a full-width outlined layout, moves palette vertical scroll arrows out of card hit areas, and changes experimental shapes into drag-drawn active canvas tools with SVG preview.
 - Latest export hotfix (2026-03-01, night pass) aligns animated export theme backgrounds to the SVG `viewBox`/source frame and pre-fills raster composition frames so wide MP4 exports no longer reveal black transparent regions.
 - Latest canvas affordance hotfix (2026-03-01, late-night pass) adds a pulsing blue hover cue on exact node ports and lets `Select` mode start a connection directly from that hover without leaving selection mode.
 - Latest edge targeting hotfix (2026-03-01, final pass) widens the invisible pointer hit area for dashed edges so selection no longer requires near-pixel-perfect clicks, while automatic curve routing remains unchanged.
@@ -468,6 +469,8 @@
   - `shape-circle`
   - `shape-triangle`
   - `shape-diamond`
+- The canvas tools rail selects shape tools first; the user then drags on the canvas to draw the shape bounds. Rectangle/triangle accept rectangular bounds; circle/diamond lock to a square drawing box.
+- Persisted editor snapshots can now store known `shape-*` values as `activeTool`; unknown/legacy values still hydrate back to `select`.
 - Experimental shapes are intentionally outside SJV Script:
   - `fullWorkspaceToLiteDsl` filters shape nodes and edges connected to shape nodes,
   - UI-layout metadata export also filters them,

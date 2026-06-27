@@ -110,6 +110,8 @@ describe('App source regressions', () => {
     expect(appSource).toContain('topbar-cloud-shell topbar-cloud-shell-floating')
     expect(appSource).not.toContain('compactInlineTopbar ? null : cloudBadgeControl')
     expect(appSource).toContain('{!presentationMode ? cloudPanelControl : null}')
+    expect(appSource).toContain('topbar-dock-placement-strip')
+    expect(appSource).not.toContain('className="topbar-dock-strip dock-tab-strip"')
     const utilityStripIndex = appSource.indexOf('className="topbar-utility-strip"')
     expect(utilityStripIndex).toBeGreaterThan(0)
     expect(appSource.slice(Math.max(0, utilityStripIndex - 120), utilityStripIndex)).toContain(
@@ -245,6 +247,8 @@ describe('App source regressions', () => {
     expect(appSource).toContain('BASIC_SHAPE_DEFINITIONS')
     expect(appSource).toContain('addBasicShape')
     expect(appSource).toContain('addExperimentalShapeToCanvas')
+    expect(appSource).toContain('setActiveTool(shape.kind)')
+    expect(appSource).toContain('Drag on the canvas to draw a ${shape.label.toLowerCase()} shape.')
     expect(appSource).toContain('canvas-context-menu')
     expect(appSource).toContain('handleAppContextMenu')
     expect(appSource).toContain('Experimental shapes stay out of SJV Script and journeys.')
@@ -271,6 +275,7 @@ describe('App source regressions', () => {
     expect(palettePanelSource).toContain('Search palette components')
     expect(palettePanelSource).toContain('className="palette-category-overflow"')
     expect(palettePanelSource).toContain('contentClassName="palette-category-strip"')
+    expect(palettePanelSource).toContain('collapseNavWhenHidden')
   })
 
   it('keeps SJV Script panel free of Codex action buttons', () => {
@@ -339,7 +344,7 @@ describe('App source regressions', () => {
     expect(appSource).toContain('GUIDED_UI_TUTORIAL_STEPS')
     expect(appSource).toContain('resolveGuidedTutorialStepCompletion')
     expect(appSource).toContain('recordGuidedTutorialEvent')
-    expect(appSource).toContain("'panel-shortcut-click'")
+    expect(appSource).toContain('data-tutorial-id="panel-shortcuts-strip"')
     expect(appSource).toContain("'toolbar-mode-click'")
     expect(appSource).toContain("'canvas-click'")
     expect(appSource).toContain("'window-menu-open-panel:inspector'")

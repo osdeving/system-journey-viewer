@@ -151,7 +151,7 @@ export const editorSnapshotSchema = z.object({
   selectedNodeId: z.string().min(1).nullable().optional(),
   selectedNodeIds: z.array(z.string().min(1)).optional(),
   selectedEdgeId: z.string().min(1).nullable().optional(),
-  activeTool: z.enum(['select', 'connector']).optional(),
+  activeTool: z.enum(['select', 'connector', 'shape-rectangle', 'shape-circle', 'shape-triangle', 'shape-diamond']).optional(),
   pendingConnectionFrom: z.string().min(1).nullable().optional(),
   pendingConnectionPortId: z.string().min(1).nullable().optional(),
   activeJourneyId: z.string().min(1).nullable().optional(),

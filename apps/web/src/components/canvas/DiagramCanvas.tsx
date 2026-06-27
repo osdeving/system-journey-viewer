@@ -20,7 +20,7 @@ import {
   snapBoundsWithGuides,
 } from '../../engine/geometry'
 import { resolveEdgeCurve, type ResolvedEdgeCurve } from '../../engine/edgeCurve'
-import type { EdgeModel, NodeBounds, NodeModel } from '../../model/types'
+import type { BasicShapeKind, EdgeModel, NodeBounds, NodeModel } from '../../model/types'
 import { resolveJourneyFocusScope } from '../../journeys/focus'
 import {
   type JourneyPlaybackTickStep,
@@ -44,6 +44,10 @@ import {
   estimateCanvasTextWidth,
   type NodeLabelLayout,
 } from '../../diagram/nodes/nodeLabelLayout'
+import {
+  resolveDiamondShape,
+  resolveTriangleShape,
+} from '../../diagram/nodes/nodeShapePaths'
 import {
   curveToSvgPath,
   cubicPointAt,
@@ -71,6 +75,11 @@ import {
   resolveMarqueeSelectionRect,
   resolveNodeIdsIntersectingMarquee,
 } from '../../diagram/canvas/marqueeSelection'
+import {
+  hasDraggedFreeformShape,
+  isFreeformShapeTool,
+  resolveFreeformShapeBounds,
+} from '../../diagram/canvas/freeformShapeDrawing'
 
 type PanState = {
   pointerId: number
@@ -111,6 +120,12 @@ type PinchGestureState = {
 type MarqueeSelectionState = {
   pointerId: number
   additive: boolean
+  startWorld: { x: number; y: number }
+}
+
+type FreeformShapeDrawingState = {
+  pointerId: number
+  shapeKind: BasicShapeKind
   startWorld: { x: number; y: number }
 }
 
@@ -495,6 +510,7 @@ export const DiagramCanvas = ({
   const edgeAnchorCycleRef = useRef(new Map<string, number>())
   const pinchGestureRef = useRef<PinchGestureState | null>(null)
   const marqueeSelectionRef = useRef<MarqueeSelectionState | null>(null)
+  const freeformShapeDrawingRef = useRef<FreeformShapeDrawingState | null>(null)
   const canvasRef = useRef<HTMLDivElement | null>(null)
   const trailCanvasRef = useRef<HTMLCanvasElement | null>(null)
   const trailCanvasMetricsRef = useRef({ width: 0, height: 0, pixelRatio: 1 })
@@ -526,6 +542,10 @@ export const DiagramCanvas = ({
     : null
   const inlineTextEditFocusIsMultiline = inlineTextEdit?.multiline ?? false
   const [marqueeSelectionRect, setMarqueeSelectionRect] = useState<NodeBounds | null>(null)
+  const [freeformShapePreview, setFreeformShapePreview] = useState<{
+    shapeKind: BasicShapeKind
+    bounds: NodeBounds
+  } | null>(null)
   const [alignmentGuides, setAlignmentGuides] = useState<AlignmentGuide[]>([])
 
   const workspace = useEditorStore((state) => state.workspace)
@@ -557,6 +577,7 @@ export const DiagramCanvas = ({
   const setNodeName = useEditorStore((state) => state.setNodeName)
   const setNodeTech = useEditorStore((state) => state.setNodeTech)
   const addNode = useEditorStore((state) => state.addNode)
+  const addBasicShape = useEditorStore((state) => state.addBasicShape)
   const beginConnection = useEditorStore((state) => state.beginConnection)
   const connectPendingTo = useEditorStore((state) => state.connectPendingTo)
   const cancelPendingConnection = useEditorStore((state) => state.cancelPendingConnection)
@@ -567,6 +588,7 @@ export const DiagramCanvas = ({
   const setEdgeLabelSide = useEditorStore((state) => state.setEdgeLabelSide)
   const setEdgeLabelAngle = useEditorStore((state) => state.setEdgeLabelAngle)
   const isConnectorMode = activeTool === 'connector' || isCtrlConnectorActive
+  const activeShapeTool = isFreeformShapeTool(activeTool) ? activeTool : null
 
   useEffect(() => {
     viewportRef.current = viewport
@@ -1608,6 +1630,29 @@ export const DiagramCanvas = ({
     if (inlineTextEdit) {
       closeInlineTextEditor(true)
     }
+    if (!presentationMode && activeShapeTool) {
+      const startWorld = clientToWorld(event.clientX, event.clientY)
+      if (!startWorld) {
+        return
+      }
+      freeformShapeDrawingRef.current = {
+        pointerId: event.pointerId,
+        shapeKind: activeShapeTool,
+        startWorld,
+      }
+      setFreeformShapePreview({
+        shapeKind: activeShapeTool,
+        bounds: resolveFreeformShapeBounds(activeShapeTool, startWorld, startWorld),
+      })
+      setHoveredPortKey(null)
+      setAlignmentGuides([])
+      selectNode(null)
+      selectEdge(null)
+      setHoverCursor(null)
+      setDragCursor('crosshair')
+      event.currentTarget.setPointerCapture(event.pointerId)
+      return
+    }
     if (isConnectorMode) {
       return
     }
@@ -1719,6 +1764,22 @@ export const DiagramCanvas = ({
       return
     }
 
+    const freeformShapeDrawing = freeformShapeDrawingRef.current
+    if (freeformShapeDrawing && freeformShapeDrawing.pointerId === event.pointerId) {
+      const currentWorld = clientToWorld(event.clientX, event.clientY)
+      if (currentWorld) {
+        setFreeformShapePreview({
+          shapeKind: freeformShapeDrawing.shapeKind,
+          bounds: resolveFreeformShapeBounds(
+            freeformShapeDrawing.shapeKind,
+            freeformShapeDrawing.startWorld,
+            currentWorld,
+          ),
+        })
+      }
+      return
+    }
+
     const current = panStateRef.current
     if (!current || current.pointerId !== event.pointerId) {
       return
@@ -1729,6 +1790,31 @@ export const DiagramCanvas = ({
   }
 
   const onBackgroundPointerUp = (event: ReactPointerEvent<SVGSVGElement>): void => {
+    const freeformShapeDrawing = freeformShapeDrawingRef.current
+    if (freeformShapeDrawing?.pointerId === event.pointerId) {
+      const currentWorld =
+        clientToWorld(event.clientX, event.clientY) ??
+        freeformShapeDrawing.startWorld
+      if (hasDraggedFreeformShape(freeformShapeDrawing.startWorld, currentWorld)) {
+        addBasicShape(
+          freeformShapeDrawing.shapeKind,
+          resolveFreeformShapeBounds(
+            freeformShapeDrawing.shapeKind,
+            freeformShapeDrawing.startWorld,
+            currentWorld,
+          ),
+        )
+      }
+      freeformShapeDrawingRef.current = null
+      setFreeformShapePreview(null)
+      setDragCursor(null)
+      setHoverCursor(null)
+      if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+        event.currentTarget.releasePointerCapture(event.pointerId)
+      }
+      return
+    }
+
     const marqueeSelection = marqueeSelectionRef.current
     if (marqueeSelection?.pointerId === event.pointerId) {
       const currentWorld =
@@ -1860,6 +1946,10 @@ export const DiagramCanvas = ({
         sourcePortId,
         event.currentTarget.ownerSVGElement,
       )
+      return
+    }
+
+    if (activeShapeTool) {
       return
     }
 
@@ -2469,7 +2559,9 @@ export const DiagramCanvas = ({
   }, [inlineTextEdit, viewport.x, viewport.y, viewport.zoom])
 
   const canvasCursor =
-    dragCursor ?? hoverCursor ?? (presentationMode ? 'grab' : isConnectorMode ? 'crosshair' : 'grab')
+    dragCursor ??
+    hoverCursor ??
+    (presentationMode ? 'grab' : isConnectorMode || activeShapeTool ? 'crosshair' : 'grab')
 
   return (
     <div
@@ -2595,6 +2687,41 @@ export const DiagramCanvas = ({
               markerEnd="url(#edge-arrow)"
               className="edge edge-preview"
             />
+          ) : null}
+          {freeformShapePreview ? (
+            <g
+              className="freeform-shape-preview"
+              transform={`translate(${freeformShapePreview.bounds.x}, ${freeformShapePreview.bounds.y})`}
+              aria-hidden="true"
+            >
+              {freeformShapePreview.shapeKind === 'shape-circle' ? (
+                <ellipse
+                  cx={freeformShapePreview.bounds.w / 2}
+                  cy={freeformShapePreview.bounds.h / 2}
+                  rx={freeformShapePreview.bounds.w / 2}
+                  ry={freeformShapePreview.bounds.h / 2}
+                />
+              ) : freeformShapePreview.shapeKind === 'shape-triangle' ? (
+                <path
+                  d={resolveTriangleShape(
+                    freeformShapePreview.bounds.w,
+                    freeformShapePreview.bounds.h,
+                  ).shellPath}
+                />
+              ) : freeformShapePreview.shapeKind === 'shape-diamond' ? (
+                <path
+                  d={resolveDiamondShape(
+                    freeformShapePreview.bounds.w,
+                    freeformShapePreview.bounds.h,
+                  ).shellPath}
+                />
+              ) : (
+                <rect
+                  width={freeformShapePreview.bounds.w}
+                  height={freeformShapePreview.bounds.h}
+                />
+              )}
+            </g>
           ) : null}
           {!presentationMode && activeTool === 'select' && !isConnectorMode
             ? edgeAnchorHandles.map((anchor) => {

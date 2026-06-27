@@ -4,7 +4,7 @@
 
 import { describe, expect, it } from 'vitest'
 import { createDefaultWorkspace } from './defaultWorkspace'
-import { workspaceSchema } from './schema'
+import { editorSnapshotSchema, workspaceSchema } from './schema'
 
 describe('workspaceSchema', () => {
   it('accepts default workspace payload', () => {
@@ -90,6 +90,21 @@ describe('workspaceSchema', () => {
     expect(parsed.success).toBe(true)
     if (parsed.success) {
       expect(parsed.data.nodes.n_shape_test.kind).toBe('shape-diamond')
+    }
+  })
+
+  it('accepts experimental shape tools in editor snapshots', () => {
+    const workspace = createDefaultWorkspace()
+    const parsed = editorSnapshotSchema.safeParse({
+      workspace,
+      currentViewId: 'v_container',
+      viewport: { x: 0, y: 0, zoom: 1 },
+      activeTool: 'shape-triangle',
+    })
+
+    expect(parsed.success).toBe(true)
+    if (parsed.success) {
+      expect(parsed.data.activeTool).toBe('shape-triangle')
     }
   })
 

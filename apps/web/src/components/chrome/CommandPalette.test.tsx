@@ -100,4 +100,53 @@ describe('CommandPalette', () => {
 
     expect(onClose).toHaveBeenCalled()
   })
+
+  it('marks hidden overflow cues without exposing a visible scrollbar state', () => {
+    activeContainer = document.createElement('div')
+    document.body.append(activeContainer)
+    activeRoot = createRoot(activeContainer)
+
+    act(() => {
+      activeRoot?.render(
+        <CommandPalette
+          open
+          items={Array.from({ length: 12 }, (_, index) => ({
+            id: `command:${index}`,
+            title: `Command ${index}`,
+            section: 'Commands',
+          }))}
+          query=""
+          onQueryChange={() => undefined}
+          onRun={() => undefined}
+          onClose={() => undefined}
+        />,
+      )
+    })
+
+    const shell = activeContainer.querySelector<HTMLDivElement>('.command-palette-list-shell')
+    const list = activeContainer.querySelector<HTMLDivElement>('.command-palette-list')
+    expect(shell).not.toBeNull()
+    expect(list).not.toBeNull()
+
+    Object.defineProperty(list, 'clientHeight', { configurable: true, value: 120 })
+    Object.defineProperty(list, 'scrollHeight', { configurable: true, value: 360 })
+    Object.defineProperty(list, 'scrollTop', { configurable: true, value: 0, writable: true })
+
+    act(() => {
+      list?.dispatchEvent(new Event('scroll', { bubbles: true }))
+    })
+
+    expect(shell?.classList.contains('command-palette-results-scroll-top')).toBe(false)
+    expect(shell?.classList.contains('command-palette-results-scroll-bottom')).toBe(true)
+
+    if (list) {
+      list.scrollTop = 240
+    }
+    act(() => {
+      list?.dispatchEvent(new Event('scroll', { bubbles: true }))
+    })
+
+    expect(shell?.classList.contains('command-palette-results-scroll-top')).toBe(true)
+    expect(shell?.classList.contains('command-palette-results-scroll-bottom')).toBe(false)
+  })
 })

@@ -49,6 +49,7 @@ const NODE_TECH_ICON_SEARCH_STEP = 1
 const NODE_TECH_ICON_CENTER_FALLBACK_RATIO = 0.7
 const NODE_TECH_ICON_RECT_TEXT_GAP_X = 10
 const NODE_TECH_ICON_RECT_TEXT_GAP_Y = 10
+const NODE_TECH_ICON_RECT_MIN_USEFUL_SIZE = DEFAULT_NODE_TECH_ICON_SIZE * 1.5
 const NODE_TECH_ICON_RECT_TITLE_FONT_SIZE = 14
 const NODE_TECH_ICON_RECT_SUBTITLE_FONT_SIZE = 12
 const NODE_TECH_ICON_RECT_TITLE_SUBTITLE_GAP = 4
@@ -84,14 +85,14 @@ const resolveTextBox = (
   maxWidth: number,
   fontSize: number,
   textAnchor: 'start' | 'middle',
+  widthRatio = NODE_TECH_ICON_TEXT_COLLISION_WIDTH_RATIO,
 ): TextCollisionBox | null => {
   const value = text?.trim()
   if (!value) {
     return null
   }
   const width =
-    Math.min(maxWidth, estimateCanvasTextWidth(value, fontSize)) *
-    NODE_TECH_ICON_TEXT_COLLISION_WIDTH_RATIO
+    Math.min(maxWidth, estimateCanvasTextWidth(value, fontSize)) * widthRatio
   const left = textAnchor === 'middle' ? x - width / 2 : x
   return {
     left,
@@ -105,6 +106,7 @@ const resolveTextCollisionBoxes = (
   labelLayout: NodeLabelLayout,
   subtitle: string,
   title?: string,
+  widthRatio = NODE_TECH_ICON_TEXT_COLLISION_WIDTH_RATIO,
 ): TextCollisionBox[] =>
   [
     resolveTextBox(
@@ -114,6 +116,7 @@ const resolveTextCollisionBoxes = (
       labelLayout.maxTitleWidth,
       14,
       labelLayout.textAnchor,
+      widthRatio,
     ),
     resolveTextBox(
       subtitle,
@@ -122,6 +125,7 @@ const resolveTextCollisionBoxes = (
       labelLayout.maxSubtitleWidth,
       12,
       labelLayout.textAnchor,
+      widthRatio,
     ),
   ].filter((box): box is TextCollisionBox => Boolean(box))
 
@@ -159,8 +163,9 @@ const resolveTextBlockRect = (
   labelLayout: NodeLabelLayout,
   subtitle: string,
   title?: string,
+  widthRatio = NODE_TECH_ICON_TEXT_COLLISION_WIDTH_RATIO,
 ): IconSafeRect => {
-  const textBoxes = resolveTextCollisionBoxes(labelLayout, subtitle, title)
+  const textBoxes = resolveTextCollisionBoxes(labelLayout, subtitle, title, widthRatio)
   if (!textBoxes.length) {
     return {
       left: labelLayout.titleX,
@@ -177,38 +182,80 @@ const resolveTextBlockRect = (
   }
 }
 
+const resolveRectangleLabelStackHeight = (subtitle: string, title?: string): number => {
+  const hasTitle = Boolean(title?.trim())
+  const hasSubtitle = Boolean(subtitle.trim())
+  if (!hasTitle && !hasSubtitle) {
+    return 0
+  }
+  return (
+    (hasTitle ? NODE_TECH_ICON_RECT_TITLE_FONT_SIZE : 0) +
+    (hasTitle && hasSubtitle ? NODE_TECH_ICON_RECT_TITLE_SUBTITLE_GAP : 0) +
+    (hasSubtitle ? NODE_TECH_ICON_RECT_SUBTITLE_FONT_SIZE : 0)
+  )
+}
+
+const resolveRectangleCenteredBelowTextPlacement = (
+  bounds: Pick<NodeBounds, 'w' | 'h'>,
+  textBlock: IconSafeRect,
+): NodeTechIconPlacement => {
+  const safeLeft = NODE_TECH_ICON_PADDING
+  const safeRight = bounds.w - NODE_TECH_ICON_PADDING
+  const safeBottom = bounds.h - NODE_TECH_ICON_PADDING
+  const top = Math.min(
+    safeBottom - MIN_NODE_TECH_ICON_SIZE,
+    Math.max(NODE_TECH_ICON_PADDING, textBlock.bottom + NODE_TECH_ICON_RECT_TEXT_GAP_Y),
+  )
+  const size = Math.max(
+    MIN_NODE_TECH_ICON_SIZE,
+    Math.min(
+      resolveNodeTechIconMaxSize(bounds),
+      safeRight - safeLeft,
+      safeBottom - top,
+    ),
+  )
+
+  return clampNodeTechIconPlacement(bounds, {
+    x: safeLeft + (safeRight - safeLeft - size) / 2,
+    y: safeBottom - size,
+    size,
+  })
+}
+
 const resolveRectanglePlacementFromTextBlock = (
   bounds: Pick<NodeBounds, 'w' | 'h'>,
   labelLayout: NodeLabelLayout,
   subtitle: string,
   title?: string,
 ): NodeTechIconPlacement => {
-  const textBlock = resolveTextBlockRect(labelLayout, subtitle, title)
+  const textBlock = resolveTextBlockRect(labelLayout, subtitle, title, 1)
   const safeRight = bounds.w - NODE_TECH_ICON_PADDING
   const safeBottom = bounds.h - NODE_TECH_ICON_PADDING
   const availableWidth = safeRight - (textBlock.right + NODE_TECH_ICON_RECT_TEXT_GAP_X)
-  const textReservedBottom =
-    NODE_TECH_ICON_PADDING +
-    NODE_TECH_ICON_RECT_TITLE_FONT_SIZE +
-    NODE_TECH_ICON_RECT_TITLE_SUBTITLE_GAP +
-    NODE_TECH_ICON_RECT_SUBTITLE_FONT_SIZE +
+  const availableHeight =
+    bounds.h -
+    NODE_TECH_ICON_PADDING * 2 -
+    resolveRectangleLabelStackHeight(subtitle, title) -
     NODE_TECH_ICON_RECT_TEXT_GAP_Y
-  const availableHeight = safeBottom - textReservedBottom
-  const preferredSize = Math.min(
-    PREFERRED_NODE_TECH_ICON_SIZE,
-    resolveNodeTechIconMaxSize(bounds),
-    Math.max(DEFAULT_NODE_TECH_ICON_SIZE, bounds.h * NODE_TECH_ICON_HEIGHT_RATIO),
-  )
+  const maxSize = resolveNodeTechIconMaxSize(bounds)
   const size = Math.max(
     MIN_NODE_TECH_ICON_SIZE,
-    Math.min(preferredSize, availableWidth, availableHeight),
+    Math.min(maxSize, availableWidth, availableHeight),
   )
-
-  return clampNodeTechIconPlacement(bounds, {
+  const placement = clampNodeTechIconPlacement(bounds, {
     x: safeRight - size,
     y: safeBottom - size,
     size,
   })
+
+  if (size < Math.min(NODE_TECH_ICON_RECT_MIN_USEFUL_SIZE, maxSize)) {
+    const centeredPlacement = resolveRectangleCenteredBelowTextPlacement(bounds, textBlock)
+    if (centeredPlacement.size > placement.size) {
+      return centeredPlacement
+    }
+  }
+
+  return placement
 }
 
 const resolveShapeSafeRect = (

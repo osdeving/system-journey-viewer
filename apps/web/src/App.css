@@ -494,10 +494,50 @@
   cursor: pointer;
 }
 
+.command-palette-list-shell {
+  position: relative;
+}
+
+.command-palette-list-shell::before,
+.command-palette-list-shell::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  z-index: 1;
+  width: 36px;
+  height: 3px;
+  border-radius: 999px;
+  background: rgba(100, 116, 139, 0.42);
+  opacity: 0;
+  pointer-events: none;
+  transform: translateX(-50%);
+  transition: opacity 120ms ease;
+}
+
+.command-palette-list-shell::before {
+  top: 4px;
+}
+
+.command-palette-list-shell::after {
+  bottom: 4px;
+}
+
+.command-palette-list-shell.command-palette-results-scroll-top::before,
+.command-palette-list-shell.command-palette-results-scroll-bottom::after {
+  opacity: 1;
+}
+
 .command-palette-list {
   max-height: min(440px, calc(100vh - 220px));
   overflow: auto;
   padding: 8px;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.command-palette-list::-webkit-scrollbar {
+  width: 0;
+  height: 0;
 }
 
 .command-palette-section {
@@ -525,7 +565,7 @@
 
 .command-palette-row-active {
   border-color: rgba(14, 165, 233, 0.42);
-  background: linear-gradient(180deg, rgba(224, 242, 254, 0.88), rgba(240, 249, 255, 0.82));
+  background: rgba(224, 242, 254, 0.88);
 }
 
 .command-palette-row:disabled {
@@ -6049,8 +6089,13 @@ button.help-gallery-icon-button {
   color: #e2e8f0;
 }
 
+.theme-dark .command-palette-list-shell::before,
+.theme-dark .command-palette-list-shell::after {
+  background: rgba(148, 163, 184, 0.48);
+}
+
 .theme-dark .command-palette-row-active {
-  background: linear-gradient(180deg, rgba(14, 116, 144, 0.42), rgba(15, 23, 42, 0.92));
+  background: rgba(14, 116, 144, 0.38);
   border-color: rgba(56, 189, 248, 0.42);
 }
 

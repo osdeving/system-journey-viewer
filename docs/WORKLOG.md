@@ -2,6 +2,30 @@
 
 Chronological engineering log. Entries are kept concise and focused on behavior and validation.
 
+## 2026-06-26 - Timeline thread indent editing
+
+### Scope
+
+- Added timeline editing controls that turn main journey steps into top-level SJV Script threads and move thread steps back to the main lane.
+
+### Changes
+
+- `apps/web/src/journeys/threadEditing.ts`, `apps/web/src/store/useEditorStore.ts`
+  - added pure helpers and store actions for resolving previous/next thread anchors, indenting main steps into generated thread blocks, outdenting thread steps after their anchor, and removing journey references from thread lanes.
+- `apps/web/src/components/journeys/JourneyTimelinePanel.tsx`, `apps/web/src/App.tsx`, `apps/web/src/App.css`
+  - added selectable timeline rows, right-click/action-button context menu actions, `Tab` indent, `Shift+Tab` outdent, selected-row styling, and status feedback.
+- `docs/SJV_SCRIPT_SPEC.md`
+  - documented editor support and normalization behavior for timeline-created `thread` blocks.
+- Tests cover pure anchor resolution/transforms, store-level SJV export roundtrip, timeline context menu/keyboard behavior, and App/CSS source regressions.
+
+### Validation
+
+- `npm --workspace @sjv/web run test:run -- src/journeys/threadEditing.test.ts src/store/useEditorStore.test.ts src/components/journeys/JourneyTimelinePanel.test.tsx src/App.source.test.ts src/App.styles.test.ts`
+- `npm --workspace @sjv/web run lint`
+- `npm --workspace @sjv/web run test:run`
+- `npm --workspace @sjv/web run build`
+- `git diff --check`
+
 ## 2026-06-26 - App-native confirmation dialog
 
 ### Scope

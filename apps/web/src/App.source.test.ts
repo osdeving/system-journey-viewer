@@ -289,6 +289,15 @@ describe('App source regressions', () => {
     expect(palettePanelSource).toContain('collapseNavWhenHidden')
   })
 
+  it('wires timeline thread indent and outdent actions through the store', () => {
+    expect(appSource).toContain('const indentJourneyStepToThread = useEditorStore((state) => state.indentJourneyStepToThread)')
+    expect(appSource).toContain('const outdentJourneyThreadStep = useEditorStore((state) => state.outdentJourneyThreadStep)')
+    expect(appSource).toContain('const onJourneyStepIndent = useCallback')
+    expect(appSource).toContain('const onJourneyThreadStepOutdent = useCallback')
+    expect(appSource).toContain('onIndentStep={onJourneyStepIndent}')
+    expect(appSource).toContain('onOutdentStep={onJourneyThreadStepOutdent}')
+  })
+
   it('keeps SJV Script panel free of Codex action buttons', () => {
     expect(appSource).not.toContain('Refine with Codex')
     expect(appSource).not.toContain('Clear Codex context')

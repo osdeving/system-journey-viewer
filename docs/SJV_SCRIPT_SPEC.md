@@ -407,8 +407,16 @@ Current implementation status:
 - Runtime compiler support: available (thread blocks compile into journey step metadata on the previous main step)
 - Player scheduler support: available (playback advances by execution ticks: main lane + active top-level threads)
 - Timeline panel multi-lane rendering: available (thread rows are grouped by playback tick and shown as indented lanes)
+- Timeline panel editing support: available (select a timeline step, use its context menu to indent it after a previous/next main-step anchor, press `Tab` to indent to the previous anchor when available, or press `Shift+Tab` on a thread row to outdent it back to the main lane)
 - Canvas playback multi-lane rendering: available (parallel lanes animate simultaneously with lane-colored markers/trails)
 - Animated export multi-lane rendering: pending (threaded journeys are still blocked from animated export)
+
+Editor normalization notes:
+
+- Indenting a main step removes it from the main lane and creates a generated top-level `thread` block on the selected anchor step.
+- If the selected anchor is after the selected step, the step is intentionally moved under that later anchor before export.
+- Outdenting a thread step inserts it back into the main lane immediately after its anchor step.
+- Main-lane and thread-lane step numbers are normalized after each edit; SJV Script remains edge-ID based, so these numeric UI counters are not exported.
 
 ## 5.7 Optional UI Metadata (`metadata ui-layout`)
 

@@ -5025,6 +5025,16 @@ button.topbar-cloud-script-row-delete {
   background: rgba(219, 234, 254, 0.35);
 }
 
+.journey-step-item-selected {
+  border-color: rgba(14, 165, 233, 0.46);
+  box-shadow: 0 0 0 1px rgba(14, 165, 233, 0.24);
+}
+
+.journey-step-item:focus-visible {
+  outline: 2px solid rgba(14, 165, 233, 0.42);
+  outline-offset: 1px;
+}
+
 .journey-tick-badge {
   min-width: 1.4rem;
   height: 1.4rem;
@@ -5112,15 +5122,91 @@ button.topbar-cloud-script-row-delete {
 
 .journey-step-actions {
   display: inline-flex;
+  align-items: center;
   gap: calc(var(--sjv-density-toolbar-gap) - 2px);
 }
 
 .journey-step-actions button {
+  min-height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
   border: 1px solid #cbd5e1;
   background: #fff;
   border-radius: 6px;
   padding: 2px calc(var(--sjv-density-dock-tab-px) - 1px);
   font-size: calc(var(--sjv-density-control-font) - 1px);
+  color: #334155;
+  cursor: pointer;
+}
+
+.journey-step-actions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.journey-step-icon-action {
+  width: 24px;
+  padding-inline: 0;
+}
+
+.journey-step-context-menu {
+  position: fixed;
+  z-index: 620;
+  width: 220px;
+  max-width: calc(100vw - 18px);
+  display: grid;
+  gap: 4px;
+  padding: 7px;
+  border: 1px solid var(--sjv-shell-border, rgba(51, 65, 85, 0.55));
+  border-radius: 8px;
+  background: var(--sjv-shell-panel-bg, #17212b);
+  color: var(--sjv-shell-muted, #aebdca);
+  box-shadow: 0 18px 38px rgba(2, 6, 23, 0.42);
+}
+
+.journey-step-context-label,
+.journey-step-context-empty {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 4px 7px 5px;
+  color: var(--sjv-shell-muted, #aebdca);
+  font-size: var(--sjv-ui-font-xs);
+}
+
+.journey-step-context-label {
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.journey-step-context-empty {
+  opacity: 0.72;
+}
+
+.journey-step-context-menu button {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr);
+  align-items: center;
+  gap: 7px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  padding: 6px 7px;
+  background: transparent;
+  color: var(--sjv-shell-muted, #aebdca);
+  font: inherit;
+  font-size: var(--sjv-ui-font-sm);
+  text-align: left;
+  cursor: pointer;
+}
+
+.journey-step-context-menu button:hover {
+  border-color: var(--sjv-shell-accent-border, rgba(56, 189, 248, 0.42));
+  background: var(--sjv-shell-accent-soft, rgba(56, 189, 248, 0.14));
+  color: color-mix(in srgb, var(--sjv-shell-muted, #aebdca) 58%, var(--sjv-shell-control-text, #fff));
 }
 
 .help-panel {
@@ -6787,6 +6873,15 @@ button.help-gallery-icon-button {
 .theme-dark .journey-step-item-current-tick {
   background: rgba(37, 99, 235, 0.16);
   box-shadow: 0 0 0 1px rgba(96, 165, 250, 0.25);
+}
+
+.theme-dark .journey-step-item-selected {
+  border-color: rgba(56, 189, 248, 0.46);
+  box-shadow: 0 0 0 1px rgba(56, 189, 248, 0.22);
+}
+
+.theme-dark .journey-step-actions button:disabled {
+  opacity: 0.42;
 }
 
 .theme-dark .journey-tick-group-header {

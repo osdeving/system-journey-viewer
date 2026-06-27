@@ -3,7 +3,7 @@
  */
 
 import { beforeEach, describe, expect, it } from 'vitest'
-import { liteToFullWorkspace } from '../dsl-lite/convert'
+import { fullWorkspaceToLiteDsl, liteToFullWorkspace } from '../dsl-lite/convert'
 import { parseLiteDsl } from '../dsl-lite/parser'
 import { saveSnapshot } from './persistence'
 import { useEditorStore } from './useEditorStore'
@@ -560,6 +560,69 @@ describe('useEditorStore', () => {
 
     expect(reordered.map((step) => step.edgeId)).toEqual(['e_c_11', 'e_c_10', 'e_c_1'])
     expect(reordered.map((step) => step.n)).toEqual([1, 2, 3])
+  })
+
+  it('indents a main journey step into a generated SJV thread and roundtrips through export', () => {
+    const state = useEditorStore.getState()
+    const journeyId = state.createJourney('Thread Editing')
+    state.addEdgeToJourney(journeyId, 'e_c_10')
+    state.addEdgeToJourney(journeyId, 'e_c_1')
+    state.addEdgeToJourney(journeyId, 'e_c_11')
+
+    const changed = state.indentJourneyStepToThread(journeyId, 'e_c_1')
+    let updated = useEditorStore.getState()
+    let journey = updated.workspace.journeys[journeyId]
+
+    expect(changed).toBe(true)
+    expect(journey.steps.map((step) => step.edgeId)).toEqual(['e_c_10', 'e_c_11'])
+    expect(journey.steps[0]?.threads?.[0]?.id).toBe('t_e_c_1')
+    expect(journey.steps[0]?.threads?.[0]?.steps.map((step) => step.edgeId)).toEqual(['e_c_1'])
+
+    const exported = fullWorkspaceToLiteDsl(updated.workspace)
+    expect(exported).toContain('thread t_e_c_1 {')
+    const roundtripped = liteToFullWorkspace(parseLiteDsl(exported))
+    const roundtrippedJourney = Object.values(roundtripped.journeys).find(
+      (candidate) => candidate.name === 'Thread Editing',
+    )
+    expect(roundtrippedJourney?.steps[0]?.threads?.[0]?.steps.map((step) => step.edgeId)).toHaveLength(1)
+
+    const outdented = state.outdentJourneyThreadStep(journeyId, 't_e_c_1', 'e_c_1')
+    updated = useEditorStore.getState()
+    journey = updated.workspace.journeys[journeyId]
+
+    expect(outdented).toBe(true)
+    expect(journey.steps.map((step) => step.edgeId)).toEqual(['e_c_10', 'e_c_1', 'e_c_11'])
+    expect(journey.steps.some((step) => (step.threads?.length ?? 0) > 0)).toBe(false)
+  })
+
+  it('can indent a journey step under an explicit next-step anchor', () => {
+    const state = useEditorStore.getState()
+    const journeyId = state.createJourney('Next Anchor Thread')
+    state.addEdgeToJourney(journeyId, 'e_c_10')
+    state.addEdgeToJourney(journeyId, 'e_c_1')
+    state.addEdgeToJourney(journeyId, 'e_c_11')
+
+    const changed = state.indentJourneyStepToThread(journeyId, 'e_c_10', 'e_c_1')
+    const journey = useEditorStore.getState().workspace.journeys[journeyId]
+
+    expect(changed).toBe(true)
+    expect(journey.steps.map((step) => step.edgeId)).toEqual(['e_c_1', 'e_c_11'])
+    expect(journey.steps[0]?.threads?.[0]?.steps.map((step) => step.edgeId)).toEqual(['e_c_10'])
+  })
+
+  it('removes journey entries from thread lanes as well as main lanes', () => {
+    const state = useEditorStore.getState()
+    const journeyId = state.createJourney('Thread Remove')
+    state.addEdgeToJourney(journeyId, 'e_c_10')
+    state.addEdgeToJourney(journeyId, 'e_c_1')
+    state.addEdgeToJourney(journeyId, 'e_c_11')
+    state.indentJourneyStepToThread(journeyId, 'e_c_1')
+
+    state.removeEdgeFromJourney(journeyId, 'e_c_1')
+    const journey = useEditorStore.getState().workspace.journeys[journeyId]
+
+    expect(journey.steps.map((step) => step.edgeId)).toEqual(['e_c_10', 'e_c_11'])
+    expect(journey.steps.some((step) => (step.threads?.length ?? 0) > 0)).toBe(false)
   })
 
   it('opens existing drilldown view and preserves boundary conversion behavior', () => {

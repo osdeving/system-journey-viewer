@@ -9,6 +9,10 @@ import { DockHost } from './DockHost'
 
 let activeContainer: HTMLDivElement | null = null
 let activeRoot: Root | null = null
+const defaultDockHostTabs = [
+  { id: 'palette', label: 'Palette', icon: <span>P</span> },
+  { id: 'inspector', label: 'Inspector', icon: <span>I</span> },
+]
 
 ;(globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
 
@@ -23,19 +27,23 @@ afterEach(() => {
   activeContainer = null
 })
 
-const renderDockHost = (options: { onHeaderTearOff?: () => void } = {}): void => {
+const renderDockHost = (
+  options: {
+    onHeaderTearOff?: () => void
+    tabs?: typeof defaultDockHostTabs
+    activeTabId?: string
+  } = {},
+): void => {
   activeContainer = document.createElement('div')
   document.body.append(activeContainer)
   activeRoot = createRoot(activeContainer)
+  const tabs = options.tabs ?? defaultDockHostTabs
 
   act(() => {
     activeRoot?.render(
       <DockHost
-        tabs={[
-          { id: 'palette', label: 'Palette', icon: <span>P</span> },
-          { id: 'inspector', label: 'Inspector', icon: <span>I</span> },
-        ]}
-        activeTabId="palette"
+        tabs={tabs}
+        activeTabId={options.activeTabId ?? 'palette'}
         onTabSelect={() => undefined}
         onHeaderTearOff={options.onHeaderTearOff}
         headerActions={<button type="button">Dock right</button>}
@@ -71,6 +79,21 @@ describe('DockHost', () => {
     expect(activeContainer?.querySelector('.dock-host-actions-row')?.textContent).toContain('Dock right')
     expect(activeContainer?.querySelector('[role="tablist"]')?.className).toContain('dock-host-tabs')
     expect(activeContainer?.querySelector('.dock-host-body')?.textContent).toContain('palette panel')
+  })
+
+  it('keeps tab overflow controls collapsed when the host has one tab', () => {
+    renderDockHost({
+      tabs: [{ id: 'palette', label: 'Palette', icon: <span>P</span> }],
+      activeTabId: 'palette',
+    })
+
+    expect(activeContainer?.querySelectorAll('[role="tab"]')).toHaveLength(1)
+    expect(activeContainer?.querySelector('.dock-host-tabs-row')?.className).toContain(
+      'overflow-strip-navs-collapsed',
+    )
+    const navButtons = Array.from(activeContainer?.querySelectorAll('.overflow-strip-nav') ?? [])
+    expect(navButtons).toHaveLength(2)
+    expect(navButtons.every((button) => button.className.includes('overflow-strip-nav-collapsed'))).toBe(true)
   })
 
   it('calls the tear-off handler when the titlebar background is dragged', () => {

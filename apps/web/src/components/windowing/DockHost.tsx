@@ -185,6 +185,7 @@ export function DockHost<TTabId extends string = string>({
           contentProps={{ role: 'tablist', 'aria-label': 'Docked windows' }}
           navAriaLabel="dock tabs"
           collapseNavWhenHidden
+          disableNavigation={tabs.length <= 1}
         >
           {tabs.map((tab) => (
             <button

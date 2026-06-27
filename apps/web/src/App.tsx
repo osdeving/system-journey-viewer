@@ -152,6 +152,7 @@ import { resolvePlayerStepLabel } from './journeys/playerStepLabel'
 import { resolveJourneyTimelineRows } from './journeys/timelineRows'
 import { resolveModeShortcutAction } from './keyboard/modeShortcuts'
 import {
+  resolveDockHostMinWidth,
   resolveDockSideWidth,
   resolveFloatingDockResizeRect,
   type DockSide,
@@ -734,6 +735,7 @@ function App() {
     side: 'left' | 'right'
     startClientX: number
     startWidth: number
+    minWidth: number
     maxWidth: number
   } | null>(null)
   const managedBottomHostResizeRef = useRef<{
@@ -1145,9 +1147,12 @@ function App() {
   const floatingDockVisible = !immersiveMode && legacyDockShellAvailable && dockPosition === 'floating' && !dockCollapsed
   const drawerVisible = !immersiveMode && !drawerCollapsed
   const paletteWindowOpen = managedWindows.windows.palette.open
-  const managedLeftHostVisible = !immersiveMode && managedWindows.hosts.left.tabs.length > 0
-  const managedRightHostVisible = !immersiveMode && managedWindows.hosts.right.tabs.length > 0
-  const managedBottomHostVisible = !immersiveMode && managedWindows.hosts.bottom.tabs.length > 0
+  const managedLeftHostTabCount = managedWindows.hosts.left.tabs.length
+  const managedRightHostTabCount = managedWindows.hosts.right.tabs.length
+  const managedBottomHostTabCount = managedWindows.hosts.bottom.tabs.length
+  const managedLeftHostVisible = !immersiveMode && managedLeftHostTabCount > 0
+  const managedRightHostVisible = !immersiveMode && managedRightHostTabCount > 0
+  const managedBottomHostVisible = !immersiveMode && managedBottomHostTabCount > 0
   const statusBarVisible = !presentationMode && uiPreferences.statusBarEnabled
   const statusBarHeight = statusBarVisible ? STATUS_BAR_HEIGHT : 0
   const bottomPanelsInset =
@@ -1482,6 +1487,15 @@ function App() {
     [leftDockVisible, leftDockWidth, rightDockVisible, rightDockWidth],
   )
 
+  const getManagedHostSideMinWidth = useCallback(
+    (side: 'left' | 'right'): number =>
+      resolveDockHostMinWidth(
+        side === 'left' ? managedLeftHostTabCount : managedRightHostTabCount,
+        MIN_MANAGED_HOST_SIDE_WIDTH,
+      ),
+    [managedLeftHostTabCount, managedRightHostTabCount],
+  )
+
   const getMaxManagedHostSideWidth = useCallback(
     (side: 'left' | 'right'): number => {
       const layoutWidth = layoutRef.current?.getBoundingClientRect().width ?? window.innerWidth
@@ -1491,9 +1505,10 @@ function App() {
       const rightFixed =
         (rightDockVisible ? rightDockWidth : 0) +
         (side === 'right' ? 0 : managedRightHostVisible ? managedRightHostWidth : 0)
-      return Math.max(MIN_MANAGED_HOST_SIDE_WIDTH, layoutWidth - leftFixed - rightFixed - MIN_CANVAS_WIDTH)
+      return Math.max(getManagedHostSideMinWidth(side), layoutWidth - leftFixed - rightFixed - MIN_CANVAS_WIDTH)
     },
     [
+      getManagedHostSideMinWidth,
       leftDockVisible,
       leftDockWidth,
       managedLeftHostVisible,
@@ -3647,12 +3662,14 @@ function App() {
     if (event.button !== 0) {
       return
     }
-    const startWidth = side === 'left' ? managedLeftHostWidth : managedRightHostWidth
+    const minWidth = getManagedHostSideMinWidth(side)
+    const startWidth = Math.max(side === 'left' ? managedLeftHostWidth : managedRightHostWidth, minWidth)
     managedHostSideResizeRef.current = {
       pointerId: event.pointerId,
       side,
       startClientX: event.clientX,
       startWidth,
+      minWidth,
       maxWidth: getMaxManagedHostSideWidth(side),
     }
     event.currentTarget.setPointerCapture(event.pointerId)
@@ -3668,7 +3685,7 @@ function App() {
       startWidth: resize.startWidth,
       startClientX: resize.startClientX,
       currentClientX: event.clientX,
-      minWidth: MIN_MANAGED_HOST_SIDE_WIDTH,
+      minWidth: resize.minWidth,
       maxWidth: resize.maxWidth,
     })
     if (resize.side === 'left') {
@@ -3802,8 +3819,12 @@ function App() {
     const clampDockSideWidths = () => {
       setLeftDockWidth((current) => Math.min(current, getMaxDockSideWidth('left')))
       setRightDockWidth((current) => Math.min(current, getMaxDockSideWidth('right')))
-      setManagedLeftHostWidth((current) => Math.min(current, getMaxManagedHostSideWidth('left')))
-      setManagedRightHostWidth((current) => Math.min(current, getMaxManagedHostSideWidth('right')))
+      setManagedLeftHostWidth((current) =>
+        Math.min(Math.max(current, getManagedHostSideMinWidth('left')), getMaxManagedHostSideWidth('left')),
+      )
+      setManagedRightHostWidth((current) =>
+        Math.min(Math.max(current, getManagedHostSideMinWidth('right')), getMaxManagedHostSideWidth('right')),
+      )
       setManagedBottomHostHeight((current) => Math.min(current, getMaxManagedBottomHostHeight()))
     }
     clampDockSideWidths()
@@ -3811,7 +3832,12 @@ function App() {
     return () => {
       window.removeEventListener('resize', clampDockSideWidths)
     }
-  }, [getMaxDockSideWidth, getMaxManagedBottomHostHeight, getMaxManagedHostSideWidth])
+  }, [
+    getManagedHostSideMinWidth,
+    getMaxDockSideWidth,
+    getMaxManagedBottomHostHeight,
+    getMaxManagedHostSideWidth,
+  ])
 
   useEffect(() => {
     const topbarElement = topbarRef.current

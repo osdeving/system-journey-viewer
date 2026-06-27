@@ -8,6 +8,8 @@ export type DockSide = 'left' | 'right'
 
 export type FloatingDockResizeHandle = 'n' | 's' | 'e' | 'w' | 'ne' | 'nw' | 'se' | 'sw'
 
+export const MIN_SINGLE_TAB_DOCK_HOST_WIDTH = 320
+
 type ResolveDockSideWidthInput = {
   side: DockSide
   startWidth: number
@@ -32,6 +34,9 @@ export const resolveDockSideWidth = ({
   const signedDelta = side === 'left' ? delta : -delta
   return clamp(startWidth + signedDelta, minWidth, maxWidth)
 }
+
+export const resolveDockHostMinWidth = (tabCount: number, fallbackMinWidth: number): number =>
+  tabCount === 1 ? Math.max(fallbackMinWidth, MIN_SINGLE_TAB_DOCK_HOST_WIDTH) : fallbackMinWidth
 
 type ResolveFloatingDockResizeInput = {
   handle: FloatingDockResizeHandle
@@ -71,4 +76,3 @@ export const resolveFloatingDockResizeRect = ({
 
   return nextRect
 }
-

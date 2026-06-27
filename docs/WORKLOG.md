@@ -2,6 +2,29 @@
 
 Chronological engineering log. Entries are kept concise and focused on behavior and validation.
 
+## 2026-06-27 - Single-tab dock host overflow guard
+
+### Scope
+
+- Prevented docked/floating managed windows with a single tab from shrinking into a state where overflow arrows wrap around that tab.
+
+### Changes
+
+- `apps/web/src/components/chrome/OverflowStrip.tsx`, `apps/web/src/components/windowing/DockHost.tsx`
+  - added an explicit navigation-disable path for overflow strips and use it whenever a dock host has one or zero tabs.
+- `apps/web/src/layout/dockSizing.ts`, `apps/web/src/App.tsx`, `apps/web/src/windowing/windowUiConfig.ts`
+  - added a shared single-tab dock minimum width, apply it to side-host resize/clamping, and align small floating managed windows to the same minimum.
+- `apps/web/src/components/chrome/OverflowStrip.test.tsx`, `apps/web/src/components/windowing/DockHost.test.tsx`, `apps/web/src/layout/dockSizing.test.ts`
+  - added regression coverage for measured overflow with disabled navigation, single-tab dock headers, and the dynamic min-width helper.
+
+### Validation
+
+- `npm --workspace @sjv/web run test:run -- src/components/chrome/OverflowStrip.test.tsx src/components/windowing/DockHost.test.tsx src/layout/dockSizing.test.ts`
+- `npm --workspace @sjv/web run lint`
+- `npm --workspace @sjv/web run test:run`
+- `npm --workspace @sjv/web run build`
+- `git diff --check`
+
 ## 2026-06-27 - Drilldown creation keeps parent node shape
 
 ### Scope

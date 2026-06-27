@@ -6,6 +6,7 @@ import { describe, expect, it } from 'vitest'
 import {
   clampNodeTechIconPlacement,
   DEFAULT_NODE_TECH_ICON_SIZE,
+  MIN_SIDE_BY_TEXT_NODE_TECH_ICON_SIZE,
   resolveDefaultNodeTechIconPlacement,
   resolveNodeTechIconMaxSize,
   resolveResizedNodeTechIconPlacement,
@@ -23,17 +24,70 @@ const labelLayout: NodeLabelLayout = {
 }
 
 describe('nodeTechIconLayout', () => {
-  it('places a default icon beside the subtitle and inside the node', () => {
+  it('places a large default icon beside short technology text and below the node name', () => {
     const placement = resolveDefaultNodeTechIconPlacement(
       { w: 220, h: 120 },
       labelLayout,
-      'Spring Boot',
+      'Component',
     )
 
-    expect(placement.size).toBe(DEFAULT_NODE_TECH_ICON_SIZE)
-    expect(placement.x).toBeGreaterThan(labelLayout.subtitleX)
-    expect(placement.y).toBeGreaterThanOrEqual(4)
+    expect(placement.size).toBeGreaterThan(DEFAULT_NODE_TECH_ICON_SIZE)
+    expect(placement.size).toBeCloseTo(72)
+    expect(placement.x).toBeGreaterThan(labelLayout.subtitleX + 60)
+    expect(placement.y).toBeGreaterThan(labelLayout.titleY)
     expect(placement.x + placement.size).toBeLessThanOrEqual(216)
+  })
+
+  it('uses the available right-side room so database labels get a larger default icon', () => {
+    const placement = resolveDefaultNodeTechIconPlacement(
+      { w: 130, h: 70 },
+      labelLayout,
+      'PostgreSQL',
+    )
+
+    expect(placement.size).toBeGreaterThan(DEFAULT_NODE_TECH_ICON_SIZE)
+    expect(placement.x).toBeGreaterThan(labelLayout.subtitleX + 60)
+    expect(placement.x + placement.size).toBeLessThanOrEqual(126)
+  })
+
+  it('centers the default icon below when long technology text would force a tiny side icon', () => {
+    const constrainedLabelLayout: NodeLabelLayout = {
+      ...labelLayout,
+      maxSubtitleWidth: 150,
+    }
+
+    const placement = resolveDefaultNodeTechIconPlacement(
+      { w: 180, h: 120 },
+      constrainedLabelLayout,
+      'Very Long Enterprise Integration Framework',
+    )
+
+    expect(placement.size).toBeGreaterThan(MIN_SIDE_BY_TEXT_NODE_TECH_ICON_SIZE)
+    expect(placement.x).toBeCloseTo((180 - placement.size) / 2)
+    expect(placement.y).toBeGreaterThan(constrainedLabelLayout.subtitleY)
+  })
+
+  it('centers hexagonal component icons below the technology text', () => {
+    const hexLabelLayout: NodeLabelLayout = {
+      titleX: 80,
+      titleY: 32,
+      subtitleX: 80,
+      subtitleY: 53,
+      textAnchor: 'middle',
+      maxTitleWidth: 100,
+      maxSubtitleWidth: 100,
+    }
+
+    const placement = resolveDefaultNodeTechIconPlacement(
+      { w: 160, h: 120 },
+      hexLabelLayout,
+      'NGINX',
+      { preferCentered: true },
+    )
+
+    expect(placement.x).toBeCloseTo((160 - placement.size) / 2)
+    expect(placement.y).toBeGreaterThan(hexLabelLayout.subtitleY)
+    expect(placement.size).toBeGreaterThan(DEFAULT_NODE_TECH_ICON_SIZE)
   })
 
   it('clamps movement and size so icons cannot exceed node bounds', () => {
@@ -58,4 +112,3 @@ describe('nodeTechIconLayout', () => {
     ).toEqual({ x: 20, y: 14, size: 34 })
   })
 })
-

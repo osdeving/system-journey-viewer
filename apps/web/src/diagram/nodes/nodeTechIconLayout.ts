@@ -13,9 +13,15 @@ export type NodeTechIconPlacement = {
 }
 
 export const DEFAULT_NODE_TECH_ICON_SIZE = 24
+export const PREFERRED_NODE_TECH_ICON_SIZE = 72
 export const MIN_NODE_TECH_ICON_SIZE = 14
+export const MIN_SIDE_BY_TEXT_NODE_TECH_ICON_SIZE = 26
 export const NODE_TECH_ICON_PADDING = 4
 export const NODE_TECH_ICON_TEXT_GAP = 6
+const NODE_TECH_ICON_TITLE_GAP = 8
+const NODE_TECH_ICON_CENTERED_TEXT_GAP = 8
+const NODE_TECH_ICON_HEIGHT_RATIO = 0.62
+const HEX_NODE_TECH_ICON_WIDTH_RATIO = 0.42
 
 export const resolveNodeTechIconMaxSize = (bounds: Pick<NodeBounds, 'w' | 'h'>): number =>
   Math.max(
@@ -42,8 +48,13 @@ export const resolveDefaultNodeTechIconPlacement = (
   bounds: Pick<NodeBounds, 'w' | 'h'>,
   labelLayout: NodeLabelLayout,
   subtitle: string,
+  options: { preferCentered?: boolean } = {},
 ): NodeTechIconPlacement => {
-  const size = Math.min(DEFAULT_NODE_TECH_ICON_SIZE, resolveNodeTechIconMaxSize(bounds))
+  const preferredSize = Math.min(
+    PREFERRED_NODE_TECH_ICON_SIZE,
+    resolveNodeTechIconMaxSize(bounds),
+    Math.max(DEFAULT_NODE_TECH_ICON_SIZE, bounds.h * NODE_TECH_ICON_HEIGHT_RATIO),
+  )
   const subtitleWidth = Math.min(
     labelLayout.maxSubtitleWidth,
     estimateCanvasTextWidth(subtitle, 12),
@@ -52,10 +63,44 @@ export const resolveDefaultNodeTechIconPlacement = (
     labelLayout.textAnchor === 'middle'
       ? labelLayout.subtitleX - subtitleWidth / 2
       : labelLayout.subtitleX
+  const centeredPlacement = (): NodeTechIconPlacement => {
+    const centeredTop = Math.min(
+      bounds.h - MIN_NODE_TECH_ICON_SIZE - NODE_TECH_ICON_PADDING,
+      labelLayout.subtitleY + NODE_TECH_ICON_CENTERED_TEXT_GAP,
+    )
+    const centeredSize = Math.max(
+      MIN_NODE_TECH_ICON_SIZE,
+      Math.min(
+        preferredSize,
+        bounds.w * HEX_NODE_TECH_ICON_WIDTH_RATIO,
+        bounds.h - centeredTop - NODE_TECH_ICON_PADDING,
+      ),
+    )
+    return clampNodeTechIconPlacement(bounds, {
+      x: (bounds.w - centeredSize) / 2,
+      y: centeredTop,
+      size: centeredSize,
+    })
+  }
+
+  if (options.preferCentered || labelLayout.textAnchor === 'middle') {
+    return centeredPlacement()
+  }
+
+  const sideX = subtitleLeft + subtitleWidth + NODE_TECH_ICON_TEXT_GAP
+  const sideAvailableWidth = bounds.w - sideX - NODE_TECH_ICON_PADDING
+  const sideSize = Math.min(preferredSize, sideAvailableWidth)
+  if (sideSize < MIN_SIDE_BY_TEXT_NODE_TECH_ICON_SIZE) {
+    return centeredPlacement()
+  }
+
   return clampNodeTechIconPlacement(bounds, {
-    x: subtitleLeft + subtitleWidth + NODE_TECH_ICON_TEXT_GAP,
-    y: labelLayout.subtitleY - size + 4,
-    size,
+    x: sideX,
+    y: Math.min(
+      labelLayout.titleY + NODE_TECH_ICON_TITLE_GAP,
+      bounds.h - sideSize - NODE_TECH_ICON_PADDING,
+    ),
+    size: sideSize,
   })
 }
 
@@ -80,4 +125,3 @@ export const resolveResizedNodeTechIconPlacement = (
     size: clampedSize,
   })
 }
-

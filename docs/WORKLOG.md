@@ -2,6 +2,31 @@
 
 Chronological engineering log. Entries are kept concise and focused on behavior and validation.
 
+## 2026-06-27 - Node drilldown UI actions
+
+### Scope
+
+- Exposed drilldown creation/navigation through the normal UI so users do not need to edit SJV Script manually to add child views.
+
+### Changes
+
+- `apps/web/src/App.tsx`
+  - wired `openDrilldown` and `createDrilldownForNode` into a single node action,
+  - added node context-menu action labels for `Create Drilldown` and `Open Drilldown`,
+  - keeps notes and experimental freeform shapes out of drilldown creation.
+- `apps/web/src/components/inspector/InspectorPanel.tsx`
+  - added the same drilldown action to the selected node details panel.
+- `apps/web/src/components/inspector/InspectorPanel.test.tsx`, `apps/web/src/App.source.test.ts`
+  - added coverage for Inspector delegation and app-level drilldown action wiring.
+
+### Validation
+
+- `npm --workspace @sjv/web run test:run -- src/components/inspector/InspectorPanel.test.tsx src/App.source.test.ts`
+- `npm --workspace @sjv/web run lint`
+- `npm --workspace @sjv/web run test:run`
+- `npm --workspace @sjv/web run build`
+- `git diff --check`
+
 ## 2026-06-27 - Timeline context menu viewport clamp
 
 ### Scope

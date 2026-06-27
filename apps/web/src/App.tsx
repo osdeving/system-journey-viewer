@@ -202,6 +202,7 @@ import {
 import type { ShowcaseLocale, ShowcaseMode } from './model/showcaseWorkspace'
 import {
   BASIC_SHAPE_DEFINITIONS,
+  isExperimentalShapeNode,
   resolveBasicShapeDefinition,
 } from './model/experimentalShapes'
 import { isFreeformShapeTool } from './diagram/canvas/freeformShapeDrawing'
@@ -790,6 +791,8 @@ function App() {
   const selectNode = useEditorStore((state) => state.selectNode)
   const selectEdge = useEditorStore((state) => state.selectEdge)
   const goToView = useEditorStore((state) => state.goToView)
+  const openDrilldown = useEditorStore((state) => state.openDrilldown)
+  const createDrilldownForNode = useEditorStore((state) => state.createDrilldownForNode)
   const addBasicShape = useEditorStore((state) => state.addBasicShape)
   const removeNode = useEditorStore((state) => state.removeNode)
   const removeEdge = useEditorStore((state) => state.removeEdge)
@@ -1928,6 +1931,47 @@ function App() {
       setTransientStatus(`${definition.label} shape added. Experimental shapes stay out of SJV Script and journeys.`)
     },
     [addBasicShape, canvasPanelSize.height, canvasPanelSize.width, setActiveTool, setTransientStatus, viewport],
+  )
+
+  const canUseNodeDrilldown = useCallback(
+    (nodeId: string): boolean => {
+      const node = workspace.nodes[nodeId]
+      return Boolean(node && node.kind !== 'note' && !isExperimentalShapeNode(node))
+    },
+    [workspace.nodes],
+  )
+
+  const resolveNodeDrilldownActionLabel = useCallback(
+    (nodeId: string): string => {
+      const node = workspace.nodes[nodeId]
+      return node?.drilldownRef && workspace.views[node.drilldownRef]
+        ? 'Open Drilldown'
+        : 'Create Drilldown'
+    },
+    [workspace.nodes, workspace.views],
+  )
+
+  const runNodeDrilldownAction = useCallback(
+    (nodeId: string) => {
+      const node = workspace.nodes[nodeId]
+      if (!node || node.kind === 'note' || isExperimentalShapeNode(node)) {
+        return false
+      }
+
+      if (node.drilldownRef && workspace.views[node.drilldownRef]) {
+        openDrilldown(nodeId)
+        setTransientStatus(`Opened drilldown: ${node.name}`)
+        return true
+      }
+
+      const createdViewId = createDrilldownForNode(nodeId)
+      if (!createdViewId) {
+        return false
+      }
+      setTransientStatus(`Created drilldown: ${node.name}`)
+      return true
+    },
+    [createDrilldownForNode, openDrilldown, setTransientStatus, workspace.nodes, workspace.views],
   )
 
   const focusNodeFromPalette = useCallback(
@@ -5693,6 +5737,7 @@ function App() {
       onEdgeLabelAngleChange={setEdgeLabelAngle}
       onDuplicateSelection={duplicateCurrentSelection}
       onDeleteSelection={deleteCurrentSelection}
+      onNodeDrilldown={runNodeDrilldownAction}
       onAddEdgeToActiveJourney={(edgeId) => {
         if (activeJourneyId) {
           addEdgeToJourney(activeJourneyId, edgeId)
@@ -6997,6 +7042,25 @@ function App() {
       ) : null}
       {canvasContextMenu.target !== 'canvas' ? (
         <div className="canvas-context-menu-section">
+          {canvasContextMenu.target === 'node' &&
+          canvasContextMenu.nodeId &&
+          canUseNodeDrilldown(canvasContextMenu.nodeId) ? (
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() =>
+                runCanvasContextAction(() => {
+                  if (canvasContextMenu.nodeId) {
+                    return runNodeDrilldownAction(canvasContextMenu.nodeId)
+                  }
+                  return false
+                })
+              }
+            >
+              <BookOpen size={14} />
+              <span>{resolveNodeDrilldownActionLabel(canvasContextMenu.nodeId)}</span>
+            </button>
+          ) : null}
           <button
             type="button"
             role="menuitem"

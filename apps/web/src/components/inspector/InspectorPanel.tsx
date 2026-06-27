@@ -32,6 +32,7 @@ export interface InspectorPanelProps {
   onEdgeLabelAngleChange: (edgeId: string, value: number) => void
   onDuplicateSelection: () => void
   onDeleteSelection: () => void
+  onNodeDrilldown: (nodeId: string) => void
   onAddEdgeToActiveJourney: (edgeId: string) => void
 }
 
@@ -60,9 +61,14 @@ export const InspectorPanel = ({
   onEdgeLabelAngleChange,
   onDuplicateSelection,
   onDeleteSelection,
+  onNodeDrilldown,
   onAddEdgeToActiveJourney,
 }: InspectorPanelProps) => {
   const fallbackTextColor = theme === 'dark' ? '#f8fafc' : '#0f172a'
+  const selectedNodeSupportsDrilldown =
+    Boolean(selectedNode) &&
+    selectedNode?.kind !== 'note' &&
+    !selectedNode?.kind.startsWith('shape-')
 
   return (
     <div className="dock-content-section">
@@ -169,6 +175,11 @@ export const InspectorPanel = ({
               ))}
             </div>
             <div className="inspector-actions">
+              {selectedNodeSupportsDrilldown && selectedNode ? (
+                <button type="button" onClick={() => onNodeDrilldown(selectedNode.id)}>
+                  {selectedNode.drilldownRef ? 'Open Drilldown' : 'Create Drilldown'}
+                </button>
+              ) : null}
               <button type="button" onClick={onDuplicateSelection}>
                 Duplicate
               </button>

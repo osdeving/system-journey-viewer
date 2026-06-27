@@ -298,6 +298,18 @@ describe('App source regressions', () => {
     expect(appSource).toContain('onOutdentStep={onJourneyThreadStepOutdent}')
   })
 
+  it('exposes node drilldown creation and navigation from UI actions', () => {
+    expect(appSource).toContain('const openDrilldown = useEditorStore((state) => state.openDrilldown)')
+    expect(appSource).toContain('const createDrilldownForNode = useEditorStore((state) => state.createDrilldownForNode)')
+    expect(appSource).toContain('const runNodeDrilldownAction = useCallback')
+    expect(appSource).toContain('node.kind === \'note\' || isExperimentalShapeNode(node)')
+    expect(appSource).toContain('openDrilldown(nodeId)')
+    expect(appSource).toContain('createDrilldownForNode(nodeId)')
+    expect(appSource).toContain('onNodeDrilldown={runNodeDrilldownAction}')
+    expect(appSource).toContain('resolveNodeDrilldownActionLabel(canvasContextMenu.nodeId)')
+    expect(inspectorPanelSource).toContain('selectedNode.drilldownRef ? \'Open Drilldown\' : \'Create Drilldown\'')
+  })
+
   it('keeps SJV Script panel free of Codex action buttons', () => {
     expect(appSource).not.toContain('Refine with Codex')
     expect(appSource).not.toContain('Clear Codex context')

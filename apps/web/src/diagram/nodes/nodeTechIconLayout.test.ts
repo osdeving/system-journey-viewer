@@ -28,7 +28,7 @@ const labelLayout: NodeLabelLayout = {
 }
 
 describe('nodeTechIconLayout', () => {
-  it('fills the bottom-right safe space on normal nodes while avoiding the text block', () => {
+  it('sizes normal-node icons from text-free width and height and anchors bottom-right', () => {
     const placement = resolveDefaultNodeTechIconPlacement(
       { w: 220, h: 120 },
       labelLayout,
@@ -36,14 +36,14 @@ describe('nodeTechIconLayout', () => {
       { title: 'Component 19' },
     )
 
-    expect(placement.size).toBeGreaterThan(90)
+    expect(placement.size).toBe(72)
     expect(placement.x + placement.size).toBe(216)
     expect(placement.y + placement.size).toBe(116)
-    expect(placement.x).toBeGreaterThan(labelLayout.titleX + 80)
-    expect(placement.x + placement.size).toBeLessThanOrEqual(216)
+    expect(placement.x).toBe(144)
+    expect(placement.y).toBe(44)
   })
 
-  it('falls back below the text when long labels consume the bottom-right text clearance', () => {
+  it('shrinks normal-node icons when long labels leave narrow horizontal room', () => {
     const constrainedLabelLayout: NodeLabelLayout = {
       ...labelLayout,
       maxSubtitleWidth: 150,
@@ -56,9 +56,9 @@ describe('nodeTechIconLayout', () => {
       { title: 'Component' },
     )
 
-    expect(placement.size).toBeGreaterThan(DEFAULT_NODE_TECH_ICON_SIZE)
-    expect(placement.x).toBeCloseTo((180 - placement.size) / 2)
-    expect(placement.y).toBeGreaterThan(constrainedLabelLayout.subtitleY)
+    expect(placement.size).toBe(27)
+    expect(placement.x + placement.size).toBe(176)
+    expect(placement.y + placement.size).toBe(116)
   })
 
   it('keeps queue cylinder icons inside the lateral body instead of the front cap', () => {

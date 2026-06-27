@@ -452,6 +452,17 @@ describe('useEditorStore', () => {
     })
   })
 
+  it('removes a UI-only technology icon without deleting the node', () => {
+    const state = useEditorStore.getState()
+
+    state.setNodeTechIcon('n_api', 'redis', { x: 20, y: 20, size: 40 })
+    state.removeNodeTechIcon('n_api')
+
+    const updated = useEditorStore.getState()
+    expect(updated.workspace.nodes.n_api).toBeDefined()
+    expect(updated.workspace.nodes.n_api.uiIcon).toBeUndefined()
+  })
+
   it('updates journey focus rendering/layout settings', () => {
     const state = useEditorStore.getState()
     state.setJourneyFocusSettings({

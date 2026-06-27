@@ -2,6 +2,32 @@
 
 Chronological engineering log. Entries are kept concise and focused on behavior and validation.
 
+## 2026-06-27 - Technology icon direct-fit sizing and deletion
+
+### Scope
+
+- Simplified normal-node technology icon sizing and added keyboard removal for the active UI-only icon.
+
+### Changes
+
+- `apps/web/src/diagram/nodes/nodeTechIconLayout.ts`
+  - normal rectangle nodes now compute icon size directly from node width/height minus measured title/tech text and configured breathing room,
+  - the resulting square is anchored to the node's bottom-right corner while preserving SVG proportions,
+  - cylinder/hex shape-aware constraints remain in place for non-rectangular nodes.
+- `apps/web/src/store/useEditorStore.ts`, `apps/web/src/components/canvas/DiagramCanvas.tsx`
+  - added `removeNodeTechIcon` and wired `Delete` / `Backspace` to remove only the active technology icon when its edit grips are active.
+- `apps/web/src/help/help.md`
+  - documented icon removal via keyboard.
+
+### Validation
+
+- `npm --workspace @sjv/web run test:run -- src/diagram/nodes/nodeTechIconLayout.test.ts src/store/useEditorStore.test.ts src/components/canvas/DiagramCanvas.source.test.ts`
+- `npm --workspace @sjv/web run lint`
+- `npm --workspace @sjv/web run test:run`
+- `npm --workspace @sjv/web run build`
+- `git diff --check`
+- Playwright smoke against `http://127.0.0.1:5173/`: verified JavaScript drops on `n_api` at `72px` anchored bottom-right, and `Delete` removes the icon while keeping the node.
+
 ## 2026-06-27 - Shape-aware technology icon default placement
 
 ### Scope

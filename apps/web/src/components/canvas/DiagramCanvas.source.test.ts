@@ -92,6 +92,8 @@ describe('DiagramCanvas source regressions', () => {
     expect(diagramCanvasSource).toContain('nodeTechIconInteractionRef')
     expect(diagramCanvasSource).toContain('NODE_TECH_ICON_HOLD_DELAY_MS')
     expect(diagramCanvasSource).toContain('resolveResizedNodeTechIconPlacement(')
+    expect(diagramCanvasSource).toContain('removeNodeTechIcon(')
+    expect(diagramCanvasSource).toContain("event.key === 'Delete' || event.key === 'Backspace'")
     expect(diagramNodeSource).toContain('node-tech-icon-glyph')
     expect(diagramNodeSource).toContain('node-tech-icon-resize')
   })

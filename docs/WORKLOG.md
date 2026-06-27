@@ -2,6 +2,33 @@
 
 Chronological engineering log. Entries are kept concise and focused on behavior and validation.
 
+## 2026-06-27 - Edge label global rotation and UI-only tech icons
+
+### Scope
+
+- Added global-axis keyboard rotation for selected edge labels and a UI-only technology icon palette for nodes and boundaries.
+
+### Changes
+
+- `apps/web/src/diagram/edges/edgeLabelWheel.ts`, `apps/web/src/components/canvas/DiagramCanvas.tsx`
+  - added `Tab` / `Shift+Tab` handling for selected edge labels that snaps/steps through global 90-degree axes while storing the existing label-relative angle offset.
+- `apps/web/src/icons/*`, `apps/web/src/components/palette/PalettePanel.tsx`, `apps/web/src/App.tsx`
+  - added a searchable technology icon catalog backed by Simple Icons plus internal generic vector glyphs, with palette drag metadata separate from node preset drags.
+- `apps/web/src/diagram/nodes/nodeTechIconLayout.ts`, `apps/web/src/components/canvas/DiagramNode.tsx`, `apps/web/src/store/useEditorStore.ts`
+  - added `NodeModel.uiIcon` placement data, drop-on-node/drop-on-boundary attachment, clamped reposition/resize behavior inside the owning node, and press-and-hold editing grips.
+- `apps/web/src/model/schema.ts`, `apps/web/src/dsl-lite/parser.test.ts`
+  - persists technology icons in workspace snapshots while keeping them out of SJV Script export.
+- `apps/web/src/help/help.md`, `docs/AI_STATE.md`
+  - documented the new edge-label shortcut and UI-only icon workflow.
+
+### Validation
+
+- `npm --workspace @sjv/web run lint`
+- `npm --workspace @sjv/web run test:run`
+- `npm --workspace @sjv/web run build`
+- `git diff --check`
+- Playwright smoke against `http://127.0.0.1:5173/`: verified Redis icon palette search/drop onto a node, immediate grips after drop, exiting icon edit by selecting another node, and press-and-hold reopening of resize grips.
+
 ## 2026-06-27 - Canvas-aware drilldown back contrast
 
 ### Scope

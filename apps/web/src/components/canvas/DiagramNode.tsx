@@ -8,6 +8,7 @@ import type {
 import { iconForKey } from '../../presets/iconPipeline'
 import type { EditorActiveTool, NodeModel, ViewKind } from '../../model/types'
 import { isExperimentalShapeKind } from '../../model/experimentalShapes'
+import { clampNodeTechIconPlacement } from '../../diagram/nodes/nodeTechIconLayout'
 import { resolveHexConnectorRole } from '../../diagram/nodes/hexConnectorRole'
 import { resolveNodePortClassName } from '../../diagram/nodes/nodePortClassName'
 import {
@@ -24,6 +25,7 @@ import {
   truncateCanvasText,
   type NodeLabelLayout,
 } from '../../diagram/nodes/nodeLabelLayout'
+import { TechIconGlyphContent } from '../../icons/TechIconGlyph'
 import { Text } from '../text/Text'
 
 export type DiagramNodeConnectionTarget = {
@@ -32,6 +34,7 @@ export type DiagramNodeConnectionTarget = {
 }
 
 export type DiagramNodeInlineEditMode = 'node-name' | 'node-tech'
+export type DiagramNodeTechIconResizeHandle = 'nw' | 'ne' | 'sw' | 'se'
 
 export interface DiagramNodeProps {
   node: NodeModel
@@ -43,6 +46,7 @@ export interface DiagramNodeProps {
   hoveredConnectionTarget: DiagramNodeConnectionTarget | null
   hoveredPortKey: string | null
   isSelected: boolean
+  activeNodeIconEditId: string | null
   isPlayerHighlighted: boolean
   isDimmedByJourney: boolean
   nodeDepthEffectsEnabled: boolean
@@ -54,6 +58,15 @@ export interface DiagramNodeProps {
   onNodePointerMove: (event: ReactPointerEvent<SVGGElement>) => void
   onNodePointerUp: (event: ReactPointerEvent<SVGGElement>) => void
   onNodePointerLeave: () => void
+  onNodeTechIconPointerDown: (
+    event: ReactPointerEvent<SVGElement>,
+    node: NodeModel,
+  ) => void
+  onNodeTechIconResizePointerDown: (
+    event: ReactPointerEvent<SVGRectElement>,
+    node: NodeModel,
+    handle: DiagramNodeTechIconResizeHandle,
+  ) => void
   onCreateDrilldown: (nodeId: string) => void
   onOpenDrilldown: (nodeId: string) => void
   onNodeBorderPointerDown: (
@@ -90,6 +103,7 @@ export const DiagramNode = ({
   hoveredConnectionTarget,
   hoveredPortKey,
   isSelected,
+  activeNodeIconEditId,
   isPlayerHighlighted,
   isDimmedByJourney,
   nodeDepthEffectsEnabled,
@@ -97,6 +111,8 @@ export const DiagramNode = ({
   onNodePointerMove,
   onNodePointerUp,
   onNodePointerLeave,
+  onNodeTechIconPointerDown,
+  onNodeTechIconResizePointerDown,
   onCreateDrilldown,
   onOpenDrilldown,
   onNodeBorderPointerDown,
@@ -185,6 +201,16 @@ export const DiagramNode = ({
     node.kind === 'note' || isBasicShape
       ? ''
       : truncateCanvasText(node.tech?.label ?? node.kind, labelLayout.maxSubtitleWidth, 12)
+  const nodeTechIcon =
+    node.uiIcon && node.kind !== 'note' && !isBasicShape
+      ? clampNodeTechIconPlacement(node.bounds, node.uiIcon)
+      : null
+  const isNodeTechIconEditing = Boolean(nodeTechIcon && activeNodeIconEditId === node.id)
+  const nodeTitlePrefix = nodeTechIcon ? '' : `${iconForKey(node.tech?.iconKey)} `
+  const nodeTechIconHandleSize = nodeTechIcon
+    ? Math.max(5, Math.min(8, nodeTechIcon.size * 0.28))
+    : 0
+  const nodeTechIconHandleOffset = nodeTechIconHandleSize / 2
 
   return (
     <g
@@ -450,6 +476,58 @@ export const DiagramNode = ({
           />
         </g>
       ) : null}
+      {nodeTechIcon ? (
+        <g
+          className={
+            isNodeTechIconEditing
+              ? 'node-tech-icon node-tech-icon-editing'
+              : 'node-tech-icon'
+          }
+          onPointerDown={(event) => onNodeTechIconPointerDown(event, node)}
+        >
+          <g
+            role="img"
+            aria-label={node.tech?.label ?? 'Technology icon'}
+            className="node-tech-icon-glyph"
+            transform={`translate(${nodeTechIcon.x}, ${nodeTechIcon.y}) scale(${nodeTechIcon.size / 24})`}
+            onPointerDownCapture={(event) => onNodeTechIconPointerDown(event, node)}
+          >
+            <TechIconGlyphContent iconId={node.uiIcon?.iconId ?? ''} title={node.tech?.label ?? 'Technology icon'} />
+          </g>
+          {isNodeTechIconEditing ? (
+            <>
+              <rect
+                x={nodeTechIcon.x - 3}
+                y={nodeTechIcon.y - 3}
+                width={nodeTechIcon.size + 6}
+                height={nodeTechIcon.size + 6}
+                rx={4}
+                className="node-tech-icon-edit-frame"
+              />
+              {(['nw', 'ne', 'sw', 'se'] as const).map((handle) => {
+                const handleX = handle.includes('w')
+                  ? nodeTechIcon.x - nodeTechIconHandleOffset
+                  : nodeTechIcon.x + nodeTechIcon.size - nodeTechIconHandleOffset
+                const handleY = handle.includes('n')
+                  ? nodeTechIcon.y - nodeTechIconHandleOffset
+                  : nodeTechIcon.y + nodeTechIcon.size - nodeTechIconHandleOffset
+                return (
+                  <rect
+                    key={handle}
+                    x={handleX}
+                    y={handleY}
+                    width={nodeTechIconHandleSize}
+                    height={nodeTechIconHandleSize}
+                    rx={2}
+                    className={`node-tech-icon-resize node-tech-icon-resize-${handle}`}
+                    onPointerDown={(event) => onNodeTechIconResizePointerDown(event, node, handle)}
+                  />
+                )
+              })}
+            </>
+          ) : null}
+        </g>
+      ) : null}
       <Text.Svg
         x={labelLayout.titleX}
         y={labelLayout.titleY}
@@ -472,7 +550,7 @@ export const DiagramNode = ({
         }
         onPressMoveStart={presentationMode ? undefined : (event) => onNodePointerDown(event, node, 'move')}
       >
-        {node.kind === 'note' || isBasicShape ? nodeTitleText : `${iconForKey(node.tech?.iconKey)} ${nodeTitleText}`}
+        {node.kind === 'note' || isBasicShape ? nodeTitleText : `${nodeTitlePrefix}${nodeTitleText}`}
       </Text.Svg>
       {nodeSubtitleText ? (
         <Text.Svg

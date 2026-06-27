@@ -30,6 +30,14 @@ export const nodeSchema = z.object({
       textColor: z.string().min(1).optional(),
     })
     .optional(),
+  uiIcon: z
+    .object({
+      iconId: z.string().min(1),
+      x: z.number(),
+      y: z.number(),
+      size: z.number().positive(),
+    })
+    .optional(),
   bounds: z.object({
     x: z.number(),
     y: z.number(),

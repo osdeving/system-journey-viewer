@@ -414,6 +414,44 @@ describe('useEditorStore', () => {
     expect(updated.workspace.edges.e_c_1.style.labelAngle).toBe(-180)
   })
 
+  it('attaches UI-only technology icons to nodes and boundaries with clamped placement', () => {
+    const state = useEditorStore.getState()
+    const boundaryId = state.addNode('boundary', 40, 60)
+
+    state.setNodeTechIcon('n_api', 'spring-boot', { x: 600, y: -10, size: 300 })
+    state.setNodeTechIcon(boundaryId, 'generic-boundary', { x: 12, y: 16, size: 28 })
+
+    const updated = useEditorStore.getState()
+    expect(updated.workspace.nodes.n_api.uiIcon).toMatchObject({
+      iconId: 'spring-boot',
+      y: 4,
+    })
+    expect(updated.workspace.nodes.n_api.uiIcon?.size).toBeLessThanOrEqual(updated.workspace.nodes.n_api.bounds.h - 8)
+    expect(updated.workspace.nodes[boundaryId].uiIcon?.iconId).toBe('generic-boundary')
+  })
+
+  it('keeps node technology icons inside resized nodes and rejects notes or freeform shapes', () => {
+    const state = useEditorStore.getState()
+    const noteId = state.addNode('note', 20, 30)
+    const shapeId = state.addBasicShape('shape-circle', { x: 20, y: 30, w: 120, h: 120 })
+
+    state.setNodeTechIcon(noteId, 'redis', { x: 4, y: 4, size: 24 })
+    state.setNodeTechIcon(shapeId, 'docker', { x: 4, y: 4, size: 24 })
+    state.setNodeTechIcon('n_api', 'redis', { x: 20, y: 20, size: 40 })
+    state.setNodeBounds('n_api', { x: 100, y: 100, w: 90, h: 70 })
+    state.setNodeTechIconPlacement('n_api', { x: -100, y: 100, size: 400 })
+
+    const updated = useEditorStore.getState()
+    expect(updated.workspace.nodes[noteId].uiIcon).toBeUndefined()
+    expect(updated.workspace.nodes[shapeId].uiIcon).toBeUndefined()
+    expect(updated.workspace.nodes.n_api.uiIcon).toEqual({
+      iconId: 'redis',
+      x: 4,
+      y: 4,
+      size: 62,
+    })
+  })
+
   it('updates journey focus rendering/layout settings', () => {
     const state = useEditorStore.getState()
     state.setJourneyFocusSettings({

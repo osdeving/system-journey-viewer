@@ -6,6 +6,7 @@ import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { NODE_PRESET_DRAG_MIME_TYPE } from '../../presets/presetDragData'
+import { TECH_ICON_DRAG_MIME_TYPE } from '../../icons/techIconCatalog'
 import { PalettePanel } from './PalettePanel'
 
 let activeContainer: HTMLDivElement | null = null
@@ -46,6 +47,13 @@ const renderPalette = (): void => {
             title: 'Application',
             presets: [
               { id: 'service', label: 'Service', iconKey: 'service' },
+              {
+                id: 'spring-boot',
+                label: 'Spring Boot',
+                iconKey: 'brand svg',
+                dragMimeType: TECH_ICON_DRAG_MIME_TYPE,
+                searchText: 'jvm java',
+              },
             ],
           },
         ]}
@@ -127,5 +135,31 @@ describe('PalettePanel', () => {
     })
 
     expect(setData).toHaveBeenCalledWith(NODE_PRESET_DRAG_MIME_TYPE, 'queue')
+  })
+
+  it('supports per-preset drag mime types and alias search text', () => {
+    renderPalette()
+
+    const search = activeContainer?.querySelector<HTMLInputElement>('.palette-search input')
+    act(() => {
+      if (search) {
+        typeIntoInput(search, 'jvm')
+      }
+    })
+
+    const item = [...(activeContainer?.querySelectorAll<HTMLLIElement>('.toolbox-list li') ?? [])]
+      .find((candidate) => candidate.textContent?.includes('Spring Boot'))
+    const setData = vi.fn()
+    const dragStart = new Event('dragstart', { bubbles: true })
+    Object.defineProperty(dragStart, 'dataTransfer', {
+      value: { setData },
+    })
+
+    act(() => {
+      item?.dispatchEvent(dragStart)
+    })
+
+    expect(item?.textContent).toContain('Spring Boot')
+    expect(setData).toHaveBeenCalledWith(TECH_ICON_DRAG_MIME_TYPE, 'spring-boot')
   })
 })

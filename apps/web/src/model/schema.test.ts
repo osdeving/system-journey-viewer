@@ -68,6 +68,35 @@ describe('workspaceSchema', () => {
     }
   })
 
+  it('accepts optional UI-only node technology icons in workspace snapshots', () => {
+    const workspace = createDefaultWorkspace()
+    const parsed = workspaceSchema.safeParse({
+      ...workspace,
+      nodes: {
+        ...workspace.nodes,
+        n_api: {
+          ...workspace.nodes.n_api,
+          uiIcon: {
+            iconId: 'spring-boot',
+            x: 86,
+            y: 34,
+            size: 24,
+          },
+        },
+      },
+    })
+
+    expect(parsed.success).toBe(true)
+    if (parsed.success) {
+      expect(parsed.data.nodes.n_api.uiIcon).toEqual({
+        iconId: 'spring-boot',
+        x: 86,
+        y: 34,
+        size: 24,
+      })
+    }
+  })
+
   it('accepts experimental basic shape nodes in workspace snapshots', () => {
     const workspace = createDefaultWorkspace()
     const parsed = workspaceSchema.safeParse({

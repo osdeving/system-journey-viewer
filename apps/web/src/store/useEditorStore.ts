@@ -30,6 +30,11 @@ import {
 } from '../model/experimentalShapes'
 import { normalizeWorkspaceNodePorts, resolveNodePorts } from '../model/nodePorts'
 import { resolveNodePreset, resolveTechPreset } from '../presets/catalog'
+import { resolveTechIconDefinition } from '../icons/techIconCatalog'
+import {
+  clampNodeTechIconPlacement,
+  type NodeTechIconPlacement,
+} from '../diagram/nodes/nodeTechIconLayout'
 import { resolveViewHistoryForView } from '../viewHierarchy'
 import type {
   EdgeEndpoint,
@@ -107,6 +112,8 @@ interface EditorState {
   moveNode: (nodeId: string, dx: number, dy: number) => void
   setNodeName: (nodeId: string, name: string) => void
   setNodeTech: (nodeId: string, techLabel: string) => void
+  setNodeTechIcon: (nodeId: string, iconId: string, placement: NodeTechIconPlacement) => void
+  setNodeTechIconPlacement: (nodeId: string, placement: NodeTechIconPlacement) => void
   setNodeColor: (nodeId: string, fillColor: string) => void
   setNodeTextColor: (nodeId: string, textColor: string) => void
   beginConnection: (nodeId: string, portId?: string) => void
@@ -384,6 +391,12 @@ const applyNodeBounds = (node: NodeModel, bounds: NodeBounds): void => {
   node.bounds = bounds
   if (sizeChanged) {
     node.ports = resolveNodePorts(bounds, node.kind)
+    if (node.uiIcon) {
+      node.uiIcon = {
+        iconId: node.uiIcon.iconId,
+        ...clampNodeTechIconPlacement(bounds, node.uiIcon),
+      }
+    }
   }
 }
 
@@ -1105,6 +1118,35 @@ export const useEditorStore = create<EditorState>()(
         node.tech = {
           id: techLabel.toLowerCase().replace(/\s+/g, '-'),
           label: techLabel,
+        }
+      })
+    },
+    setNodeTechIcon: (nodeId, iconId, placement) => {
+      set((state) => {
+        const node = state.workspace.nodes[nodeId]
+        if (!node || node.kind === 'note' || isExperimentalShapeNode(node)) {
+          return
+        }
+        if (!resolveTechIconDefinition(iconId)) {
+          return
+        }
+        const clampedPlacement = clampNodeTechIconPlacement(node.bounds, placement)
+        node.uiIcon = {
+          iconId,
+          ...clampedPlacement,
+        }
+      })
+    },
+    setNodeTechIconPlacement: (nodeId, placement) => {
+      set((state) => {
+        const node = state.workspace.nodes[nodeId]
+        if (!node?.uiIcon || node.kind === 'note' || isExperimentalShapeNode(node)) {
+          return
+        }
+        const clampedPlacement = clampNodeTechIconPlacement(node.bounds, placement)
+        node.uiIcon = {
+          ...node.uiIcon,
+          ...clampedPlacement,
         }
       })
     },

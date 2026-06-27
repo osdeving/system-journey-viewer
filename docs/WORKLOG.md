@@ -2,6 +2,28 @@
 
 Chronological engineering log. Entries are kept concise and focused on behavior and validation.
 
+## 2026-06-27 - Technology icon reflow after text edits
+
+### Scope
+
+- Recomputed UI-only technology icon placement when node text changes so edited labels do not overlap existing icons.
+
+### Changes
+
+- `apps/web/src/store/useEditorStore.ts`
+  - `setNodeName` and `setNodeTech` now preserve the current icon id but recompute the icon's max-fit default placement after text changes,
+  - shared the same placement helper used by node resize and initial icon drop.
+- `apps/web/src/store/useEditorStore.test.ts`
+  - added regression coverage for title/technology edits triggering icon reflow.
+
+### Validation
+
+- `npm --workspace @sjv/web run test:run -- src/store/useEditorStore.test.ts src/diagram/nodes/nodeTechIconLayout.test.ts`
+- `npm --workspace @sjv/web run lint`
+- `npm --workspace @sjv/web run test:run`
+- `npm --workspace @sjv/web run build`
+- `git diff --check`
+
 ## 2026-06-27 - Max-fit technology icons during node resize
 
 ### Scope

@@ -3,6 +3,7 @@
  */
 
 import { beforeEach, describe, expect, it } from 'vitest'
+import { resolveDefaultNodeTechIconPlacementForNode } from '../diagram/nodes/nodeTechIconLayout'
 import { fullWorkspaceToLiteDsl, liteToFullWorkspace } from '../dsl-lite/convert'
 import { parseLiteDsl } from '../dsl-lite/parser'
 import { saveSnapshot } from './persistence'
@@ -464,6 +465,28 @@ describe('useEditorStore', () => {
       x: 204,
       y: 4,
       size: 232,
+    })
+  })
+
+  it('recomputes technology icons when node title or technology text changes', () => {
+    const state = useEditorStore.getState()
+
+    state.setNodeTechIcon('n_api', 'redis', { x: 121, y: 21, size: 95 })
+    const initialIcon = useEditorStore.getState().workspace.nodes.n_api.uiIcon
+
+    state.setNodeTech('n_api', 'Very Long Enterprise Integration Framework')
+    let updated = useEditorStore.getState()
+    expect(updated.workspace.nodes.n_api.uiIcon).toEqual({
+      iconId: 'redis',
+      ...resolveDefaultNodeTechIconPlacementForNode(updated.workspace.nodes.n_api),
+    })
+    expect(updated.workspace.nodes.n_api.uiIcon).not.toEqual(initialIcon)
+
+    state.setNodeName('n_api', 'Extremely Long Component Name That Consumes The Top Row')
+    updated = useEditorStore.getState()
+    expect(updated.workspace.nodes.n_api.uiIcon).toEqual({
+      iconId: 'redis',
+      ...resolveDefaultNodeTechIconPlacementForNode(updated.workspace.nodes.n_api),
     })
   })
 

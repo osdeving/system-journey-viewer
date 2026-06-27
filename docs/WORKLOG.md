@@ -2,6 +2,30 @@
 
 Chronological engineering log. Entries are kept concise and focused on behavior and validation.
 
+## 2026-06-27 - Timeline context menu viewport clamp
+
+### Scope
+
+- Fixed timeline step action menus so they stay fully visible when opened near the viewport edge.
+
+### Changes
+
+- `apps/web/src/layout/floatingMenu.ts`, `apps/web/src/layout/floatingMenu.test.ts`
+  - added a reusable fixed-menu viewport clamp helper with right/bottom and small-viewport coverage.
+- `apps/web/src/components/journeys/JourneyTimelinePanel.tsx`, `apps/web/src/components/journeys/JourneyTimelinePanel.test.tsx`
+  - clamp the timeline context menu at open time and re-check with the rendered menu dimensions,
+  - added a regression that opens the menu at the bottom-right viewport edge.
+- `apps/web/src/App.css`
+  - keeps timeline menu labels from widening beyond the clamped menu width.
+
+### Validation
+
+- `npm --workspace @sjv/web run test:run -- src/layout/floatingMenu.test.ts src/components/journeys/JourneyTimelinePanel.test.tsx`
+- `npm --workspace @sjv/web run lint`
+- `npm --workspace @sjv/web run test:run`
+- `npm --workspace @sjv/web run build`
+- `git diff --check`
+
 ## 2026-06-26 - Timeline thread indent editing
 
 ### Scope

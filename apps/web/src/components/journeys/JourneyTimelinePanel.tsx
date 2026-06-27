@@ -2,7 +2,7 @@
  * Purpose: Render the active journey timeline as a reusable drag-aware panel.
  */
 
-import { Fragment, useEffect, useMemo, useState } from 'react'
+import { Fragment, useCallback, useEffect, useMemo, useState } from 'react'
 import type { KeyboardEvent as ReactKeyboardEvent, MouseEvent as ReactMouseEvent } from 'react'
 import { GripVertical, IndentDecrease, IndentIncrease, MoreHorizontal, Workflow } from 'lucide-react'
 import type { EdgeModel, JourneyModel } from '../../model/types'
@@ -11,6 +11,7 @@ import {
   resolveDefaultJourneyThreadIndentTarget,
   resolveJourneyThreadIndentTargets,
 } from '../../journeys/threadEditing'
+import { resolveViewportClampedFloatingMenuPoint } from '../../layout/floatingMenu'
 
 export interface JourneyTimelinePanelProps {
   activeJourney?: JourneyModel
@@ -28,9 +29,34 @@ export interface JourneyTimelinePanelProps {
 }
 
 type TimelineStepContextMenu = {
+  anchorX: number
+  anchorY: number
   x: number
   y: number
   rowKey: string
+  estimatedWidth: number
+  estimatedHeight: number
+}
+
+const TIMELINE_CONTEXT_MENU_WIDTH = 220
+const TIMELINE_CONTEXT_MENU_MARGIN = 8
+const TIMELINE_CONTEXT_MENU_HEADER_HEIGHT = 28
+const TIMELINE_CONTEXT_MENU_ROW_HEIGHT = 31
+const TIMELINE_CONTEXT_MENU_SHELL_HEIGHT = 14
+const TIMELINE_CONTEXT_MENU_GAP = 4
+
+const estimateTimelineContextMenuHeight = (
+  row: JourneyTimelineRow,
+  indentTargetCount: number,
+): number => {
+  const actionCount = row.laneKind === 'main' ? Math.max(indentTargetCount, 1) + 1 : 2
+
+  return (
+    TIMELINE_CONTEXT_MENU_SHELL_HEIGHT +
+    TIMELINE_CONTEXT_MENU_HEADER_HEIGHT +
+    actionCount * TIMELINE_CONTEXT_MENU_ROW_HEIGHT +
+    Math.max(0, actionCount - 1) * TIMELINE_CONTEXT_MENU_GAP
+  )
 }
 
 export const JourneyTimelinePanel = ({
@@ -80,8 +106,70 @@ export const JourneyTimelinePanel = ({
     event.preventDefault()
     event.stopPropagation()
     setSelectedRowKey(row.key)
-    setContextMenu({ x: event.clientX, y: event.clientY, rowKey: row.key })
+
+    const indentTargetCount =
+      activeJourney && row.laneKind === 'main'
+        ? resolveJourneyThreadIndentTargets(activeJourney, row.edgeId).length
+        : 0
+    const estimatedWidth = TIMELINE_CONTEXT_MENU_WIDTH
+    const estimatedHeight = estimateTimelineContextMenuHeight(row, indentTargetCount)
+    const point = resolveViewportClampedFloatingMenuPoint({
+      anchor: { x: event.clientX, y: event.clientY },
+      menu: { width: estimatedWidth, height: estimatedHeight },
+      viewport: {
+        width:
+          typeof window === 'undefined'
+            ? estimatedWidth + TIMELINE_CONTEXT_MENU_MARGIN * 2
+            : window.innerWidth,
+        height:
+          typeof window === 'undefined'
+            ? estimatedHeight + TIMELINE_CONTEXT_MENU_MARGIN * 2
+            : window.innerHeight,
+      },
+      margin: TIMELINE_CONTEXT_MENU_MARGIN,
+    })
+
+    setContextMenu({
+      anchorX: event.clientX,
+      anchorY: event.clientY,
+      x: point.x,
+      y: point.y,
+      rowKey: row.key,
+      estimatedWidth,
+      estimatedHeight,
+    })
   }
+
+  const positionContextMenu = useCallback(
+    (element: HTMLDivElement | null) => {
+      if (!element || !contextMenu) {
+        return
+      }
+
+      const rect = element.getBoundingClientRect()
+      const width = rect.width || contextMenu.estimatedWidth
+      const height = rect.height || contextMenu.estimatedHeight
+      const point = resolveViewportClampedFloatingMenuPoint({
+        anchor: { x: contextMenu.anchorX, y: contextMenu.anchorY },
+        menu: { width, height },
+        viewport: {
+          width:
+            typeof window === 'undefined'
+              ? width + TIMELINE_CONTEXT_MENU_MARGIN * 2
+              : window.innerWidth,
+          height:
+            typeof window === 'undefined'
+              ? height + TIMELINE_CONTEXT_MENU_MARGIN * 2
+              : window.innerHeight,
+        },
+        margin: TIMELINE_CONTEXT_MENU_MARGIN,
+      })
+
+      element.style.left = `${point.x}px`
+      element.style.top = `${point.y}px`
+    },
+    [contextMenu],
+  )
 
   const runIndentStep = (row: JourneyTimelineRow, anchorEdgeId?: string) => {
     if (!activeJourney || row.laneKind !== 'main') {
@@ -134,6 +222,7 @@ export const JourneyTimelinePanel = ({
 
     return (
       <div
+        ref={positionContextMenu}
         className="journey-step-context-menu"
         role="menu"
         aria-label="Timeline step actions"

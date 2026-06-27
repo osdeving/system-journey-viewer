@@ -7,6 +7,7 @@ import type {
   ManagedWindowDockHostId,
   ManagedWindowId,
 } from './windowManager'
+import { MIN_SINGLE_TAB_DOCK_HOST_WIDTH } from '../layout/dockSizing'
 
 export type ManagedWindowFloatingUiConfig = {
   title: string
@@ -31,13 +32,13 @@ export const MANAGED_WINDOW_FLOATING_UI_CONFIG: Record<ManagedWindowId, ManagedW
   palette: {
     title: 'Palette',
     bodyClassName: 'floating-window-body-dock',
-    minWidth: 260,
+    minWidth: MIN_SINGLE_TAB_DOCK_HOST_WIDTH,
     minHeight: 320,
   },
   inspector: {
     title: 'Inspector',
     bodyClassName: 'floating-window-body-dock',
-    minWidth: 320,
+    minWidth: MIN_SINGLE_TAB_DOCK_HOST_WIDTH,
     minHeight: 260,
   },
   journeys: {
@@ -69,7 +70,7 @@ export const MANAGED_WINDOW_FLOATING_UI_CONFIG: Record<ManagedWindowId, ManagedW
   preferences: {
     title: 'Preferences',
     className: 'preferences-window',
-    minWidth: 320,
+    minWidth: MIN_SINGLE_TAB_DOCK_HOST_WIDTH,
     minHeight: 260,
   },
 }

@@ -3,7 +3,12 @@
  */
 
 import { describe, expect, it } from 'vitest'
-import { resolveDockSideWidth, resolveFloatingDockResizeRect } from './dockSizing'
+import {
+  MIN_SINGLE_TAB_DOCK_HOST_WIDTH,
+  resolveDockHostMinWidth,
+  resolveDockSideWidth,
+  resolveFloatingDockResizeRect,
+} from './dockSizing'
 
 describe('dockSizing', () => {
   it('resizes left dock increasing width when dragging right', () => {
@@ -42,6 +47,14 @@ describe('dockSizing', () => {
     expect(next).toBe(260)
   })
 
+  it('raises side dock host minimum width when a host has one tab', () => {
+    expect(resolveDockHostMinWidth(1, 240)).toBe(MIN_SINGLE_TAB_DOCK_HOST_WIDTH)
+  })
+
+  it('preserves the compact side dock minimum when a host has multiple tabs', () => {
+    expect(resolveDockHostMinWidth(2, 240)).toBe(240)
+  })
+
   it('resizes floating dock from north-west handle', () => {
     const next = resolveFloatingDockResizeRect({
       handle: 'nw',
@@ -68,4 +81,3 @@ describe('dockSizing', () => {
     expect(next).toEqual({ x: 40, y: 120, width: 560, height: 440 })
   })
 })
-

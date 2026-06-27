@@ -50,6 +50,7 @@ import {
   clampNodeTechIconPlacement,
   resolveDefaultNodeTechIconPlacement,
   resolveResizedNodeTechIconPlacement,
+  type NodeTechIconDefaultShapeKind,
   type NodeTechIconPlacement,
 } from '../../diagram/nodes/nodeTechIconLayout'
 import {
@@ -788,12 +789,19 @@ export const DiagramCanvas = ({
       node.kind === 'gateway' ||
       node.kind === 'security' ||
       node.kind === 'load-balancer'
+    const iconShapeKind: NodeTechIconDefaultShapeKind = shouldRenderHexagon
+      ? 'hexagon'
+      : node.kind === 'queue'
+        ? 'queue-cylinder'
+        : node.kind === 'db'
+          ? 'db-cylinder'
+          : 'rectangle'
     const labelLayout = resolveNodeLabelLayout(node, shouldRenderHexagon)
     return resolveDefaultNodeTechIconPlacement(
       node.bounds,
       labelLayout,
       node.tech?.label ?? node.kind,
-      { preferCentered: shouldRenderHexagon },
+      { shapeKind: iconShapeKind, title: node.name },
     )
   }, [])
   const resolvedActiveNodeIconEditId =

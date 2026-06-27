@@ -6,12 +6,16 @@ import { describe, expect, it } from 'vitest'
 import {
   clampNodeTechIconPlacement,
   DEFAULT_NODE_TECH_ICON_SIZE,
-  MIN_SIDE_BY_TEXT_NODE_TECH_ICON_SIZE,
+  MIN_NODE_TECH_ICON_SIZE,
   resolveDefaultNodeTechIconPlacement,
   resolveNodeTechIconMaxSize,
   resolveResizedNodeTechIconPlacement,
 } from './nodeTechIconLayout'
 import type { NodeLabelLayout } from './nodeLabelLayout'
+import {
+  resolveDbCylinderShape,
+  resolveQueueCylinderShape,
+} from './nodeShapePaths'
 
 const labelLayout: NodeLabelLayout = {
   titleX: 16,
@@ -24,33 +28,22 @@ const labelLayout: NodeLabelLayout = {
 }
 
 describe('nodeTechIconLayout', () => {
-  it('places a large default icon beside short technology text and below the node name', () => {
+  it('fills the bottom-right safe space on normal nodes while avoiding the text block', () => {
     const placement = resolveDefaultNodeTechIconPlacement(
       { w: 220, h: 120 },
       labelLayout,
       'Component',
+      { title: 'Component 19' },
     )
 
-    expect(placement.size).toBeGreaterThan(DEFAULT_NODE_TECH_ICON_SIZE)
-    expect(placement.size).toBeCloseTo(72)
-    expect(placement.x).toBeGreaterThan(labelLayout.subtitleX + 60)
-    expect(placement.y).toBeGreaterThan(labelLayout.titleY)
+    expect(placement.size).toBeGreaterThan(90)
+    expect(placement.x + placement.size).toBe(216)
+    expect(placement.y + placement.size).toBe(116)
+    expect(placement.x).toBeGreaterThan(labelLayout.titleX + 80)
     expect(placement.x + placement.size).toBeLessThanOrEqual(216)
   })
 
-  it('uses the available right-side room so database labels get a larger default icon', () => {
-    const placement = resolveDefaultNodeTechIconPlacement(
-      { w: 130, h: 70 },
-      labelLayout,
-      'PostgreSQL',
-    )
-
-    expect(placement.size).toBeGreaterThan(DEFAULT_NODE_TECH_ICON_SIZE)
-    expect(placement.x).toBeGreaterThan(labelLayout.subtitleX + 60)
-    expect(placement.x + placement.size).toBeLessThanOrEqual(126)
-  })
-
-  it('centers the default icon below when long technology text would force a tiny side icon', () => {
+  it('falls back below the text when long labels consume the bottom-right text clearance', () => {
     const constrainedLabelLayout: NodeLabelLayout = {
       ...labelLayout,
       maxSubtitleWidth: 150,
@@ -60,14 +53,61 @@ describe('nodeTechIconLayout', () => {
       { w: 180, h: 120 },
       constrainedLabelLayout,
       'Very Long Enterprise Integration Framework',
+      { title: 'Component' },
     )
 
-    expect(placement.size).toBeGreaterThan(MIN_SIDE_BY_TEXT_NODE_TECH_ICON_SIZE)
+    expect(placement.size).toBeGreaterThan(DEFAULT_NODE_TECH_ICON_SIZE)
     expect(placement.x).toBeCloseTo((180 - placement.size) / 2)
     expect(placement.y).toBeGreaterThan(constrainedLabelLayout.subtitleY)
   })
 
-  it('centers hexagonal component icons below the technology text', () => {
+  it('keeps queue cylinder icons inside the lateral body instead of the front cap', () => {
+    const queueLabelLayout: NodeLabelLayout = {
+      titleX: 12,
+      titleY: 18,
+      subtitleX: 12,
+      subtitleY: 34,
+      textAnchor: 'start',
+      maxTitleWidth: 78,
+      maxSubtitleWidth: 78,
+    }
+    const bounds = { w: 104, h: 50 }
+    const shape = resolveQueueCylinderShape(bounds.w, bounds.h)
+
+    const placement = resolveDefaultNodeTechIconPlacement(
+      bounds,
+      queueLabelLayout,
+      'Kafka',
+      { shapeKind: 'queue-cylinder', title: 'Queue / Stream' },
+    )
+
+    expect(placement.x + placement.size).toBeLessThanOrEqual(
+      bounds.w - shape.capRx - 4,
+    )
+    expect(placement.y + placement.size).toBeLessThanOrEqual(bounds.h - 4)
+    expect(placement.size).toBeGreaterThanOrEqual(MIN_NODE_TECH_ICON_SIZE)
+    expect(placement.size).toBeLessThan(DEFAULT_NODE_TECH_ICON_SIZE)
+  })
+
+  it('keeps database cylinder icons in the body between the caps', () => {
+    const bounds = { w: 130, h: 70 }
+    const shape = resolveDbCylinderShape(bounds.w, bounds.h)
+
+    const placement = resolveDefaultNodeTechIconPlacement(
+      bounds,
+      labelLayout,
+      'PostgreSQL',
+      { shapeKind: 'db-cylinder', title: 'Database 26' },
+    )
+
+    expect(placement.size).toBeGreaterThan(DEFAULT_NODE_TECH_ICON_SIZE)
+    expect(placement.y).toBeGreaterThanOrEqual(shape.capRy + 4)
+    expect(placement.y + placement.size).toBeLessThanOrEqual(
+      bounds.h - shape.capRy - 4,
+    )
+  })
+
+  it('centers hexagonal component icons in the largest lower polygon space', () => {
     const hexLabelLayout: NodeLabelLayout = {
       titleX: 80,
       titleY: 32,
@@ -82,12 +122,13 @@ describe('nodeTechIconLayout', () => {
       { w: 160, h: 120 },
       hexLabelLayout,
       'NGINX',
-      { preferCentered: true },
+      { shapeKind: 'hexagon', title: 'API Gateway' },
     )
 
     expect(placement.x).toBeCloseTo((160 - placement.size) / 2)
     expect(placement.y).toBeGreaterThan(hexLabelLayout.subtitleY)
-    expect(placement.size).toBeGreaterThan(DEFAULT_NODE_TECH_ICON_SIZE)
+    expect(placement.size).toBeGreaterThan(50)
+    expect(placement.y + placement.size).toBeLessThanOrEqual(116)
   })
 
   it('clamps movement and size so icons cannot exceed node bounds', () => {

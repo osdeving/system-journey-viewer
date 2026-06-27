@@ -74,6 +74,7 @@ const renderPanel = (props: Partial<InspectorPanelProps> = {}): InspectorPanelPr
     onEdgeLabelAngleChange: vi.fn(),
     onDuplicateSelection: vi.fn(),
     onDeleteSelection: vi.fn(),
+    onNodeDrilldown: vi.fn(),
     onAddEdgeToActiveJourney: vi.fn(),
     ...props,
   }
@@ -104,7 +105,7 @@ describe('InspectorPanel', () => {
     expect(activeContainer?.textContent).toContain('HTTPS')
   })
 
-  it('delegates palette, duplicate, delete, and journey actions', () => {
+  it('delegates palette, drilldown, duplicate, delete, and journey actions', () => {
     const props = renderPanel()
     const colorChip = activeContainer?.querySelector<HTMLButtonElement>(
       '.node-color-presets button',
@@ -115,20 +116,32 @@ describe('InspectorPanel', () => {
     const deleteButton = Array.from(
       activeContainer?.querySelectorAll<HTMLButtonElement>('button') ?? [],
     ).find((button) => button.textContent === 'Delete')
+    const drilldownButton = Array.from(
+      activeContainer?.querySelectorAll<HTMLButtonElement>('button') ?? [],
+    ).find((button) => button.textContent === 'Create Drilldown')
     const addToJourneyButton = Array.from(
       activeContainer?.querySelectorAll<HTMLButtonElement>('button') ?? [],
     ).find((button) => button.textContent === 'Add to Active Journey')
 
     act(() => {
       colorChip?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+      drilldownButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
       duplicateButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
       deleteButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
       addToJourneyButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
     })
 
     expect(props.onNodeColorChange).toHaveBeenCalledWith('n1', '#2563eb')
+    expect(props.onNodeDrilldown).toHaveBeenCalledWith('n1')
     expect(props.onDuplicateSelection).toHaveBeenCalled()
     expect(props.onDeleteSelection).toHaveBeenCalled()
     expect(props.onAddEdgeToActiveJourney).toHaveBeenCalledWith('e1')
+  })
+
+  it('renders an open drilldown action when a selected node already has a drilldown view', () => {
+    renderPanel({ selectedNode: { ...node, drilldownRef: 'v_component_api' } })
+
+    expect(activeContainer?.textContent).toContain('Open Drilldown')
+    expect(activeContainer?.textContent).not.toContain('Create Drilldown')
   })
 })

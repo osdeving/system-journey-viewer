@@ -7,6 +7,7 @@ import {
   clampNodeTechIconPlacement,
   DEFAULT_NODE_TECH_ICON_SIZE,
   MIN_NODE_TECH_ICON_SIZE,
+  resolveAnchoredNodeTechIconPlacement,
   resolveDefaultNodeTechIconPlacement,
   resolveNodeTechIconMaxSize,
   resolveResizedNodeTechIconPlacement,
@@ -153,6 +154,18 @@ describe('nodeTechIconLayout', () => {
         { x: 90, y: -20, size: 300 },
       ),
     ).toEqual({ x: 24, y: 4, size: 72 })
+  })
+
+  it('keeps technology icons anchored and proportionally sized when nodes resize', () => {
+    const placement = resolveAnchoredNodeTechIconPlacement(
+      { w: 220, h: 120 },
+      { w: 440, h: 240 },
+      { x: 144, y: 44, size: 72 },
+    )
+
+    expect(placement.size).toBe(144)
+    expect(placement.x + placement.size).toBe(432)
+    expect(placement.y + placement.size).toBe(232)
   })
 
   it('resizes from corner grips while preserving the opposite corner', () => {

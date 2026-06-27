@@ -75,6 +75,32 @@ export const clampNodeTechIconPlacement = (
   }
 }
 
+export const resolveAnchoredNodeTechIconPlacement = (
+  previousBounds: Pick<NodeBounds, 'w' | 'h'>,
+  nextBounds: Pick<NodeBounds, 'w' | 'h'>,
+  placement: NodeTechIconPlacement,
+): NodeTechIconPlacement => {
+  const origin = clampNodeTechIconPlacement(previousBounds, placement)
+  const previousWidth = Math.max(1, previousBounds.w)
+  const previousHeight = Math.max(1, previousBounds.h)
+  const scaleX = nextBounds.w / previousWidth
+  const scaleY = nextBounds.h / previousHeight
+  const sizeScale = Math.min(scaleX, scaleY)
+  const centerX = origin.x + origin.size / 2
+  const centerY = origin.y + origin.size / 2
+  const anchorX = centerX >= previousWidth / 2 ? 'right' : 'left'
+  const anchorY = centerY >= previousHeight / 2 ? 'bottom' : 'top'
+  const rightGap = previousWidth - origin.x - origin.size
+  const bottomGap = previousHeight - origin.y - origin.size
+  const size = origin.size * sizeScale
+
+  return clampNodeTechIconPlacement(nextBounds, {
+    x: anchorX === 'right' ? nextBounds.w - rightGap * scaleX - size : origin.x * scaleX,
+    y: anchorY === 'bottom' ? nextBounds.h - bottomGap * scaleY - size : origin.y * scaleY,
+    size,
+  })
+}
+
 const safeRectWidth = (rect: IconSafeRect): number => Math.max(0, rect.right - rect.left)
 const safeRectHeight = (rect: IconSafeRect): number => Math.max(0, rect.bottom - rect.top)
 

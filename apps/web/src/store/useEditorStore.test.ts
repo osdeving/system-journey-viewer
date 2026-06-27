@@ -452,6 +452,21 @@ describe('useEditorStore', () => {
     })
   })
 
+  it('keeps technology icons anchored and proportional when node bounds resize', () => {
+    const state = useEditorStore.getState()
+
+    state.setNodeTechIcon('n_api', 'redis', { x: 144, y: 44, size: 72 })
+    state.setNodeBounds('n_api', { x: 640, y: 110, w: 440, h: 240 })
+
+    const updated = useEditorStore.getState()
+    expect(updated.workspace.nodes.n_api.uiIcon).toEqual({
+      iconId: 'redis',
+      x: 288,
+      y: 88,
+      size: 144,
+    })
+  })
+
   it('removes a UI-only technology icon without deleting the node', () => {
     const state = useEditorStore.getState()
 

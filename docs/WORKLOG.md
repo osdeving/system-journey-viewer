@@ -2,6 +2,30 @@
 
 Chronological engineering log. Entries are kept concise and focused on behavior and validation.
 
+## 2026-06-26 - App-native confirmation dialog
+
+### Scope
+
+- Replaced browser confirmation alerts with a reusable in-app confirmation dialog for destructive and replacing actions.
+
+### Changes
+
+- `apps/web/src/components/chrome/ConfirmationDialog.tsx`
+  - added a themed app-native dialog with cancel/confirm actions, danger tone, Escape cancellation, backdrop cancellation, and keyboard focus defaults.
+- `apps/web/src/App.tsx`, `apps/web/src/App.css`
+  - routed node deletion, edge deletion, cloud script deletion, gallery asset deletion, and new-workspace replacement through the app dialog instead of `window.confirm`,
+  - styled the dialog for the dark professional shell and existing chrome theme tokens.
+- `apps/web/src/components/chrome/ConfirmationDialog.test.tsx`, `apps/web/src/App.source.test.ts`, `apps/web/src/App.styles.test.ts`
+  - added interaction coverage for confirm/Escape behavior and regressions ensuring the app no longer uses browser confirms.
+
+### Validation
+
+- `npm --workspace @sjv/web run test:run -- src/components/chrome/ConfirmationDialog.test.tsx src/App.source.test.ts src/App.styles.test.ts`
+- `npm --workspace @sjv/web run lint`
+- `npm --workspace @sjv/web run test:run`
+- `npm --workspace @sjv/web run build`
+- `git diff --check`
+
 ## 2026-06-26 - Shell alignment and drag-drawn shape tools
 
 ### Scope

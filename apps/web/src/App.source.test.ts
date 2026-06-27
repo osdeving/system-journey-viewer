@@ -185,6 +185,17 @@ describe('App source regressions', () => {
     expect(appSource).toContain('!playerConfettiNonce || uiPreferences.performanceModeEnabled')
   })
 
+  it('uses the app-native confirmation dialog instead of browser confirms', () => {
+    expect(appSource).toContain("import { ConfirmationDialog, type ConfirmationDialogTone } from './components/chrome/ConfirmationDialog'")
+    expect(appSource).toContain('type ConfirmationDialogState = {')
+    expect(appSource).toContain('const requestConfirmation = useCallback')
+    expect(appSource).toContain('const confirmationDialogControl = (')
+    expect(appSource).toContain('<ConfirmationDialog')
+    expect(appSource).toContain('Delete selected nodes?')
+    expect(appSource).toContain('Delete edge?')
+    expect(appSource).not.toContain('window.confirm')
+  })
+
   it('includes manual Supabase auth plus workspace, script, and gallery actions', () => {
     expect(appSource).toContain("supabaseCloudConfigured")
     expect(appSource).toContain("workspaceCloudProviderLabel")

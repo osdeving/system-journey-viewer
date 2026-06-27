@@ -5,6 +5,10 @@
 import type { NodeBounds } from '../../model/types'
 import type { NodeLabelLayout } from './nodeLabelLayout'
 import { estimateCanvasTextWidth } from './nodeLabelLayout'
+import {
+  resolveDbCylinderShape,
+  resolveQueueCylinderShape,
+} from './nodeShapePaths'
 
 export type NodeTechIconPlacement = {
   x: number
@@ -12,16 +16,37 @@ export type NodeTechIconPlacement = {
   size: number
 }
 
+export type NodeTechIconDefaultShapeKind =
+  | 'rectangle'
+  | 'hexagon'
+  | 'queue-cylinder'
+  | 'db-cylinder'
+
+type IconSafeRect = {
+  left: number
+  top: number
+  right: number
+  bottom: number
+}
+
+type TextCollisionBox = {
+  left: number
+  top: number
+  right: number
+  bottom: number
+}
+
 export const DEFAULT_NODE_TECH_ICON_SIZE = 24
-export const PREFERRED_NODE_TECH_ICON_SIZE = 72
+export const PREFERRED_NODE_TECH_ICON_SIZE = 128
 export const MIN_NODE_TECH_ICON_SIZE = 14
-export const MIN_SIDE_BY_TEXT_NODE_TECH_ICON_SIZE = 26
 export const NODE_TECH_ICON_PADDING = 4
-export const NODE_TECH_ICON_TEXT_GAP = 6
-const NODE_TECH_ICON_TITLE_GAP = 8
-const NODE_TECH_ICON_CENTERED_TEXT_GAP = 8
-const NODE_TECH_ICON_HEIGHT_RATIO = 0.62
-const HEX_NODE_TECH_ICON_WIDTH_RATIO = 0.42
+const NODE_TECH_ICON_TEXT_CLEARANCE = 6
+const NODE_TECH_ICON_TEXT_COLLISION_WIDTH_RATIO = 0.82
+const NODE_TECH_ICON_HEIGHT_RATIO = 0.78
+const HEX_NODE_TECH_ICON_TEXT_GAP = 3
+const HEX_NODE_TECH_ICON_TEXT_CLEARANCE = 1
+const NODE_TECH_ICON_SEARCH_STEP = 1
+const NODE_TECH_ICON_CENTER_FALLBACK_RATIO = 0.7
 
 export const resolveNodeTechIconMaxSize = (bounds: Pick<NodeBounds, 'w' | 'h'>): number =>
   Math.max(
@@ -44,64 +69,262 @@ export const clampNodeTechIconPlacement = (
   }
 }
 
+const safeRectWidth = (rect: IconSafeRect): number => Math.max(0, rect.right - rect.left)
+const safeRectHeight = (rect: IconSafeRect): number => Math.max(0, rect.bottom - rect.top)
+
+const resolveTextBox = (
+  text: string | undefined,
+  x: number,
+  y: number,
+  maxWidth: number,
+  fontSize: number,
+  textAnchor: 'start' | 'middle',
+): TextCollisionBox | null => {
+  const value = text?.trim()
+  if (!value) {
+    return null
+  }
+  const width =
+    Math.min(maxWidth, estimateCanvasTextWidth(value, fontSize)) *
+    NODE_TECH_ICON_TEXT_COLLISION_WIDTH_RATIO
+  const left = textAnchor === 'middle' ? x - width / 2 : x
+  return {
+    left,
+    top: y - fontSize,
+    right: left + width,
+    bottom: y + 2,
+  }
+}
+
+const resolveTextCollisionBoxes = (
+  labelLayout: NodeLabelLayout,
+  subtitle: string,
+  title?: string,
+): TextCollisionBox[] =>
+  [
+    resolveTextBox(
+      title,
+      labelLayout.titleX,
+      labelLayout.titleY,
+      labelLayout.maxTitleWidth,
+      14,
+      labelLayout.textAnchor,
+    ),
+    resolveTextBox(
+      subtitle,
+      labelLayout.subtitleX,
+      labelLayout.subtitleY,
+      labelLayout.maxSubtitleWidth,
+      12,
+      labelLayout.textAnchor,
+    ),
+  ].filter((box): box is TextCollisionBox => Boolean(box))
+
+const overlapsText = (
+  placement: NodeTechIconPlacement,
+  textBoxes: TextCollisionBox[],
+  clearance = NODE_TECH_ICON_TEXT_CLEARANCE,
+): boolean =>
+  textBoxes.some((box) => {
+    const iconLeft = placement.x
+    const iconTop = placement.y
+    const iconRight = placement.x + placement.size
+    const iconBottom = placement.y + placement.size
+    return !(
+      iconRight <= box.left - clearance ||
+      iconLeft >= box.right + clearance ||
+      iconBottom <= box.top - clearance ||
+      iconTop >= box.bottom + clearance
+    )
+  })
+
+const resolveDefaultSizeLimit = (
+  bounds: Pick<NodeBounds, 'w' | 'h'>,
+  safeRect: IconSafeRect,
+): number =>
+  Math.min(
+    PREFERRED_NODE_TECH_ICON_SIZE,
+    resolveNodeTechIconMaxSize(bounds),
+    safeRectWidth(safeRect),
+    safeRectHeight(safeRect),
+    Math.max(DEFAULT_NODE_TECH_ICON_SIZE, bounds.h * NODE_TECH_ICON_HEIGHT_RATIO),
+  )
+
+const resolveShapeSafeRect = (
+  bounds: Pick<NodeBounds, 'w' | 'h'>,
+  shapeKind: NodeTechIconDefaultShapeKind,
+): IconSafeRect => {
+  if (shapeKind === 'queue-cylinder') {
+    const shape = resolveQueueCylinderShape(bounds.w, bounds.h)
+    return {
+      left: shape.capRx + NODE_TECH_ICON_PADDING,
+      top: NODE_TECH_ICON_PADDING,
+      right: bounds.w - shape.capRx - NODE_TECH_ICON_PADDING,
+      bottom: bounds.h - NODE_TECH_ICON_PADDING,
+    }
+  }
+  if (shapeKind === 'db-cylinder') {
+    const shape = resolveDbCylinderShape(bounds.w, bounds.h)
+    return {
+      left: NODE_TECH_ICON_PADDING,
+      top: shape.capRy + NODE_TECH_ICON_PADDING,
+      right: bounds.w - NODE_TECH_ICON_PADDING,
+      bottom: bounds.h - shape.capRy - NODE_TECH_ICON_PADDING,
+    }
+  }
+  return {
+    left: NODE_TECH_ICON_PADDING,
+    top: NODE_TECH_ICON_PADDING,
+    right: bounds.w - NODE_TECH_ICON_PADDING,
+    bottom: bounds.h - NODE_TECH_ICON_PADDING,
+  }
+}
+
+const resolveBottomRightPlacement = (
+  bounds: Pick<NodeBounds, 'w' | 'h'>,
+  safeRect: IconSafeRect,
+  textBoxes: TextCollisionBox[],
+  centerWhenConstrained: boolean,
+): NodeTechIconPlacement => {
+  const maxSize = resolveDefaultSizeLimit(bounds, safeRect)
+  for (let size = maxSize; size >= MIN_NODE_TECH_ICON_SIZE; size -= NODE_TECH_ICON_SEARCH_STEP) {
+    const placement = {
+      x: safeRect.right - size,
+      y: safeRect.bottom - size,
+      size,
+    }
+    if (!overlapsText(placement, textBoxes)) {
+      if (centerWhenConstrained && size < maxSize * NODE_TECH_ICON_CENTER_FALLBACK_RATIO) {
+        return resolveCenteredBelowTextPlacement(bounds, safeRect, textBoxes, maxSize)
+      }
+      return clampNodeTechIconPlacement(bounds, placement)
+    }
+  }
+
+  return resolveCenteredBelowTextPlacement(bounds, safeRect, textBoxes, maxSize)
+}
+
+const resolveCenteredBelowTextPlacement = (
+  bounds: Pick<NodeBounds, 'w' | 'h'>,
+  safeRect: IconSafeRect,
+  textBoxes: TextCollisionBox[],
+  maxSize: number,
+): NodeTechIconPlacement => {
+  const lastTextBottom = Math.max(
+    safeRect.top,
+    ...textBoxes.map((box) => box.bottom + NODE_TECH_ICON_TEXT_CLEARANCE),
+  )
+  const fallbackTop = Math.min(
+    safeRect.bottom - MIN_NODE_TECH_ICON_SIZE,
+    Math.max(safeRect.top, lastTextBottom),
+  )
+  const fallbackSize = Math.min(
+    maxSize,
+    safeRect.bottom - fallbackTop,
+    safeRectWidth(safeRect),
+  )
+  return clampNodeTechIconPlacement(bounds, {
+    x: safeRect.left + (safeRectWidth(safeRect) - fallbackSize) / 2,
+    y: fallbackTop,
+    size: Math.max(MIN_NODE_TECH_ICON_SIZE, fallbackSize),
+  })
+}
+
+const resolveHexagonHorizontalInset = (width: number): number => {
+  const safeWidth = Math.max(1, width)
+  return Math.min(
+    Math.max(safeWidth * 0.25, 6),
+    Math.max(6, safeWidth / 2 - 0.5),
+  )
+}
+
+const resolveHexagonXRangeAtY = (
+  bounds: Pick<NodeBounds, 'w' | 'h'>,
+  y: number,
+): { left: number; right: number } => {
+  const centerY = bounds.h / 2
+  const horizontalInset = resolveHexagonHorizontalInset(bounds.w)
+  const clampedY = Math.min(bounds.h, Math.max(0, y))
+  const left =
+    clampedY <= centerY
+      ? horizontalInset * (1 - clampedY / Math.max(1, centerY))
+      : horizontalInset * ((clampedY - centerY) / Math.max(1, centerY))
+  return {
+    left: left + NODE_TECH_ICON_PADDING,
+    right: bounds.w - left - NODE_TECH_ICON_PADDING,
+  }
+}
+
+const hexagonContainsSquare = (
+  bounds: Pick<NodeBounds, 'w' | 'h'>,
+  placement: NodeTechIconPlacement,
+): boolean =>
+  [placement.y, placement.y + placement.size].every((y) => {
+    const range = resolveHexagonXRangeAtY(bounds, y)
+    return placement.x >= range.left && placement.x + placement.size <= range.right
+  })
+
+const resolveHexagonPlacement = (
+  bounds: Pick<NodeBounds, 'w' | 'h'>,
+  labelLayout: NodeLabelLayout,
+  textBoxes: TextCollisionBox[],
+): NodeTechIconPlacement => {
+  const safeRect = resolveShapeSafeRect(bounds, 'rectangle')
+  const maxSize = resolveDefaultSizeLimit(bounds, safeRect)
+  const minTop = Math.max(
+    NODE_TECH_ICON_PADDING,
+    labelLayout.subtitleY + HEX_NODE_TECH_ICON_TEXT_GAP,
+    ...textBoxes.map((box) => box.bottom + HEX_NODE_TECH_ICON_TEXT_CLEARANCE),
+  )
+
+  for (let size = maxSize; size >= MIN_NODE_TECH_ICON_SIZE; size -= NODE_TECH_ICON_SEARCH_STEP) {
+    const x = (bounds.w - size) / 2
+    for (
+      let y = bounds.h - NODE_TECH_ICON_PADDING - size;
+      y >= minTop;
+      y -= NODE_TECH_ICON_SEARCH_STEP
+    ) {
+      const placement = { x, y, size }
+      if (
+        hexagonContainsSquare(bounds, placement) &&
+        !overlapsText(placement, textBoxes, HEX_NODE_TECH_ICON_TEXT_CLEARANCE)
+      ) {
+        return clampNodeTechIconPlacement(bounds, placement)
+      }
+    }
+  }
+
+  const fallbackSize = Math.min(
+    DEFAULT_NODE_TECH_ICON_SIZE,
+    resolveNodeTechIconMaxSize(bounds),
+  )
+  return clampNodeTechIconPlacement(bounds, {
+    x: (bounds.w - fallbackSize) / 2,
+    y: Math.max(minTop, bounds.h / 2),
+    size: fallbackSize,
+  })
+}
+
 export const resolveDefaultNodeTechIconPlacement = (
   bounds: Pick<NodeBounds, 'w' | 'h'>,
   labelLayout: NodeLabelLayout,
   subtitle: string,
-  options: { preferCentered?: boolean } = {},
+  options: {
+    shapeKind?: NodeTechIconDefaultShapeKind
+    title?: string
+  } = {},
 ): NodeTechIconPlacement => {
-  const preferredSize = Math.min(
-    PREFERRED_NODE_TECH_ICON_SIZE,
-    resolveNodeTechIconMaxSize(bounds),
-    Math.max(DEFAULT_NODE_TECH_ICON_SIZE, bounds.h * NODE_TECH_ICON_HEIGHT_RATIO),
+  const shapeKind = options.shapeKind ?? 'rectangle'
+  const textBoxes = resolveTextCollisionBoxes(labelLayout, subtitle, options.title)
+  if (shapeKind === 'hexagon') {
+    return resolveHexagonPlacement(bounds, labelLayout, textBoxes)
+  }
+  return resolveBottomRightPlacement(
+    bounds,
+    resolveShapeSafeRect(bounds, shapeKind),
+    textBoxes,
+    shapeKind === 'rectangle',
   )
-  const subtitleWidth = Math.min(
-    labelLayout.maxSubtitleWidth,
-    estimateCanvasTextWidth(subtitle, 12),
-  )
-  const subtitleLeft =
-    labelLayout.textAnchor === 'middle'
-      ? labelLayout.subtitleX - subtitleWidth / 2
-      : labelLayout.subtitleX
-  const centeredPlacement = (): NodeTechIconPlacement => {
-    const centeredTop = Math.min(
-      bounds.h - MIN_NODE_TECH_ICON_SIZE - NODE_TECH_ICON_PADDING,
-      labelLayout.subtitleY + NODE_TECH_ICON_CENTERED_TEXT_GAP,
-    )
-    const centeredSize = Math.max(
-      MIN_NODE_TECH_ICON_SIZE,
-      Math.min(
-        preferredSize,
-        bounds.w * HEX_NODE_TECH_ICON_WIDTH_RATIO,
-        bounds.h - centeredTop - NODE_TECH_ICON_PADDING,
-      ),
-    )
-    return clampNodeTechIconPlacement(bounds, {
-      x: (bounds.w - centeredSize) / 2,
-      y: centeredTop,
-      size: centeredSize,
-    })
-  }
-
-  if (options.preferCentered || labelLayout.textAnchor === 'middle') {
-    return centeredPlacement()
-  }
-
-  const sideX = subtitleLeft + subtitleWidth + NODE_TECH_ICON_TEXT_GAP
-  const sideAvailableWidth = bounds.w - sideX - NODE_TECH_ICON_PADDING
-  const sideSize = Math.min(preferredSize, sideAvailableWidth)
-  if (sideSize < MIN_SIDE_BY_TEXT_NODE_TECH_ICON_SIZE) {
-    return centeredPlacement()
-  }
-
-  return clampNodeTechIconPlacement(bounds, {
-    x: sideX,
-    y: Math.min(
-      labelLayout.titleY + NODE_TECH_ICON_TITLE_GAP,
-      bounds.h - sideSize - NODE_TECH_ICON_PADDING,
-    ),
-    size: sideSize,
-  })
 }
 
 export const resolveResizedNodeTechIconPlacement = (

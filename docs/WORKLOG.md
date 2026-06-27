@@ -2,23 +2,23 @@
 
 Chronological engineering log. Entries are kept concise and focused on behavior and validation.
 
-## 2026-06-27 - Technology icon default placement tuning
+## 2026-06-27 - Shape-aware technology icon default placement
 
 ### Scope
 
-- Tuned the default placement/size used when dropping technology icons onto nodes.
+- Tuned the default placement/size used when dropping technology icons onto nodes so icons fill the usable shape area without colliding with labels or cylinder caps.
 
 ### Changes
 
 - `apps/web/src/diagram/nodes/nodeTechIconLayout.ts`
-  - computes a larger default icon size from node height and available side room instead of always using `24px`,
-  - places normal-node icons below the node name and to the right of the technology label, so longer labels push the icon right,
-  - falls back to a centered-below placement when the technology label would force a tiny side icon,
-  - keeps hexagonal components centered below the technology label by default.
+  - computes the largest proportional square that fits from the bottom-right of the safe drawing area,
+  - avoids the node title/technology label and falls back below the text when labels consume the corner,
+  - uses shape-aware safe regions for queue cylinders, database cylinders, and hexagons instead of treating every node as a rectangle,
+  - keeps queue icons out of the front cap and database icons between top/bottom caps.
 - `apps/web/src/components/canvas/DiagramCanvas.tsx`
-  - passes the hexagonal-node hint into default icon placement.
+  - passes the actual icon placement shape hint (`rectangle`, `hexagon`, `queue-cylinder`, `db-cylinder`) plus node title into default icon placement.
 - `apps/web/src/diagram/nodes/nodeTechIconLayout.test.ts`
-  - added coverage for large short-label icons, database-label sizing, long-label fallback, and hex-centered placement.
+  - added coverage for bottom-right fill, long-label fallback, queue lateral-body placement, database body placement, and hex lower-polygon placement.
 
 ### Validation
 
@@ -28,7 +28,7 @@ Chronological engineering log. Entries are kept concise and focused on behavior 
 - `npm --workspace @sjv/web run test:run`
 - `npm --workspace @sjv/web run build`
 - `git diff --check`
-- Playwright smoke against `http://127.0.0.1:5173/`: verified TypeScript drops at `72px` on a normal node and NGINX drops centered below on a gateway hex node.
+- Playwright smoke against `http://127.0.0.1:5173/`: verified JavaScript fills a normal node's bottom-right area, Kafka stays before the queue front cap, PostgreSQL stays above the database bottom cap, and NGINX grows in the gateway hex lower polygon.
 
 ## 2026-06-27 - Edge label global rotation and UI-only tech icons
 
